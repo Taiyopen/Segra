@@ -17,8 +17,7 @@ const queryClient = new QueryClient({
 });
 
 // Initialize auth listener
-supabase.auth.onAuthStateChange((event, session) => {
-  // Handle session persistence and updates
+supabase.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') {
     queryClient.clear();
   }
