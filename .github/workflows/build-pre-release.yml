@@ -176,7 +176,7 @@ jobs:
         shell: pwsh
 
       - name: Package with vpk
-        run: vpk pack -u ReCaps -v ${{ env.new_version }} -p ./publish -e ReCaps.exe -o ./output --packTitle "ReCaps" --noPortable
+        run: vpk pack -u Segra -v ${{ env.new_version }} -p ./publish -e Segra.exe -o ./output --packTitle "Segra" --noPortable
         shell: pwsh
 
       - name: Create a Git Tag
@@ -188,7 +188,7 @@ jobs:
       - name: Upload Release Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ReCaps
+          name: Segra
           path: ./output
           retention-days: 1
 
@@ -201,7 +201,7 @@ jobs:
       - name: Download Build Artifact
         uses: actions/download-artifact@v3
         with:
-          name: ReCaps
+          name: Segra
 
       - name: Create GitHub Release (Pre-Release)
         id: create_release
@@ -221,8 +221,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ReCaps-win-Setup.exe
-          asset_name: ReCaps-win-Setup.exe
+          asset_path: ./Segra-win-Setup.exe
+          asset_name: Segra-win-Setup.exe
           asset_content_type: application/octet-stream
 
       - name: Upload RELEASES File
@@ -261,6 +261,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ReCaps-${{ needs.build.outputs.new_version }}-full.nupkg
-          asset_name: ReCaps-${{ needs.build.outputs.new_version }}-full.nupkg
+          asset_path: ./Segra-${{ needs.build.outputs.new_version }}-full.nupkg
+          asset_name: Segra-${{ needs.build.outputs.new_version }}-full.nupkg
           asset_content_type: application/json
