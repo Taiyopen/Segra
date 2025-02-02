@@ -6,6 +6,7 @@ using System.Text.Json;
 using Segra.Models;
 using Serilog;
 using System.Net.Http.Headers;
+using System.Diagnostics;
 
 namespace Segra.Backend.Utils
 {
@@ -43,6 +44,11 @@ namespace Segra.Backend.Utils
                         case "UploadContent":
                             root.TryGetProperty("Parameters", out JsonElement uploadContentParameterElement);
                             await HandleUploadContent(uploadContentParameterElement);
+                            break;
+                        case "OpenFileLocation":
+                            root.TryGetProperty("Parameters", out JsonElement openFileLocationParameterElement);
+                            openFileLocationParameterElement.TryGetProperty("FilePath", out JsonElement filePathElement);
+                            Process.Start("explorer.exe", $"/select,\"{filePathElement.ToString().Replace("/", "\\")}\"");
                             break;
                         case "StartRecording":
                             await Task.Run(() =>

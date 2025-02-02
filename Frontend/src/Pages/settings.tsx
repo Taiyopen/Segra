@@ -7,6 +7,7 @@ import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth';
 import {useProfile} from '../Hooks/userProfile';
+import {MdOutlineLogout} from 'react-icons/md';
 
 export default function Settings() {
 	const {session} = useAuth();
@@ -204,9 +205,10 @@ export default function Settings() {
 												(document.activeElement as HTMLElement).blur();
 												handleLogout();
 											}}
-											className={false ? 'disabled' : ''}
+											className={false ? 'disabled' : 'flex w-full items-center gap-2 px-4 py-3 text-error hover:bg-error/10 active:bg-error/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none'}
 											aria-busy={false}
 										>
+											<MdOutlineLogout size="20" />
 											{false ? 'Logging out...' : 'Logout'}
 										</a>
 									</li>

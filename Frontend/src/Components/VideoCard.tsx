@@ -2,7 +2,7 @@ import {useSettings} from '../Context/SettingsContext';
 import {Content} from '../Models/types';
 import {sendMessageToBackend} from '../Utils/MessageUtils'
 import {useAuth} from '../Hooks/useAuth';
-import {MdDeleteOutline, MdOutlineFileUpload} from 'react-icons/md';
+import {MdDeleteOutline, MdOutlineFileUpload, MdOutlineInsertDriveFile} from 'react-icons/md';
 
 type VideoType = 'video' | 'clip';
 
@@ -79,6 +79,15 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
 		sendMessageToBackend('DeleteContent', parameters)
 	};
 
+	const handleOpenFileLocation = () => {
+		const parameters: any = {
+			FilePath: content!.filePath
+		};
+
+		sendMessageToBackend('OpenFileLocation', parameters)
+	};
+
+
 	return (
 		<div
 			className="card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-secondary border-opacity-75 cursor-pointer"
@@ -124,6 +133,20 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
 								</a>
 							</li>
 						)}
+						<li>
+							<a
+								className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-base-200/10 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
+								onClick={() => {
+									// I don't know why it doesn't hide by itself?
+									(document.activeElement as HTMLElement).blur();
+
+									handleOpenFileLocation();
+								}}
+							>
+								<MdOutlineInsertDriveFile size="20" />
+								<span>Open File Location</span>
+							</a>
+						</li>
 						<li>
 							<a
 								className="flex w-full items-center gap-2 px-4 py-3 text-error hover:bg-error/10 active:bg-error/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
