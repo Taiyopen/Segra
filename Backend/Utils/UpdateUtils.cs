@@ -24,7 +24,6 @@ namespace Segra.Backend.Utils
                 var mgr = new UpdateManager(source);
 
                 var newVersion = await mgr.CheckForUpdatesAsync();
-
                 if (newVersion == null)
                 {
                     Log.Information("No update available");
