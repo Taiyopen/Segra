@@ -1,4 +1,4 @@
-﻿import {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {useSettings, useSettingsUpdater} from '../Context/SettingsContext';
 import {sendMessageToBackend} from '../Utils/MessageUtils';
 import {themeChange} from 'theme-change';
@@ -11,7 +11,7 @@ import {MdOutlineLogout} from 'react-icons/md';
 
 export default function Settings() {
 	const {session} = useAuth();
-	const {data: profile, isLoading: profileLoading, error: profileError} = useProfile();
+	const {data: profile, error: profileError} = useProfile();
 	const [authInProgress, setAuthInProgress] = useState(false);
 	const [error, setError] = useState('');
 	const [email, setEmail] = useState('');
@@ -107,12 +107,12 @@ export default function Settings() {
 			<div className="card-body">
 				<h2 className="card-title text-2xl font-bold mb-4 justify-center">Login to Segra</h2>
 
-				{error && <div className="alert alert-error mb-4">{error}</div>}
+				{error && <div className="alert alert-error text-white mb-4">{error}</div>}
 
 				<button
 					onClick={handleDiscordLogin}
 					disabled={authInProgress}
-					className={`btn btn-primary w-full gap-2 ${authInProgress ? 'loading' : ''}`}
+					className={`btn btn-primary w-full gap-2 font-semibold text-white ${authInProgress ? 'loading' : ''}`}
 				>
 					<FaDiscord className="w-5 h-5" />
 					{authInProgress ? 'Connecting...' : 'Continue with Discord'}
@@ -152,7 +152,7 @@ export default function Settings() {
 					<button
 						type="submit"
 						disabled={authInProgress}
-						className={`btn btn-primary w-full ${authInProgress ? 'loading' : ''}`}
+						className={`btn btn-primary w-full font-semibold text-white ${authInProgress ? 'loading' : ''}`}
 					>
 						Sign in with Email
 					</button>
@@ -189,8 +189,12 @@ export default function Settings() {
 					{/* Profile Info with Dropdown */}
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-2">
-							<h1 className="text-3xl font-bold truncate">
-								{profile?.username || 'Anonymous User'}
+							<h1 className="text-3xl font-bold truncate flex items-center gap-2">
+								{profile?.username ? (
+									profile.username
+								) : (
+									<div className="skeleton h-[36px] w-24"></div>
+								)}
 							</h1>
 							<div className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
 								<div tabIndex={0} role="button" className="btn btn-ghost btn-xs p-1">
@@ -223,14 +227,6 @@ export default function Settings() {
 				</div>
 			</div>
 
-			{/* Loading State */}
-			{profileLoading && (
-				<div className="mt-3 text-sm flex items-center gap-2">
-					<span className="loading loading-spinner loading-xs" />
-					Loading profile...
-				</div>
-			)}
-
 			{/* Error State */}
 			{profileError && (
 				<div
@@ -261,38 +257,11 @@ export default function Settings() {
 	// Get the name of the selected output device, or indicate if it's unavailable
 	const selectedOutputDevice = settings.state.outputDevices.find((device) => device.id === settings.outputDevice);
 	const outputDeviceName = selectedOutputDevice ? selectedOutputDevice.name : settings.outputDevice ? 'Unavailable Device' : 'Select Output Device';
-
 	return (
 		<div className="p-5 space-y-6 rounded-lg">
-			{authSection}
 			<h1 className="text-3xl font-bold">Settings</h1>
-
-			{/* Theme Selection */}
-			{
-				/*
-					<select
-						name="theme"
-						value={settings.theme}
-						onChange={handleChange}
-						data-choose-theme
-						className="select select-bordered w-full max-w-xs"
-					>
-						<option value="segra">Segra</option>
-						<option value="rich">Rich</option>
-						<option value="dark">Dark</option>
-						<option value="night">Night</option>
-						<option value="dracula">Dracula</option>
-						<option value="black">Black</option>
-						<option value="luxury">Luxury</option>
-						<option value="forest">Forest</option>
-						<option value="halloween">Halloween</option>
-						<option value="coffee">Coffee</option>
-						<option value="dim">Dim</option>
-						<option value="sunset">Sunset</option>
-					</select>
-				*/
-			}
-
+			{authSection}
+			
 			{/* Video Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md">
 				<h2 className="text-xl font-semibold mb-4">Video Settings</h2>
@@ -461,7 +430,7 @@ export default function Settings() {
 								placeholder="Enter or select folder path"
 								className="input input-bordered flex-1"
 							/>
-							<button onClick={handleBrowseClick} className="btn btn-primary">
+							<button onClick={handleBrowseClick} className="btn btn-primary font-semibold text-white">
 								Browse
 							</button>
 						</div>

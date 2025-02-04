@@ -1,4 +1,4 @@
-﻿import React, {useRef, useState, useEffect} from "react";
+import React, {useRef, useState, useEffect} from "react";
 import {Content} from "../Models/types";
 import {sendMessageToBackend} from "../Utils/MessageUtils";
 import {useSettings} from "../Context/SettingsContext";
@@ -665,7 +665,7 @@ export default function VideoComponent({video}: VideoProps) {
 					{video.type === "Video" && (
 						<div className="mt-2">
 							<button
-								className="btn btn-primary mr-2"
+								className="btn btn-primary mr-2 font-semibold text-white"
 								disabled={state.isCreatingClip}
 								onClick={handleCreateClip}
 							>

@@ -40,8 +40,8 @@ export default {
       "sunset",
       {
         segra: {
-          primary: "#EFAF2B", // Gold
-          secondary: "#14B3B2", // Druid
+          primary: "#14B3B2", // Gold
+          secondary: "#25272E", // Druid
           accent: "#E85A5A", // Poppy
           neutral: "#31333E", // Obsidian
           "base-100": "#31333E", // Necromancer (Background)

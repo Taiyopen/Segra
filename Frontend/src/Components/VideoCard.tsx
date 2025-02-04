@@ -121,7 +121,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
 						{type === "clip" && (
 							<li>
 								<a
-									className="flex w-full items-center gap-2 px-4 py-3 text-secondary hover:bg-secondary/10 active:bg-secondary/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
+									className="flex w-full items-center gap-2 px-4 py-3 text-primary hover:bg-primary/10 active:bg-primary/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
 									onClick={() => {
 										// Blur the active element before handling upload
 										(document.activeElement as HTMLElement).blur();
