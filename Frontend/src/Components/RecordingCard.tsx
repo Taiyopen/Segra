@@ -32,7 +32,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording}) => {
 
   return (
     recording && (
-      <div className="mb-4 px-4">
+      <div className="mb-4 px-2">
         <div className="bg-neutral border border-secondary border-opacity-75 rounded-md px-3 py-3">
           {/* Recording Indicator */}
           <div className="flex items-center mb-1">

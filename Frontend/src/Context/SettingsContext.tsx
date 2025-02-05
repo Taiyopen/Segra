@@ -1,7 +1,7 @@
-import {createContext, useContext, useState, ReactNode} from 'react';
+import {createContext, useContext, useState, ReactNode, useEffect} from 'react';
 import {Settings, initialSettings} from '../Models/types';
-import {sendMessageToBackend} from '../Utils/MessageUtils';
-import useWebSocket from 'react-use-websocket';
+import {useWebSocketContext} from './WebSocketContext';
+import { sendMessageToBackend } from '../Utils/MessageUtils';
 
 type SettingsContextType = Settings;
 type SettingsUpdateContextType = (newSettings: Partial<Settings>, fromBackend?: boolean) => void;
@@ -23,6 +23,23 @@ interface SettingsProviderProps {
 
 export function SettingsProvider({children}: SettingsProviderProps) {
 	const [settings, setSettings] = useState<Settings>(initialSettings);
+	useWebSocketContext();
+
+	useEffect(() => {
+		const handleWebSocketMessage = (event: CustomEvent<any>) => {
+			const data = event.detail;
+			
+			if (data.method === 'Settings') {
+				updateSettings(data.content, true);
+			}
+		};
+
+		window.addEventListener('websocket-message', handleWebSocketMessage as EventListener);
+
+		return () => {
+			window.removeEventListener('websocket-message', handleWebSocketMessage as EventListener);
+		};
+	}, []);
 
 	const updateSettings: SettingsUpdateContextType = (newSettings, fromBackend = false) => {
 		const updatedSettings = {
@@ -41,26 +58,6 @@ export function SettingsProvider({children}: SettingsProviderProps) {
 			sendMessageToBackend('UpdateSettings', updatedSettings);
 		}
 	};
-
-	useWebSocket(
-		'ws://localhost:5000/',
-		{
-			onOpen: () => {
-				console.log('Connected to WebSocket server');
-				sendMessageToBackend("GetSettings");
-			},
-			onMessage: (event: any) => {
-				try {
-					const newSettings = JSON.parse(event.data);
-					console.log('Received settings update:', newSettings);
-					updateSettings(newSettings, true);
-				} catch (error) {
-					console.error('Error parsing WebSocket message:', error);
-				}
-			},
-			share: true
-		}
-	);
 
 	return (
 		<SettingsContext.Provider value={settings}>

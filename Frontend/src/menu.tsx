@@ -1,6 +1,8 @@
 import {useSettings} from './Context/SettingsContext';
 import RecordingCard from './Components/RecordingCard';
-import {sendMessageToBackend} from './Utils/MessageUtils'
+import {sendMessageToBackend} from './Utils/MessageUtils';
+import {useUploads} from './Context/UploadContext';
+import UploadCard from './Components/UploadCard';
 
 interface MenuProps {
 	selectedMenu: string;
@@ -10,6 +12,8 @@ interface MenuProps {
 export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 	const {state} = useSettings();
 	const {hasLoadedObs, recording} = state;
+	const {uploads} = useUploads();
+	const uploadFiles = Object.keys(uploads);
 
 	return (
 		<div className="bg-base-300 w-56 h-screen flex flex-col">
@@ -76,7 +80,13 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 			{/* Spacer to push content to the bottom */}
 			<div className="flex-grow"></div>
 
-			{recording && recording.endTime === null && <RecordingCard recording={recording} />}
+			{/* Status Cards */}
+			<div className="mt-auto p-2 space-y-2">
+				{uploadFiles.map((fileName) => (
+					<UploadCard key={fileName} fileName={fileName} />
+				))}
+				{recording && <RecordingCard recording={recording} />}
+			</div>
 
 			{/* Start and Stop Buttons */}
 			<div className="mb-4 px-4">

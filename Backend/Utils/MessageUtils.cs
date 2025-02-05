@@ -12,10 +12,17 @@ namespace Segra.Backend.Utils
 {
     public static class MessageUtils
     {
-        private static WebSocket activeWebSocket; // Keep track of the active WebSocket connection
+        private static WebSocket activeWebSocket;
+        private static readonly SemaphoreSlim sendLock = new SemaphoreSlim(1, 1);
+        private static readonly JsonSerializerOptions jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
 
         public static async Task HandleMessage(string message)
         {
+            Log.Information("WEBSOCKET: " + message);
             if (string.IsNullOrEmpty(message))
             {
                 Log.Information("Received empty message.");
@@ -138,74 +145,82 @@ namespace Segra.Backend.Utils
 
         private static async Task HandleUploadContent(JsonElement message)
         {
-            // Check for required properties:
-            Log.Information(message.ToString());
-            if (message.TryGetProperty("FilePath", out JsonElement filePathElement) &&
-                message.TryGetProperty("JWT", out JsonElement jwtElement))
+            try
             {
-                try
+                string filePath = message.GetProperty("FilePath").GetString();
+                string jwt = message.GetProperty("JWT").GetString();
+                string fileName = Path.GetFileName(filePath);
+
+                byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
+                using var httpClient = new HttpClient();
+                using var formData = new MultipartFormDataContent();
+
+                void ProgressHandler(long sent, long total)
                 {
-                    string filePath = filePathElement.GetString();
-                    string jwt = jwtElement.GetString();
-
-                    string? game = message.TryGetProperty("Game", out JsonElement gameElement)
-                        ? gameElement.GetString()
-                        : null;
-
-                    string? title = message.TryGetProperty("Title", out JsonElement titleElement)
-                        ? titleElement.GetString()
-                        : null;
-
-                    string? description = message.TryGetProperty("Description", out JsonElement descriptionElement)
-                        ? descriptionElement.GetString()
-                        : null;
-
-                    using var httpClient = new HttpClient();
-                    using var formData = new MultipartFormDataContent();
-
-
-                    var fileBytes = await File.ReadAllBytesAsync(filePath);
-                    var fileContent = new ByteArrayContent(fileBytes);
-                    formData.Add(fileContent, "file", Path.GetFileName(filePath));
-
-                    if (!string.IsNullOrEmpty(game))
+                    int progress = (int)((sent / (double)total) * 100);
+                    _ = SendFrontendMessage("UploadProgress", new
                     {
-                        formData.Add(new StringContent(game), "game");
-                    }
-
-                    if (!string.IsNullOrEmpty(title))
-                    {
-                        formData.Add(new StringContent(title), "title");
-                    }
-
-                    if (!string.IsNullOrEmpty(description))
-                    {
-                        formData.Add(new StringContent(description), "description");
-                    }
-
-                    var request = new HttpRequestMessage(HttpMethod.Post, "https://upload.segra.tv")
-                    {
-                        Content = formData
-                    };
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
-
-                    var response = await httpClient.SendAsync(request);
-                    response.EnsureSuccessStatusCode();
-
-                    string responseBody = await response.Content.ReadAsStringAsync();
-                    Log.Information($"Upload successful. Server response:\n{responseBody}");
+                        fileName,
+                        progress,
+                        status = "uploading",
+                        message = $"Uploading... {progress}%"
+                    });
                 }
-                catch (Exception ex)
+
+                var fileContent = new ProgressableStreamContent(fileBytes, "application/octet-stream", ProgressHandler);
+                formData.Add(fileContent, "file", fileName);
+
+                AddOptionalContent(formData, message, "game");
+                AddOptionalContent(formData, message, "title");
+                AddOptionalContent(formData, message, "description");
+
+                await SendFrontendMessage("UploadProgress", new
                 {
-                    Log.Error($"Upload failed: {ex.Message}");
-                }
+                    fileName,
+                    progress = 0,
+                    status = "uploading",
+                    message = "Starting upload..."
+                });
+
+                var request = new HttpRequestMessage(HttpMethod.Post, "https://upload.segra.tv")
+                {
+                    Content = formData
+                };
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+                var response = await httpClient.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+
+                await SendFrontendMessage("UploadProgress", new
+                {
+                    fileName,
+                    progress = 100,
+                    status = "done",
+                    message = "Upload completed successfully"
+                });
+
+                Log.Information($"Upload success: {await response.Content.ReadAsStringAsync()}");
             }
-            else
+            catch (Exception ex)
             {
-                Log.Error("Required properties (FilePath, JWT) are missing in the message.");
+                Log.Error($"Upload failed: {ex.Message}");
+                await SendFrontendMessage("UploadProgress", new
+                {
+                    fileName = message.GetProperty("filePath").GetString(),
+                    progress = 0,
+                    status = "error",
+                    message = ex.Message
+                });
             }
         }
 
+        private static void AddOptionalContent(MultipartFormDataContent formData, JsonElement message, string field)
+        {
+            if (message.TryGetProperty(field, out JsonElement element))
+            {
+                formData.Add(new StringContent(element.GetString()), field);
+            }
+        }
 
         private static async Task HandleDeleteContent(JsonElement message)
         {
@@ -358,54 +373,52 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static async void SendMessageToFrontend(object state)
-        {
-            if (activeWebSocket != null && activeWebSocket.State == WebSocketState.Open)
-            {
-                string message = JsonSerializer.Serialize(state); // Convert the state to JSON
-                byte[] messageBuffer = Encoding.UTF8.GetBytes(message);
-                await activeWebSocket.SendAsync(new ArraySegment<byte>(messageBuffer), WebSocketMessageType.Text, true, CancellationToken.None);
-            }
-        }
-
-        private static readonly SemaphoreSlim sendLock = new SemaphoreSlim(1, 1);
-
-        public static async Task SendSettingsToFrontend()
+        public static async Task SendFrontendMessage(string method, object content)
         {
             await sendLock.WaitAsync();
             try
             {
-                if (Program.hasLoadedInitialSettings == false)
-                    return;
-
-                Log.Information("Sending state to frontend");
-
-                int maxWaitTimeMs = 10000; // Maximum 10 seconds
-                int waitIntervalMs = 100; // Check every 100 milliseconds
+                // Wait for up to 10 seconds for the websocket to be open
+                int maxWaitTimeMs = 10000;
+                int waitIntervalMs = 100;
                 int elapsedTime = 0;
 
-                while ((activeWebSocket == null || activeWebSocket.State != WebSocketState.Open) && elapsedTime < maxWaitTimeMs)
+                while ((activeWebSocket == null || activeWebSocket.State != WebSocketState.Open)
+                    && elapsedTime < maxWaitTimeMs)
                 {
                     await Task.Delay(waitIntervalMs);
                     elapsedTime += waitIntervalMs;
                 }
 
-                var options = new JsonSerializerOptions
+                if (activeWebSocket?.State == WebSocketState.Open)
                 {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                };
-
-                if (activeWebSocket != null && activeWebSocket.State == WebSocketState.Open)
-                {
-                    string message = JsonSerializer.Serialize(Settings.Instance, options); // Convert the state to JSON
-                    byte[] messageBuffer = Encoding.UTF8.GetBytes(message);
-                    await activeWebSocket.SendAsync(new ArraySegment<byte>(messageBuffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                    var message = new { method, content };
+                    byte[] buffer = JsonSerializer.SerializeToUtf8Bytes(message, jsonOptions);
+                    await activeWebSocket.SendAsync(
+                        buffer,
+                        WebSocketMessageType.Text,
+                        endOfMessage: true,
+                        cancellationToken: CancellationToken.None
+                    );
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error sending message: {ex.Message}");
             }
             finally
             {
                 sendLock.Release();
             }
+        }
+
+        public static async Task SendSettingsToFrontend()
+        {
+            if (!Program.hasLoadedInitialSettings)
+                return;
+
+            Log.Information("Sending state to frontend");
+            await SendFrontendMessage("Settings", Settings.Instance);
         }
     }
 
@@ -418,3 +431,4 @@ namespace Segra.Backend.Utils
         public string? Game { get; set; }
     }
 }
+

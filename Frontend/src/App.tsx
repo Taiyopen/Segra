@@ -11,6 +11,8 @@ import {themeChange} from 'theme-change';
 import {HTML5Backend} from 'react-dnd-html5-backend';
 import {DndProvider} from 'react-dnd';
 import {SelectionsProvider} from './Context/SelectionsContext';
+import {UploadProvider} from './Context/UploadContext';
+import {WebSocketProvider} from './Context/WebSocketContext';
 
 function App() {
 	useEffect(() => {
@@ -47,21 +49,31 @@ function App() {
 	};
 
 	return (
-		<SettingsProvider>
-			<ModalProvider>
-				<SelectionsProvider>
-					<div className="flex h-screen">
-						<div className="h-full">
-							<Menu selectedMenu={selectedMenu} onSelectMenu={handleMenuSelection} />
-						</div>
-						<div className="flex-1 max-h-full overflow-auto">
-							{renderContent()}
-						</div>
-					</div>
-				</SelectionsProvider>
-			</ModalProvider>
-		</SettingsProvider >
+		<div className="flex h-screen">
+			<div className="h-full">
+				<Menu selectedMenu={selectedMenu} onSelectMenu={handleMenuSelection} />
+			</div>
+			<div className="flex-1 max-h-full overflow-auto">
+				{renderContent()}
+			</div>
+		</div>
 	);
 }
 
-export default App
+export default function AppWrapper() {
+  return (
+    <WebSocketProvider>
+      <SettingsProvider>
+        <ModalProvider>
+          <SelectionsProvider>
+            <DndProvider backend={HTML5Backend}>
+              <UploadProvider>
+                <App />
+              </UploadProvider>
+            </DndProvider>
+          </SelectionsProvider>
+        </ModalProvider>
+      </SettingsProvider>
+    </WebSocketProvider>
+  );
+}
