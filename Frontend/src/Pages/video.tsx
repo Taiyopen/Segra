@@ -5,6 +5,8 @@ import {useSettings} from "../Context/SettingsContext";
 import {useDrag, useDrop, DndProvider} from "react-dnd";
 import {HTML5Backend} from "react-dnd-html5-backend";
 import {useSelections} from "../Context/SelectionsContext";
+import {useAuth} from "../Hooks/useAuth";
+import {useUploads} from "../Context/UploadContext";
 
 interface Selection {
 	id: number;
@@ -82,7 +84,7 @@ function SelectionCard({
 	return (
 		<div
 			ref={dragDropRef}
-			className={`mb-2 cursor-move w-full relative rounded-xl ${isHovered ? "outline outline-1 outline-primary" : ""}`}
+			className={`mb-2 cursor-move w-full relative rounded-xl ${isHovered ? "outline outline-1 outline-accent" : ""}`}
 			style={{opacity}}
 			onMouseEnter={() => setHoveredSelectionId(selection.id)}
 			onMouseLeave={() => setHoveredSelectionId(null)}
@@ -116,6 +118,8 @@ function SelectionCard({
 
 export default function VideoComponent({video}: VideoProps) {
 	const {state, contentFolder} = useSettings();
+	const {session} = useAuth();
+	const {uploads} = useUploads();
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -143,6 +147,15 @@ export default function VideoComponent({video}: VideoProps) {
 			updateSelection({...selection, isLoading: false});
 		}
 	};
+
+	useEffect(() => {
+		console.log(video.fileName);
+		console.log(uploads);
+		const upload = uploads[video.fileName + ".mp4"];
+		if (upload) {
+			console.log("TRUE");
+		}
+	}, [uploads]);
 
 	useEffect(() => {
 		console.log(selections);
@@ -466,6 +479,18 @@ export default function VideoComponent({video}: VideoProps) {
 		return `http://localhost:2222/api/content?input=${encodeURIComponent(contentFileName)}&type=${video.type.toLowerCase()}`;
 	};
 
+	const handleUpload = () => {
+		const parameters = {
+			FilePath: video.filePath,
+			JWT: session?.access_token,
+			Game: video.game,
+			Title: video.title,
+			Description: "" // TODO: implement with modal
+		};
+
+		sendMessageToBackend('UploadContent', parameters);
+	};
+
 	return (
 		<DndProvider backend={HTML5Backend}>
 			<div className="flex" ref={containerRef} style={{width: "100%", height: "100%"}}>
@@ -473,7 +498,7 @@ export default function VideoComponent({video}: VideoProps) {
 					<div className="">
 						<video
 							autoPlay
-							className={`relative rounded-lg w-full overflow-hidden aspect-w-16 aspect-h-9 max-h-[calc(100vh-100px)] ${video.type === "Video" ? "md:max-h-[calc(100vh-200px)]" : "md:max-h-[calc(100vh-140px)]"}  aspect-w-16 aspect-h-9`}
+							className={`relative rounded-lg w-full overflow-hidden aspect-w-16 aspect-h-9 max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]  aspect-w-16 aspect-h-9`}
 							src={getVideoPath()}
 							ref={videoRef}
 							onClick={togglePlayPause}
@@ -584,7 +609,7 @@ export default function VideoComponent({video}: VideoProps) {
 								return (
 									<div
 										key={sel.id}
-										className={`absolute top-0 left-0 h-full shadow cursor-move ${hidden ? "hidden" : ""}  overflow-hidden ${isHovered && !isHoveredByTimeline ? "bg-primary" : "bg-secondary"}`}
+										className={`absolute top-0 left-0 h-full shadow cursor-move ${hidden ? "hidden" : ""}  overflow-hidden ${isHovered && !isHoveredByTimeline ? "bg-accent" : "bg-primary"}`}
 										style={{
 											left: `${left}px`,
 											width: `${width}px`,
@@ -601,7 +626,7 @@ export default function VideoComponent({video}: VideoProps) {
 										onContextMenu={(e) => handleSelectionContextMenu(e, sel.id)}
 									>
 										<div
-											className="text-neutral"
+											className="text-white font-semibold"
 											style={{
 												position: "absolute",
 												top: 0,
@@ -646,14 +671,14 @@ export default function VideoComponent({video}: VideoProps) {
 								);
 							})}
 							<div
-								className="marker"
+								className="marker bg-accent"
 								style={{
 									position: "absolute",
 									top: 0,
 									left: `${currentTime * pixelsPerSecond}px`,
 									width: "4px",
 									height: "100%",
-									backgroundColor: "oklch(var(--p))",
+									//backgroundColor: "oklch(var(--p))",
 									transform: "translateX(-50%)",
 									cursor: "pointer",
 									borderRadius: "8px"
@@ -662,6 +687,18 @@ export default function VideoComponent({video}: VideoProps) {
 							/>
 						</div>
 					</div>
+					{video.type === "Clip" && (
+						<div className="mt-2">
+							<button
+								className="btn btn-primary font-semibold text-white"
+								onClick={handleUpload}
+								disabled={uploads[video.fileName + ".mp4"]?.status === 'uploading' || uploads[video.fileName + ".mp4"]?.status === 'processing'}
+							>
+								Upload
+							</button>
+						</div>
+					)}
+
 					{video.type === "Video" && (
 						<div className="mt-2">
 							<button
@@ -698,7 +735,7 @@ export default function VideoComponent({video}: VideoProps) {
 						</div>
 						<div className="bottom-0 border-base-200 bg-base-300 pt-2 pb-2 px-4 me-3">
 							<button
-								className="btn btn-secondary text-neutral w-full shadow-lg"
+								className="btn btn-primary text-white w-full shadow-lg"
 								onClick={clearAllSelections}
 								disabled={selections.length === 0}
 							>

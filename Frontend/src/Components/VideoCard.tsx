@@ -20,7 +20,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
 	if (isLoading) {
 		// Render a skeleton card
 		return (
-			<div className="card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-secondary">
+			<div className="card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-primary">
 				<figure className="relative aspect-w-16 aspect-h-9">
 					{/* Thumbnail Skeleton */}
 					<div className="skeleton w-full h-0 relative rounded-none" style={{paddingTop: '56.25%'}}></div>
@@ -90,7 +90,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
 
 	return (
 		<div
-			className="card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-secondary border-opacity-75 cursor-pointer"
+			className="card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-primary border-opacity-75 cursor-pointer"
 			onClick={() => onClick?.(content!)}
 		>
 			<figure className="relative aspect-ratio[16/9]">

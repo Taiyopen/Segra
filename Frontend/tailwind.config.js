@@ -40,18 +40,18 @@ export default {
       "sunset",
       {
         segra: {
-          primary: "#14B3B2", // Gold
-          secondary: "#25272E", // Druid
-          accent: "#E85A5A", // Poppy
-          neutral: "#31333E", // Obsidian
-          "base-100": "#31333E", // Necromancer (Background)
-          "base-200": "#DBDAE1", // Powder
-          "base-300": "#25272E", // Salt
-          "base-content": "#F2F3F7", // Text color for base backgrounds
-          info: "#578DDD", // Soldier
-          success: "#14B3B2", // Druid (reuse for success)
-          warning: "#EFAF2B", // Gold (reuse for warning)
-          error: "#E85A5A", // Poppy (reuse for error)
+          primary: "#14B3B2",
+          secondary: "#25272E",
+          accent: "#EFAF2B",
+          neutral: "#31333E",
+          "base-100": "#31333E",
+          "base-200": "#DBDAE1",
+          "base-300": "#25272E",
+          "base-content": "#F2F3F7",
+          info: "#578DDD",
+          success: "#14B3B2",
+          warning: "#EFAF2B",
+          error: "#E85A5A",
         },
         rich: {
           primary: "#116860", // Deep teal green
