@@ -98,7 +98,7 @@ export default function Settings() {
 	};
 
 	const handleLogout = async () => {
-		await supabase.auth.signOut();
+		await supabase.auth.signOut({ scope: 'local' });
 	};
 
 	// Auth UI components
