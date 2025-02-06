@@ -2,6 +2,8 @@ import {useSettings} from '../Context/SettingsContext';
 import {Content} from '../Models/types';
 import {sendMessageToBackend} from '../Utils/MessageUtils'
 import {useAuth} from '../Hooks/useAuth';
+import {useModal} from '../Context/ModalContext';
+import UploadModal from './UploadModal';
 import {MdDeleteOutline, MdOutlineFileUpload, MdOutlineInsertDriveFile} from 'react-icons/md';
 
 type VideoType = 'video' | 'clip';
@@ -16,6 +18,7 @@ interface VideoCardProps {
 export default function ContentCard({content, type, onClick, isLoading}: VideoCardProps) {
 	const {contentFolder} = useSettings();
 	const {session} = useAuth();
+	const {openModal, closeModal} = useModal();
 
 	if (isLoading) {
 		// Render a skeleton card
@@ -58,16 +61,24 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
 	const formattedDuration = formatDuration(content!.duration);
 
 	const handleUpload = () => {
+		openModal(
+			<UploadModal
+				video={content!}
+				onClose={closeModal}
+				onUpload={(title, visibility) => {
+					const parameters: any = {
+						FilePath: content!.filePath,
+						JWT: session?.access_token,
+						Game: content?.game,
+						Title: title,
+						Description: "", // TODO: implement description
+						Visibility: visibility // TODO: implement description
+					};
 
-		const parameters: any = {
-			FilePath: content!.filePath,
-			JWT: session?.access_token,
-			Game: content?.game,
-			Title: content?.title,
-			Description: "" // TODO: implement with modal
-		};
-
-		sendMessageToBackend('UploadContent', parameters)
+					sendMessageToBackend('UploadContent', parameters);
+				}}
+			/>
+		);
 	};
 
 	const handleDelete = () => {

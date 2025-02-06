@@ -7,6 +7,8 @@ import {HTML5Backend} from "react-dnd-html5-backend";
 import {useSelections} from "../Context/SelectionsContext";
 import {useAuth} from "../Hooks/useAuth";
 import {useUploads} from "../Context/UploadContext";
+import {useModal} from '../Context/ModalContext';
+import UploadModal from '../Components/UploadModal';
 
 interface Selection {
 	id: number;
@@ -120,6 +122,7 @@ export default function VideoComponent({video}: VideoProps) {
 	const {state, contentFolder} = useSettings();
 	const {session} = useAuth();
 	const {uploads} = useUploads();
+	const {openModal, closeModal} = useModal();
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -371,7 +374,7 @@ export default function VideoComponent({video}: VideoProps) {
 		const sel = selections.find((s) => s.id === id);
 		if (sel) {
 			setDragState({id, offset: cursorTime - sel.startTime});
-			setIsInteracting(true);
+		setIsInteracting(true);
 		}
 	};
 
@@ -480,15 +483,24 @@ export default function VideoComponent({video}: VideoProps) {
 	};
 
 	const handleUpload = () => {
-		const parameters = {
-			FilePath: video.filePath,
-			JWT: session?.access_token,
-			Game: video.game,
-			Title: video.title,
-			Description: "" // TODO: implement with modal
-		};
+		openModal(
+			<UploadModal
+				video={video}
+				onClose={closeModal}
+				onUpload={(title, visibility) => {
+					const parameters = {
+						FilePath: video.filePath,
+						JWT: session?.access_token,
+						Game: video.game,
+						Title: title,
+						Description: "", // TODO: implement description
+						Visibility: visibility // TODO: implement description
+					};
 
-		sendMessageToBackend('UploadContent', parameters);
+					sendMessageToBackend('UploadContent', parameters);
+				}}
+			/>
+		);
 	};
 
 	return (
