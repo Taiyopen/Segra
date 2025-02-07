@@ -14,6 +14,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
   const { session } = useAuth();
   const [title, setTitle] = useState(video.title || '');
   const [visibility, setVisibility] = useState<'Public' | 'Unlisted'>('Public');
+  const [titleError, setTitleError] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -21,8 +22,21 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
   }, []);
 
   const handleUpload = () => {
+    if (!title.trim()) {
+      setTitleError(true);
+      titleInputRef.current?.focus();
+      return;
+    }
+    setTitleError(false);
     onUpload(title, visibility);
     onClose();
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleUpload();
+    }
   };
 
   const getVideoPath = (): string => {
@@ -54,9 +68,18 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
             ref={titleInputRef}
             type="text" 
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="input input-bordered w-full" 
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setTitleError(false);
+            }}
+            onKeyDown={handleKeyPress}
+            className={`input input-bordered w-full ${titleError ? 'input-error' : ''}`}
           />
+          {titleError && (
+            <label className="label">
+              <span className="label-text-alt text-error">Title is required</span>
+            </label>
+          )}
         </div>
 
         <div className="form-control w-full mt-4">

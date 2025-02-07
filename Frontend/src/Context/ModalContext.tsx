@@ -33,7 +33,7 @@ export const ModalProvider: React.FC<{children: ReactNode}> = ({children}) => {
           closeModal();
         }
       }}>
-        <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-box max-h-[96vh]" onClick={e => e.stopPropagation()}>
           {modalContent}
         </div>
         <form method="dialog" className="modal-backdrop" onClick={closeModal}>

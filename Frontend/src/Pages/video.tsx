@@ -173,7 +173,8 @@ export default function VideoComponent({video}: VideoProps) {
 		};
 		vid.addEventListener("loadedmetadata", onLoadedMetadata);
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.code === "Space") {
+			const target = e.target as HTMLElement;
+			if (e.code === "Space" && target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') { // Only prevent default if it's not an input or textarea (fix issue with modal)
 				e.preventDefault();
 				togglePlayPause();
 			}
