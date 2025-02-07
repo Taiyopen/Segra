@@ -2,6 +2,7 @@ import {createContext, useContext, useState, ReactNode} from 'react';
 
 export interface Selection {
 	id: number;
+	type: 'Session' | 'Buffer' | 'Clip' | 'Highlight';
 	startTime: number;
 	endTime: number;
 	thumbnailDataUrl?: string;

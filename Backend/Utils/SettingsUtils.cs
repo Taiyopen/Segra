@@ -219,7 +219,10 @@ namespace Segra.Backend.Utils
         public static void LoadContentFromFolderIntoState(bool sendToFrontend = true)
         {
             string baseMetadataPath = Settings.Instance.ContentFolder + "/.metadata";
-            string[] subfolders = { "videos", "clips" };
+            string[] subfolders = Enum.GetValues(typeof(Content.ContentType))
+                                    .Cast<Content.ContentType>()
+                                    .Select(ct => ct.ToString().ToLower() + "s")
+                                    .ToArray();
             var content = new List<Content>();
 
             try

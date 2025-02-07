@@ -470,11 +470,13 @@ namespace Segra.Models
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public enum ContentType
         {
-            Video,
-            Clip
+            Session,
+            Buffer,
+            Clip,
+            Highlight
         }
 
-        public ContentType Type { get; set; } = ContentType.Video;
+        public ContentType Type { get; set; } = ContentType.Session;
 
         public string Title { get; set; } = string.Empty;
 

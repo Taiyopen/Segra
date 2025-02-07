@@ -42,7 +42,7 @@ namespace Segra.Backend.Utils
             int clipNumber = 1;
             foreach (var selection in selections)
             {
-                string inputFilePath = Path.Combine(videoFolder, "videos", $"{selection.FileName}.mp4").Replace("\\", "/");
+                string inputFilePath = Path.Combine(videoFolder, selection.Type.ToLower() + "s", $"{selection.FileName}.mp4").Replace("\\", "/");
 
                 if (!File.Exists(inputFilePath))
                 {

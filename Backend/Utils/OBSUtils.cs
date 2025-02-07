@@ -203,12 +203,13 @@ namespace Segra.Backend.Utils
             obs_encoder_set_audio(audioEncoder, obs_get_audio());
 
             IntPtr outputSettings = obs_data_create();
-            string videoPath = Settings.Instance.ContentFolder + "/videos";
+            Content.ContentType contentType = Content.ContentType.Session; // TODO (os): implement dynamic if replay buffer
+            string videoPath = Settings.Instance.ContentFolder + "/" + contentType.ToString().ToLower() + "s";
 
             if (!Directory.Exists(videoPath))
                 Directory.CreateDirectory(videoPath);
 
-            string videoOutputPath = $"{Settings.Instance.ContentFolder}/videos/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
+            string videoOutputPath = $"{Settings.Instance.ContentFolder}/{contentType.ToString().ToLower()}s/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
             string filePath = $"{Settings.Instance.ContentFolder}/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
 
             obs_data_set_string(outputSettings, "path", videoOutputPath);
@@ -271,8 +272,8 @@ namespace Segra.Backend.Utils
 
                 Log.Information("Recording stopped.");
 
-                ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath, Content.ContentType.Video, Settings.Instance.State.Recording.Game);
-                ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath, Content.ContentType.Video);
+                ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game);
+                ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session);
 
                 if (Settings.Instance.State.Recording != null)
                 {

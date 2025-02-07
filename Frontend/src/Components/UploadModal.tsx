@@ -41,7 +41,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
 
   const getVideoPath = (): string => {
     const contentFileName = `${contentFolder}/${video.type.toLowerCase()}s/${video.fileName}.mp4`;
-    return `http://localhost:2222/api/content?input=${encodeURIComponent(contentFileName)}&type=${video.type.toLowerCase()}`;
+    return `http://localhost:2222/api/content?input=${encodeURIComponent(contentFileName)}&type=${video.type.toLowerCase()}s`;
   };
 
   return (

@@ -12,6 +12,7 @@ import UploadModal from '../Components/UploadModal';
 
 interface Selection {
 	id: number;
+	type: 'Session' | 'Buffer' | 'Clip' | 'Highlight';
 	startTime: number;
 	endTime: number;
 	thumbnailDataUrl?: string;
@@ -337,6 +338,7 @@ export default function VideoComponent({video}: VideoProps) {
 		const end = Math.min(currentTime + 10, duration);
 		const newSelection: Selection = {
 			id: Date.now(),
+			type: video.type,
 			startTime: start,
 			endTime: end,
 			thumbnailDataUrl: undefined,
@@ -357,6 +359,7 @@ export default function VideoComponent({video}: VideoProps) {
 	const handleCreateClip = () => {
 		const params = {
 			Selections: selections.map((s) => ({
+				type: s.type,
 				fileName: s.fileName,
 				game: s.game,
 				startTime: s.startTime,
@@ -712,7 +715,7 @@ export default function VideoComponent({video}: VideoProps) {
 						</div>
 					)}
 
-					{video.type === "Video" && (
+					{video.type === "Session" && (
 						<div className="mt-2">
 							<button
 								className="btn btn-primary mr-2 font-semibold text-white"
@@ -730,7 +733,7 @@ export default function VideoComponent({video}: VideoProps) {
 						</div>
 					)}
 				</div>
-				{video.type === "Video" && (
+				{video.type === "Session" && (
 					<div className="bg-base-300 text-neutral-content w-52 2xl:w-72 flex flex-col h-full pl-4 pr-1 pt-4">
 						<div className="overflow-y-scroll flex-1  mt-1 p-1">
 							{selections.map((sel, index) => (

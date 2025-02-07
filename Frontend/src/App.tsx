@@ -3,6 +3,8 @@ import Settings from "./Pages/settings";
 import Menu from "./menu";
 import Videos from './Pages/videos';
 import Clips from './Pages/clips';
+import ReplayBuffer from './Pages/replay-buffer';
+import Highlights from './Pages/highlights';
 import {SettingsProvider} from './Context/SettingsContext';
 import Video from './Pages/video';
 import {ModalProvider} from './Context/ModalContext';
@@ -20,7 +22,7 @@ function App() {
 	}, []);
 
 	const {selectedVideo, setSelectedVideo} = useSelectedVideo();
-	const [selectedMenu, setSelectedMenu] = useState('Videos');
+	const [selectedMenu, setSelectedMenu] = useState('Full Sessions');
 
 	const handleMenuSelection = (menu: any) => {
 		setSelectedVideo(null);
@@ -37,14 +39,18 @@ function App() {
 		}
 
 		switch (selectedMenu) {
-			case 'Videos':
+			case 'Full Sessions':
 				return <Videos />;
+			case 'Replay Buffer':
+				return <ReplayBuffer />;
 			case 'Clips':
 				return <Clips />;
 			case 'Highlights':
-				return <Clips />;
-			default:
+				return <Highlights />;
+			case 'Settings':
 				return <Settings />;
+			default:
+				return <Videos />;
 		}
 	};
 

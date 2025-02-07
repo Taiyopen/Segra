@@ -1,5 +1,5 @@
 export interface Content {
-	type: 'Video' | 'Clip';
+	type: 'Session' | 'Buffer' | 'Clip' | 'Highlight';
 	title: string;
 	game: string;
 	fileName: string;

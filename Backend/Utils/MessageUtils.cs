@@ -112,11 +112,13 @@ namespace Segra.Backend.Utils
                 {
                     if (selectionElement.TryGetProperty("startTime", out JsonElement startTimeElement) &&
                         selectionElement.TryGetProperty("endTime", out JsonElement endTimeElement) &&
-                        selectionElement.TryGetProperty("fileName", out JsonElement fileNameElement))
+                        selectionElement.TryGetProperty("fileName", out JsonElement fileNameElement) &&
+                        selectionElement.TryGetProperty("type", out JsonElement videoTypeElement))
                     {
                         double startTime = startTimeElement.GetDouble();
                         double endTime = endTimeElement.GetDouble();
                         string fileName = fileNameElement.GetString();
+                        string type = videoTypeElement.GetString();
 
                         string? game = null;
                         if (selectionElement.TryGetProperty("game", out JsonElement gameElement))
@@ -127,6 +129,7 @@ namespace Segra.Backend.Utils
                         // Create a new Selection instance with all required properties.
                         selections.Add(new Selection
                         {
+                            Type = type,
                             StartTime = startTime,
                             EndTime = endTime,
                             FileName = fileName,
@@ -425,6 +428,7 @@ namespace Segra.Backend.Utils
     // Define the Selection class
     public class Selection
     {
+        public string Type { get; set; }
         public double StartTime { get; set; }
         public double EndTime { get; set; }
         public string FileName { get; set; }
