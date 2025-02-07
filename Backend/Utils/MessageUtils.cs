@@ -170,9 +170,9 @@ namespace Segra.Backend.Utils
                 var fileContent = new ProgressableStreamContent(fileBytes, "application/octet-stream", ProgressHandler);
                 formData.Add(fileContent, "file", fileName);
 
-                AddOptionalContent(formData, message, "game");
-                AddOptionalContent(formData, message, "title");
-                AddOptionalContent(formData, message, "description");
+                AddOptionalContent(formData, message, "Game");
+                AddOptionalContent(formData, message, "Title");
+                AddOptionalContent(formData, message, "Description");
 
                 await SendFrontendMessage("UploadProgress", new
                 {
@@ -218,7 +218,7 @@ namespace Segra.Backend.Utils
         {
             if (message.TryGetProperty(field, out JsonElement element))
             {
-                formData.Add(new StringContent(element.GetString()), field);
+                formData.Add(new StringContent(element.GetString()), field.ToLower());
             }
         }
 
