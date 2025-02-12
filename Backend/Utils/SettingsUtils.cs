@@ -260,6 +260,7 @@ namespace Segra.Backend.Utils
                                 Type = metadata.Type,
                                 Title = metadata.Title,
                                 Game = metadata.Game,
+                                Bookmarks = metadata.Bookmarks,
                                 FileName = metadata.FileName,
                                 FilePath = metadata.FilePath,
                                 FileSize = metadata.FileSize,

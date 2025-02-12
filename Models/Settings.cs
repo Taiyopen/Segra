@@ -481,6 +481,7 @@ namespace Segra.Models
         public string Title { get; set; } = string.Empty;
 
         public string Game { get; set; } = string.Empty;
+        public List<Bookmark> Bookmarks { get; set; } = new List<Bookmark>();
 
         public string FileName { get; set; } = string.Empty;
 

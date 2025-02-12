@@ -272,7 +272,14 @@ namespace Segra.Backend.Utils
 
                 Log.Information("Recording stopped.");
 
-                ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game);
+                // TODO (os) remove
+                List<Bookmark> bookmarks = new List<Bookmark>
+                {
+                    new Bookmark { Type = BookmarkType.Kill, Subtype = BookmarkSubtype.Headshot, Time = TimeSpan.FromSeconds(30) },
+                    new Bookmark { Type = BookmarkType.Assist, Subtype = BookmarkSubtype.Assist, Time = TimeSpan.FromMinutes(1) },
+                };
+
+                ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game, bookmarks);
                 ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session);
 
                 if (Settings.Instance.State.Recording != null)

@@ -1,17 +1,16 @@
 ﻿using Segra.Models;
 using Serilog;
-using System;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Security.Cryptography;
 
 namespace Segra.Backend.Utils
 {
     internal class ContentUtils
     {
-        public static void CreateMetadataFile(string filePath, Content.ContentType type, string game)
+        public static void CreateMetadataFile(string filePath, Content.ContentType type, string game, List<Bookmark>? bookmarks = null)
         {
+            bookmarks ??= new List<Bookmark>();
+
             try
             {
                 // Ensure the video file exists
@@ -38,6 +37,7 @@ namespace Segra.Backend.Utils
                     Type = type,
                     Title = null,
                     Game = game,
+                    Bookmarks = bookmarks,
                     FileName = contentFileName,
                     FilePath = filePath,
                     FileSize = GetFileSize(filePath),
