@@ -12,7 +12,7 @@ import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun } from "react-icons/fa6";
 import { MdOutlineHandshake } from "react-icons/md";
-import { IoSkullOutline, IoBookmarkOutline, IoAdd, IoRemove } from "react-icons/io5";
+import { IoSkullOutline, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
 // Converts time string in format "HH:MM:SS.mmm" to seconds
