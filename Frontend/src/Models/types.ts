@@ -2,6 +2,7 @@ export interface Content {
 	type: 'Session' | 'Buffer' | 'Clip' | 'Highlight';
 	title: string;
 	game: string;
+	bookmarks: Bookmark[];
 	fileName: string;
 	filePath: string;
 	fileSize: string;
@@ -16,6 +17,25 @@ export interface State {
 	content: Content[];
 	inputDevices: AudioDevice[];
 	outputDevices: AudioDevice[];
+}
+
+export enum BookmarkType {
+	Kill = 'Kill',
+	Assist = 'Assist',
+	Death = 'Death'
+}
+
+export enum BookmarkSubtype {
+	Kill = 'Kill',
+	Headshot = 'Headshot',
+	Assist = 'Assist',
+	Death = 'Death'
+}
+
+export interface Bookmark {
+	type: BookmarkType;
+	subtype: BookmarkSubtype;
+	time: string;
 }
 
 export interface Recording {

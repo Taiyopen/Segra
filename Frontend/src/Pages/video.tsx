@@ -9,6 +9,12 @@ import {useAuth} from "../Hooks/useAuth";
 import {useUploads} from "../Context/UploadContext";
 import {useModal} from '../Context/ModalContext';
 import UploadModal from '../Components/UploadModal';
+import {IconType} from "react-icons";
+import {FaGun} from "react-icons/fa6";
+import {MdOutlineHandshake, } from "react-icons/md";
+import {IoSkullOutline} from "react-icons/io5";
+
+type BookmarkIconType = 'Kill' | 'Assist' | 'Death';
 
 interface Selection {
 	id: number;
@@ -36,6 +42,12 @@ interface VideoProps {
 }
 
 const DRAG_TYPE = "SELECTION_CARD";
+
+const timeStringToSeconds = (timeStr: string): number => {
+	const [time, milliseconds] = timeStr.split('.');
+	const [hours, minutes, seconds] = time.split(':').map(Number);
+	return hours * 3600 + minutes * 60 + seconds + (milliseconds ? Number(`0.${milliseconds}`) : 0);
+};
 
 async function fetchThumbnailAtTime(videoPath: string, timeInSeconds: number): Promise<string> {
 	const url = `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(videoPath)}&time=${timeInSeconds}`;
@@ -378,7 +390,7 @@ export default function VideoComponent({video}: VideoProps) {
 		const sel = selections.find((s) => s.id === id);
 		if (sel) {
 			setDragState({id, offset: cursorTime - sel.startTime});
-		setIsInteracting(true);
+			setIsInteracting(true);
 		}
 	};
 
@@ -507,6 +519,56 @@ export default function VideoComponent({video}: VideoProps) {
 		);
 	};
 
+	const groupOverlappingBookmarks = (bookmarks: any[], pixelsPerSecond: number) => {
+		if (!bookmarks?.length) return [];
+
+		// If at max zoom (10), return each bookmark as its own group
+		if (zoom >= 10) {
+			return bookmarks.map(bookmark => [bookmark]);
+		}
+
+		const OVERLAP_THRESHOLD = 20; // pixels
+		const groups: any[] = [];
+		let currentGroup: any[] = [];
+
+		const sortedBookmarks = [...bookmarks].sort((a, b) =>
+			timeStringToSeconds(a.time) - timeStringToSeconds(b.time)
+		);
+
+		sortedBookmarks.forEach((bookmark, index) => {
+			const currentTime = timeStringToSeconds(bookmark.time);
+			const currentPos = currentTime * pixelsPerSecond;
+
+			if (index === 0) {
+				currentGroup = [bookmark];
+			} else {
+				const prevTime = timeStringToSeconds(sortedBookmarks[index - 1].time);
+				const prevPos = prevTime * pixelsPerSecond;
+
+				if (Math.abs(currentPos - prevPos) < OVERLAP_THRESHOLD) {
+					currentGroup.push(bookmark);
+				} else {
+					if (currentGroup.length > 0) {
+						groups.push([...currentGroup]);
+					}
+					currentGroup = [bookmark];
+				}
+			}
+
+			if (index === sortedBookmarks.length - 1 && currentGroup.length > 0) {
+				groups.push(currentGroup);
+			}
+		});
+
+		return groups;
+	};
+
+	const iconMapping: Record<BookmarkIconType, IconType> = {
+		Kill: FaGun,
+		Assist: MdOutlineHandshake,
+		Death: IoSkullOutline
+	};
+
 	return (
 		<DndProvider backend={HTML5Backend}>
 			<div className="flex" ref={containerRef} style={{width: "100%", height: "100%"}}>
@@ -540,12 +602,70 @@ export default function VideoComponent({video}: VideoProps) {
 							className="ticks-container"
 							style={{
 								position: "relative",
-								height: "40px",
+								height: "42px",
 								width: `${duration * pixelsPerSecond}px`,
 								minWidth: "100%",
 								overflow: "hidden"
 							}}
 						>
+							{groupOverlappingBookmarks(video.bookmarks || [], pixelsPerSecond).map((group, groupIndex) => {
+								const isCluster = group.length > 1;
+								const referenceBookmark = group[0];
+								const timeInSeconds = timeStringToSeconds(referenceBookmark.time);
+								const leftPos = timeInSeconds * pixelsPerSecond;
+								const Icon = iconMapping[referenceBookmark.type as BookmarkIconType] || IoSkullOutline;
+
+								return (
+									<div
+										key={`bookmark-${groupIndex}`}
+										className="tooltip"
+										data-tip={isCluster
+											? `${group.length} bookmarks at ${referenceBookmark.time}`
+											: `${referenceBookmark.type} - ${referenceBookmark.subtype} (${referenceBookmark.time})`
+										}
+										style={{
+											position: "absolute",
+											left: `${leftPos}px`,
+											bottom: "0",
+											transform: "translateX(-50%)",
+											cursor: "pointer",
+											zIndex: 10,
+											display: "flex",
+											flexDirection: "column",
+											alignItems: "center",
+											color: "#25272e"
+										}}
+									>
+										<div
+											style={{
+												backgroundColor: "#EFAF2B",
+												width: "26px",
+												height: "26px",
+												borderRadius: "50%",
+												display: "flex",
+												alignItems: "center",
+												justifyContent: "center",
+												marginBottom: "0px"
+											}}
+										>
+											{isCluster ? (
+												<span style={{fontSize: '14px', fontWeight: 'bold'}}>{group.length}</span>
+											) : (
+												<>
+													<Icon size={16} />
+												</>
+											)}
+										</div>
+										<div
+											style={{
+												width: "2px",
+												height: "16px",
+												backgroundColor: "#EFAF2B"
+											}}
+										/>
+									</div>
+								);
+							})}
 							{minorTicks.map((tickTime, index) => {
 								if (tickTime >= duration) return null;
 								const leftPos = tickTime * pixelsPerSecond;
