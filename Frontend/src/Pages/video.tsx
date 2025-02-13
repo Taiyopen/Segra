@@ -15,12 +15,14 @@ import { MdOutlineHandshake } from "react-icons/md";
 import { IoSkullOutline } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
+// Converts time string in format "HH:MM:SS.mmm" to seconds
 const timeStringToSeconds = (timeStr: string): number => {
     const [time, milliseconds] = timeStr.split('.');
     const [hours, minutes, seconds] = time.split(':').map(Number);
     return hours * 3600 + minutes * 60 + seconds + (milliseconds ? Number(`0.${milliseconds}`) : 0);
 };
 
+// Fetches a video thumbnail from the backend for a specific timestamp
 const fetchThumbnailAtTime = async (videoPath: string, timeInSeconds: number): Promise<string> => {
     const url = `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(videoPath)}&time=${timeInSeconds}`;
     const response = await fetch(url);
@@ -84,6 +86,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         Death: IoSkullOutline
     };
 
+    // Refreshes the thumbnail for a selection, updating loading states appropriately
     const refreshSelectionThumbnail = async (selection: Selection): Promise<void> => {
         updateSelection({...selection, isLoading: true});
         try {
@@ -95,6 +98,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         }
     };
 
+    // Initialize video metadata and setup keyboard controls
     useEffect(() => {
         const vid = videoRef.current;
         if (!vid) return;
@@ -117,6 +121,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, []);
 
+    // Handle video playback time updates using requestAnimationFrame for smooth updates
     useEffect(() => {
         const vid = videoRef.current;
         if (!vid) return;
@@ -143,6 +148,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, []);
 
+    // Update container width on window resize
     useEffect(() => {
         if (scrollContainerRef.current) {
             setContainerWidth(scrollContainerRef.current.clientWidth);
@@ -158,6 +164,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, []);
 
+    // Handle timeline zooming with mouse wheel
     useEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
@@ -183,6 +190,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, [zoom, duration, containerWidth]);
 
+    // Toggle video play/pause state
     const togglePlayPause = () => {
         const vid = videoRef.current;
         if (!vid) return;
@@ -193,6 +201,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         }
     };
 
+    // Handle clicks on the timeline to seek video
     const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
         if (isInteracting || !scrollContainerRef.current) return;
         const rect = scrollContainerRef.current.getBoundingClientRect();
@@ -205,6 +214,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         }
     };
 
+    // Handle timeline marker drag interactions
     const handleMarkerDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
         setIsDragging(true);
@@ -227,12 +237,14 @@ export default function VideoComponent({ video }: { video: Content }) {
         setTimeout(() => setIsInteracting(false), 0);
     };
 
+    // Format time in seconds to "MM:SS" display format
     const formatTime = (time: number) => {
         const minutes = Math.floor(time / 60);
         const seconds = Math.floor(time % 60).toString().padStart(2, "0");
         return `${minutes}:${seconds}`;
     };
 
+    // Generate major and minor tick marks for the timeline based on zoom level
     const generateTicks = () => {
         const maxTicks = 10;
         const minTickSpacing = 50;
@@ -259,6 +271,7 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     const {majorTicks, minorTicks} = generateTicks();
 
+    // Add a new selection at the current video position
     const handleAddSelection = async () => {
         if (!videoRef.current) return;
         const start = currentTime;
@@ -283,6 +296,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         }
     };
 
+    // Create a clip from current selections
     const handleCreateClip = () => {
         const params = {
             Selections: selections.map((s) => ({
@@ -296,6 +310,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         sendMessageToBackend("CreateClip", params);
     };
 
+    // Handle selection drag and drop operations
     const handleSelectionDragStart = (e: React.MouseEvent<HTMLDivElement>, id: number) => {
         e.stopPropagation();
         if (!scrollContainerRef.current) return;
@@ -336,6 +351,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         }
     };
 
+    // Handle global mouse up events for drag operations
     useEffect(() => {
         const handleGlobalMouseUp = async () => {
             handleMarkerDragEnd();
@@ -353,6 +369,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, [dragState.id, resizingSelectionId]);
 
+    // Handle selection resize operations
     const handleResizeStart = (
         e: React.MouseEvent<HTMLDivElement>,
         id: number,
@@ -393,11 +410,13 @@ export default function VideoComponent({ video }: { video: Content }) {
         }
     };
 
+    // Handle right-click to remove selection
     const handleSelectionContextMenu = (e: React.MouseEvent<HTMLDivElement>, id: number) => {
         e.preventDefault();
         removeSelection(id);
     };
 
+    // Move selection card in the sidebar
     const moveCard = (dragIndex: number, hoverIndex: number) => {
         const newSelections = [...selections];
         const [removed] = newSelections.splice(dragIndex, 1);
@@ -405,11 +424,13 @@ export default function VideoComponent({ video }: { video: Content }) {
         updateSelectionsArray(newSelections);
     };
 
+    // Get video source URL
     const getVideoPath = (): string => {
         const contentFileName = `${contentFolder}/${video.type.toLowerCase()}s/${video.fileName}.mp4`;
         return `http://localhost:2222/api/content?input=${encodeURIComponent(contentFileName)}&type=${video.type.toLowerCase()}`;
     };
 
+    // Handle video upload operation
     const handleUpload = () => {
         openModal(
             <UploadModal
@@ -431,6 +452,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         );
     };
 
+    // Group overlapping bookmarks for timeline display
     const groupOverlappingBookmarks = (bookmarks: any[], pixelsPerSecond: number) => {
         if (!bookmarks?.length) return [];
 
