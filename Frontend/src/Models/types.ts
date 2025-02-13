@@ -87,6 +87,27 @@ export const initialSettings: Settings = {
 	state: initialState,
 };
 
+export interface Selection {
+    id: number;
+    type: Content['type'];
+    startTime: number;
+    endTime: number;
+    thumbnailDataUrl?: string;
+    isLoading: boolean;
+    fileName: string;
+    game?: string;
+}
+
+export interface SelectionCardProps {
+    selection: Selection;
+    index: number;
+    moveCard: (dragIndex: number, hoverIndex: number) => void;
+    formatTime: (time: number) => string;
+    isHovered: boolean;
+    setHoveredSelectionId: (id: number | null) => void;
+    removeSelection: (id: number) => void;
+}
+
 export interface AudioDevice {
 	id: string;
 	name: string;
