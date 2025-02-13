@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import { Content, BookmarkType, Selection } from "../Models/types";
 import { sendMessageToBackend } from "../Utils/MessageUtils";
 import { useSettings } from "../Context/SettingsContext";
@@ -12,7 +12,7 @@ import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun } from "react-icons/fa6";
 import { MdOutlineHandshake } from "react-icons/md";
-import { IoSkullOutline } from "react-icons/io5";
+import { IoSkullOutline, IoBookmarkOutline, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
 // Converts time string in format "HH:MM:SS.mmm" to seconds
@@ -497,6 +497,41 @@ export default function VideoComponent({ video }: { video: Content }) {
         return groups;
     };
 
+    const [selectedBookmarkTypes, setSelectedBookmarkTypes] = useState<Set<BookmarkType>>(new Set(Object.values(BookmarkType)));
+
+    const availableBookmarkTypes = useMemo(() => {
+        const types = new Set<BookmarkType>();
+        video.bookmarks.forEach(bookmark => types.add(bookmark.type));
+        return Array.from(types);
+    }, [video.bookmarks]);
+
+    const filteredBookmarks = useMemo(() => {
+        return video.bookmarks.filter(bookmark => selectedBookmarkTypes.has(bookmark.type));
+    }, [video.bookmarks, selectedBookmarkTypes]);
+
+    const toggleBookmarkType = (type: BookmarkType) => {
+        setSelectedBookmarkTypes(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(type)) {
+                newSet.delete(type);
+            } else {
+                newSet.add(type);
+            }
+            return newSet;
+        });
+    };
+
+    const handleAddBookmark = () => {
+        console.log("Add bookmark at current time");
+    };
+
+    const handleZoomChange = (increment: boolean) => {
+        setZoom(prev => {
+            const newZoom = increment ? prev * 1.1 : prev * 0.9;
+            return Math.min(Math.max(newZoom, 1), 10);
+        });
+    };
+
     return (
         <DndProvider backend={HTML5Backend}>
             <div className="flex w-full h-full" ref={containerRef}>
@@ -527,7 +562,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 overflow: "hidden"
                             }}
                         >
-                            {groupOverlappingBookmarks(video.bookmarks || [], pixelsPerSecond).map((group, groupIndex) => {
+                            {groupOverlappingBookmarks(filteredBookmarks, pixelsPerSecond).map((group, groupIndex) => {
                                 const isCluster = group.length > 1;
                                 const referenceBookmark = group[0];
                                 const timeInSeconds = timeStringToSeconds(referenceBookmark.time);
@@ -669,20 +704,68 @@ export default function VideoComponent({ video }: { video: Content }) {
                     )}
 
                     {video.type === "Session" && (
-                        <div className="mt-2">
-                            <button
-                                className="btn btn-primary mr-2 font-semibold text-white"
-                                disabled={state.isCreatingClip}
-                                onClick={handleCreateClip}
-                            >
-                                Create Clip
-                                {state.isCreatingClip && (
-                                    <span className="loading loading-spinner loading-xs" />
-                                )}
-                            </button>
-                            <button className="btn btn-secondary" onClick={handleAddSelection}>
-                                Add Selection
-                            </button>
+                        <div className="flex items-center justify-between gap-4 px-4">
+                            <div className="flex items-center gap-4">
+                                <button
+                                    className="btn btn-primary font-semibold text-white"
+                                    disabled={state.isCreatingClip}
+                                    onClick={handleCreateClip}
+                                >
+                                    Create Clip
+                                    {state.isCreatingClip && (
+                                        <span className="loading loading-spinner loading-xs" />
+                                    )}
+                                </button>
+                                <button className="btn btn-secondary" onClick={handleAddSelection}>
+                                    Add Selection
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={handleAddBookmark}
+                                    className="btn btn-sm btn-primary font-semibold text-white"
+                                >
+                                    Add Bookmark
+                                </button>
+                                <div className="flex items-center gap-2 bg-base-300 px-2 rounded-lg">
+                                    {availableBookmarkTypes.map(type => (
+                                        <button
+                                            key={type}
+                                            onClick={() => toggleBookmarkType(type)}
+                                            className={`p-2 rounded-full transition-colors ${
+                                                selectedBookmarkTypes.has(type) 
+                                                    ? 'text-accent' 
+                                                    : 'text-gray-400'
+                                            }`}
+                                        >
+                                            {React.createElement(iconMapping[type] || IoSkullOutline, {
+                                                className: "w-5 h-5"
+                                            })}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleZoomChange(false)}
+                                        className="btn btn-sm btn-ghost"
+                                        disabled={zoom <= 1}
+                                    >
+                                        <IoRemove className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-sm font-medium w-12 text-center">
+                                        {Math.round(zoom * 100 / 5) * 5}%
+                                    </span>
+                                    <button
+                                        onClick={() => handleZoomChange(true)}
+                                        className="btn btn-sm btn-ghost"
+                                        disabled={zoom >= 10}
+                                    >
+                                        <IoAdd className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
