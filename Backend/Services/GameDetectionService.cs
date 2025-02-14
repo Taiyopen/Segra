@@ -1,162 +1,440 @@
 ﻿using Segra.Backend.Utils;
 using Serilog;
 using System.Diagnostics;
+using System.Management;
+using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
-using EventHook;
-using Segra.Models;
-using System;
+using System.Security;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Segra.Backend.Services
 {
     public static class GameDetectionService
     {
-        static EventHookFactory eventHookFactory;
-        private static ApplicationWatcher applicationWatcher;
-        private static Process currentGameProcess;
+        private static ManagementEventWatcher processStartWatcher;
+        private static ManagementEventWatcher processStopWatcher;
+        private static readonly Dictionary<string, string> deviceToDrive = new();
+        private static bool _running;
+        private static Task _task;
+        private static CancellationTokenSource _cts;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+
+        [DllImport("psapi.dll", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        private static extern bool GetProcessImageFileName(IntPtr hprocess, StringBuilder lpExeName, out int size);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [SuppressUnmanagedCodeSecurity]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool QueryDosDevice(string lpDeviceName, StringBuilder lpTargetPath, int ucchMax);
+
+        private delegate void WinEventDelegate(
+            IntPtr hWinEventHook,
+            uint eventType,
+            IntPtr hwnd,
+            int idObject,
+            int idChild,
+            uint dwEventThread,
+            uint dwmsEventTime
+        );
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetWinEventHook(
+            uint eventMin,
+            uint eventMax,
+            IntPtr hmodWinEventProc,
+            WinEventDelegate lpfnWinEventProc,
+            uint idProcess,
+            uint idThread,
+            uint dwFlags
+        );
 
         [DllImport("user32.dll", SetLastError = true)]
-        static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
-        public static void Start()
+        private const uint EVENT_SYSTEM_FOREGROUND = 3;
+        private const uint WINEVENT_OUTOFCONTEXT = 0;
+        private static WinEventDelegate foregroundCallback;
+        private static IntPtr foregroundHookHandle;
+
+        public static void StartAsync()
         {
-            Log.Information("Starting game detection service");
-            eventHookFactory = new EventHookFactory();
-            applicationWatcher = eventHookFactory.GetApplicationWatcher();
-            applicationWatcher.Start();
+            if (_running)
+                return;
 
-            applicationWatcher.OnApplicationWindowChange += OnApplicationWindowChange;
+            _running = true;
+            _cts = new CancellationTokenSource();
 
-            DetectRunningGames();
-        }
-
-        public static void Stop()
-        {
-            if (eventHookFactory != null)
+            _task = Task.Run(() =>
             {
-                applicationWatcher.Stop();
-                eventHookFactory.Dispose();
-            }
+                try
+                {
+                    Start();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"GameDetectionService background task failed: {ex.Message}");
+                }
+            });
         }
 
-        private static void OnApplicationWindowChange(object sender, ApplicationEventArgs e)
+        public static void StopAsync()
+        {
+            if (!_running)
+                return;
+
+            _cts?.Cancel();
+
+            Stop();
+
+            _running = false;
+        }
+
+        private static void Start()
+        {
+            Log.Information("Starting process monitoring...");
+            InitializeDriveMappings();
+
+            processStartWatcher = new ManagementEventWatcher(new WqlEventQuery("SELECT * FROM __InstanceCreationEvent WITHIN 1 WHERE TargetInstance isa \"Win32_Process\""));
+            processStartWatcher.EventArrived += OnProcessStarted;
+            processStartWatcher.Start();
+
+            processStopWatcher = new ManagementEventWatcher(new WqlEventQuery("SELECT * FROM __InstanceDeletionEvent WITHIN 1 WHERE TargetInstance isa \"Win32_Process\""));
+            processStopWatcher.EventArrived += OnProcessStopped;
+            processStopWatcher.Start();
+
+            foregroundCallback = OnForegroundChanged;
+            foregroundHookHandle = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, foregroundCallback, 0, 0, WINEVENT_OUTOFCONTEXT);
+            Log.Information("WMI watchers & foreground window hook are now active.");
+        }
+
+        private static void Stop()
         {
             try
             {
-                var appName = e.ApplicationData.AppName;
-                var appTitle = e.ApplicationData.AppTitle;
-                var appPath = e.ApplicationData.AppPath;
-                Log.Information($"Window event: '{appName}' with title '{appTitle}' was {e.Event}");
+                processStartWatcher?.Stop();
+                processStopWatcher?.Stop();
+                processStartWatcher?.Dispose();
+                processStopWatcher?.Dispose();
+            }
+            catch { }
 
-                if (IsGameProcess(appPath))
+            if (foregroundHookHandle != IntPtr.Zero)
+            {
+                UnhookWinEvent(foregroundHookHandle);
+                foregroundHookHandle = IntPtr.Zero;
+            }
+
+            Log.Information("Process monitoring stopped.");
+        }
+
+        private static void OnProcessStarted(object sender, EventArrivedEventArgs e)
+        {
+            try
+            {
+                var processObj = e.NewEvent["TargetInstance"] as ManagementBaseObject;
+                if (processObj == null) return;
+
+                int pid = Convert.ToInt32(processObj["Handle"]);
+                string exePath = ResolveProcessPath(pid);
+
+                Log.Information($"[OnProcessStarted] Application started: PID {pid}, Path: {exePath}");
+                if (IsGameExecutable(exePath))
                 {
-                    if (e.Event == ApplicationEvents.Launched && Settings.Instance.State.Recording == null)
+                    Log.Information($"[OnProcessStarted] Application is a game: PID {pid}, Path: {exePath}");
+                    OBSUtils.StartRecording(ExtractGameName(exePath));
+
+                    var proc = Process.GetProcessById(pid);
+                    if (!proc.HasExited)
                     {
-                        // Start recording
-                        OBSUtils.StartRecording(GameNameUtils.GetGameNameOrDefault(appName, appPath));
-
-                        // Now we switch from window-based detection to process-based because
-                        // DX11 programs seems to bypass ApplicationEvents.Closed events
-                        // Get the process from the window handle
-                        uint pid;
-                        GetWindowThreadProcessId(e.ApplicationData.HWnd, out pid);
-                        if (pid != 0)
-                        {
-                            var proc = Process.GetProcessById((int)pid);
-                            if (proc != null && !proc.HasExited)
-                            {
-                                currentGameProcess = proc;
-                                currentGameProcess.EnableRaisingEvents = true;
-                                currentGameProcess.Exited += CurrentGameProcess_Exited;
-
-                                // Stop application watcher to avoid double handling
-                                applicationWatcher.Stop();
-                                Log.Information("Switched to process-based detection. Stopped the window event watcher.");
-                            }
-                        }
+                        OBSUtils.CurrentTrackedFileName = Path.GetFileName(exePath);
                     }
-                }
-                else
-                {
-                    Log.Information($"Non-game window of '{appName}' was {e.Event}");
                 }
             }
             catch (Exception ex)
             {
-                Log.Error("Game detection error: " + ex.Message);
+                Log.Error($"[OnProcessStarted] Exception: {ex.Message}");
             }
         }
 
-        private static void CurrentGameProcess_Exited(object sender, EventArgs e)
+        private static void OnProcessStopped(object sender, EventArrivedEventArgs e)
         {
+            if (OBSUtils.CurrentTrackedFileName == null) return;
+
             try
             {
-                Log.Information("Game process exited. Stopping recording.");
-                if (Settings.Instance.State.Recording != null)
+                var processObj = e.NewEvent["TargetInstance"] as ManagementBaseObject;
+                if (processObj == null) return;
+
+                int pid = Convert.ToInt32(processObj["Handle"]);
+                string exePath = ResolveProcessPath(pid);
+                string fileNameWithExtension = Path.GetFileName(exePath);
+
+                Log.Information($"[OnProcessStopped] Application stopped: PID {pid}, Path: {exePath}");
+                if (fileNameWithExtension == OBSUtils.CurrentTrackedFileName)
                 {
+                    Log.Information($"[OnTrackedProcessExited] Confirmed that PID {pid} is no longer running. Stopping recording.");
                     OBSUtils.StopRecording();
                 }
             }
             catch (Exception ex)
             {
-                Log.Error("Error stopping recording on process exit: " + ex.Message);
+                Log.Error($"[OnProcessStopped] Exception: {ex.Message}");
+            }
+        }
+
+        private static void OnForegroundChanged(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+        {
+            Log.Information($"Foreground window changed. New hwnd: 0x{hwnd.ToInt64():X}");
+        }
+
+        private static void InitializeDriveMappings()
+        {
+            foreach (var drive in DriveInfo.GetDrives())
+            {
+                if (!drive.IsReady) continue;
+                var driveLetter = drive.Name.TrimEnd('\\');
+                var sb = new StringBuilder(260);
+                if (QueryDosDevice(driveLetter, sb, sb.Capacity))
+                {
+                    string devicePath = sb.ToString();
+                    if (!deviceToDrive.ContainsKey(devicePath))
+                        deviceToDrive.Add(devicePath, driveLetter);
+                }
+            }
+        }
+
+        private static bool IsGameExecutable(string exePath)
+        {
+            if (string.IsNullOrEmpty(exePath)) return false;
+            return exePath.Replace("\\", "/").Contains("/steamapps/common/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ResolveProcessPath(int pid)
+        {
+            if (pid <= 0) return string.Empty;
+            try
+            {
+                var proc = Process.GetProcessById(pid);
+                return Path.GetFullPath(proc.MainModule.FileName);
+            }
+            catch
+            {
+                return ResolvePathViaWinAPI(pid);
+            }
+        }
+
+        private static string ResolvePathViaWinAPI(int pid)
+        {
+            IntPtr hProcess = IntPtr.Zero;
+            try
+            {
+                hProcess = OpenProcess(0x00000400 | 0x00000010, false, pid);
+                if (hProcess == IntPtr.Zero) return string.Empty;
+
+                var sb = new StringBuilder(1024);
+                if (!GetProcessImageFileName(hProcess, sb, out int _)) return string.Empty;
+                return DevicePathToDrivePath(sb.ToString());
             }
             finally
             {
-                // Once the process is gone, restart the event watcher
-                Log.Information("Restarting the application watcher.");
-                applicationWatcher.Start();
-                currentGameProcess = null;
+                if (hProcess != IntPtr.Zero) CloseHandle(hProcess);
             }
         }
 
-        private static void DetectRunningGames()
+        private static string DevicePathToDrivePath(string path)
         {
-            var processes = Process.GetProcesses();
-            foreach (var proc in processes)
-            {
-                try
-                {
-                    if (IsGameProcess(proc.MainModule.FileName) && Settings.Instance.State.Recording == null)
-                    {
-                        try
-                        {
-                            string filePath = proc.MainModule.FileName;
-                            OBSUtils.StartRecording(GameNameUtils.GetGameNameOrDefault(proc.ProcessName, filePath));
-                        }
-                        catch (Exception ex)
-                        {
-                            OBSUtils.StartRecording(proc.ProcessName);
-                        }
-
-                        if (!proc.HasExited)
-                        {
-                            currentGameProcess = proc;
-                            currentGameProcess.EnableRaisingEvents = true;
-                            currentGameProcess.Exited += CurrentGameProcess_Exited;
-
-                            // Stop watcher since we already detected the game
-                            applicationWatcher.Stop();
-                            Log.Information("Found a running game process. Stopped window event watcher.");
-                        }
-                        break;
-                    }
-                }
-                catch (Exception)
-                {
-                    // No-op
-                }
-            }
+            if (string.IsNullOrEmpty(path)) return string.Empty;
+            foreach (var kv in deviceToDrive)
+                if (path.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase))
+                    return path.Replace(kv.Key, kv.Value);
+            return path;
         }
 
-        private static bool IsGameProcess(string filePath)
+        private static string ExtractGameName(string exePath)
         {
-            // TODO (os) implement Epic Games and ban anti-cheat windows
-            if (filePath == null)
+            if (string.IsNullOrEmpty(exePath)) return "Unknown";
+            string steamName = AttemptSteamAcfLookup(exePath);
+            if (!string.IsNullOrEmpty(steamName)) return steamName;
+            return Path.GetFileNameWithoutExtension(exePath);
+        }
+
+        private static string AttemptSteamAcfLookup(string exeFilePath)
+        {
+            try
             {
-                return false;
+                string normalized = exeFilePath.Replace("\\", "/");
+                var splitAroundCommon = Regex.Split(normalized, "/steamapps/common/", RegexOptions.IgnoreCase);
+                if (splitAroundCommon.Length < 2) return null;
+
+                string folder = splitAroundCommon[1].Split('/')[0];
+                string prefix = splitAroundCommon[0].TrimEnd('/', '\\');
+                if (string.IsNullOrEmpty(prefix)) return null;
+
+                string steamAppsDir = prefix + "/steamapps";
+                if (!Directory.Exists(steamAppsDir)) return null;
+
+                foreach (string acfFile in Directory.GetFiles(steamAppsDir, "*.acf"))
+                {
+                    string contents = File.ReadAllText(acfFile);
+                    string acfDir = ExtractAcfField(contents, "installdir");
+                    string acfName = ExtractAcfField(contents, "name");
+                    if (acfDir.Equals(folder, System.StringComparison.OrdinalIgnoreCase)) return acfName;
+                }
+                return null;
+            }
+            catch { return null; }
+        }
+
+        private static string ExtractAcfField(string acfContent, string key)
+        {
+            if (string.IsNullOrEmpty(acfContent) || string.IsNullOrEmpty(key)) return string.Empty;
+            string pattern = $"\"{key}\"\\s+\"([^\"]+)\"";
+            var match = Regex.Match(acfContent, pattern, RegexOptions.IgnoreCase);
+            return match.Success && match.Groups.Count > 1 ? match.Groups[1].Value.Trim() : string.Empty;
+        }
+
+        // Get foreground updates
+        public static class ForegroundHook
+        {
+            private const uint EVENT_SYSTEM_FOREGROUND = 3;
+            private const uint WINEVENT_OUTOFCONTEXT = 0;
+            private const int WM_QUIT = 0x0012;  // standard Windows "quit" message
+
+            private static IntPtr _hookHandle = IntPtr.Zero;
+            private static WinEventDelegate _winEventProc;
+
+            // We store the thread and its ID so we can signal it to stop:
+            private static Thread _hookThread;
+            private static int _hookThreadId;
+
+            // The callback signature
+            private delegate void WinEventDelegate(
+                IntPtr hWinEventHook,
+                uint eventType,
+                IntPtr hwnd,
+                int idObject,
+                int idChild,
+                uint dwEventThread,
+                uint dwmsEventTime);
+
+            [DllImport("user32.dll")]
+            private static extern IntPtr SetWinEventHook(
+                uint eventMin,
+                uint eventMax,
+                IntPtr hmodWinEventProc,
+                WinEventDelegate lpfnWinEventProc,
+                uint idProcess,
+                uint idThread,
+                uint dwFlags
+            );
+
+            [DllImport("user32.dll", SetLastError = true)]
+            private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct MSG
+            {
+                public IntPtr hwnd;
+                public uint message;
+                public IntPtr wParam;
+                public IntPtr lParam;
+                public uint time;
+                public int pt_x;
+                public int pt_y;
             }
 
-            return filePath.Replace("\\", "/").Contains(GameNameUtils.SteamAppsCommonPath);
+            [DllImport("user32.dll")]
+            private static extern int GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
+            [DllImport("user32.dll")]
+            private static extern bool TranslateMessage([In] ref MSG lpMsg);
+
+            [DllImport("user32.dll")]
+            private static extern IntPtr DispatchMessage([In] ref MSG lpMsg);
+
+            [DllImport("kernel32.dll")]
+            private static extern int GetCurrentThreadId();
+
+            // We need PostThreadMessage to send WM_QUIT to the hooking thread
+            [DllImport("user32.dll")]
+            private static extern bool PostThreadMessage(int idThread, int msg, IntPtr wParam, IntPtr lParam);
+
+            public static void Start()
+            {
+                _hookThread = new Thread(HookThreadEntry)
+                {
+                    IsBackground = true
+                };
+
+                _hookThread.SetApartmentState(ApartmentState.STA);
+                _hookThread.Start();
+            }
+
+            public static void Stop()
+            {
+                if (_hookThreadId != 0)
+                {
+                    PostThreadMessage(_hookThreadId, WM_QUIT, IntPtr.Zero, IntPtr.Zero);
+                }
+            }
+
+            private static void HookThreadEntry()
+            {
+                _hookThreadId = GetCurrentThreadId();
+
+                _winEventProc = WinEventCallback;
+                _hookHandle = SetWinEventHook(
+                    EVENT_SYSTEM_FOREGROUND,
+                    EVENT_SYSTEM_FOREGROUND,
+                    IntPtr.Zero,
+                    _winEventProc,
+                    0,
+                    0,
+                    WINEVENT_OUTOFCONTEXT
+                );
+
+                RunMessageLoop();
+
+                if (_hookHandle != IntPtr.Zero)
+                {
+                    UnhookWinEvent(_hookHandle);
+                    _hookHandle = IntPtr.Zero;
+                }
+                _hookThreadId = 0;
+            }
+
+            private static void RunMessageLoop()
+            {
+                MSG msg;
+                while (GetMessage(out msg, IntPtr.Zero, 0, 0) > 0)
+                {
+                    TranslateMessage(ref msg);
+                    DispatchMessage(ref msg);
+                }
+            }
+
+            private static void WinEventCallback(
+                IntPtr hWinEventHook,
+                uint eventType,
+                IntPtr hwnd,
+                int idObject,
+                int idChild,
+                uint dwEventThread,
+                uint dwmsEventTime)
+            {
+                if (eventType == EVENT_SYSTEM_FOREGROUND)
+                {
+                    Log.Information($"Foreground window changed. HWND: {hwnd}");
+                }
+            }
         }
     }
 }

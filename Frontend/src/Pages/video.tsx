@@ -12,7 +12,7 @@ import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun } from "react-icons/fa6";
 import { MdOutlineHandshake } from "react-icons/md";
-import { IoSkullOutline, IoAdd, IoRemove } from "react-icons/io5";
+import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
 // Converts time string in format "HH:MM:SS.mmm" to seconds
@@ -83,7 +83,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     const iconMapping: Record<BookmarkType, IconType> = {
         Kill: FaGun,
         Assist: MdOutlineHandshake,
-        Death: IoSkullOutline
+        Death: IoSkull
     };
 
     // Refreshes the thumbnail for a selection, updating loading states appropriately
@@ -567,7 +567,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 const referenceBookmark = group[0];
                                 const timeInSeconds = timeStringToSeconds(referenceBookmark.time);
                                 const leftPos = timeInSeconds * pixelsPerSecond;
-                                const Icon = iconMapping[referenceBookmark.type as BookmarkType] || IoSkullOutline;
+                                const Icon = iconMapping[referenceBookmark.type as BookmarkType] || IoSkull;
 
                                 return (
                                     <div
@@ -739,7 +739,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                                     : 'text-gray-400'
                                             }`}
                                         >
-                                            {React.createElement(iconMapping[type] || IoSkullOutline, {
+                                            {React.createElement(iconMapping[type] || IoSkull, {
                                                 className: "w-5 h-5"
                                             })}
                                         </button>

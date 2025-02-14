@@ -1,6 +1,7 @@
 using Photino.NET;
 using Photino.NET.Server;
 using Segra.Backend.ContentServer;
+using Segra.Backend.Services;
 using Segra.Backend.Utils;
 using Segra.Models;
 using Serilog;
@@ -113,7 +114,7 @@ namespace Segra
                     .Load(appUrl);
 
                 AddNotifyIcon();
-
+                GameDetectionService.ForegroundHook.Start();
                 Task.Run(async () =>
                 {
                     try
@@ -131,6 +132,7 @@ namespace Segra
                 window.SetTitle("Segra ");
 
                 window.WaitForClose();
+                GameDetectionService.ForegroundHook.Stop();
             }
             catch (Exception ex)
             {

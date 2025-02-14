@@ -3,8 +3,8 @@ import RecordingCard from './Components/RecordingCard';
 import {sendMessageToBackend} from './Utils/MessageUtils';
 import {useUploads} from './Context/UploadContext';
 import UploadCard from './Components/UploadCard';
-import { MdOutlineContentCut, MdOutlinePlayCircleOutline, MdOutlineSettings, MdReplay30 } from 'react-icons/md';
-import { HiOutlineSparkles } from 'react-icons/hi';
+import {MdOutlineContentCut, MdOutlinePlayCircleOutline, MdOutlineSettings, MdReplay30} from 'react-icons/md';
+import {HiOutlineSparkles} from 'react-icons/hi';
 
 interface MenuProps {
 	selectedMenu: string;
@@ -76,7 +76,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				{uploadFiles.map((fileName) => (
 					<UploadCard key={fileName} fileName={fileName} />
 				))}
-				{recording && <RecordingCard recording={recording} />}
+				{recording && recording.endTime == null && <RecordingCard recording={recording} />}
 			</div>
 
 			{/* Start and Stop Buttons */}

@@ -447,6 +447,9 @@ namespace Segra.Models
         [JsonPropertyName("game")]
         public string Game { get; set; }
 
+        [JsonPropertyName("bookmarks")]
+        public List<Bookmark> Bookmarks { get; set; } = new List<Bookmark>();
+
         [JsonPropertyName("duration")]
         public TimeSpan? Duration
         {

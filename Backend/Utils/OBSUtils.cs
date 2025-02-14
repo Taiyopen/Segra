@@ -11,7 +11,7 @@ namespace Segra.Backend.Utils
     public static class OBSUtils
     {
         public static bool IsInitialized { get; private set; }
-
+        public static string CurrentTrackedFileName { get; set; }
         static bool signalOutputStop = false;
         static IntPtr output = IntPtr.Zero;
         static IntPtr displaySource = IntPtr.Zero;
@@ -73,7 +73,7 @@ namespace Segra.Backend.Utils
             Settings.Instance.State.HasLoadedObs = true;
             Log.Information("OBS initialized successfully!");
 
-            _ = Task.Run(GameDetectionService.Start);
+            GameDetectionService.StartAsync();
         }
 
         public static bool StartRecording(string name = "Unknown")
@@ -240,7 +240,7 @@ namespace Segra.Backend.Utils
 
             Log.Information("Recording started: " + filePath);
             PlayStartSound();
-
+            GameIntegrationService.Start(name);
             return true;
         }
 
@@ -251,6 +251,7 @@ namespace Segra.Backend.Utils
                 if (Settings.Instance.State.Recording != null)
                     Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
 
+                CurrentTrackedFileName = null;
                 obs_output_stop(output);
 
                 int attempts = 0;
@@ -272,14 +273,9 @@ namespace Segra.Backend.Utils
 
                 Log.Information("Recording stopped.");
 
-                // TODO (os) remove
-                List<Bookmark> bookmarks = new List<Bookmark>
-                {
-                    new Bookmark { Type = BookmarkType.Kill, Subtype = BookmarkSubtype.Headshot, Time = TimeSpan.FromSeconds(30) },
-                    new Bookmark { Type = BookmarkType.Assist, Subtype = BookmarkSubtype.Assist, Time = TimeSpan.FromMinutes(1) },
-                };
+                GameIntegrationService.Shutdown();
 
-                ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game, bookmarks);
+                ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
                 ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session);
 
                 if (Settings.Instance.State.Recording != null)
@@ -296,7 +292,7 @@ namespace Segra.Backend.Utils
             }
         }
 
-        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 30000)
+        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 60000)
         {
             int elapsed = 0;
             const int step = 100;

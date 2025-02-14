@@ -20,12 +20,14 @@ export interface State {
 }
 
 export enum BookmarkType {
+	Manual = 'Manual',
 	Kill = 'Kill',
 	Assist = 'Assist',
 	Death = 'Death'
 }
 
 export enum BookmarkSubtype {
+	Manual = 'Manual',
 	Kill = 'Kill',
 	Headshot = 'Headshot',
 	Assist = 'Assist',
