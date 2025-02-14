@@ -11,7 +11,7 @@ import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun } from "react-icons/fa6";
-import { MdOutlineHandshake } from "react-icons/md";
+import { MdBookmark, MdOutlineHandshake } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
@@ -81,6 +81,7 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     // Icon mapping
     const iconMapping: Record<BookmarkType, IconType> = {
+        Manual: MdBookmark,
         Kill: FaGun,
         Assist: MdOutlineHandshake,
         Death: IoSkull
