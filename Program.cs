@@ -102,7 +102,7 @@ namespace Segra
                 // Initialize the PhotinoWindow
                 window = new PhotinoWindow()
                     .SetUseOsDefaultSize(false)
-                    .SetIconFile("icon.ico")
+                    .SetIconFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico"))
                     .SetSize(new Size(1280, 720))
                     .Center()
                     .SetResizable(true)
@@ -149,7 +149,7 @@ namespace Segra
         {
             notifyIcon = new NotifyIcon
             {
-                Icon = new Icon("icon.ico"),
+                Icon = new Icon(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico")),
                 Visible = true,
                 Text = "Segra"
             };
