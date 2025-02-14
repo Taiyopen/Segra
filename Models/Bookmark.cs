@@ -4,7 +4,8 @@ namespace Segra.Models
 {
     public class Bookmark
     {
-        public int Id { get; set; }
+        private static readonly Random random = new Random();
+        public int Id { get; set; } = random.Next(1, int.MaxValue);
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public BookmarkType Type { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]
