@@ -60,8 +60,11 @@ jobs:
           fi
 
           if ! command -v jq &> /dev/null; then
-            echo "jq not found, installing..."
-            sudo apt-get update && sudo apt-get install -y jq
+            echo "Installing jq for Windows..."
+            curl -L -o jq.exe https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe
+            mkdir -p $HOME/bin
+            mv jq.exe $HOME/bin
+            export PATH="$HOME/bin:$PATH"
           fi
 
           PROMPT="$GIT_LOG"
@@ -87,9 +90,6 @@ jobs:
             -d "$JSON_PAYLOAD")
 
           RELEASE_NOTES=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
-
-          echo "Release notes:"
-          echo "$RELEASE_NOTES"
 
           echo "release_notes<<EOF" >> $GITHUB_OUTPUT
           echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
