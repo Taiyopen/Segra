@@ -11,7 +11,7 @@ import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun } from "react-icons/fa6";
-import { MdAddBox, MdBookmark, MdBookmarkAdd, MdCleaningServices, MdMovieCreation, MdOutlineHandshake } from "react-icons/md";
+import { MdAddBox, MdBookmark, MdBookmarkAdd, MdCleaningServices, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10 } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
@@ -61,6 +61,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     const [duration, setDuration] = useState(0);
     const [zoom, setZoom] = useState(1);
     const [containerWidth, setContainerWidth] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(true);
 
     // Interaction state
     const [isDragging, setIsDragging] = useState(false);
@@ -103,21 +104,33 @@ export default function VideoComponent({ video }: { video: Content }) {
     useEffect(() => {
         const vid = videoRef.current;
         if (!vid) return;
+        
         const onLoadedMetadata = () => {
             setDuration(vid.duration);
             setZoom(1);
         };
+
+        const onPlay = () => setIsPlaying(true);
+        const onPause = () => setIsPlaying(false);
+        
         vid.addEventListener("loadedmetadata", onLoadedMetadata);
+        vid.addEventListener("play", onPlay);
+        vid.addEventListener("pause", onPause);
+        
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
-            if (e.code === "Space" && target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') { // Only prevent default if it's not an input or textarea (fix issue with modal)
+            if (e.code === "Space" && target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
                 e.preventDefault();
-                togglePlayPause();
+                handlePlayPause();
             }
         };
+        
         window.addEventListener("keydown", handleKeyDown);
+        
         return () => {
             vid.removeEventListener("loadedmetadata", onLoadedMetadata);
+            vid.removeEventListener("play", onPlay);
+            vid.removeEventListener("pause", onPause);
             window.removeEventListener("keydown", handleKeyDown);
         };
     }, []);
@@ -191,15 +204,27 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, [zoom, duration, containerWidth]);
 
+    // Video control functions
+    const handlePlayPause = () => {
+        if (videoRef.current) {
+            if (videoRef.current.paused) {
+                videoRef.current.play();
+            } else {
+                videoRef.current.pause();
+            }
+        }
+    };
+
+    const skipTime = (seconds: number) => {
+        if (videoRef.current) {
+            const newTime = videoRef.current.currentTime + seconds;
+            videoRef.current.currentTime = Math.max(0, Math.min(newTime, videoRef.current.duration));
+        }
+    };
+
     // Toggle video play/pause state
     const togglePlayPause = () => {
-        const vid = videoRef.current;
-        if (!vid) return;
-        if (vid.paused) {
-            vid.play();
-        } else {
-            vid.pause();
-        }
+        handlePlayPause();
     };
 
     // Handle clicks on the timeline to seek video
@@ -707,6 +732,29 @@ export default function VideoComponent({ video }: { video: Content }) {
                     {video.type === "Session" && (
                         <div className="flex items-center justify-between gap-4 py-1">
                             <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-0 bg-base-300 rounded-lg">
+                                    <button
+                                        onClick={() => skipTime(-10)}
+                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom"
+                                        data-tip="Rewind 10s"
+                                    >
+                                        <MdReplay10 className="w-6 h-6" />
+                                    </button>
+                                    <button
+                                        onClick={handlePlayPause}
+                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom"
+                                        data-tip={isPlaying ? "Pause" : "Play"}
+                                    >
+                                        {isPlaying ? <MdPause className="w-6 h-6" /> : <MdPlayArrow className="w-6 h-6" />}
+                                    </button>
+                                    <button
+                                        onClick={() => skipTime(10)}
+                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom"
+                                        data-tip="Forward 10s"
+                                    >
+                                        <MdForward10 className="w-6 h-6" />
+                                    </button>
+                                </div>
                                 <button
                                     className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Create Clip"
                                     disabled={state.isCreatingClip}
