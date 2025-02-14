@@ -11,7 +11,7 @@ import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun } from "react-icons/fa6";
-import { MdAddBox, MdBookmark, MdBookmarkAdd, MdCleaningServices, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10 } from "react-icons/md";
+import { MdAddBox, MdBookmark, MdBookmarkAdd, MdCleaningServices, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
@@ -611,7 +611,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                             className="bg-[#EFAF2B] w-[26px] h-[26px] rounded-full flex items-center justify-center mb-0"
                                         >
                                             {isCluster ? (
-                                                <span className="text-sm font-bold">{group.length}</span>
+                                                <MdBookmarks size={16} />
                                             ) : (
                                                 <>
                                                     <Icon size={16} />
@@ -720,11 +720,11 @@ export default function VideoComponent({ video }: { video: Content }) {
                     {video.type === "Clip" && (
                         <div className="mt-2">
                             <button
-                                className="btn btn-secondary"
+                                className="btn btn-sm btn-secondary h-12 px-8 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-top tooltip" data-tip="Upload"
                                 onClick={handleUpload}
                                 disabled={uploads[video.fileName + ".mp4"]?.status === 'uploading' || uploads[video.fileName + ".mp4"]?.status === 'processing'}
                             >
-                                Upload
+                                <MdOutlineFileUpload className="w-6 h-6" />
                             </button>
                         </div>
                     )}
