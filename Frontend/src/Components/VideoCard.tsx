@@ -101,7 +101,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
 
 	return (
 		<div
-			className="card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-primary border-opacity-75 cursor-pointer"
+			className="card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-neutral border-opacity-75 cursor-pointer"
 			onClick={() => onClick?.(content!)}
 		>
 			<figure className="relative aspect-ratio[16/9]">

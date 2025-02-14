@@ -55,8 +55,8 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
             src={getVideoPath()}
             autoPlay
             muted
+            loop
             className="w-full h-full object-contain bg-base-300 rounded-lg"
-            controls
           />
         </div>
         
@@ -98,7 +98,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
       </div>
       <div className="modal-action mt-6">
         <button 
-          className="btn btn-primary text-white font-semibold w-full"
+          className="btn btn-secondary w-full"
           onClick={handleUpload}
           disabled={session === null}
         >

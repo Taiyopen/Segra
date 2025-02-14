@@ -11,7 +11,7 @@ import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun } from "react-icons/fa6";
-import { MdBookmark, MdOutlineHandshake } from "react-icons/md";
+import { MdAddBox, MdBookmark, MdBookmarkAdd, MdMovieCreation, MdOutlineHandshake } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
@@ -651,7 +651,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 return (
                                     <div
                                         key={sel.id}
-                                        className={`absolute top-0 left-0 h-full shadow cursor-move ${hidden ? "hidden" : ""}  overflow-hidden ${isHovered && !isHoveredByTimeline ? "bg-accent" : "bg-primary"}`}
+                                        className={`absolute top-0 left-0 h-full shadow cursor-move ${hidden ? "hidden" : ""} transition-colors overflow-hidden ${isHovered && !isHoveredByTimeline ? "bg-accent" : "bg-gray-700"}`}
                                         style={{
                                             left: `${left}px`,
                                             width: `${width}px`,
@@ -695,7 +695,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     {video.type === "Clip" && (
                         <div className="mt-2">
                             <button
-                                className="btn btn-primary font-semibold text-white"
+                                className="btn btn-secondary"
                                 onClick={handleUpload}
                                 disabled={uploads[video.fileName + ".mp4"]?.status === 'uploading' || uploads[video.fileName + ".mp4"]?.status === 'processing'}
                             >
@@ -705,62 +705,64 @@ export default function VideoComponent({ video }: { video: Content }) {
                     )}
 
                     {video.type === "Session" && (
-                        <div className="flex items-center justify-between gap-4 px-4">
+                        <div className="flex items-center justify-between gap-4 py-1">
                             <div className="flex items-center gap-4">
                                 <button
-                                    className="btn btn-primary font-semibold text-white"
+                                    className="btn btn-secondary text-gray-400 hover:text-accent"
                                     disabled={state.isCreatingClip}
                                     onClick={handleCreateClip}
                                 >
-                                    Create Clip
+                                    <MdMovieCreation className="w-6 h-6" />
                                     {state.isCreatingClip && (
                                         <span className="loading loading-spinner loading-xs" />
                                     )}
                                 </button>
-                                <button className="btn btn-secondary" onClick={handleAddSelection}>
-                                    Add Selection
+                                <button className="btn btn-secondary text-gray-400 hover:text-accent" onClick={handleAddSelection}>
+                                    <MdAddBox className="w-6 h-6" />
                                 </button>
                             </div>
 
                             <div className="flex items-center gap-4">
-                                <button
-                                    onClick={handleAddBookmark}
-                                    className="btn btn-sm btn-primary font-semibold text-white"
-                                >
-                                    Add Bookmark
-                                </button>
-                                <div className="flex items-center gap-2 bg-base-300 px-2 rounded-lg">
+                                <div className="flex items-center gap-2 bg-base-300 rounded-lg">
+                                    <button
+                                        onClick={handleAddBookmark}
+                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
+                                    >
+                                        <MdBookmarkAdd className="w-6 h-6" />
+                                    </button>
+                                </div>
+                                <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10">
                                     {availableBookmarkTypes.map(type => (
                                         <button
                                             key={type}
                                             onClick={() => toggleBookmarkType(type)}
-                                            className={`p-2 rounded-full transition-colors ${
+                                            className={`btn btn-sm btn-secondary border-none h-10 transition-colors ${
                                                 selectedBookmarkTypes.has(type) 
                                                     ? 'text-accent' 
                                                     : 'text-gray-400'
                                             }`}
                                         >
                                             {React.createElement(iconMapping[type] || IoSkull, {
-                                                className: "w-5 h-5"
+                                                className: "w-6 h-6"
                                             })}
                                         </button>
                                     ))}
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 bg-base-300 px-0 rounded-lg h-10">
                                     <button
                                         onClick={() => handleZoomChange(false)}
-                                        className="btn btn-sm btn-ghost"
+                                        className="btn btn-sm btn-secondary h-10 disabled:opacity-100"
                                         disabled={zoom <= 1}
                                     >
                                         <IoRemove className="w-4 h-4" />
                                     </button>
-                                    <span className="text-sm font-medium w-12 text-center">
+                                    <span className="text-sm font-medium w-12 text-center text-gray-300">
                                         {Math.round(zoom * 100 / 5) * 5}%
                                     </span>
                                     <button
                                         onClick={() => handleZoomChange(true)}
-                                        className="btn btn-sm btn-ghost"
+                                        className="btn btn-sm btn-secondary h-10"
                                         disabled={zoom >= 10}
                                     >
                                         <IoAdd className="w-4 h-4" />
@@ -788,7 +790,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                         </div>
                         <div className="bottom-0 border-base-200 bg-base-300 pt-2 pb-2 px-4 me-3">
                             <button
-                                className="btn btn-primary text-white w-full shadow-lg"
+                                className="btn btn-neutral w-full shadow-lg"
                                 onClick={clearAllSelections}
                                 disabled={selections.length === 0}
                             >

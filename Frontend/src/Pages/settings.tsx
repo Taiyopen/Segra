@@ -112,7 +112,7 @@ export default function Settings() {
 				<button
 					onClick={handleDiscordLogin}
 					disabled={authInProgress}
-					className={`btn btn-primary w-full gap-2 font-semibold text-white ${authInProgress ? 'loading' : ''}`}
+					className={`btn btn-neutral w-full gap-2 font-semibold text-white ${authInProgress ? 'loading' : ''}`}
 				>
 					<FaDiscord className="w-5 h-5" />
 					{authInProgress ? 'Connecting...' : 'Continue with Discord'}
@@ -152,7 +152,7 @@ export default function Settings() {
 					<button
 						type="submit"
 						disabled={authInProgress}
-						className={`btn btn-primary w-full font-semibold text-white ${authInProgress ? 'loading' : ''}`}
+						className={`btn btn-neutral w-full font-semibold text-white ${authInProgress ? 'loading' : ''}`}
 					>
 						Sign in with Email
 					</button>
@@ -430,7 +430,7 @@ export default function Settings() {
 								placeholder="Enter or select folder path"
 								className="input input-bordered flex-1"
 							/>
-							<button onClick={handleBrowseClick} className="btn btn-primary font-semibold text-white">
+							<button onClick={handleBrowseClick} className="btn btn-neutral font-semibold">
 								Browse
 							</button>
 						</div>

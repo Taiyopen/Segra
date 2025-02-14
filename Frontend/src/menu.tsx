@@ -97,14 +97,14 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 			<div className="mb-4 px-4">
 				<div className="flex flex-col items-center space-y-2">
 					<button
-						className="btn btn-primary w-full font-semibold text-white"
+						className="btn btn-neutral w-full"
 						disabled={state.recording != null}
 						onClick={() => sendMessageToBackend('StartRecording')}
 					>
 						Start
 					</button>
 					<button
-						className="btn btn-secondary w-full"
+						className="btn btn-neutral w-full"
 						disabled={!state.recording}
 						onClick={() => sendMessageToBackend('StopRecording')}
 					>
