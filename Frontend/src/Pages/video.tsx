@@ -11,7 +11,7 @@ import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun } from "react-icons/fa6";
-import { MdAddBox, MdBookmark, MdBookmarkAdd, MdMovieCreation, MdOutlineHandshake } from "react-icons/md";
+import { MdAddBox, MdBookmark, MdBookmarkAdd, MdCleaningServices, MdMovieCreation, MdOutlineHandshake } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
@@ -706,9 +706,9 @@ export default function VideoComponent({ video }: { video: Content }) {
 
                     {video.type === "Session" && (
                         <div className="flex items-center justify-between gap-4 py-1">
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 <button
-                                    className="btn btn-secondary text-gray-400 hover:text-accent"
+                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
                                     disabled={state.isCreatingClip}
                                     onClick={handleCreateClip}
                                 >
@@ -717,12 +717,12 @@ export default function VideoComponent({ video }: { video: Content }) {
                                         <span className="loading loading-spinner loading-xs" />
                                     )}
                                 </button>
-                                <button className="btn btn-secondary text-gray-400 hover:text-accent" onClick={handleAddSelection}>
+                                <button className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent" onClick={handleAddSelection}>
                                     <MdAddBox className="w-6 h-6" />
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-2 bg-base-300 rounded-lg">
                                     <button
                                         onClick={handleAddBookmark}
@@ -788,13 +788,13 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 />
                             ))}
                         </div>
-                        <div className="bottom-0 border-base-200 bg-base-300 pt-2 pb-2 px-4 me-3">
+                        <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 my-2 mr-3">
                             <button
-                                className="btn btn-neutral w-full shadow-lg"
+                                className="btn btn-sm btn-neutral h-10 text-gray-400 hover:text-accent w-full py-0"
                                 onClick={clearAllSelections}
                                 disabled={selections.length === 0}
                             >
-                                Remove All
+                                <MdCleaningServices className="w-6 h-6" />
                             </button>
                         </div>
                     </div>

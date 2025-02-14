@@ -41,7 +41,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({
     return (
         <div
             ref={dragDropRef}
-            className={`mb-2 cursor-move w-full relative rounded-xl ${isHovered ? "outline outline-1 outline-accent" : ""}`}
+            className={`mb-2 cursor-move w-full relative rounded-xl transition-all duration-200 outline outline-2 ${isHovered ? "outline-accent" : "outline-base-300"}`}
             style={{ opacity: isDragging ? 0.3 : 1 }}
             onMouseEnter={() => setHoveredSelectionId(selection.id)}
             onMouseLeave={() => setHoveredSelectionId(null)}
@@ -52,7 +52,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({
         >
             {isLoading ? (
                 <div className="flex items-center justify-center bg-base-100 bg-opacity-75 rounded-xl w-full aspect-[16/9]">
-                    <span className="loading loading-spinner loading-md text-white" />
+                    <span className="loading loading-spinner loading-md text-accent" />
                     <div className="absolute bottom-2 right-2 bg-base-100 bg-opacity-75 text-white text-xs px-2 py-1 rounded">
                         {formatTime(startTime)} - {formatTime(endTime)}
                     </div>
