@@ -32,7 +32,7 @@ export default function Highlights() {
         <div className="flex flex-col items-center justify-center py-16 text-base-content/70">
           <HiOutlineSparkles className="w-16 h-16 mb-4" />
           <p className="text-lg font-medium">No highlights available</p>
-          <p className="mt-1">Upload your best gaming moments to see them here</p>
+          <p className="mt-1">Your AI generated highlights will appear here</p>
         </div>
       )}
     </div>
