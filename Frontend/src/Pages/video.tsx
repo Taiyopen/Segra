@@ -708,7 +708,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                         <div className="flex items-center justify-between gap-4 py-1">
                             <div className="flex items-center gap-3">
                                 <button
-                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
+                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Create Clip"
                                     disabled={state.isCreatingClip}
                                     onClick={handleCreateClip}
                                 >
@@ -717,7 +717,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                         <span className="loading loading-spinner loading-xs" />
                                     )}
                                 </button>
-                                <button className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent" onClick={handleAddSelection}>
+                                <button className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Add Segment" onClick={handleAddSelection}>
                                     <MdAddBox className="w-6 h-6" />
                                 </button>
                             </div>
@@ -726,7 +726,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 <div className="flex items-center gap-2 bg-base-300 rounded-lg">
                                     <button
                                         onClick={handleAddBookmark}
-                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
+                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Add Bookmark"
                                     >
                                         <MdBookmarkAdd className="w-6 h-6" />
                                     </button>
@@ -788,7 +788,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 />
                             ))}
                         </div>
-                        <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 my-2 mr-3">
+                        <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 my-2 mr-3 tooltip" data-tip="Remove All">
                             <button
                                 className="btn btn-sm btn-neutral h-10 text-gray-400 hover:text-accent w-full py-0"
                                 onClick={clearAllSelections}
