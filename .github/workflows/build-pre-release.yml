@@ -55,64 +55,73 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          # Debug: Show current PATH
-          echo "PATH: $PATH"
+          # --- Debug: Show jq info ---
+          echo "ℹ️ Using jq from path: $(which jq)"
+          echo "ℹ️ jq version: $(jq --version)"
         
-          # Debug: Verify jq installation
-          echo "Checking jq:"
-          which jq || echo "jq not found"
-          jq --version || echo "jq version check failed"
-        
-          # Debug: Show raw git log
-          echo "Raw GIT_LOG:"
+          # --- Debug: Show raw input ---
+          echo "📜 Raw GIT_LOG:"
           echo "$GIT_LOG"
+          echo ""
         
-          # Install jq with explicit path handling
-          if ! command -v jq &> /dev/null; then
-            echo "Installing jq to explicit path..."
-            curl -L -o jq.exe https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe
-            mkdir -p "$HOME/bin"
-            mv jq.exe "$HOME/bin/jq.exe"
-            chmod +x "$HOME/bin/jq.exe"
-            export PATH="$HOME/bin:$PATH"
-          fi
+          # Use pre-installed Chocolatey jq
+          export PATH="/c/ProgramData/Chocolatey/bin:$PATH"
         
-          # Create JSON payload with raw output
-          JSON_PAYLOAD=$(jq.exe -n --arg model "gpt-4o" \
-            --arg prompt "$GIT_LOG" \
+          # Define system prompt
+          SYSTEM_PROMPT="You are a helpful assistant who creates user-friendly release notes..."
+          # (Keep your full original prompt here)
+        
+          # --- Debug: Show escaped content ---
+          echo "🔧 Escaping content..."
+          ESCAPED_SYSTEM=$(jq -Rs . <<< "$SYSTEM_PROMPT")
+          ESCAPED_LOG=$(jq -Rs . <<< "$GIT_LOG")
+        
+          echo "🔒 Escaped System Prompt:"
+          echo "$ESCAPED_SYSTEM"
+          echo ""
+          echo "🔒 Escaped Git Log:"
+          echo "$ESCAPED_LOG"
+          echo ""
+        
+          # Build JSON payload
+          JSON_PAYLOAD=$(jq -n \
+            --arg model "gpt-4o" \
+            --argjson system "$ESCAPED_SYSTEM" \
+            --argjson log "$ESCAPED_LOG" \
             '{
               "model": $model,
               "messages": [
-                {
-                  "role": "system", 
-                  "content": "You are a helpful assistant who creates user-friendly release notes for open-source applications such as games and clip recorders. Your task is to transform raw update logs into concise and easy-to-understand release notes. Use a casual, direct tone and avoid overly technical language and details that are not important for the end user. Please merge changes if you think they are the same method/function that changed. For example:\n\n🎧 Multi-Audio Track Support\nBig win: The clip preview modal now supports multi-audio tracks. Got voice chat, game sounds, or the chaos of both? We’ve got you covered. 🎵\n🎮 Roblox Gets a Boost\nAdded Roblox game pages for Roblox experiences—because every game deserves its own spotlight.\n🎮 Profile Filtering is Back\nGame filtering on profile pages has returned! It was removed during our redesign, but we missed it too.\n🏠 Home Sweet Home (Grid Fixes)\nWhen previewing videos on the homepage grid, clicking a video now continues where the preview left off. No more starting from scratch!\n🌎 Time to Translate!\nFixed an issue where dates and times were stuck in English no matter what language you used. Now they’re speaking your language too!\n\nAvoid wrapping the final release notes in a Markdown code block. Non techy!"
-                },
-                {
-                  "role": "user",
-                  "content": $prompt
-                }
+                {"role": "system", "content": $system},
+                {"role": "user", "content": $log}
               ]
             }')
         
-          echo "Generated JSON payload:"
+          # --- Debug: Show final payload ---
+          echo "📦 JSON Payload:"
           echo "$JSON_PAYLOAD"
+          echo ""
         
-          # Make API call with verbose output
-          echo "Making API call..."
-          RESPONSE=$(curl -v -X POST "https://api.openai.com/v1/chat/completions" \
+          # Make API call
+          echo "📡 Making API request to OpenAI..."
+          RESPONSE=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $OPENAI_API_KEY" \
             -d "$JSON_PAYLOAD")
         
-          echo "Raw API response:"
+          # --- Debug: Show raw response ---
+          echo "📨 Raw API Response:"
           echo "$RESPONSE"
+          echo ""
         
-          # Parse response with full path to jq
-          RELEASE_NOTES=$(echo "$RESPONSE" | "$HOME/bin/jq.exe" -r '.choices[0].message.content')
+          # Extract release notes
+          RELEASE_NOTES=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
         
-          echo "Processed release notes:"
+          # --- Debug: Show final output ---
+          echo "🎉 Generated Release Notes:"
           echo "$RELEASE_NOTES"
+          echo ""
         
+          # Set output
           echo "release_notes<<EOF" >> $GITHUB_OUTPUT
           echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
