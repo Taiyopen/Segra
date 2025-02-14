@@ -9,7 +9,7 @@ namespace Segra.Models
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public BookmarkType Type { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        public BookmarkSubtype Subtype { get; set; }
+        public BookmarkSubtype? Subtype { get; set; }
         public TimeSpan Time { get; set; }
     }
 
@@ -25,10 +25,6 @@ namespace Segra.Models
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum BookmarkSubtype
     {
-        Manual,
-        Kill,
-        Headshot,
-        Assist,
-        Death
+        Headshot
     }
 }

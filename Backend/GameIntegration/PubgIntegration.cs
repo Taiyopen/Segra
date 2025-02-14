@@ -108,7 +108,6 @@ namespace RePlays.Integrations
                     var bookmark = new Bookmark
                     {
                         Type = BookmarkType.Kill,
-                        Subtype = BookmarkSubtype.Kill,
                         Time = downTime - Settings.Instance.State.Recording.StartTime
                     };
                     Settings.Instance.State.Recording.Bookmarks.Add(bookmark);
@@ -140,7 +139,6 @@ namespace RePlays.Integrations
                         var bookmark = new Bookmark
                         {
                             Type = BookmarkType.Kill,
-                            Subtype = BookmarkSubtype.Kill,
                             Time = killTime - Settings.Instance.State.Recording.StartTime
                         };
                         Settings.Instance.State.Recording.Bookmarks.Add(bookmark);
@@ -168,7 +166,6 @@ namespace RePlays.Integrations
                     var bookmark = new Bookmark
                     {
                         Type = BookmarkType.Death,
-                        Subtype = BookmarkSubtype.Death,
                         Time = deathTime - Settings.Instance.State.Recording.StartTime
                     };
                     Settings.Instance.State.Recording.Bookmarks.Add(bookmark);

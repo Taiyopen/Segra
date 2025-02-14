@@ -27,11 +27,7 @@ export enum BookmarkType {
 }
 
 export enum BookmarkSubtype {
-	Manual = 'Manual',
-	Kill = 'Kill',
-	Headshot = 'Headshot',
-	Assist = 'Assist',
-	Death = 'Death'
+	Headshot = 'Headshot'
 }
 
 export interface Bookmark {

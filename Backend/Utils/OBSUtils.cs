@@ -241,6 +241,7 @@ namespace Segra.Backend.Utils
             Log.Information("Recording started: " + filePath);
             PlayStartSound();
             GameIntegrationService.Start(name);
+            Task.Run(KeybindCaptureService.Start);
             return true;
         }
 
@@ -274,6 +275,7 @@ namespace Segra.Backend.Utils
                 Log.Information("Recording stopped.");
 
                 GameIntegrationService.Shutdown();
+                KeybindCaptureService.Stop();
 
                 ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
                 ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session);
