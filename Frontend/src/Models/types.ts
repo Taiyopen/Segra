@@ -35,6 +35,7 @@ export enum BookmarkSubtype {
 }
 
 export interface Bookmark {
+	id: number;
 	type: BookmarkType;
 	subtype: BookmarkSubtype;
 	time: string;

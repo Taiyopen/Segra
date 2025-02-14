@@ -79,6 +79,20 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				{recording && recording.endTime == null && <RecordingCard recording={recording} />}
 			</div>
 
+			{/* OBS Loading Section */}
+			{!hasLoadedObs && (
+				<div className="mb-4 flex flex-col items-center">
+					<div
+						style={{
+							width: '3.5rem',
+							height: '2rem',
+						}}
+						className="loading loading-infinity"
+					></div>
+					<p className="text-center mt-2 disabled">Starting OBS</p>
+				</div>
+			)}
+
 			{/* Start and Stop Buttons */}
 			<div className="mb-4 px-4">
 				<div className="flex flex-col items-center space-y-2">
@@ -98,20 +112,6 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 					</button>
 				</div>
 			</div>
-
-			{/* OBS Loading Section */}
-			{!hasLoadedObs && (
-				<div className="mb-4 flex flex-col items-center">
-					<div
-						style={{
-							width: '3.5rem',
-							height: '2rem',
-						}}
-						className="loading loading-infinity"
-					></div>
-					<p className="text-center mt-2 disabled">Starting OBS</p>
-				</div>
-			)}
 		</div>
 	);
 }

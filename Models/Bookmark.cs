@@ -4,6 +4,7 @@ namespace Segra.Models
 {
     public class Bookmark
     {
+        public int Id { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public BookmarkType Type { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]
