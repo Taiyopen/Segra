@@ -106,6 +106,7 @@ namespace Segra
 
                 // Initialize the PhotinoWindow
                 window = new PhotinoWindow()
+                    .SetNotificationsEnabled(false) // Disabled due to it creating a second start menu entry with incorrect start path. See https://github.com/tryphotino/photino.NET/issues/85
                     .SetUseOsDefaultSize(false)
                     .SetIconFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico"))
                     .SetSize(new Size(1280, 720))
@@ -135,7 +136,6 @@ namespace Segra
 
                 // intentional space after name because of https://github.com/tryphotino/photino.NET/issues/106
                 window.SetTitle("Segra ");
-
                 window.WaitForClose();
                 GameDetectionService.ForegroundHook.Stop();
             }
