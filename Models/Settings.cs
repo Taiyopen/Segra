@@ -281,7 +281,6 @@ namespace Segra.Models
     {
         private Recording _recording = null;
         private bool _hasLoadedObs = false;
-        private bool _isCreatingClip = false;
         private List<Content> _content = new List<Content>();
 
         private List<AudioDevice> _inputDevices = new List<AudioDevice>();
@@ -315,18 +314,6 @@ namespace Segra.Models
                 SendToFrontend();
             }
         }
-
-        [JsonPropertyName("isCreatingClip")]
-        public bool IsCreatingClip
-        {
-            get => _isCreatingClip;
-            set
-            {
-                _isCreatingClip = value;
-                SendToFrontend();
-            }
-        }
-
 
         [JsonPropertyName("hasLoadedObs")]
         public bool HasLoadedObs

@@ -13,7 +13,6 @@ export interface Content {
 export interface State {
 	recording?: Recording;
 	hasLoadedObs: boolean;
-	isCreatingClip: boolean;
 	content: Content[];
 	inputDevices: AudioDevice[];
 	outputDevices: AudioDevice[];
@@ -63,7 +62,6 @@ export interface Settings {
 export const initialState: State = {
 	recording: undefined,
 	hasLoadedObs: true,
-	isCreatingClip: false,
 	content: [],
 	inputDevices: [],
 	outputDevices: [],

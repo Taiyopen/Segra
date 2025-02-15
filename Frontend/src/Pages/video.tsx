@@ -757,13 +757,10 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 </div>
                                 <button
                                     className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Create Clip"
-                                    disabled={state.isCreatingClip}
+                                    disabled={selections.length === 0}
                                     onClick={handleCreateClip}
                                 >
                                     <MdMovieCreation className="w-6 h-6" />
-                                    {state.isCreatingClip && (
-                                        <span className="loading loading-spinner loading-xs" />
-                                    )}
                                 </button>
                                 <button className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Add Segment" onClick={handleAddSelection}>
                                     <MdAddBox className="w-6 h-6" />

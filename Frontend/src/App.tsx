@@ -15,6 +15,7 @@ import {DndProvider} from 'react-dnd';
 import {SelectionsProvider} from './Context/SelectionsContext';
 import {UploadProvider} from './Context/UploadContext';
 import {WebSocketProvider} from './Context/WebSocketContext';
+import {ClippingProvider} from './Context/ClippingContext';
 
 function App() {
 	useEffect(() => {
@@ -74,7 +75,9 @@ export default function AppWrapper() {
           <SelectionsProvider>
             <DndProvider backend={HTML5Backend}>
               <UploadProvider>
-                <App />
+                <ClippingProvider>
+                  <App />
+                </ClippingProvider>
               </UploadProvider>
             </DndProvider>
           </SelectionsProvider>

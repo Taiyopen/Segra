@@ -2,7 +2,9 @@ import {useSettings} from './Context/SettingsContext';
 import RecordingCard from './Components/RecordingCard';
 import {sendMessageToBackend} from './Utils/MessageUtils';
 import {useUploads} from './Context/UploadContext';
+import {useClipping} from './Context/ClippingContext';
 import UploadCard from './Components/UploadCard';
+import ClippingCard from './Components/ClippingCard';
 import {MdOutlineContentCut, MdOutlinePlayCircleOutline, MdOutlineSettings, MdReplay30} from 'react-icons/md';
 import {HiOutlineSparkles} from 'react-icons/hi';
 
@@ -77,6 +79,9 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 					<UploadCard key={fileName} fileName={fileName} />
 				))}
 				{recording && recording.endTime == null && <RecordingCard recording={recording} />}
+				{Object.values(useClipping().clippingProgress).map((clipping) => (
+					<ClippingCard key={clipping.id} clipping={clipping} />
+				))}
 			</div>
 
 			{/* OBS Loading Section */}
