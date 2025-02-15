@@ -204,12 +204,12 @@ jobs:
 
       - name: Install Frontend Dependencies
         working-directory: ./Frontend
-        run: bun install
+        run: npm install
         shell: pwsh
 
       - name: Build Frontend
         working-directory: ./Frontend
-        run: bun run build
+        run: npm run build
         shell: pwsh
 
       - name: Move Frontend Build to Resources/wwwroot
