@@ -43,6 +43,22 @@ jobs:
           echo "$GIT_LOG" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@v3
+        with:
+          path: ./Frontend/node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('Frontend/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Cache .NET packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Display Git Log
         shell: bash
         run: |
