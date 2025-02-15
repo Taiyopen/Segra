@@ -179,6 +179,10 @@ jobs:
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
         shell: pwsh
 
+      - name: Update Frontend Version
+        working-directory: ./Frontend
+        run: npm version "${{ env.new_version }}" --no-git-tag-version
+
       - name: Install Frontend Dependencies
         working-directory: ./Frontend
         run: npm install
