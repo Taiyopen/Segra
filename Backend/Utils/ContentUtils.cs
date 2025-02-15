@@ -279,8 +279,17 @@ namespace Segra.Backend.Utils
             try
             {
                 var fileInfo = new FileInfo(filePath);
-                double fileSizeInMb = fileInfo.Length / (1024.0 * 1024.0); // Convert bytes to MB
-                return $"{fileSizeInMb:F2} MB";
+                double fileSizeInMb = fileInfo.Length / (1024.0 * 1024.0);
+
+                if (fileSizeInMb > 1000)
+                {
+                    double fileSizeInGb = fileSizeInMb / 1024.0;
+                    return $"{fileSizeInGb:F2} GB";
+                }
+                else
+                {
+                    return $"{fileSizeInMb:F2} MB";
+                }
             }
             catch (Exception ex)
             {
