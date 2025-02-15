@@ -33,11 +33,16 @@ namespace Segra
                 .MinimumLevel.Debug()
                 .WriteTo.Console()
                 .WriteTo.Debug()
-                .WriteTo.File(LogFilePath, rollingInterval: RollingInterval.Day)
+                .WriteTo.File(
+                    path: LogFilePath,
+                    fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB per file
+                    rollOnFileSizeLimit: true,            // Roll to a new file when size is reached
+                    retainedFileCountLimit: 1             // Keep only the latest log file
+                )
                 .CreateLogger();
 
             VelopackApp.Build().Run();
-            
+
             Task.Run(() =>
             {
                 UpdateUtils.UpdateAppIfNecessary();
