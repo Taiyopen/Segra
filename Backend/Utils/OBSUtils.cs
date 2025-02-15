@@ -223,6 +223,14 @@ namespace Segra.Backend.Utils
 
             signal_handler_connect(obs_output_get_signal_handler(output), "stop", outputStopCallback, IntPtr.Zero);
 
+            Settings.Instance.State.Recording = new Recording()
+            {
+                StartTime = DateTime.Now.AddSeconds(2),
+                FilePath = videoOutputPath,
+                Game = name
+            };
+            MessageUtils.SendSettingsToFrontend();
+            PlayStartSound();
             if (!obs_output_start(output))
             {
                 Log.Error("Failed to start recording.");
@@ -239,7 +247,6 @@ namespace Segra.Backend.Utils
             MessageUtils.SendSettingsToFrontend();
 
             Log.Information("Recording started: " + filePath);
-            PlayStartSound();
             GameIntegrationService.Start(name);
             Task.Run(KeybindCaptureService.Start);
             return true;
