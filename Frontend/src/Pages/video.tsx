@@ -37,7 +37,7 @@ const fetchThumbnailAtTime = async (videoPath: string, timeInSeconds: number): P
 
 export default function VideoComponent({ video }: { video: Content }) {
     // Context hooks
-    const { state, contentFolder } = useSettings();
+    const { contentFolder } = useSettings();
     const { session } = useAuth();
     const { uploads } = useUploads();
     const { openModal, closeModal } = useModal();
