@@ -1,4 +1,5 @@
 ﻿using Segra.Backend.Utils;
+using Segra.Models;
 using Serilog;
 using System.Diagnostics;
 using System.Management;
@@ -59,11 +60,6 @@ namespace Segra.Backend.Services
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
-        private const uint EVENT_SYSTEM_FOREGROUND = 3;
-        private const uint WINEVENT_OUTOFCONTEXT = 0;
-        private static WinEventDelegate foregroundCallback;
-        private static IntPtr foregroundHookHandle;
-
         public static void StartAsync()
         {
             if (_running)
@@ -110,9 +106,7 @@ namespace Segra.Backend.Services
             processStopWatcher.EventArrived += OnProcessStopped;
             processStopWatcher.Start();
 
-            foregroundCallback = OnForegroundChanged;
-            foregroundHookHandle = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, foregroundCallback, 0, 0, WINEVENT_OUTOFCONTEXT);
-            Log.Information("WMI watchers & foreground window hook are now active.");
+            Log.Information("WMI watchers are now active.");
         }
 
         private static void Stop()
@@ -125,12 +119,6 @@ namespace Segra.Backend.Services
                 processStopWatcher?.Dispose();
             }
             catch { }
-
-            if (foregroundHookHandle != IntPtr.Zero)
-            {
-                UnhookWinEvent(foregroundHookHandle);
-                foregroundHookHandle = IntPtr.Zero;
-            }
 
             Log.Information("Process monitoring stopped.");
         }
@@ -148,14 +136,7 @@ namespace Segra.Backend.Services
                 Log.Information($"[OnProcessStarted] Application started: PID {pid}, Path: {exePath}");
                 if (IsGameExecutable(exePath))
                 {
-                    Log.Information($"[OnProcessStarted] Application is a game: PID {pid}, Path: {exePath}");
-                    OBSUtils.StartRecording(ExtractGameName(exePath));
-
-                    var proc = Process.GetProcessById(pid);
-                    if (!proc.HasExited)
-                    {
-                        OBSUtils.CurrentTrackedFileName = Path.GetFileName(exePath);
-                    }
+                    StartGameRecording(pid, exePath);
                 }
             }
             catch (Exception ex)
@@ -190,10 +171,34 @@ namespace Segra.Backend.Services
             }
         }
 
-        private static void OnForegroundChanged(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+        private static void StartGameRecording(int pid, string exePath)
         {
-            Log.Information($"Foreground window changed. New hwnd: 0x{hwnd.ToInt64():X}");
+            if (Settings.Instance.State.Recording != null || OBSUtils.CurrentTrackedFileName != null)
+            {
+                Log.Information("[StartGameRecording] Recording already in progress. Skipping...");
+                return;
+            }
+
+            Log.Information($"[StartGameRecording] Starting recording for game: PID {pid}, Path: {exePath}");
+
+            try
+            {
+                var proc = Process.GetProcessById(pid);
+                if (!proc.HasExited)
+                {
+                    OBSUtils.CurrentTrackedFileName = Path.GetFileName(exePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[StartGameRecording] Error accessing process {pid}: {ex.Message}");
+            }
+
+            OBSUtils.StartRecording(ExtractGameName(exePath));
         }
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
         private static void InitializeDriveMappings()
         {
@@ -432,7 +437,36 @@ namespace Segra.Backend.Services
             {
                 if (eventType == EVENT_SYSTEM_FOREGROUND)
                 {
-                    Log.Information($"Foreground window changed. HWND: {hwnd}");
+                    Log.Information($"Foreground window changed. New hwnd: 0x{hwnd.ToInt64():X}");
+
+                    if (Settings.Instance.State.Recording != null) return;
+
+                    uint pid = 0;
+                    GetWindowThreadProcessId(hwnd, out pid);
+
+                    if (pid > 0)
+                    {
+                        try
+                        {
+                            string exePath = ResolveProcessPath((int)pid);
+                            if (IsGameExecutable(exePath))
+                            {
+                                StartGameRecording((int)pid, exePath);
+                            }
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            Log.Error(ex, $"Process with PID {pid} no longer exists.");
+                        }
+                        catch (InvalidOperationException ex)
+                        {
+                            Log.Error(ex, $"Failed to access process with PID {pid}.");
+                        }
+                    }
+                    else
+                    {
+                        Log.Warning("No valid process associated with the window handle.");
+                    }
                 }
             }
         }
