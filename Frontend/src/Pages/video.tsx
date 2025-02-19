@@ -62,6 +62,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     const [zoom, setZoom] = useState(1);
     const [containerWidth, setContainerWidth] = useState(0);
     const [isPlaying, setIsPlaying] = useState(true);
+    const [showNoSegmentsIndicator, setShowNoSegmentsIndicator] = useState(false);
 
     // Interaction state
     const [isDragging, setIsDragging] = useState(false);
@@ -185,8 +186,8 @@ export default function VideoComponent({ video }: { video: Content }) {
         const handleWheel = (e: WheelEvent) => {
             e.preventDefault();
             if (duration === 0) return;
-            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-            const newZoom = Math.min(Math.max(zoom * zoomFactor, 1), 10);
+            const zoomFactor = e.deltaY < 0 ? 1.2 : 0.8;
+            const newZoom = Math.min(Math.max(zoom * zoomFactor, 1), 50);
             const rect = container.getBoundingClientRect();
             const cursorX = e.clientX - rect.left + container.scrollLeft;
             const basePixelsPerSecond = duration > 0 ? containerWidth / duration : 0;
@@ -324,6 +325,12 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     // Create a clip from current selections
     const handleCreateClip = () => {
+        if (selections.length === 0) {
+            setShowNoSegmentsIndicator(true);
+            setTimeout(() => setShowNoSegmentsIndicator(false), 2000);
+            return;
+        }
+
         const params = {
             Selections: selections.map((s) => ({
                 type: s.type,
@@ -553,8 +560,8 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     const handleZoomChange = (increment: boolean) => {
         setZoom(prev => {
-            const newZoom = increment ? prev * 1.1 : prev * 0.9;
-            return Math.min(Math.max(newZoom, 1), 10);
+            const newZoom = increment ? prev * 1.5 : prev * 0.5;
+            return Math.min(Math.max(newZoom, 1), 50);
         });
     };
 
@@ -756,15 +763,17 @@ export default function VideoComponent({ video }: { video: Content }) {
                                     </button>
                                 </div>
                                 <button
-                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Create Clip"
-                                    disabled={selections.length === 0}
+                                    className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom`} data-tip="Create Clip"
                                     onClick={handleCreateClip}
                                 >
                                     <MdMovieCreation className="w-6 h-6" />
                                 </button>
-                                <button className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Add Segment" onClick={handleAddSelection}>
-                                    <MdAddBox className="w-6 h-6" />
-                                </button>
+                                <div className="indicator">
+                                    <button className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom`} data-tip="Add Segment" onClick={handleAddSelection}>
+                                        {showNoSegmentsIndicator && <span className="indicator-item badge badge-sm badge-primary animate-pulse"></span>}
+                                        <MdAddBox className="w-6 h-6" />
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex items-center gap-3">
@@ -808,7 +817,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                     <button
                                         onClick={() => handleZoomChange(true)}
                                         className="btn btn-sm btn-secondary h-10"
-                                        disabled={zoom >= 10}
+                                        disabled={zoom >= 50}
                                     >
                                         <IoAdd className="w-4 h-4" />
                                     </button>
