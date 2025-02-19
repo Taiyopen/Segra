@@ -101,7 +101,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
 
 	return (
 		<div
-			className="card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-neutral border-opacity-75 cursor-pointer"
+			className="card card-compact bg-base-300 text-gray-300 w-full cursor-pointer border border-[#49515b]"
 			onClick={() => onClick?.(content!)}
 		>
 			<figure className="relative aspect-ratio[16/9]">
@@ -146,7 +146,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
 						)}
 						<li>
 							<a
-								className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-base-200/10 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
+								className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
 								onClick={() => {
 									// I don't know why it doesn't hide by itself?
 									(document.activeElement as HTMLElement).blur();
