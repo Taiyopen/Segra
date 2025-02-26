@@ -7,7 +7,7 @@ import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth';
 import {useProfile} from '../Hooks/userProfile';
-import {MdOutlineLogout} from 'react-icons/md';
+import {MdOutlineLogout, MdWarning} from 'react-icons/md';
 
 export default function Settings() {
 	const {session} = useAuth();
@@ -516,6 +516,35 @@ export default function Settings() {
 								))}
 							</select>
 						</div>
+					</div>
+				</div>
+			</div>
+
+			{/* Advanced Settings */}
+			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+				<h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
+				<div className="bg-base-200 p-4 rounded-lg">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<span className="font-medium">Enable Display Recording</span>
+							<div className="badge badge-warning badge-sm">Alpha</div>
+						</div>
+						<input
+							type="checkbox"
+							name="enableDisplayRecording"
+							checked={settings.enableDisplayRecording}
+							onChange={(e) => updateSettings({ enableDisplayRecording: e.target.checked })}
+							className="toggle toggle-warning"
+						/>
+					</div>
+					
+					<div className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 py-2 text-amber-400 text-sm flex items-center">
+						<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
+						<span>
+							This feature enables recording of games that do not support game hook. 
+							<strong className="text-amber-300"> WARNING: This WILL cause lag</strong> during gameplay as it uses display capture instead of game capture.
+							For more details, see <a href="https://github.com/Segergren/Segra/issues/1" target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 underline">GitHub Issue #1</a>.
+						</span>
 					</div>
 				</div>
 			</div>

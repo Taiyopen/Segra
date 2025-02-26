@@ -29,6 +29,7 @@ namespace Segra.Models
         private int _storageLimit = 100;
         private string _inputDevice = string.Empty;
         private string _outputDevice = string.Empty;
+        private bool _enableDisplayRecording = false;
         private State _state = new State();
 
         public Settings()
@@ -211,6 +212,17 @@ namespace Segra.Models
             set
             {
                 _outputDevice = value;
+            }
+        }
+
+        [JsonPropertyName("enableDisplayRecording")]
+        public bool EnableDisplayRecording
+        {
+            get => _enableDisplayRecording;
+            set
+            {
+                _enableDisplayRecording = value;
+                SendToFrontend();
             }
         }
 
@@ -433,6 +445,9 @@ namespace Segra.Models
 
         [JsonPropertyName("game")]
         public string Game { get; set; }
+
+        [JsonPropertyName("isUsingGameHook")]
+        public bool IsUsingGameHook { get; set; }
 
         [JsonPropertyName("bookmarks")]
         public List<Bookmark> Bookmarks { get; set; } = new List<Bookmark>();

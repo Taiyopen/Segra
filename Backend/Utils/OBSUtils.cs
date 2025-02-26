@@ -60,13 +60,32 @@ namespace Segra.Backend.Utils
 
             Log.Information("libobs version: " + obs_get_version_string());
 
+            // Step 1: Call obs_startup() as per documentation
             if (!obs_startup("en-US", null, IntPtr.Zero))
                 throw new Exception("Error during OBS startup.");
 
+            // Step 2: Set modules path
             obs_add_data_path("./data/libobs/");
             obs_add_module_path("./obs-plugins/64bit/", "./data/obs-plugins/%module%/");
+
+            // BUG: According to the documentation, ResetVideoSettings() should be called before loading modules but this causes black screen on recordings
+            // https://github.com/Segergren/Segra/issues/1
+
+            // Step 3: Reset audio settings as per documentation
+            if (!ResetAudioSettings())
+                throw new Exception("Failed to initialize audio settings.");
+
+            // Step 4: Load modules
             obs_load_all_modules();
             obs_log_loaded_modules();
+
+
+            // Step 5: Should be called before Step 4 as per documentation but this causes black screen on recordings
+            // This probably causes the lag
+            if (!ResetVideoSettings())
+                throw new Exception("Failed to initialize video settings.");
+
+            // Step 6: Post-load modules
             obs_post_load_modules();
 
             IsInitialized = true;
@@ -76,36 +95,31 @@ namespace Segra.Backend.Utils
             GameDetectionService.StartAsync();
         }
 
-        public static bool StartRecording(string name = "Unknown")
+        private static bool ResetAudioSettings()
         {
-            if (output != IntPtr.Zero)
-            {
-                Log.Information("Recording is already in progress.");
-                return false;
-            }
-
-            signalOutputStop = false;
-
             obs_audio_info audioInfo = new obs_audio_info()
             {
                 samples_per_sec = 44100,
                 speakers = speaker_layout.SPEAKERS_STEREO
             };
 
-            if (!obs_reset_audio(ref audioInfo))
-                throw new Exception("Failed to reset audio settings.");
+            return obs_reset_audio(ref audioInfo);
+        }
 
+        private static bool ResetVideoSettings(uint? customFps = null, uint? customOutputWidth = null, uint? customOutputHeight = null)
+        {
             uint baseWidth, baseHeight;
             SettingsUtils.GetPrimaryMonitorResolution(out baseWidth, out baseHeight);
 
-            uint outputWidth, outputHeight;
-            SettingsUtils.GetResolution(Settings.Instance.Resolution, out outputWidth, out outputHeight);
+            // Use custom values if provided, otherwise use defaults
+            uint outputWidth = customOutputWidth ?? baseWidth;
+            uint outputHeight = customOutputHeight ?? baseHeight;
 
             obs_video_info videoInfo = new obs_video_info()
             {
                 adapter = 0,
                 graphics_module = "libobs-d3d11",
-                fps_num = (uint)Settings.Instance.FrameRate,
+                fps_num = customFps ?? 60, // Default to 60 FPS if not specified
                 fps_den = 1,
                 base_width = baseWidth,
                 base_height = baseHeight,
@@ -118,8 +132,33 @@ namespace Segra.Backend.Utils
                 scale_type = obs_scale_type.OBS_SCALE_BILINEAR
             };
 
-            if (obs_reset_video(ref videoInfo) != 0)
-                throw new Exception("Failed to reset video settings.");
+            return obs_reset_video(ref videoInfo) == 0; // Returns true if successful
+        }
+
+        public static bool StartRecording(string name = "Unknown")
+        {
+            if (output != IntPtr.Zero)
+            {
+                Log.Information("Recording is already in progress.");
+                return false;
+            }
+
+            signalOutputStop = false;
+
+            // Note: According to docs, audio settings cannot be reconfigured after initialization
+            // but video can be reset as long as no outputs are active
+
+            // Configure video settings specifically for this recording
+            uint outputWidth, outputHeight;
+            SettingsUtils.GetResolution(Settings.Instance.Resolution, out outputWidth, out outputHeight);
+
+            if (!ResetVideoSettings(
+                customFps: (uint)Settings.Instance.FrameRate,
+                customOutputWidth: outputWidth,
+                customOutputHeight: outputHeight))
+            {
+                throw new Exception("Failed to configure video settings for recording.");
+            }
 
             _isGameCaptureHooked = false;
 
@@ -133,8 +172,15 @@ namespace Segra.Backend.Utils
 
             if (!hooked)
             {
-                Log.Error("Game Capture did not hook within 30 seconds.");
+                Log.Error("Game Capture did not hook within 40 seconds.");
                 DisposeSources();
+
+                if (!Settings.Instance.EnableDisplayRecording)
+                {
+                    Log.Information("Display recording is disabled, stopping recording.");
+                    StopRecording();
+                    return false;
+                }
 
                 Log.Information("Using display capture instead");
 
@@ -223,27 +269,33 @@ namespace Segra.Backend.Utils
 
             signal_handler_connect(obs_output_get_signal_handler(output), "stop", outputStopCallback, IntPtr.Zero);
 
+            // Used to show "Initializing" in frontend
             Settings.Instance.State.Recording = new Recording()
             {
                 StartTime = DateTime.Now.AddSeconds(2),
                 FilePath = videoOutputPath,
-                Game = name
+                Game = name,
+                IsUsingGameHook = hooked
             };
             MessageUtils.SendSettingsToFrontend();
+
             PlayStartSound();
             if (!obs_output_start(output))
             {
                 Log.Error("Failed to start recording.");
+                Settings.Instance.State.Recording = null;
+                MessageUtils.SendSettingsToFrontend();
                 return false;
             }
 
+            // The recording has actually started, set actual start time
             Settings.Instance.State.Recording = new Recording()
             {
                 StartTime = DateTime.Now,
                 FilePath = videoOutputPath,
-                Game = name
+                Game = name,
+                IsUsingGameHook = hooked
             };
-
             MessageUtils.SendSettingsToFrontend();
 
             Log.Information("Recording started: " + filePath);
@@ -297,11 +349,19 @@ namespace Segra.Backend.Utils
                 }
 
                 SettingsUtils.LoadContentFromFolderIntoState(false);
-                Settings.Instance.State.Recording = null;
             }
+            else
+            {
+                DisposeOutput();
+                DisposeSources();
+                DisposeEncoders();
+            }
+
+            Settings.Instance.State.Recording = null;
+            OBSUtils.CurrentTrackedFileName = null;
         }
 
-        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 60000)
+        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 40000)
         {
             int elapsed = 0;
             const int step = 100;

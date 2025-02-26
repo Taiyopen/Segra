@@ -1,5 +1,6 @@
 import {useState, useEffect} from "react";
 import {Recording} from "../Models/types";
+import { MdWarning } from "react-icons/md";
 
 interface RecordingCardProps {
 	recording: Recording;
@@ -33,7 +34,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording}) => {
 	return (
 		recording && (
 			<div className="mb-4 px-2">
-				<div className="bg-neutral border border-secondary border-opacity-75 rounded-md px-3 py-3">
+				<div className="bg-neutral border border-secondary border-opacity-75 rounded-md px-3 py-3 cursor-default">
 					{/* Recording Indicator */}
 					<div className="flex items-center mb-1">
 						<span className={`w-3 h-3 rounded-full mr-2 ${elapsedTime.minutes === 0 && elapsedTime.seconds === 0
@@ -56,6 +57,14 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording}) => {
 						</span>
 						<p className="ps-2 pe-2 truncate whitespace-nowrap">{recording.game}</p>
 					</div>
+
+					{/* Display Recording is in Alpha Warning */}
+					{!recording.isUsingGameHook && (
+						<div className="bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-2 py-1 mt-2 text-amber-400 text-xs flex items-center">
+							<MdWarning className="h-6 w-6 mr-1" />
+							<span>Display Recording is in alpha and will cause lag</span>
+						</div>
+					)}
 				</div>
 			</div>
 		)
