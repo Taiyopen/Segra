@@ -103,7 +103,7 @@ namespace Segra
 
                 // Start WebSocket and Load Settings
                 Task.Run(MessageUtils.StartWebsocket);
-
+                Task.Run(StorageUtils.EnsureStorageBelowLimit);
                 // Initialize the PhotinoWindow
                 window = new PhotinoWindow()
                     .SetNotificationsEnabled(false) // Disabled due to it creating a second start menu entry with incorrect start path. See https://github.com/tryphotino/photino.NET/issues/85

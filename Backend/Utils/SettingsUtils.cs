@@ -333,12 +333,5 @@ namespace Segra.Backend.Utils
             // Check if the file is a metadata file
             return Path.GetExtension(filePath).Equals(".json", StringComparison.OrdinalIgnoreCase);
         }
-
-        private static TimeSpan GetVideoDuration(string filePath)
-        {
-            // Placeholder for video duration retrieval
-            // Use a library like MediaToolkit or FFmpeg to fetch actual duration
-            return TimeSpan.Zero;
-        }
     }
 }

@@ -45,6 +45,11 @@ export default function Settings() {
 	// Rest of your existing settings logic
 	const settings = useSettings();
 	const updateSettings = useSettingsUpdater();
+	const [localStorageLimit, setLocalStorageLimit] = useState<number>(settings.storageLimit);
+
+	useEffect(() => {
+		setLocalStorageLimit(settings.storageLimit);
+	}, [settings.storageLimit]);
 
 	const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
 		const {name, value} = event.target;
@@ -440,8 +445,9 @@ export default function Settings() {
 						<input
 							type="number"
 							name="storageLimit"
-							value={settings.storageLimit}
-							onChange={handleChange}
+							value={localStorageLimit}
+							onChange={(e) => setLocalStorageLimit(Number(e.target.value))}
+							onBlur={() => updateSettings({ storageLimit: localStorageLimit })}
 							placeholder="Set maximum storage in GB"
 							min="1"
 							className="input input-bordered"

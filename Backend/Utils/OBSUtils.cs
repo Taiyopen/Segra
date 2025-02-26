@@ -356,7 +356,7 @@ namespace Segra.Backend.Utils
                 DisposeSources();
                 DisposeEncoders();
             }
-
+            Task.Run(StorageUtils.EnsureStorageBelowLimit);
             Settings.Instance.State.Recording = null;
             OBSUtils.CurrentTrackedFileName = null;
         }
