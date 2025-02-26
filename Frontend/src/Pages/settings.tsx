@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useSettings, useSettingsUpdater} from '../Context/SettingsContext';
 import {sendMessageToBackend} from '../Utils/MessageUtils';
 import {themeChange} from 'theme-change';
@@ -547,6 +547,11 @@ export default function Settings() {
 						</span>
 					</div>
 				</div>
+			</div>
+
+			{/* Version */}
+			<div className="text-center mt-4 text-sm text-gray-500">
+				Segra {__APP_VERSION__}
 			</div>
 		</div>
 	);
