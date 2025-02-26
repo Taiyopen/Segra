@@ -79,6 +79,7 @@ namespace Segra.Backend.Utils
                     Settings.Instance.RateControl = loadedSettings.RateControl;
                     Settings.Instance.CrfValue = loadedSettings.CrfValue;
                     Settings.Instance.CqLevel = loadedSettings.CqLevel;
+                    Settings.Instance.EnableDisplayRecording = loadedSettings.EnableDisplayRecording;
 
                     // End bulk update
                     Settings.Instance.EndBulkUpdateAndSaveSettings();
@@ -209,6 +210,13 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"CqLevel changed from '{settings.CqLevel}' to '{updatedSettings.CqLevel}'");
                 settings.CqLevel = updatedSettings.CqLevel;
+            }
+
+            // Update EnableDisplayRecording
+            if (settings.EnableDisplayRecording != updatedSettings.EnableDisplayRecording)
+            {
+                Log.Information($"EnableDisplayRecording changed from '{settings.EnableDisplayRecording}' to '{updatedSettings.EnableDisplayRecording}'");
+                settings.EnableDisplayRecording = updatedSettings.EnableDisplayRecording;
             }
 
             settings.EndBulkUpdateAndSaveSettings();

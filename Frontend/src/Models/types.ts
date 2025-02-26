@@ -40,6 +40,7 @@ export interface Recording {
 	startTime: Date;
 	endTime: Date;
 	game: string;
+	isUsingGameHook: boolean;
 }
 
 export interface Settings {
@@ -56,6 +57,7 @@ export interface Settings {
 	contentFolder: string;
 	inputDevice: string;
 	outputDevice: string;
+	enableDisplayRecording: boolean;
 	state: State;
 }
 
@@ -81,6 +83,7 @@ export const initialSettings: Settings = {
 	contentFolder: '',
 	inputDevice: '',
 	outputDevice: '',
+	enableDisplayRecording: false,
 	state: initialState,
 };
 
