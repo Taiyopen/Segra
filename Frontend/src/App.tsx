@@ -16,6 +16,7 @@ import {SelectionsProvider} from './Context/SelectionsContext';
 import {UploadProvider} from './Context/UploadContext';
 import {WebSocketProvider} from './Context/WebSocketContext';
 import {ClippingProvider} from './Context/ClippingContext';
+import {UpdateProvider} from './Context/UpdateContext';
 
 function App() {
 	useEffect(() => {
@@ -76,7 +77,9 @@ export default function AppWrapper() {
             <DndProvider backend={HTML5Backend}>
               <UploadProvider>
                 <ClippingProvider>
-                  <App />
+                  <UpdateProvider>
+                    <App />
+                  </UpdateProvider>
                 </ClippingProvider>
               </UploadProvider>
             </DndProvider>

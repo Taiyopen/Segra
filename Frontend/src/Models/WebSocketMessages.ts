@@ -11,23 +11,34 @@ export interface SettingsMessage {
   settings: Settings;
 }
 
+export interface UpdateProgressMessage {
+  version: string;
+  progress: number;
+  status: 'downloading' | 'downloaded' | 'ready' | 'error';
+  message: string;
+}
+
+export interface ReleaseNote {
+  version: string;
+  base64Markdown: string;
+  releaseDate: string;
+}
+
+export interface ReleaseNotesMessage {
+  releaseNotesList: ReleaseNote[];
+}
+
 export interface WebSocketMessage<T = any> {
   method: string;
   parameters: T;
 }
 
-export type WebSocketMessageType = 'uploadProgress' | 'settings';
+export type WebSocketMessageType = 'uploadProgress' | 'settings' | 'UpdateProgress' | 'ReleaseNotes';
 
-export function isUploadProgressMessage(message: WebSocketMessage<any>): boolean {
-  return message.method === 'uploadProgress' && 
-    typeof message.parameters === 'object' && 
-    'fileName' in message.parameters && 
-    'progress' in message.parameters && 
-    'status' in message.parameters;
+export function isUpdateProgressMessage(message: WebSocketMessage<any>): boolean {
+  return message.method === 'UpdateProgress';
 }
 
-export function isSettingsMessage(message: WebSocketMessage<any>): boolean {
-  return message.method === 'settings' && 
-    typeof message.parameters === 'object' && 
-    'contentFolder' in message.parameters;
+export function isReleaseNotesMessage(message: WebSocketMessage<any>): boolean {
+  return message.method === 'ReleaseNotes';
 }

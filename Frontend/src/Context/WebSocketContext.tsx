@@ -18,7 +18,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     onOpen: () => {
       console.log('Connected to WebSocket server');
       // Request initial settings when connection is established
-      sendMessageToBackend("GetSettings");
+      sendMessageToBackend("NewConnection");
     },
     onMessage: (event) => {
       try {

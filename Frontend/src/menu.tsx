@@ -3,8 +3,10 @@ import RecordingCard from './Components/RecordingCard';
 import {sendMessageToBackend} from './Utils/MessageUtils';
 import {useUploads} from './Context/UploadContext';
 import {useClipping} from './Context/ClippingContext';
+import {useUpdate} from './Context/UpdateContext';
 import UploadCard from './Components/UploadCard';
 import ClippingCard from './Components/ClippingCard';
+import UpdateCard from './Components/UpdateCard';
 import {MdOutlineContentCut, MdOutlinePlayCircleOutline, MdOutlineSettings, MdReplay30} from 'react-icons/md';
 import {HiOutlineSparkles} from 'react-icons/hi';
 
@@ -17,6 +19,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 	const {state} = useSettings();
 	const {hasLoadedObs, recording} = state;
 	const {uploads} = useUploads();
+	const {updateInfo} = useUpdate();
 	const uploadFiles = Object.keys(uploads);
 
 	return (
@@ -75,6 +78,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 
 			{/* Status Cards */}
 			<div className="mt-auto p-2 space-y-2">
+				{updateInfo && <UpdateCard />}
 				{uploadFiles.map((fileName) => (
 					<UploadCard key={fileName} fileName={fileName} />
 				))}

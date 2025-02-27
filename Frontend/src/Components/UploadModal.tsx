@@ -98,7 +98,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
       </div>
       <div className="modal-action mt-6">
         <button 
-          className="btn btn-secondary w-full"
+          className="btn btn-secondary hover:bg-base-200 bg-base-100 w-full"
           onClick={handleUpload}
           disabled={session === null}
         >

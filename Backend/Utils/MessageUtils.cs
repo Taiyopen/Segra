@@ -44,6 +44,9 @@ namespace Segra.Backend.Utils
                             root.TryGetProperty("Parameters", out JsonElement clipParameterElement);
                             await HandleCreateClip(clipParameterElement);
                             break;
+                        case "ApplyUpdate":
+                            UpdateUtils.ApplyUpdate();
+                            break;
                         case "DeleteContent":
                             root.TryGetProperty("Parameters", out JsonElement deleteContentParameterElement);
                             await HandleDeleteContent(deleteContentParameterElement);
@@ -71,9 +74,10 @@ namespace Segra.Backend.Utils
                                 Log.Information("StopRecording command received.");
                             });
                             break;
-                        case "GetSettings":
-                            Log.Information("GetSettings command received.");
+                        case "NewConnection":
+                            Log.Information("NewConnection command received.");
                             await SendSettingsToFrontend();
+                            Task.Run(UpdateUtils.GetReleaseNotes);
                             break;
                         case "SetVideoLocation":
                             await SetVideoLocationAsync();
