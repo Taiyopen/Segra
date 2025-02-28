@@ -30,7 +30,6 @@ namespace Segra
                 Directory.CreateDirectory(logDirectory);
             }
 
-            // Configure Serilog
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .WriteTo.Console()
