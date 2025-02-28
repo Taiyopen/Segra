@@ -1,3 +1,4 @@
+using NuGet.Versioning;
 using Photino.NET;
 using Photino.NET.Server;
 using Segra.Backend.ContentServer;
@@ -7,6 +8,7 @@ using Segra.Models;
 using Serilog;
 using System.Diagnostics;
 using System.Net;
+using System.Reflection;
 using Velopack;
 
 namespace Segra
@@ -41,7 +43,28 @@ namespace Segra
                 )
                 .CreateLogger();
 
-            VelopackApp.Build().Run();
+            // Get the current version
+            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+
+            VelopackApp.Build()
+                .WithBeforeUpdateFastCallback((v) =>
+                {
+                    SemanticVersion currentVersion = UpdateUtils.UpdateManager.CurrentVersion;
+                    Log.Information($"Updating from version {currentVersion} to {v}");
+                    File.WriteAllText(Path.Combine(Path.GetTempPath(), "segra.tmp"), currentVersion.ToString());
+                })
+                .WithAfterUpdateFastCallback((v) =>
+                {
+                    string previousVersionPath = Path.Combine(Path.GetTempPath(), "segra.tmp");
+                    if (File.Exists(previousVersionPath))
+                    {
+                        string previousVersion = File.ReadAllText(previousVersionPath);
+                        Log.Information($"Updated from version {previousVersion} to {v}");
+                        MessageUtils.SendFrontendMessage("ShowReleaseNotes", previousVersion);
+                        File.Delete(previousVersionPath);
+                    }
+                })
+                .Run();
 
             Task.Run(() =>
             {

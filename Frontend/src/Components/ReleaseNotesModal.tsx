@@ -1,8 +1,9 @@
 import { ReleaseNote } from '../Models/WebSocketMessages';
 import Markdown from 'markdown-to-jsx';
+import { useContext, useEffect, useState } from 'react';
+import { ReleaseNotesContext } from '../App';
 
 interface ReleaseNotesModalProps {
-  releaseNotes: ReleaseNote[];
   onClose: () => void;
   filterVersion: string | null;
 }
@@ -95,7 +96,28 @@ function isVersionNewer(version1: string, version2: string): boolean {
   return false;
 }
 
-export default function ReleaseNotesModal({ releaseNotes, onClose, filterVersion }: ReleaseNotesModalProps) {
+export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNotesModalProps) {
+  const [localReleaseNotes, setLocalReleaseNotes] = useState<ReleaseNote[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  // Access the global release notes context
+  const { releaseNotes: globalReleaseNotes } = useContext(ReleaseNotesContext);
+  
+  // Update local state when global release notes change
+  useEffect(() => {
+    if (globalReleaseNotes.length > 0) {
+      setLocalReleaseNotes(globalReleaseNotes);
+      setIsLoading(false);
+    } else {
+      // If after 2 seconds we still don't have release notes, stop showing the loader
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [globalReleaseNotes]);
+  
   // Format date from ISO string (e.g., "2025-02-26T23:37:33Z") to "26 February 2025"
   const formatDate = (isoDate: string): string => {
     try {
@@ -113,8 +135,8 @@ export default function ReleaseNotesModal({ releaseNotes, onClose, filterVersion
 
   // Filter notes to only show those newer than the current app version if filterVersion is provided
   const filteredNotes = filterVersion 
-    ? releaseNotes.filter(note => isVersionNewer(filterVersion, note.version))
-    : releaseNotes;
+    ? localReleaseNotes.filter(note => isVersionNewer(filterVersion, note.version))
+    : localReleaseNotes;
 
   // Decode the base64 content for each release note
   const decodedReleaseNotes = filteredNotes;
@@ -137,7 +159,11 @@ export default function ReleaseNotesModal({ releaseNotes, onClose, filterVersion
       </div>
       
       <div className="modal-body pt-4">
-        {decodedReleaseNotes.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-10">
+            <div className="loading loading-spinner loading-lg text-primary"></div>
+          </div>
+        ) : decodedReleaseNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10">
             <p className="text-gray-400 text-xl">
               {filterVersion 

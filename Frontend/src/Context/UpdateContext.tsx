@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { isUpdateProgressMessage, isReleaseNotesMessage, ReleaseNote } from '../Models/WebSocketMessages';
+import { isUpdateProgressMessage, isReleaseNotesMessage, ReleaseNote, isShowReleaseNotesMessage } from '../Models/WebSocketMessages';
 import { useModal } from './ModalContext';
 import ReleaseNotesModal from '../Components/ReleaseNotesModal';
+import { ReleaseNotesContext } from '../App';
 
 export interface UpdateProgress {
   version: string;
@@ -24,6 +25,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([]);
   const { openModal, closeModal } = useModal();
 
+  // Access the global release notes context
+  const globalReleaseNotes = useContext(ReleaseNotesContext);
+
   useEffect(() => {
     const handleWebSocketMessage = (event: CustomEvent<any>) => {
       const message = event.detail;
@@ -36,7 +40,13 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         // Handle the ReleaseNotes message
         if (message.content && message.content.releaseNotesList) {
           setReleaseNotes(message.content.releaseNotesList);
+          // Also update the global release notes
+          globalReleaseNotes.setReleaseNotes(message.content.releaseNotesList);
         }
+      }
+
+      if(isShowReleaseNotesMessage(message)) {
+        openReleaseNotesModal(message.content);
       }
     };
 
@@ -55,7 +65,6 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const openReleaseNotesModal = (filterVersion: string | null = __APP_VERSION__) => {
     openModal(
       <ReleaseNotesModal 
-        releaseNotes={releaseNotes} 
         onClose={closeModal}
         filterVersion={filterVersion}
       />

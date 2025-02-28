@@ -42,3 +42,7 @@ export function isUpdateProgressMessage(message: WebSocketMessage<any>): boolean
 export function isReleaseNotesMessage(message: WebSocketMessage<any>): boolean {
   return message.method === 'ReleaseNotes';
 }
+
+export function isShowReleaseNotesMessage(message: WebSocketMessage<any>): boolean {
+  return message.method === 'ShowReleaseNotes';
+}

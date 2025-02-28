@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useState, createContext} from 'react';
 import Settings from "./Pages/settings";
 import Menu from "./menu";
 import Videos from './Pages/videos';
@@ -17,6 +17,16 @@ import {UploadProvider} from './Context/UploadContext';
 import {WebSocketProvider} from './Context/WebSocketContext';
 import {ClippingProvider} from './Context/ClippingContext';
 import {UpdateProvider} from './Context/UpdateContext';
+import { ReleaseNote } from './Models/WebSocketMessages';
+
+// Create a context for release notes that can be accessed globally
+export const ReleaseNotesContext = createContext<{
+  releaseNotes: ReleaseNote[];
+  setReleaseNotes: (notes: ReleaseNote[]) => void;
+}>({
+  releaseNotes: [],
+  setReleaseNotes: () => {},
+});
 
 function App() {
 	useEffect(() => {
@@ -69,22 +79,26 @@ function App() {
 }
 
 export default function AppWrapper() {
+  const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([]);
+  
   return (
     <WebSocketProvider>
       <SettingsProvider>
-        <ModalProvider>
-          <SelectionsProvider>
-            <DndProvider backend={HTML5Backend}>
-              <UploadProvider>
-                <ClippingProvider>
-                  <UpdateProvider>
-                    <App />
-                  </UpdateProvider>
-                </ClippingProvider>
-              </UploadProvider>
-            </DndProvider>
-          </SelectionsProvider>
-        </ModalProvider>
+        <ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
+          <ModalProvider>
+            <SelectionsProvider>
+              <DndProvider backend={HTML5Backend}>
+                <UploadProvider>
+                  <ClippingProvider>
+                    <UpdateProvider>
+                      <App />
+                    </UpdateProvider>
+                  </ClippingProvider>
+                </UploadProvider>
+              </DndProvider>
+            </SelectionsProvider>
+          </ModalProvider>
+        </ReleaseNotesContext.Provider>
       </SettingsProvider>
     </WebSocketProvider>
   );
