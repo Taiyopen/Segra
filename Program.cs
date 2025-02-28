@@ -59,7 +59,11 @@ namespace Segra
                     {
                         string previousVersion = File.ReadAllText(previousVersionPath);
                         Log.Information($"Updated from version {previousVersion} to {v}");
-                        MessageUtils.SendFrontendMessage("ShowReleaseNotes", previousVersion);
+                        Task.Run(async () =>
+                        {
+                            await Task.Delay(5000);
+                            MessageUtils.SendFrontendMessage("ShowReleaseNotes", previousVersion);
+                        });
                         File.Delete(previousVersionPath);
                     }
                 })
