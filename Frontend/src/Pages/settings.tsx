@@ -6,7 +6,7 @@ import {AudioDevice} from '../Models/types';
 import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth';
-import {useProfile} from '../Hooks/userProfile';
+import {useProfile} from '../Hooks/useUserProfile';
 import {MdOutlineLogout, MdWarning} from 'react-icons/md';
 import {useUpdate} from '../Context/UpdateContext';
 
