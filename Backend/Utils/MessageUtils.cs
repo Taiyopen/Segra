@@ -7,6 +7,7 @@ using Segra.Models;
 using Serilog;
 using System.Net.Http.Headers;
 using System.Diagnostics;
+using Segra.Backend.Services;
 
 namespace Segra.Backend.Utils
 {
@@ -40,6 +41,15 @@ namespace Segra.Backend.Utils
 
                     switch (method)
                     {
+                        case "Login":
+                            root.TryGetProperty("Parameters", out JsonElement loginParameterElement);
+                            string accessToken = loginParameterElement.GetProperty("accessToken").GetString();
+                            string refreshToken = loginParameterElement.GetProperty("refreshToken").GetString();
+                            await AuthService.Login(accessToken, refreshToken);
+                            break;
+                        case "Logout":
+                            await AuthService.Logout();
+                            break;
                         case "CreateClip":
                             root.TryGetProperty("Parameters", out JsonElement clipParameterElement);
                             await HandleCreateClip(clipParameterElement);
@@ -155,7 +165,6 @@ namespace Segra.Backend.Utils
             try
             {
                 string filePath = message.GetProperty("FilePath").GetString();
-                string jwt = message.GetProperty("JWT").GetString();
                 string fileName = Path.GetFileName(filePath);
 
                 byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
@@ -189,11 +198,11 @@ namespace Segra.Backend.Utils
                     message = "Starting upload..."
                 });
 
-                var request = new HttpRequestMessage(HttpMethod.Post, "https://upload.segra.tv")
+                var request = new HttpRequestMessage(HttpMethod.Post, "https://processing.segra.tv/upload")
                 {
                     Content = formData
                 };
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AuthService.GetJwt());
 
                 var response = await httpClient.SendAsync(request);
                 response.EnsureSuccessStatusCode();
@@ -432,6 +441,7 @@ namespace Segra.Backend.Utils
     // Define the Selection class
     public class Selection
     {
+        // TODO (os): make this of type ContentType
         public string Type { get; set; }
         public double StartTime { get; set; }
         public double EndTime { get; set; }

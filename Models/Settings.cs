@@ -30,6 +30,7 @@ namespace Segra.Models
         private string _inputDevice = string.Empty;
         private string _outputDevice = string.Empty;
         private bool _enableDisplayRecording = false;
+        private bool _enableAi = true;
         private State _state = new State();
 
         public Settings()
@@ -222,6 +223,17 @@ namespace Segra.Models
             set
             {
                 _enableDisplayRecording = value;
+                SendToFrontend();
+            }
+        }
+
+        [JsonPropertyName("enableAi")]
+        public bool EnableAi
+        {
+            get => _enableAi;
+            set
+            {
+                _enableAi = value;
                 SendToFrontend();
             }
         }
@@ -470,7 +482,7 @@ namespace Segra.Models
     }
 
     // Content class
-    internal class Content
+    public class Content
     {
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public enum ContentType
@@ -497,6 +509,13 @@ namespace Segra.Models
         public TimeSpan Duration { get; set; }
 
         public DateTime CreatedAt { get; set; }
+
+        public AiAnalysis? AiAnalysis { get; set; }
+    }
+
+    public class AiAnalysis
+    {
+        public string id;
     }
 
     internal class AudioDevice : IEquatable<AudioDevice>

@@ -4,7 +4,6 @@ import {useAuth} from './useAuth';
 
 export function useProfile() {
   const {user} = useAuth();
-
   return useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {

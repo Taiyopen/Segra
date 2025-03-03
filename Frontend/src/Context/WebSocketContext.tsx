@@ -1,6 +1,7 @@
 import { createContext, useContext, ReactNode, useCallback } from 'react';
 import useWebSocket from 'react-use-websocket';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
+import { useAuth } from '../Hooks/useAuth';
 
 interface WebSocketContextType {
   sendMessage: (message: string) => void;
@@ -14,11 +15,20 @@ interface WebSocketMessage {
 }
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
+  
   useWebSocket('ws://localhost:5000/', {
     onOpen: () => {
       console.log('Connected to WebSocket server');
-      // Request initial settings when connection is established
       sendMessageToBackend("NewConnection");
+
+      // Send the login credentials to the backend on load
+      if(session) {
+        sendMessageToBackend("Login", {
+          accessToken: session.access_token,
+          refreshToken: session.refresh_token
+        });
+      }
     },
     onMessage: (event) => {
       try {

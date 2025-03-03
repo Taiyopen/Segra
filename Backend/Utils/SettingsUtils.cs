@@ -219,6 +219,13 @@ namespace Segra.Backend.Utils
                 settings.EnableDisplayRecording = updatedSettings.EnableDisplayRecording;
             }
 
+            // Update EnableAi
+            if (settings.EnableAi != updatedSettings.EnableAi)
+            {
+                Log.Information($"EnableAi changed from '{settings.EnableAi}' to '{updatedSettings.EnableAi}'");
+                settings.EnableAi = updatedSettings.EnableAi;
+            }
+
             settings.EndBulkUpdateAndSaveSettings();
         }
 

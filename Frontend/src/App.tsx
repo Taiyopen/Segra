@@ -16,6 +16,7 @@ import {SelectionsProvider} from './Context/SelectionsContext';
 import {UploadProvider} from './Context/UploadContext';
 import {WebSocketProvider} from './Context/WebSocketContext';
 import {ClippingProvider} from './Context/ClippingContext';
+import {AiHighlightsProvider} from './Context/AiHighlightsContext';
 import {UpdateProvider} from './Context/UpdateContext';
 import { ReleaseNote } from './Models/WebSocketMessages';
 
@@ -90,9 +91,11 @@ export default function AppWrapper() {
               <DndProvider backend={HTML5Backend}>
                 <UploadProvider>
                   <ClippingProvider>
-                    <UpdateProvider>
-                      <App />
-                    </UpdateProvider>
+                    <AiHighlightsProvider>
+                      <UpdateProvider>
+                        <App />
+                      </UpdateProvider>
+                    </AiHighlightsProvider>
                   </ClippingProvider>
                 </UploadProvider>
               </DndProvider>

@@ -21,3 +21,34 @@
     text-wrap: balance;
   }
 }
+
+/* Highlight card gradient border animation */
+@keyframes highlightBorderAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 200% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.highlight-card {
+  overflow: hidden;
+}
+
+.highlight-border {
+  background: linear-gradient(
+    -450deg,
+    #7928ca,
+    #ff0080,
+    #1c64f2,
+    #00d4ff,
+    #7928ca
+  );
+  background-size: 300% 300%;
+  animation: highlightBorderAnimation 8s ease infinite;
+  z-index: 1;
+}

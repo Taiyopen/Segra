@@ -11,6 +11,8 @@ namespace Segra.Models
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public BookmarkSubtype? Subtype { get; set; }
         public TimeSpan Time { get; set; }
+        // TODO (os): Set this rating from the ai analysis
+        public int? AiRating { get; set; }
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]

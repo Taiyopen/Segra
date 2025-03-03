@@ -13,10 +13,47 @@ namespace Segra.Backend.Utils
 {
     public static class ClipUtils
     {
-        public static async Task CreateClips(List<Selection> selections)
+        public static async Task CreateAiClipFromBookmarks(List<Bookmark> bookmarks, Content content)
+        {
+            if (bookmarks == null || !bookmarks.Any())
+            {
+                Log.Information("No bookmarks provided to create clips.");
+                return;
+            }
+
+            // Convert bookmarks to selections
+            List<Selection> selections = new List<Selection>();
+
+            foreach (var bookmark in bookmarks)
+            {
+                // Calculate start and end times (5 seconds before and after the bookmark time)
+                // TODO (os): add so the AI calculates the added time before and after
+                double startTime = Math.Max(0, bookmark.Time.TotalSeconds - 5); // Ensure not negative
+                double endTime = bookmark.Time.TotalSeconds + 5;
+
+                Selection selection = new Selection
+                {
+                    Type = content.Type.ToString(),
+                    StartTime = startTime,
+                    EndTime = endTime,
+                    FileName = content.FileName,
+                    Game = content.Game
+                };
+
+                selections.Add(selection);
+            }
+
+            // Call the existing CreateClips method
+            await CreateClips(selections, false, true);
+        }
+
+        public static async Task CreateClips(List<Selection> selections, bool updateFrontend = true, bool isAiClip = false)
         {
             int id = Guid.NewGuid().GetHashCode();
-            await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 0 });
+            if (updateFrontend)
+            {
+                await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 0 });
+            }
             string videoFolder = Settings.Instance.ContentFolder;
 
             if (selections == null || !selections.Any())
@@ -32,8 +69,8 @@ namespace Segra.Backend.Utils
                 return;
             }
 
-            string clipsOutputFolder = Path.Combine(videoFolder, "clips");
-            Directory.CreateDirectory(clipsOutputFolder);
+            string outputFolder = Path.Combine(videoFolder, isAiClip ? "highlights" : "clips");
+            Directory.CreateDirectory(outputFolder);
 
             List<string> tempClipFiles = new List<string>();
             string ffmpegPath = "ffmpeg.exe";
@@ -60,12 +97,18 @@ namespace Segra.Backend.Utils
                 await ExtractClip(inputFilePath, tempFileName, selection.StartTime, selection.EndTime, ffmpegPath, progress =>
                 {
                     double currentProgress = (processedDuration + (progress * clipDuration)) / totalDuration * 100;
-                    MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = currentProgress });
+                    if (updateFrontend)
+                    {
+                        MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = currentProgress });
+                    }
                 });
 
                 processedDuration += clipDuration;
                 tempClipFiles.Add(tempFileName);
-                await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = (processedDuration / totalDuration) * 100 });
+                if (updateFrontend)
+                {
+                    await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = (processedDuration / totalDuration) * 100 });
+                }
             }
 
             if (!tempClipFiles.Any())
@@ -79,22 +122,103 @@ namespace Segra.Backend.Utils
             await File.WriteAllLinesAsync(concatFilePath, tempClipFiles.Select(f => $"file '{f.Replace("\\", "\\\\").Replace("'", "\\'")}"));
 
             string outputFileName = $"{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
-            string outputFilePath = Path.Combine(clipsOutputFolder, outputFileName).Replace("\\", "/");
+            string outputFilePath = Path.Combine(outputFolder, outputFileName).Replace("\\", "/");
 
             await RunFFmpegProcess(ffmpegPath,
                 $"-y -f concat -safe 0 -i \"{concatFilePath}\" -c copy -movflags +faststart \"{outputFilePath}\"",
                 totalDuration,
-                progress => MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100 }));
+                progress =>
+                {
+                    if (updateFrontend)
+                    {
+                        MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100 });
+                    }
+                }
+                );
 
             // Cleanup
             tempClipFiles.ForEach(f => SafeDelete(f));
             SafeDelete(concatFilePath);
 
             // Finalization
-            ContentUtils.CreateMetadataFile(outputFilePath, Content.ContentType.Clip, selections.FirstOrDefault()?.Game);
-            ContentUtils.CreateThumbnail(outputFilePath, Content.ContentType.Clip);
+            ContentUtils.CreateMetadataFile(outputFilePath, isAiClip ? Content.ContentType.Highlight : Content.ContentType.Clip, selections.FirstOrDefault()?.Game);
+            ContentUtils.CreateThumbnail(outputFilePath, isAiClip ? Content.ContentType.Highlight : Content.ContentType.Clip);
             SettingsUtils.LoadContentFromFolderIntoState();
-            await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100 });
+            if (updateFrontend)
+            {
+                await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100 });
+            }
+        }
+
+        public static async Task<string> CreateAiClipToAnalyzeFromBookmark(Bookmark bookmark, Content content)
+        {
+            // Calculate start and end times (10 seconds before and 10 seconds after the bookmark time) for the Ai to analyze
+            Log.Information("Creating AI clip to analyze for " + bookmark);
+            double startTime = Math.Max(0, bookmark.Time.TotalSeconds - 10); // Ensure not negative
+            double endTime = bookmark.Time.TotalSeconds + 10; // TODO (os): what happens if this is longer than the clip if it's right at the end?
+
+            string videoFolder = Settings.Instance.ContentFolder;
+
+            // Create .ai directory if it doesn't exist
+            string aiOutputFolder = Path.Combine(videoFolder, ".ai").Replace("\\", "/");
+            Directory.CreateDirectory(aiOutputFolder);
+
+            string inputFilePath = Path.Combine(videoFolder, content.Type.ToString().ToLower() + "s", $"{content.FileName}.mp4").Replace("\\", "/");
+            if (!File.Exists(inputFilePath))
+            {
+                Log.Error($"Input video file not found: {inputFilePath}");
+                return null;
+            }
+
+            string outputFileName = $"{content.FileName}_{bookmark.Type}_{bookmark.Id}.mp4";
+            string outputFilePath = Path.Combine(aiOutputFolder, outputFileName).Replace("\\", "/");
+
+            string ffmpegPath = "ffmpeg.exe";
+            if (!File.Exists(ffmpegPath))
+            {
+                Log.Error($"FFmpeg executable not found at path: {ffmpegPath}");
+                return null;
+            }
+
+            double clipDuration = endTime - startTime;
+
+            // 1) Extract WITHOUT re-encoding to a temp file (fastest way)
+            string tempFilePath = Path.GetTempFileName().Replace(".tmp", ".mp4");
+            string copyArguments =
+                $"-y -ss {startTime.ToString(CultureInfo.InvariantCulture)} " +
+                $"-t {clipDuration.ToString(CultureInfo.InvariantCulture)} " +
+                $"-i \"{inputFilePath}\" " +
+                $"-c copy -movflags +faststart \"{tempFilePath}\"";
+
+            await RunFFmpegProcessSimple(ffmpegPath, copyArguments);
+
+            var fileInfo = new FileInfo(tempFilePath);
+            const long oneGB = 1L << 30; // 1GB in bytes
+
+            // The file limit is 1GB, so if it's larger, we need to compress it (this takes longer time)
+            if (fileInfo.Length > oneGB)
+            {
+                Log.Information($"Temp file is larger than 1GB ({fileInfo.Length} bytes). Re-encoding...");
+
+                // Now re-encode from the temp file to the final output path
+                string reencodeArguments =
+                    $"-y -i \"{tempFilePath}\" " +
+                    $"-c:v libx264 -preset ultrafast -crf 23 -c:a aac -b:a 192k -movflags +faststart \"{outputFilePath}\"";
+
+                await RunFFmpegProcessSimple(ffmpegPath, reencodeArguments);
+
+                // After re-encode is done, we no longer need the temp file and the compressed file is already at the final output path
+                SafeDelete(tempFilePath);
+            }
+            else
+            {
+                // If the file is <= 1GB, just move it to the final output path
+                SafeDelete(outputFilePath);
+                File.Move(tempFilePath, outputFilePath);
+            }
+
+            // Return the generated filepath so it can be tracked
+            return outputFilePath;
         }
 
         private static async Task ExtractClip(string inputFilePath, string outputFilePath, double startTime, double endTime,
@@ -124,20 +248,100 @@ namespace Segra.Backend.Utils
                 {
                     if (string.IsNullOrEmpty(e.Data)) return;
 
-                    var timeMatch = Regex.Match(e.Data, @"time=(\d+:\d+:\d+\.\d+)");
-                    if (timeMatch.Success && totalDuration.HasValue)
+                    try
                     {
-                        var ts = TimeSpan.Parse(timeMatch.Groups[1].Value, CultureInfo.InvariantCulture);
-                        progressCallback?.Invoke(ts.TotalSeconds / totalDuration.Value);
+                        // Only try to parse time if we have total duration
+                        if (totalDuration.HasValue)
+                        {
+                            var timeMatch = Regex.Match(e.Data, @"time=(\d+:\d+:\d+\.\d+)");
+                            if (timeMatch.Success)
+                            {
+                                var ts = TimeSpan.Parse(timeMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+                                progressCallback?.Invoke(ts.TotalSeconds / totalDuration.Value);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Silently ignore any parsing errors to prevent exceptions
                     }
                 };
 
-                process.Start();
-                process.BeginErrorReadLine();
-                await process.WaitForExitAsync();
+                try
+                {
+                    process.Start();
+                    process.BeginErrorReadLine();
+                    await process.WaitForExitAsync();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Error in FFmpeg process: {ex.Message}");
+                }
+            }
 
-                if (process.ExitCode != 0)
-                    Log.Information($"FFmpeg process exited with code {process.ExitCode}");
+            // Always make sure we report completion
+            progressCallback?.Invoke(1.0);
+        }
+
+        private static async Task RunFFmpegProcessSimple(string ffmpegPath, string arguments)
+        {
+            Log.Information("Running simple ffmpeg with arguments: " + arguments);
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = ffmpegPath,
+                Arguments = arguments,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            using (var process = new Process { StartInfo = processStartInfo })
+            {
+                try
+                {
+                    Log.Information("Starting process...");
+                    process.Start();
+
+                    var readErrorTask = Task.Run(async () =>
+                    {
+                        while (!process.StandardError.EndOfStream)
+                        {
+                            await process.StandardError.ReadLineAsync();
+                        }
+                    });
+
+                    var readOutputTask = Task.Run(async () =>
+                    {
+                        while (!process.StandardOutput.EndOfStream)
+                        {
+                            await process.StandardOutput.ReadLineAsync();
+                        }
+                    });
+
+                    Log.Information("Waiting for process to complete...");
+
+                    // Wait for the process to exit
+                    await process.WaitForExitAsync();
+
+                    // Now that the process has exited, we can safely wait for the read tasks to complete
+                    // Use a timeout to prevent hanging if there's an issue
+                    await Task.WhenAll(
+                        Task.WhenAny(readErrorTask, Task.Delay(1000)),
+                        Task.WhenAny(readOutputTask, Task.Delay(1000))
+                    );
+
+                    Log.Information("Process completed with exit code: " + process.ExitCode);
+
+                    if (process.ExitCode != 0)
+                    {
+                        Log.Error($"FFmpeg process exited with non-zero exit code: {process.ExitCode}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Error in FFmpeg process: {ex.Message}");
+                }
             }
         }
 

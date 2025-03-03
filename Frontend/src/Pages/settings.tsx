@@ -35,6 +35,12 @@ export default function Settings() {
 
 					if (error) throw error;
 					// Clean URL after successful login
+					if(session) {
+						sendMessageToBackend("Login", {
+						  accessToken: session.access_token,
+						  refreshToken: session.refresh_token
+						});
+					  }
 					window.history.replaceState({}, document.title, window.location.pathname);
 				}
 			} catch (err) {
@@ -263,6 +269,25 @@ export default function Settings() {
 		<div className="p-5 space-y-6 rounded-lg">
 			<h1 className="text-3xl font-bold">Settings</h1>
 			{authSection}
+
+			{/* Segra AI Settings */}
+			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+				<h2 className="text-xl font-semibold mb-4">Segra AI</h2>
+				<div className="bg-base-100 p-4 rounded-lg">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<span className="font-medium">Enable Segra AI</span>
+						</div>
+						<input
+							type="checkbox"
+							name="enableAI"
+							checked={settings.enableAi}
+							onChange={(e) => updateSettings({enableAi: e.target.checked})}
+							className="toggle"
+						/>
+					</div>
+				</div>
+			</div>
 
 			{/* Video Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md">
@@ -530,7 +555,7 @@ export default function Settings() {
 			{/* Advanced Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md">
 				<h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
-				<div className="bg-base-200 p-4 rounded-lg">
+				<div className="bg-base-100 p-4 rounded-lg">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<span className="font-medium">Enable Display Recording</span>

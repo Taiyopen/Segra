@@ -357,8 +357,16 @@ namespace Segra.Backend.Utils
                 DisposeEncoders();
             }
             Task.Run(StorageUtils.EnsureStorageBelowLimit);
+
+            string fileName = Path.GetFileNameWithoutExtension(Settings.Instance.State.Recording.FilePath);
+
             Settings.Instance.State.Recording = null;
             OBSUtils.CurrentTrackedFileName = null;
+            if (Settings.Instance.EnableAi && AuthService.IsAuthenticated())
+            {
+                AiService.AnalyzeVideo(fileName);
+            }
+
         }
 
         private static bool WaitUntilGameCaptureHooks(int timeoutMs = 40000)
