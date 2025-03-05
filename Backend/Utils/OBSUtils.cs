@@ -364,7 +364,7 @@ namespace Segra.Backend.Utils
             OBSUtils.CurrentTrackedFileName = null;
             if (Settings.Instance.EnableAi && AuthService.IsAuthenticated())
             {
-                AiService.AnalyzeVideo(fileName);
+                Task.Run(() => AiService.AnalyzeVideo(fileName));
             }
 
         }
