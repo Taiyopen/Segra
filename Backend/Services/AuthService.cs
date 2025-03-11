@@ -22,7 +22,7 @@ namespace Segra.Backend.Services
         {
             try
             {
-                if (!IsAuthenticated())
+                if (!IsAuthenticated() || Session == null || Session.Expired())
                 {
                     Session = await _client.Auth.SetSession(jwt, refreshToken);
                     Log.Information($"Logged in as {Session.User.Id}");
@@ -57,8 +57,13 @@ namespace Segra.Backend.Services
             return Session != null && !string.IsNullOrEmpty(Session.AccessToken);
         }
 
-        public static string GetJwt()
+        public static async Task<string> GetJwtAsync()
         {
+            if (Session == null || Session.Expired() == true)
+            {
+                await _client.Auth.RefreshSession();
+            }
+
             return Session?.AccessToken;
         }
     }

@@ -45,7 +45,7 @@ namespace Segra.Backend.Services
                 {
                     Content = jsonContent
                 };
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AuthService.GetJwt());
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await AuthService.GetJwtAsync());
 
                 using var client = new HttpClient();
                 HttpResponseMessage response;
@@ -221,7 +221,7 @@ namespace Segra.Backend.Services
                 try
                 {
                     var statusRequest = new HttpRequestMessage(HttpMethod.Get, $"https://processing.segra.tv/ai/status/{analysisId}");
-                    statusRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AuthService.GetJwt());
+                    statusRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await AuthService.GetJwtAsync());
 
                     using var statusClient = new HttpClient();
                     var statusResponse = await statusClient.SendAsync(statusRequest);
@@ -362,7 +362,7 @@ namespace Segra.Backend.Services
                 {
                     Content = formContent
                 };
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AuthService.GetJwt());
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await AuthService.GetJwtAsync());
 
                 var response = await client.SendAsync(request);
                 var uploadResponseBody = await response.Content.ReadAsStringAsync();

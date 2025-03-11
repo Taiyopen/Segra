@@ -202,7 +202,7 @@ namespace Segra.Backend.Utils
                 {
                     Content = formData
                 };
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AuthService.GetJwt());
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await AuthService.GetJwtAsync());
 
                 var response = await httpClient.SendAsync(request);
                 response.EnsureSuccessStatusCode();
