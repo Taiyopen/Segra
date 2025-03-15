@@ -114,3 +114,11 @@ export interface AudioDevice {
 	id: string;
 	name: string;
 }
+
+export interface AiProgress {
+    id: string;
+    progress: number;
+    status: 'processing' | 'done';
+    message: string;
+    content: Content;
+}

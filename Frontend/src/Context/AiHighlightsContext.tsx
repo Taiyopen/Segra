@@ -1,21 +1,15 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-
-interface AiProgress {
-    id: number;
-    progress: number;
-    status: 'processing' | 'done';
-    message: string;
-}
+import { AiProgress } from '../Models/types';
 
 interface AiHighlightsContextType {
-    aiProgress: Record<number, AiProgress>;
-    removeAiHighlight: (id: number) => void;
+    aiProgress: Record<string, AiProgress>;
+    removeAiHighlight: (id: string) => void;
 }
 
 const AiHighlightsContext = createContext<AiHighlightsContextType | undefined>(undefined);
 
 export function AiHighlightsProvider({ children }: { children: ReactNode }) {
-    const [aiProgress, setAiProgress] = useState<Record<number, AiProgress>>({});
+    const [aiProgress, setAiProgress] = useState<Record<string, AiProgress>>({});
 
     useEffect(() => {
         const handleWebSocketMessage = (event: CustomEvent<{ method: string; content: any }>) => {
@@ -43,7 +37,7 @@ export function AiHighlightsProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
-    const removeAiHighlight = (id: number) => {
+    const removeAiHighlight = (id: string) => {
         setAiProgress(prev => {
             const { [id]: _, ...rest } = prev;
             return rest;

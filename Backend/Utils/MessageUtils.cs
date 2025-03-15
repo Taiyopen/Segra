@@ -54,6 +54,10 @@ namespace Segra.Backend.Utils
                             root.TryGetProperty("Parameters", out JsonElement clipParameterElement);
                             await HandleCreateClip(clipParameterElement);
                             break;
+                        case "CreateAiClip":
+                            root.TryGetProperty("Parameters", out JsonElement aiClipParameterElement);
+                            await HandleCreateAiClip(aiClipParameterElement);
+                            break;
                         case "ApplyUpdate":
                             UpdateUtils.ApplyUpdate();
                             break;
@@ -113,6 +117,12 @@ namespace Segra.Backend.Utils
             {
                 Log.Error($"Failed to parse message as JSON: {ex.Message}");
             }
+        }
+        private static async Task HandleCreateAiClip(JsonElement message)
+        {
+            Log.Information($"{message}");
+            message.TryGetProperty("FileName", out JsonElement fileNameElement);
+            await AiService.AnalyzeVideo(fileNameElement.GetString());
         }
 
         private static async Task HandleCreateClip(JsonElement message)

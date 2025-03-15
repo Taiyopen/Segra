@@ -1,19 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Serilog;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using System.Linq;
 using Segra.Models;
 
 namespace Segra.Backend.Utils
 {
     public static class ClipUtils
     {
-        public static async Task CreateAiClipFromBookmarks(List<Bookmark> bookmarks, Content content)
+        public static async Task CreateAiClipFromBookmarks(List<Bookmark> bookmarks, AiProgressMessage aiProgressMessage)
         {
             if (bookmarks == null || !bookmarks.Any())
             {
@@ -33,21 +28,21 @@ namespace Segra.Backend.Utils
 
                 Selection selection = new Selection
                 {
-                    Type = content.Type.ToString(),
+                    Type = aiProgressMessage.Content.Type.ToString(),
                     StartTime = startTime,
                     EndTime = endTime,
-                    FileName = content.FileName,
-                    Game = content.Game
+                    FileName = aiProgressMessage.Content.FileName,
+                    Game = aiProgressMessage.Content.Game
                 };
 
                 selections.Add(selection);
             }
 
             // Call the existing CreateClips method
-            await CreateClips(selections, false, true);
+            await CreateClips(selections, false, aiProgressMessage);
         }
 
-        public static async Task CreateClips(List<Selection> selections, bool updateFrontend = true, bool isAiClip = false)
+        public static async Task CreateClips(List<Selection> selections, bool updateFrontend = true, AiProgressMessage? aiProgressMessage = null)
         {
             int id = Guid.NewGuid().GetHashCode();
             if (updateFrontend)
@@ -69,7 +64,7 @@ namespace Segra.Backend.Utils
                 return;
             }
 
-            string outputFolder = Path.Combine(videoFolder, isAiClip ? "highlights" : "clips");
+            string outputFolder = Path.Combine(videoFolder, aiProgressMessage != null ? "highlights" : "clips");
             Directory.CreateDirectory(outputFolder);
 
             List<string> tempClipFiles = new List<string>();
@@ -101,6 +96,18 @@ namespace Segra.Backend.Utils
                     {
                         MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = currentProgress });
                     }
+
+                    if (aiProgressMessage != null && !string.IsNullOrEmpty(aiProgressMessage.Id))
+                    {
+                        // Update from 80% to 98%
+                        double fraction = (processedDuration + (progress * clipDuration)) / totalDuration;
+                        double aiProgress = 80 + fraction * 18;
+                        if (aiProgress > 98) aiProgress = 98;
+
+                        aiProgressMessage.Progress = (int)Math.Floor(aiProgress);
+                        aiProgressMessage.Message = $"Rendering clips...";
+                        MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+                    }
                 });
 
                 processedDuration += clipDuration;
@@ -124,6 +131,10 @@ namespace Segra.Backend.Utils
             string outputFileName = $"{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
             string outputFilePath = Path.Combine(outputFolder, outputFileName).Replace("\\", "/");
 
+            aiProgressMessage.Progress = 99;
+            aiProgressMessage.Message = "Rendering final clip...";
+            MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+
             await RunFFmpegProcess(ffmpegPath,
                 $"-y -f concat -safe 0 -i \"{concatFilePath}\" -c copy -movflags +faststart \"{outputFilePath}\"",
                 totalDuration,
@@ -141,8 +152,8 @@ namespace Segra.Backend.Utils
             SafeDelete(concatFilePath);
 
             // Finalization
-            ContentUtils.CreateMetadataFile(outputFilePath, isAiClip ? Content.ContentType.Highlight : Content.ContentType.Clip, selections.FirstOrDefault()?.Game);
-            ContentUtils.CreateThumbnail(outputFilePath, isAiClip ? Content.ContentType.Highlight : Content.ContentType.Clip);
+            ContentUtils.CreateMetadataFile(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip, selections.FirstOrDefault()?.Game);
+            ContentUtils.CreateThumbnail(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip);
             SettingsUtils.LoadContentFromFolderIntoState();
             if (updateFrontend)
             {

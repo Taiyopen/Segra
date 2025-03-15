@@ -5,6 +5,8 @@ import {useAuth} from '../Hooks/useAuth';
 import {useModal} from '../Context/ModalContext';
 import UploadModal from './UploadModal';
 import {MdDeleteOutline, MdOutlineFileUpload, MdOutlineInsertDriveFile} from 'react-icons/md';
+import { HiOutlineSparkles } from 'react-icons/hi';
+import { useAiHighlights } from '../Context/AiHighlightsContext';
 
 type VideoType = 'Session' | 'Buffer' | 'Clip'  | 'Highlight';
 
@@ -19,6 +21,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
   const {contentFolder} = useSettings();
   const {session} = useAuth();
   const {openModal, closeModal} = useModal();
+  const { aiProgress } = useAiHighlights();
 
   if (isLoading) {
     // Render a skeleton card
@@ -105,6 +108,14 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
     );
   };
 
+  const handleCreateAiClip = () => {
+    const parameters: any = {
+      FileName: content!.fileName,
+    };
+
+    sendMessageToBackend('CreateAiClip', parameters)
+  };
+
   const handleDelete = () => {
     const parameters: any = {
       FileName: content!.fileName,
@@ -167,6 +178,45 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                 </a>
               </li>
             )}
+            {(type === "Session" || type === "Buffer") && (
+              <li>
+                {(() => {
+                  // Check if there's an AI clip being generated for this file
+                  const isProcessing = Object.values(aiProgress).some(
+                    progress => progress.content.fileName === content?.fileName && progress.status === 'processing'
+                  );
+                  
+                  const hasBookmarks = content?.bookmarks && content.bookmarks.length > 0;
+                  const isDisabled = !hasBookmarks || isProcessing;
+                  
+                  return (
+                    <a
+                      className={`flex w-full items-center gap-2 px-4 py-3 ${
+                        isDisabled 
+                          ? 'text-gray-400 cursor-not-allowed' 
+                          : 'text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20'
+                      } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+                      onClick={() => {
+                        // Only proceed if there are bookmarks and no processing
+                        if (hasBookmarks && !isProcessing) {
+                          // Blur the active element before handling create AI clip
+                          (document.activeElement as HTMLElement).blur();
+                          handleCreateAiClip();
+                        }
+                      }}
+                    >
+                      <HiOutlineSparkles size="20" />
+                      <span>
+                        {isProcessing 
+                          ? 'Generating AI Clip...' 
+                          : (hasBookmarks ? 'Create AI Clip' : 'No Highlights')}
+                      </span>
+                    </a>
+                  );
+                })()}
+              </li>
+            )}
+            
             <li>
               <a
                 className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"

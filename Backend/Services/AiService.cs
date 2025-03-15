@@ -90,10 +90,21 @@ namespace Segra.Backend.Services
 
                 Log.Information("Analysis id: " + analysisId);
 
-                MessageUtils.SendFrontendMessage("AiProgress", new { id = analysisId, progress = 0, status = "processing", message = "Finding clips to analyze" });
+                AiProgressMessage aiProgressMessage = new AiProgressMessage
+                {
+                    Id = analysisId,
+                    Progress = 0,
+                    Status = "processing",
+                    Message = "Finding parts to analyze",
+                    Content = content
+                };
+
+                MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
 
                 Dictionary<Bookmark, string> clipPaths = new Dictionary<Bookmark, string>();
 
+                decimal increment = 20m / bookmarks.Count;
+                decimal currentProgress = 0;
                 foreach (var bookmark in bookmarks)
                 {
                     Log.Information($"Generating clip for bookmark {bookmark.Id}...");
@@ -117,21 +128,48 @@ namespace Segra.Backend.Services
                         Log.Information($"Failed to generate clip to analyze for bookmark {bookmark.Id}");
                     }
 
+                    currentProgress += increment;
+
+                    aiProgressMessage.Progress = (int)Math.Floor(currentProgress);
+                    aiProgressMessage.Message = "Extracting metadata to analyze";
+                    MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+
                     // Delay a bit before generating the next clip
                     await Task.Delay(1000);
                 }
 
+                aiProgressMessage.Progress = 20;
+                MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
                 Log.Information($"All {clipPaths.Count} clips have been generated. Starting parallel upload to AI service...");
 
-                // Process all uploads asynchronously in parallel
-                var uploadTasks = new List<Task>();
+                decimal uploadRange = 30m;
+                increment = clipPaths.Count > 0 ? uploadRange / clipPaths.Count : 0m;
+                int completed = 0;
 
+                var uploadTasks = new List<Task>();
                 foreach (var item in clipPaths)
                 {
-                    Bookmark bookmark = item.Key;
-                    string clipPath = item.Value;
+                    var bookmark = item.Key;
+                    var clipPath = item.Value;
 
-                    uploadTasks.Add(AnalyzeAiClipToAnalyzeAsync(content, bookmark, analysisId, clipPath));
+                    uploadTasks.Add(Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await AnalyzeAiClipToAnalyzeAsync(content, bookmark, analysisId, clipPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error(ex, $"Upload failed for bookmark {bookmark.Id}");
+                        }
+
+                        var count = Interlocked.Increment(ref completed);
+                        var newProgress = 20 + (count * increment);
+
+                        aiProgressMessage.Progress = (int)Math.Floor(newProgress);
+                        aiProgressMessage.Message = $"Uploaded {count} of {clipPaths.Count} parts to analyze";
+                        MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+                    }));
                 }
 
                 try
@@ -143,8 +181,12 @@ namespace Segra.Backend.Services
                     Log.Error(ex, "One or more uploads failed during parallel processing.");
                 }
 
+                aiProgressMessage.Progress = 50;
+                aiProgressMessage.Message = $"Analyzing parts...";
+                MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+
                 Log.Information($"All {clipPaths.Count} clips have been uploaded or attempted.");
-                await ProcessAnalysisAsync(analysisId, content);
+                await ProcessAnalysisAsync(aiProgressMessage);
             }
             catch (Exception ex)
             {
@@ -152,21 +194,21 @@ namespace Segra.Backend.Services
             }
         }
 
-        private static async Task ProcessAnalysisAsync(string analysisId, Content content)
+        private static async Task ProcessAnalysisAsync(AiProgressMessage aiProgressMessage)
         {
             List<Bookmark> highRatedBookmarks = new List<Bookmark>();
 
-            if (!string.IsNullOrEmpty(analysisId))
+            if (!string.IsNullOrEmpty(aiProgressMessage.Id))
             {
                 try
                 {
-                    string finalStatusResponse = await WaitForAnalysisCompletionAsync(analysisId, 20);
+                    string finalStatusResponse = await WaitForAnalysisCompletionAsync(aiProgressMessage, 20);
 
                     if (!string.IsNullOrEmpty(finalStatusResponse))
                     {
                         Log.Information($"Final analysis status received: {finalStatusResponse}");
                         // Process the analysis results
-                        highRatedBookmarks = ProcessAnalysisResultsAndGetHighRatedBookmarks(finalStatusResponse, content);
+                        highRatedBookmarks = ProcessAnalysisResultsAndGetHighRatedBookmarks(finalStatusResponse, aiProgressMessage.Content);
                     }
                     else
                     {
@@ -175,7 +217,7 @@ namespace Segra.Backend.Services
                 }
                 catch (Exception ex)
                 {
-                    Log.Error(ex, $"Error during analysis monitoring (analysisId: {analysisId})");
+                    Log.Error(ex, $"Error during analysis monitoring (analysisId: {aiProgressMessage.Id})");
                 }
             }
             else
@@ -188,7 +230,7 @@ namespace Segra.Backend.Services
                 Log.Information($"Creating clips for {highRatedBookmarks.Count} high-rated bookmarks");
                 try
                 {
-                    await ClipUtils.CreateAiClipFromBookmarks(highRatedBookmarks, content);
+                    await ClipUtils.CreateAiClipFromBookmarks(highRatedBookmarks, aiProgressMessage);
                 }
                 catch (Exception ex)
                 {
@@ -200,29 +242,28 @@ namespace Segra.Backend.Services
                 Log.Information("No high-rated bookmarks found, no clips will be created");
             }
 
-            MessageUtils.SendFrontendMessage("AiProgress", new { id = analysisId, progress = 100, status = "done", message = "Done" });
+
+            aiProgressMessage.Progress = 100;
+            aiProgressMessage.Status = "done";
+            aiProgressMessage.Message = "Done";
+            MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
         }
 
-        private static async Task<string> WaitForAnalysisCompletionAsync(string analysisId, int maxWaitMinutes = 20)
+        private static async Task<string> WaitForAnalysisCompletionAsync(AiProgressMessage aiProgressMessage, int maxWaitMinutes = 20)
         {
-            Log.Information($"Starting to poll analysis status for analysis ID: {analysisId}");
+            aiProgressMessage.Progress = 50;
+            aiProgressMessage.Message = $"Waiting for analysis...";
+            MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
 
             DateTime timeoutTime = DateTime.Now.AddMinutes(maxWaitMinutes);
-
-            await Task.Delay(5000); // 5 seconds initial delay
-
-            int attemptCount = 0;
+            await Task.Delay(5000);
 
             while (DateTime.Now < timeoutTime)
             {
-                attemptCount++;
-                Log.Information($"Checking analysis status (attempt {attemptCount})...");
-
                 try
                 {
-                    var statusRequest = new HttpRequestMessage(HttpMethod.Get, $"https://processing.segra.tv/ai/status/{analysisId}");
+                    var statusRequest = new HttpRequestMessage(HttpMethod.Get, $"https://processing.segra.tv/ai/status/{aiProgressMessage.Id}");
                     statusRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await AuthService.GetJwtAsync());
-
                     using var statusClient = new HttpClient();
                     var statusResponse = await statusClient.SendAsync(statusRequest);
                     var statusResponseBody = (await statusResponse.Content.ReadAsStringAsync()).Trim();
@@ -230,28 +271,54 @@ namespace Segra.Backend.Services
                     if (!statusResponse.IsSuccessStatusCode)
                     {
                         Log.Information($"Failed to check analysis status. Status: {statusResponse.StatusCode}, Response: {statusResponseBody}");
-                        await Task.Delay(15000); // 15 seconds between failed attempts
+                        await Task.Delay(15000);
                         continue;
                     }
 
                     var statusJson = JsonDocument.Parse(statusResponseBody);
                     var status = statusJson.RootElement.GetProperty("status").GetString();
-
                     Log.Information($"Current analysis status: {status}");
 
+                    // If done or error, finalize progress at 80 and return
                     if (status == "completed")
                     {
-                        Log.Information("Analysis completed successfully");
+                        aiProgressMessage.Progress = 80;
+                        aiProgressMessage.Message = $"Creating highlight";
+                        MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+
                         return statusResponseBody;
                     }
                     else if (status == "error")
                     {
-                        Log.Information("Analysis failed with an error");
+                        aiProgressMessage.Progress = 80;
+                        aiProgressMessage.Message = $"Analysis error";
+                        MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
                         return statusResponseBody;
                     }
 
-                    Log.Information($"Waiting 10 seconds before next status check...");
-                    await Task.Delay(10000);
+                    // Not completed yet – see how many clips are done
+                    int totalClips = 0;
+                    int completedClips = 0;
+                    if (statusJson.RootElement.TryGetProperty("clips", out var clipsElement) &&
+                        clipsElement.ValueKind == JsonValueKind.Array)
+                    {
+                        var clips = clipsElement.EnumerateArray().ToList();
+                        totalClips = clips.Count;
+                        completedClips = clips.Count(c => c.GetProperty("status").GetString() == "completed");
+                    }
+
+                    decimal newProgress = 50m;
+                    if (totalClips > 0)
+                        newProgress += (completedClips / (decimal)totalClips) * 30m;
+
+                    // Keep it under 80 until they're all done
+                    if (newProgress > 79m) newProgress = 79m;
+
+                    aiProgressMessage.Progress = (int)Math.Floor(newProgress);
+                    aiProgressMessage.Message = completedClips == 0 ? "Finding highlights..." : $"Finding highlights... {completedClips} found so far.";
+                    MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+
+                    await Task.Delay(5000);
                 }
                 catch (Exception ex)
                 {
@@ -260,7 +327,13 @@ namespace Segra.Backend.Services
                 }
             }
 
+            // If we exit the loop, we timed out
             Log.Information($"Timed out waiting for analysis to complete after {maxWaitMinutes} minutes");
+
+            aiProgressMessage.Progress = 80;
+            aiProgressMessage.Message = "Analysis timed out";
+            MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+
             return null;
         }
 

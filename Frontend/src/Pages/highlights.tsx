@@ -1,26 +1,32 @@
 import {useSettings} from '../Context/SettingsContext';
-import ContentCard from '../Components/VideoCard';
+import ContentCard from '../Components/ContentCard';
 import { useSelectedVideo } from "../Context/SelectedVideoContext";
 import {Content} from "../Models/types";
 import { HiOutlineSparkles } from 'react-icons/hi';
 import { useAiHighlights } from '../Context/AiHighlightsContext';
+import AiContentCard from '../Components/AiContentCard';
 
 export default function Highlights() {
   const {state} = useSettings();
   const {setSelectedVideo} = useSelectedVideo();
   const {aiProgress} = useAiHighlights();
 
+  const aiProgressValues = Object.values(aiProgress);
+  const hasAiProgress = aiProgressValues.length > 0;
+
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
   };
 
+  console.log(aiProgressValues);
+
   return (
     <div className="p-5 space-y-6 rounded-lg">
       <h1 className="text-3xl font-bold mb-4">Highlights</h1>
-      {(state.content.filter((video) => video.type === 'Highlight').length > 0 || Object.keys(aiProgress).length > 0) ? (
+      {(state.content.filter((video) => video.type === 'Highlight').length > 0 || hasAiProgress) ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {Object.values(aiProgress).map((progress) => (
-            <ContentCard key={progress.id} type="Highlight" isLoading />
+          {aiProgressValues.map((progress) => (
+            <AiContentCard key={progress.id} progress={progress} />
           ))}
           {state.content
             .filter((video) => video.type === 'Highlight')

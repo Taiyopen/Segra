@@ -1,5 +1,5 @@
 import {useSettings} from '../Context/SettingsContext';
-import ContentCard from '../Components/VideoCard';
+import ContentCard from '../Components/ContentCard';
 import { useSelectedVideo } from "../Context/SelectedVideoContext";
 import { Content } from "../Models/types";
 import { MdReplay30 } from 'react-icons/md';
