@@ -700,6 +700,29 @@ export default function VideoComponent({ video }: { video: Content }) {
         console.log(`Added bookmark at ${formattedTime}`);
     };
 
+    const handleDeleteBookmark = (bookmarkId: number) => {
+        // Find the bookmark in the video's bookmarks array
+        const bookmarkIndex = video.bookmarks.findIndex(b => b.id === bookmarkId);
+        
+        if (bookmarkIndex !== -1) {
+            // Remove the bookmark from the array
+            video.bookmarks.splice(bookmarkIndex, 1);
+            
+            // Force a re-render to update the UI
+            const bookmarks = [...video.bookmarks];
+            video.bookmarks = bookmarks;
+            
+            // Send message to backend to delete the bookmark
+            sendMessageToBackend('DeleteBookmark', {
+                FilePath: video.filePath,
+                ContentType: video.type,
+                Id: bookmarkId
+            });
+            
+            console.log(`Deleted bookmark with ID ${bookmarkId}`);
+        }
+    };
+
     return (
         <DndProvider backend={HTML5Backend}>
             <div className="flex w-full h-full" ref={containerRef}>
@@ -747,6 +770,10 @@ export default function VideoComponent({ video }: { video: Content }) {
                                         }
                                         style={{
                                             left: `${leftPos}px`
+                                        }}
+                                        onContextMenu={(e) => {
+                                            e.preventDefault();
+                                            handleDeleteBookmark(referenceBookmark.id);
                                         }}
                                     >
                                         <div

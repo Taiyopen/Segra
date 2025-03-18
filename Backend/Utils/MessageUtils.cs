@@ -108,6 +108,11 @@ namespace Segra.Backend.Utils
                             await HandleAddBookmark(bookmarkParameterElement);
                             Log.Information("AddBookmark command received.");
                             break;
+                        case "DeleteBookmark":
+                            root.TryGetProperty("Parameters", out JsonElement deleteBookmarkParameterElement);
+                            await HandleDeleteBookmark(deleteBookmarkParameterElement);
+                            Log.Information("DeleteBookmark command received.");
+                            break;
                         // Handle other methods if needed
                         default:
                             Log.Information($"Unknown method: {method}");
@@ -386,6 +391,92 @@ namespace Segra.Backend.Utils
             catch (Exception ex)
             {
                 Log.Error($"Error handling AddBookmark: {ex.Message}");
+            }
+        }
+
+        private static async Task HandleDeleteBookmark(JsonElement message)
+        {
+            try
+            {
+                // Get required properties from the message
+                if (message.TryGetProperty("FilePath", out JsonElement filePathElement) &&
+                    message.TryGetProperty("ContentType", out JsonElement contentTypeElement) &&
+                    message.TryGetProperty("Id", out JsonElement idElement))
+                {
+                    string? filePath = filePathElement.GetString();
+                    string? contentTypeStr = contentTypeElement.GetString();
+                    int bookmarkId = idElement.GetInt32();
+
+                    if (string.IsNullOrEmpty(filePath) || string.IsNullOrEmpty(contentTypeStr))
+                    {
+                        Log.Error("Required parameters are null or empty in DeleteBookmark message");
+                        return;
+                    }
+
+                    // Determine content type from the provided value
+                    Content.ContentType contentType;
+                    if (!Enum.TryParse<Content.ContentType>(contentTypeStr, out contentType))
+                    {
+                        Log.Error($"Invalid content type: {contentTypeStr}");
+                        return;
+                    }
+
+                    // Get metadata file path
+                    string contentFileName = Path.GetFileNameWithoutExtension(filePath);
+                    string metadataFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".metadata", contentType.ToString().ToLower() + "s");
+                    string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
+
+                    if (!File.Exists(metadataFilePath))
+                    {
+                        Log.Error($"Metadata file not found: {metadataFilePath}");
+                        return;
+                    }
+
+                    // Read existing metadata
+                    string metadataJson = await File.ReadAllTextAsync(metadataFilePath);
+                    var content = JsonSerializer.Deserialize<Content>(metadataJson);
+                    
+                    if (content == null)
+                    {
+                        Log.Error($"Failed to deserialize metadata: {metadataFilePath}");
+                        return;
+                    }
+
+                    // Remove the bookmark from the content
+                    if (content.Bookmarks != null)
+                    {
+                        content.Bookmarks = content.Bookmarks.Where(b => b.Id != bookmarkId).ToList();
+                    }
+
+                    // Save the updated metadata
+                    string updatedMetadataJson = JsonSerializer.Serialize(content, new JsonSerializerOptions
+                    {
+                        WriteIndented = true
+                    });
+
+                    await File.WriteAllTextAsync(metadataFilePath, updatedMetadataJson);
+
+                    // Update the bookmark in the in-memory content collection
+                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c => 
+                        c.FilePath == filePath && 
+                        c.Type.ToString() == contentTypeStr);
+                    
+                    if (contentItem != null && contentItem.Bookmarks != null)
+                    {
+                        contentItem.Bookmarks = contentItem.Bookmarks.Where(b => b.Id != bookmarkId).ToList();
+                    }
+
+                    await SendSettingsToFrontend();
+                    Log.Information($"Deleted bookmark with id {bookmarkId} from {metadataFilePath}");
+                }
+                else
+                {
+                    Log.Error("Required properties missing in DeleteBookmark message.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error handling DeleteBookmark: {ex.Message}");
             }
         }
 
