@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
-import { Content, BookmarkType, Selection } from "../Models/types";
+import { Content, BookmarkType, Selection, Bookmark, BookmarkSubtype } from "../Models/types";
 import { sendMessageToBackend } from "../Utils/MessageUtils";
 import { useSettings } from "../Context/SettingsContext";
 import { DndProvider } from "react-dnd";
@@ -656,7 +656,48 @@ export default function VideoComponent({ video }: { video: Content }) {
     };
 
     const handleAddBookmark = () => {
-        console.log("Add bookmark at current time");
+        if (!videoRef.current) return;
+        
+        const currentTimeInSeconds = videoRef.current.currentTime;
+        // Format time as HH:MM:SS.mmm for consistency with backend
+        const hours = Math.floor(currentTimeInSeconds / 3600);
+        const minutes = Math.floor((currentTimeInSeconds % 3600) / 60);
+        const seconds = Math.floor(currentTimeInSeconds % 60);
+        const milliseconds = Math.floor((currentTimeInSeconds % 1) * 1000);
+        
+        const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+        
+        // Default to Manual bookmark type if not specified
+        const bookmarkType = BookmarkType.Manual;
+        
+        // Generate a random ID between 1 and MAX_INT
+        const bookmarkId = Math.floor(Math.random() * 2147483647) + 1;
+        
+        // Create a new bookmark object
+        const newBookmark: Bookmark = {
+            id: bookmarkId,
+            type: bookmarkType,
+            time: formattedTime
+        };
+        
+        // Add the bookmark to the video's bookmarks array
+        video.bookmarks.push(newBookmark);
+        
+        // Force a re-render to show the new bookmark
+        const bookmarks = [...video.bookmarks];
+        video.bookmarks = bookmarks;
+        
+        // Send message to backend to add bookmark
+        sendMessageToBackend('AddBookmark', {
+            FilePath: video.filePath,
+            Type: bookmarkType,
+            Time: formattedTime,
+            ContentType: video.type,
+            Id: bookmarkId
+        });
+        
+        // Add visual feedback for the user
+        console.log(`Added bookmark at ${formattedTime}`);
     };
 
     return (
@@ -702,7 +743,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                         className="tooltip absolute bottom-0 transform -translate-x-1/2 cursor-pointer z-10 flex flex-col items-center text-[#25272e]"
                                         data-tip={isCluster
                                             ? `${group.length} bookmarks at ${referenceBookmark.time}`
-                                            : `${referenceBookmark.type} - ${referenceBookmark.subtype} (${referenceBookmark.time})`
+                                            : `${referenceBookmark.type}${referenceBookmark.subtype ? ` - ${referenceBookmark.subtype}` : ''} (${referenceBookmark.time})`
                                         }
                                         style={{
                                             left: `${leftPos}px`

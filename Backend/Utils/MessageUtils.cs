@@ -1,4 +1,4 @@
-﻿using System.Net.WebSockets;
+using System.Net.WebSockets;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -8,6 +8,7 @@ using Serilog;
 using System.Net.Http.Headers;
 using System.Diagnostics;
 using Segra.Backend.Services;
+using System.Runtime.InteropServices;
 
 namespace Segra.Backend.Utils
 {
@@ -101,6 +102,11 @@ namespace Segra.Backend.Utils
                             root.TryGetProperty("Parameters", out JsonElement settingsParameterElement);
                             SettingsUtils.HandleUpdateSettings(settingsParameterElement);
                             Log.Information("UpdateSettings command received.");
+                            break;
+                        case "AddBookmark":
+                            root.TryGetProperty("Parameters", out JsonElement bookmarkParameterElement);
+                            await HandleAddBookmark(bookmarkParameterElement);
+                            Log.Information("AddBookmark command received.");
                             break;
                         // Handle other methods if needed
                         default:
@@ -280,7 +286,108 @@ namespace Segra.Backend.Utils
             }
         }
 
-        // Existing methods...
+        private static async Task HandleAddBookmark(JsonElement message)
+        {
+            try
+            {
+                // Get required properties from the message
+                if (message.TryGetProperty("FilePath", out JsonElement filePathElement) &&
+                    message.TryGetProperty("Type", out JsonElement typeElement) &&
+                    message.TryGetProperty("Time", out JsonElement timeElement) &&
+                    message.TryGetProperty("ContentType", out JsonElement contentTypeElement) &&
+                    message.TryGetProperty("Id", out JsonElement idElement))
+                {
+                    string? filePath = filePathElement.GetString();
+                    string? bookmarkTypeStr = typeElement.GetString();
+                    string? timeString = timeElement.GetString();
+                    string? contentTypeStr = contentTypeElement.GetString();
+                    int bookmarkId = idElement.GetInt32();
+
+                    if (string.IsNullOrEmpty(filePath) || string.IsNullOrEmpty(timeString) || string.IsNullOrEmpty(contentTypeStr))
+                    {
+                        Log.Error("Required parameters are null or empty in AddBookmark message");
+                        return;
+                    }
+
+                    // Parse bookmark type, default to Manual if not valid
+                    BookmarkType bookmarkType = BookmarkType.Manual;
+                    if (!string.IsNullOrEmpty(bookmarkTypeStr) && Enum.TryParse<BookmarkType>(bookmarkTypeStr, out var parsedType))
+                    {
+                        bookmarkType = parsedType;
+                    }
+
+                    // Determine content type from the provided value
+                    Content.ContentType contentType;
+                    if (!Enum.TryParse<Content.ContentType>(contentTypeStr, out contentType))
+                    {
+                        Log.Error($"Invalid content type: {contentTypeStr}");
+                        return;
+                    }
+
+                    // Get metadata file path
+                    string contentFileName = Path.GetFileNameWithoutExtension(filePath);
+                    string metadataFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".metadata", contentType.ToString().ToLower() + "s");
+                    string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
+
+                    if (!File.Exists(metadataFilePath))
+                    {
+                        Log.Error($"Metadata file not found: {metadataFilePath}");
+                        return;
+                    }
+
+                    // Read existing metadata
+                    string metadataJson = await File.ReadAllTextAsync(metadataFilePath);
+                    var content = JsonSerializer.Deserialize<Content>(metadataJson);
+                    
+                    if (content == null)
+                    {
+                        Log.Error($"Failed to deserialize metadata: {metadataFilePath}");
+                        return;
+                    }
+
+                    // Create a new bookmark
+                    var bookmark = new Bookmark
+                    {
+                        Id = bookmarkId,
+                        Type = bookmarkType,
+                        Time = TimeSpan.Parse(timeString)
+                    };
+
+                    // Add the bookmark to the content
+                    if (content.Bookmarks == null)
+                    {
+                        content.Bookmarks = new List<Bookmark>();
+                    }
+                    content.Bookmarks.Add(bookmark);
+
+                    // Save the updated metadata
+                    string updatedMetadataJson = JsonSerializer.Serialize(content, new JsonSerializerOptions
+                    {
+                        WriteIndented = true
+                    });
+
+                    await File.WriteAllTextAsync(metadataFilePath, updatedMetadataJson);
+
+                    // Update the bookmark in the in-memory content collection
+                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c => 
+                        c.FilePath == filePath && 
+                        c.Type.ToString() == contentTypeStr);
+                    
+                    contentItem.Bookmarks.Add(bookmark);
+
+                    await SendSettingsToFrontend();
+                    Log.Information($"Added bookmark of type {bookmarkType} at {timeString} to {metadataFilePath}");
+                }
+                else
+                {
+                    Log.Error("Required properties missing in AddBookmark message.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error handling AddBookmark: {ex.Message}");
+            }
+        }
 
         private static async Task SetVideoLocationAsync()
         {
@@ -459,4 +566,3 @@ namespace Segra.Backend.Utils
         public string? Game { get; set; }
     }
 }
-
