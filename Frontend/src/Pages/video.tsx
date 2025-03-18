@@ -742,36 +742,37 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 <div className="flex items-center gap-0 bg-base-300 rounded-lg">
                                     <button
                                         onClick={() => skipTime(-10)}
-                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom"
-                                        data-tip="Rewind 10s"
+                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
                                     >
                                         <MdReplay10 className="w-6 h-6" />
                                     </button>
                                     <button
                                         onClick={handlePlayPause}
-                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom"
+                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
                                         data-tip={isPlaying ? "Pause" : "Play"}
                                     >
                                         {isPlaying ? <MdPause className="w-6 h-6" /> : <MdPlayArrow className="w-6 h-6" />}
                                     </button>
                                     <button
                                         onClick={() => skipTime(10)}
-                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom"
+                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
                                         data-tip="Forward 10s"
                                     >
                                         <MdForward10 className="w-6 h-6" />
                                     </button>
                                 </div>
                                 <button
-                                    className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom`} data-tip="Create Clip"
+                                    className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent flex items-center gap-1`}
                                     onClick={handleCreateClip}
                                 >
                                     <MdMovieCreation className="w-6 h-6" />
+                                    <span>Create Clip</span>
                                 </button>
                                 <div className="indicator">
-                                    <button className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom`} data-tip="Add Segment" onClick={handleAddSelection}>
+                                    <button className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent flex items-center gap-1`} onClick={handleAddSelection}>
                                         {showNoSegmentsIndicator && <span className="indicator-item badge badge-sm badge-primary animate-pulse"></span>}
                                         <MdAddBox className="w-6 h-6" />
+                                        <span>Add Segment</span>
                                     </button>
                                 </div>
                             </div>
