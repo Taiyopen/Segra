@@ -794,6 +794,13 @@ export default function VideoComponent({ video }: { video: Content }) {
                                         onContextMenu={(e) => handleSelectionContextMenu(e, sel.id)}
                                     >
                                         <div
+                                            ref={(element) => {
+                                                if (element) {
+                                                    // If scrollWidth > clientWidth, content doesn't fit
+                                                    element.style.visibility = 
+                                                        element.scrollWidth <= element.clientWidth ? 'visible' : 'hidden';
+                                                }
+                                            }}
                                             className="absolute top-0 left-0 right-0 text-center text-white font-semibold text-xs select-none pt-[2px] whitespace-nowrap overflow-hidden text-ellipsis"
                                         >
                                             {formatTime(sel.startTime)} - {formatTime(sel.endTime)}
