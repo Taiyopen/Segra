@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
-import { Content, BookmarkType, Selection, Bookmark, BookmarkSubtype } from "../Models/types";
+import { Content, BookmarkType, Selection, Bookmark } from "../Models/types";
 import { sendMessageToBackend } from "../Utils/MessageUtils";
 import { useSettings } from "../Context/SettingsContext";
 import { DndProvider } from "react-dnd";
