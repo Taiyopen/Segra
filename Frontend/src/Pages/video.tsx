@@ -179,31 +179,129 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, []);
 
+    // Create refs to track zoom state and position
+    const wheelZoomRef = useRef(zoom);
+    const initializedRef = useRef(false);
+    const cursorPositionRef = useRef({ x: 0, time: 0 });
+    
+    // Update the wheel zoom ref when zoom changes from other sources (buttons)
+    useEffect(() => {
+        wheelZoomRef.current = zoom;
+    }, [zoom]);
+    
+    // Initialize the timeline scroll position once when loaded
+    useEffect(() => {
+        if (scrollContainerRef.current && duration > 0 && !initializedRef.current) {
+            initializedRef.current = true;
+        }
+    }, [duration, scrollContainerRef.current]);
+    
     // Handle timeline zooming with mouse wheel
     useEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
+        
         const handleWheel = (e: WheelEvent) => {
             e.preventDefault();
             if (duration === 0) return;
-            const zoomFactor = e.deltaY < 0 ? 1.2 : 0.8;
-            const newZoom = Math.min(Math.max(zoom * zoomFactor, 1), 50);
+            
+            // Get container dimensions
             const rect = container.getBoundingClientRect();
-            const cursorX = e.clientX - rect.left + container.scrollLeft;
-            const basePixelsPerSecond = duration > 0 ? containerWidth / duration : 0;
-            const oldPixelsPerSecond = basePixelsPerSecond * zoom;
-            const timeAtCursor = cursorX / oldPixelsPerSecond;
+            const cursorX = e.clientX - rect.left;
+            const scrollLeft = container.scrollLeft;
+            
+            // Calculate base pixels per second for time conversion
+            const basePixelsPerSecond = containerWidth / duration;
+            const oldPixelsPerSecond = basePixelsPerSecond * wheelZoomRef.current;
+            
+            // Calculate time at cursor position
+            const timeAtCursor = (cursorX + scrollLeft) / oldPixelsPerSecond;
+            
+            // Store cursor position for reference
+            cursorPositionRef.current = {
+                x: cursorX,
+                time: timeAtCursor
+            };
+            
+            // Calculate new zoom level
+            const zoomFactor = e.deltaY < 0 ? 1.2 : 0.8;
+            const newZoom = Math.min(Math.max(wheelZoomRef.current * zoomFactor, 1), 50);
+            
+            // Update zoom ref immediately
+            wheelZoomRef.current = newZoom;
+            
+            // Calculate new scroll position based on cursor time point
+            const newPixelsPerSecond = basePixelsPerSecond * newZoom;
+            const newCursorPosition = timeAtCursor * newPixelsPerSecond;
+            const newScrollLeft = newCursorPosition - cursorX;
+            
+            // Apply scroll position immediately
+            requestAnimationFrame(() => {
+                if (container) {
+                    container.scrollLeft = newScrollLeft;
+                    
+                    // Double check the position after the frame renders
+                    requestAnimationFrame(() => {
+                        if (container) {
+                            const currentScrollLeft = container.scrollLeft;
+                            if (Math.abs(currentScrollLeft - newScrollLeft) > 5) {
+                                container.scrollLeft = newScrollLeft;
+                            }
+                        }
+                    });
+                }
+            });
+            
+            // Update React state
             setZoom(newZoom);
-            const newPPS = basePixelsPerSecond * newZoom;
-            const newScrollLeft = timeAtCursor * newPPS - (e.clientX - rect.left);
-            container.scrollLeft = newScrollLeft;
         };
-        const wheelEventOptions: AddEventListenerOptions = {passive: false};
+        
+        const wheelEventOptions: AddEventListenerOptions = { passive: false };
         container.addEventListener("wheel", handleWheel, wheelEventOptions);
+        
         return () => {
             container.removeEventListener("wheel", handleWheel, wheelEventOptions);
         };
-    }, [zoom, duration, containerWidth]);
+    }, [duration, containerWidth]); // Remove zoom from dependencies to prevent recreation
+
+    const handleZoomChange = (increment: boolean) => {
+        if (!scrollContainerRef.current) return;
+        
+        const container = scrollContainerRef.current;
+        const scrollLeft = container.scrollLeft;
+        
+        // Calculate time at marker position (current time)
+        const basePixelsPerSecond = containerWidth / duration;
+        const oldPixelsPerSecond = basePixelsPerSecond * zoom;
+        
+        // Use current time as the focus point for zooming
+        const markerTime = currentTime;
+        const markerPosition = markerTime * oldPixelsPerSecond;
+        
+        // Calculate new zoom
+        const newZoom = increment ? zoom * 1.5 : zoom * 0.5;
+        const finalZoom = Math.min(Math.max(newZoom, 1), 50);
+        
+        // Update zoom state
+        setZoom(finalZoom);
+        
+        // Calculate new scroll position to keep marker in view
+        setTimeout(() => {
+            if (container) {
+                const newPixelsPerSecond = basePixelsPerSecond * finalZoom;
+                const newMarkerPosition = markerTime * newPixelsPerSecond;
+                
+                // Calculate new scroll position to center on marker
+                // Adjust scroll to position marker at same relative position
+                const viewportWidth = container.clientWidth;
+                const markerOffset = markerPosition - scrollLeft;
+                const visibleRatio = markerOffset / viewportWidth;
+                const newScrollPosition = newMarkerPosition - (visibleRatio * viewportWidth);
+                
+                container.scrollLeft = newScrollPosition;
+            }
+        }, 0);
+    };
 
     // Video control functions
     const handlePlayPause = () => {
@@ -556,13 +654,6 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     const handleAddBookmark = () => {
         console.log("Add bookmark at current time");
-    };
-
-    const handleZoomChange = (increment: boolean) => {
-        setZoom(prev => {
-            const newZoom = increment ? prev * 1.5 : prev * 0.5;
-            return Math.min(Math.max(newZoom, 1), 50);
-        });
     };
 
     return (
