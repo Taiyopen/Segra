@@ -25,7 +25,9 @@ namespace Segra.Backend.Services
                 if (!IsAuthenticated() || Session == null || Session.Expired())
                 {
                     Session = await _client.Auth.SetSession(jwt, refreshToken);
+                    Session = await _client.Auth.RefreshSession();
                     Log.Information($"Logged in as {Session.User.Id}");
+                    Log.Information($"JWT token: {Session.AccessToken}");
                 }
             }
             catch (Exception ex)
@@ -61,7 +63,7 @@ namespace Segra.Backend.Services
         {
             if (Session == null || Session.Expired() == true)
             {
-                await _client.Auth.RefreshSession();
+                Session = await _client.Auth.RefreshSession();
             }
 
             return Session?.AccessToken;
