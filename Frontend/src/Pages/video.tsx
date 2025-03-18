@@ -400,7 +400,10 @@ export default function VideoComponent({ video }: { video: Content }) {
     const handleAddSelection = async () => {
         if (!videoRef.current) return;
         const start = currentTime;
-        const end = Math.min(currentTime + 10, duration);
+        const zoomRatio = zoom / 50 * 100;
+        const selectionDuration = Math.max(0.1, (duration * 0.0019) * (100 / zoomRatio));
+        const end = currentTime + selectionDuration;
+        
         const newSelection: Selection = {
             id: Date.now(),
             type: video.type,
