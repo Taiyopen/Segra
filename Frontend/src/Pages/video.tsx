@@ -804,7 +804,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                     ))}
                                 </div>
 
-                                <div className="flex items-center gap-2 bg-base-300 px-0 rounded-lg h-10">
+                                <div className="flex items-center gap-1 bg-base-300 px-0 rounded-lg h-10">
                                     <button
                                         onClick={() => handleZoomChange(false)}
                                         className="btn btn-sm btn-secondary h-10 disabled:opacity-100"
@@ -812,7 +812,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                     >
                                         <IoRemove className="w-4 h-4" />
                                     </button>
-                                    <span className="text-sm font-medium w-12 text-center text-gray-300">
+                                    <span className="text-sm font-medium text-center text-gray-300">
                                         {Math.round(zoom * 100 / 5) * 5}%
                                     </span>
                                     <button
