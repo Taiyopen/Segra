@@ -131,9 +131,12 @@ namespace Segra.Backend.Utils
             string outputFileName = $"{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
             string outputFilePath = Path.Combine(outputFolder, outputFileName).Replace("\\", "/");
 
-            aiProgressMessage.Progress = 99;
-            aiProgressMessage.Message = "Rendering final clip...";
-            MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+            if (aiProgressMessage != null)
+            {
+                aiProgressMessage.Progress = 99;
+                aiProgressMessage.Message = "Rendering final clip...";
+                MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
+            }
 
             await RunFFmpegProcess(ffmpegPath,
                 $"-y -f concat -safe 0 -i \"{concatFilePath}\" -c copy -movflags +faststart \"{outputFilePath}\"",
