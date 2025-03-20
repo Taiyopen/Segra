@@ -9,12 +9,18 @@ using Serilog;
 using System.Diagnostics;
 using System.Net;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Velopack;
 
 namespace Segra
 {
     class Program
     {
+        [DllImport("user32.dll")]
+        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        const int SW_HIDE = 0;
+
         public static bool hasLoadedInitialSettings = false;
         public static PhotinoWindow window { get; private set; }
         private static readonly string LogFilePath =
@@ -147,21 +153,13 @@ namespace Segra
 
                 AddNotifyIcon();
                 GameDetectionService.ForegroundHook.Start();
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Task.Run(() => OBSUtils.InitializeAsync());
-                        Log.Information("OBSUtils initialized successfully.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error(ex, "Failed to initialize OBSUtils.");
-                    }
-                });
 
                 // intentional space after name because of https://github.com/tryphotino/photino.NET/issues/106
                 window.SetTitle("Segra ");
+
+                // Run the OBS Initializer in a separate thread and application to make sure someting on the main thread doesn't block
+                Task.Run(() => Application.Run(new OBSWindow()));
+
                 window.WaitForClose();
                 GameDetectionService.ForegroundHook.Stop();
             }
@@ -186,11 +184,16 @@ namespace Segra
             };
 
             var contextMenu = new ContextMenuStrip();
-            contextMenu.Items.Add("Open", null, (sender, e) =>
+            contextMenu.Items.Add("Open", null, async (sender, e) =>
             {
                 notifyIcon.Visible = false;
                 window.Minimized = false;
+
+                window.SetTopMost(true);
+                await Task.Delay(200);
+                window.SetTopMost(false);
             });
+
             contextMenu.Items.Add("Exit", null, (sender, e) =>
             {
                 notifyIcon.Visible = false;
@@ -199,20 +202,26 @@ namespace Segra
 
             notifyIcon.ContextMenuStrip = contextMenu;
 
-            notifyIcon.MouseDoubleClick += (sender, e) =>
+            notifyIcon.MouseDoubleClick += async (sender, e) =>
             {
                 if (e.Button == MouseButtons.Left)
                 {
                     notifyIcon.Visible = false;
                     window.Minimized = false;
+
+                    window.SetTopMost(true);
+                    await Task.Delay(200);
+                    window.SetTopMost(false);
                 }
             };
 
             window.RegisterWindowClosingHandler((sender, eventArgs) =>
             {
-                // TODO (os) Hide instead of minimize
-                window.Minimized = true;
+                window.Minimized = true; // Minimize first
                 notifyIcon.Visible = true;
+
+                IntPtr hWnd = Process.GetCurrentProcess().MainWindowHandle;
+                ShowWindow(hWnd, SW_HIDE); // Hides the window from the taskbar
 
                 return true;
             });

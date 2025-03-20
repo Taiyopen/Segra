@@ -358,6 +358,12 @@ namespace Segra.Backend.Utils
             }
             Task.Run(StorageUtils.EnsureStorageBelowLimit);
 
+            // If the recording ends before it started, don't do anything
+            if (Settings.Instance.State.Recording == null || Settings.Instance.State.Recording.FilePath == null)
+            {
+                return;
+            }
+
             string fileName = Path.GetFileNameWithoutExtension(Settings.Instance.State.Recording.FilePath);
 
             Settings.Instance.State.Recording = null;
