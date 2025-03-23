@@ -893,109 +893,110 @@ export default function VideoComponent({ video }: { video: Content }) {
                             />
                         </div>
                     </div>
-                    {(video.type === "Clip" || video.type === "Highlight") && (
-                        <div className="mt-2">
-                            <button
-                                className="btn btn-sm btn-secondary h-12 px-8 text-gray-400 hover:text-accent flex items-center gap-2"
-                                onClick={handleUpload}
-                                disabled={uploads[video.fileName + ".mp4"]?.status === 'uploading' || uploads[video.fileName + ".mp4"]?.status === 'processing'}
-                            >
-                                <MdOutlineFileUpload className="w-6 h-6" />
-                                <span>Upload</span>
-                            </button>
-                        </div>
-                    )}
-
-                    {video.type === "Session" && (
-                        <div className="flex items-center justify-between gap-4 py-1">
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-0 bg-base-300 rounded-lg">
-                                    <button
-                                        onClick={() => skipTime(-10)}
-                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
-                                    >
-                                        <MdReplay10 className="w-6 h-6" />
-                                    </button>
-                                    <button
-                                        onClick={handlePlayPause}
-                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
-                                        data-tip={isPlaying ? "Pause" : "Play"}
-                                    >
-                                        {isPlaying ? <MdPause className="w-6 h-6" /> : <MdPlayArrow className="w-6 h-6" />}
-                                    </button>
-                                    <button
-                                        onClick={() => skipTime(10)}
-                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
-                                        data-tip="Forward 10s"
-                                    >
-                                        <MdForward10 className="w-6 h-6" />
-                                    </button>
-                                </div>
+                    <div className="flex items-center justify-between gap-4 py-1">
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-0 bg-base-300 rounded-lg">
                                 <button
-                                    className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent flex items-center gap-1`}
-                                    onClick={handleCreateClip}
+                                    onClick={() => skipTime(-10)}
+                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
                                 >
-                                    <MdMovieCreation className="w-6 h-6" />
-                                    <span>Create Clip</span>
+                                    <MdReplay10 className="w-6 h-6" />
                                 </button>
-                                <div className="indicator">
-                                    <button className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent flex items-center gap-1`} onClick={handleAddSelection}>
-                                        {showNoSegmentsIndicator && <span className="indicator-item badge badge-sm badge-primary animate-pulse"></span>}
-                                        <MdAddBox className="w-6 h-6" />
-                                        <span>Add Segment</span>
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={handlePlayPause}
+                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
+                                    data-tip={isPlaying ? "Pause" : "Play"}
+                                >
+                                    {isPlaying ? <MdPause className="w-6 h-6" /> : <MdPlayArrow className="w-6 h-6" />}
+                                </button>
+                                <button
+                                    onClick={() => skipTime(10)}
+                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
+                                    data-tip="Forward 10s"
+                                >
+                                    <MdForward10 className="w-6 h-6" />
+                                </button>
                             </div>
-
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2 bg-base-300 rounded-lg">
+                            {(video.type === "Clip" || video.type === "Highlight") && (
+                                <button
+                                    className="btn btn-sm btn-secondary h-10 px-6 text-gray-400 hover:text-accent flex items-center"
+                                    onClick={handleUpload}
+                                    disabled={uploads[video.fileName + ".mp4"]?.status === 'uploading' || uploads[video.fileName + ".mp4"]?.status === 'processing'}
+                                >
+                                    <MdOutlineFileUpload className="w-6 h-6" />
+                                    <span>Upload</span>
+                                </button>
+                            )}
+                            {(video.type === "Session" || video.type === "Buffer") && (
+                                <>
                                     <button
-                                        onClick={handleAddBookmark}
-                                        className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Add Bookmark"
+                                        className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent flex items-center gap-1`}
+                                        onClick={handleCreateClip}
                                     >
-                                        <MdBookmarkAdd className="w-6 h-6" />
+                                        <MdMovieCreation className="w-6 h-6" />
+                                        <span>Create Clip</span>
                                     </button>
-                                </div>
-                                <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10">
-                                    {availableBookmarkTypes.map(type => (
-                                        <button
-                                            key={type}
-                                            onClick={() => toggleBookmarkType(type)}
-                                            className={`btn btn-sm btn-secondary border-none h-10 transition-colors ${
-                                                selectedBookmarkTypes.has(type) 
-                                                    ? 'text-accent' 
-                                                    : 'text-gray-400'
-                                            }`}
-                                        >
-                                            {React.createElement(iconMapping[type] || IoSkull, {
-                                                className: "w-6 h-6"
-                                            })}
+                                    <div className="indicator">
+                                        <button className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent flex items-center gap-1`} onClick={handleAddSelection}>
+                                            {showNoSegmentsIndicator && <span className="indicator-item badge badge-sm badge-primary animate-pulse"></span>}
+                                            <MdAddBox className="w-6 h-6" />
+                                            <span>Add Segment</span>
                                         </button>
-                                    ))}
-                                </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
 
-                                <div className="flex items-center gap-1 bg-base-300 px-0 rounded-lg h-10">
-                                    <button
-                                        onClick={() => handleZoomChange(false)}
-                                        className="btn btn-sm btn-secondary h-10 disabled:opacity-100"
-                                        disabled={zoom <= 1}
-                                    >
-                                        <IoRemove className="w-4 h-4" />
-                                    </button>
-                                    <span className="text-sm font-medium text-center text-gray-300">
-                                        {Math.round(zoom * 100 / 5) * 5}%
-                                    </span>
-                                    <button
-                                        onClick={() => handleZoomChange(true)}
-                                        className="btn btn-sm btn-secondary h-10"
-                                        disabled={zoom >= 50}
-                                    >
-                                        <IoAdd className="w-4 h-4" />
-                                    </button>
-                                </div>
+                        <div className="flex items-center gap-3">
+                            {(video.type === "Session" || video.type === "Buffer") && (
+                                <>
+                                    <div className="flex items-center gap-2 bg-base-300 rounded-lg">
+                                        <button
+                                            onClick={handleAddBookmark}
+                                            className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Add Bookmark"
+                                        >
+                                            <MdBookmarkAdd className="w-6 h-6" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10">
+                                        {availableBookmarkTypes.map(type => (
+                                            <button
+                                                key={type}
+                                                onClick={() => toggleBookmarkType(type)}
+                                                className={`btn btn-sm btn-secondary border-none h-10 transition-colors ${selectedBookmarkTypes.has(type)
+                                                        ? 'text-accent'
+                                                        : 'text-gray-400'}`}
+                                            >
+                                                {React.createElement(iconMapping[type] || IoSkull, {
+                                                    className: "w-6 h-6"
+                                                })}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="flex items-center gap-1 bg-base-300 px-0 rounded-lg h-10">
+                                <button
+                                    onClick={() => handleZoomChange(false)}
+                                    className="btn btn-sm btn-secondary h-10 disabled:opacity-100"
+                                    disabled={zoom <= 1}
+                                >
+                                    <IoRemove className="w-4 h-4" />
+                                </button>
+                                <span className="text-sm font-medium text-center text-gray-300">
+                                    {Math.round(zoom * 100 / 5) * 5}%
+                                </span>
+                                <button
+                                    onClick={() => handleZoomChange(true)}
+                                    className="btn btn-sm btn-secondary h-10"
+                                    disabled={zoom >= 50}
+                                >
+                                    <IoAdd className="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
-                    )}
+                    </div>
                 </div>
                 {video.type === "Session" && (
                     <div className="bg-base-300 text-neutral-content w-52 2xl:w-72 flex flex-col h-full pl-4 pr-1 pt-4">
