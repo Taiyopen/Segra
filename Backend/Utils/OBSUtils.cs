@@ -316,14 +316,23 @@ namespace Segra.Backend.Utils
 
                 int attempts = 0;
 
-                while (!signalOutputStop && attempts < 50)
+                while (!signalOutputStop && attempts < 300)
                 {
                     Thread.Sleep(100);
                     attempts++;
                 }
 
                 if (!signalOutputStop)
+                {
+                    Log.Warning("Failed to stop recording. Forcing stop.");
                     obs_output_force_stop(output);
+                }
+                else
+                {
+                    Log.Information("Output stopped.");
+                }
+
+                Thread.Sleep(200);
 
                 DisposeOutput();
                 DisposeSources();
@@ -395,21 +404,21 @@ namespace Segra.Backend.Utils
         {
             if (displaySource != IntPtr.Zero)
             {
-                obs_source_remove(displaySource);
+                obs_set_output_source(0, IntPtr.Zero);
                 obs_source_release(displaySource);
                 displaySource = IntPtr.Zero;
             }
 
             if (micSource != IntPtr.Zero)
             {
-                obs_source_remove(micSource);
+                obs_set_output_source(1, IntPtr.Zero);
                 obs_source_release(micSource);
                 micSource = IntPtr.Zero;
             }
 
             if (desktopSource != IntPtr.Zero)
             {
-                obs_source_remove(desktopSource);
+                obs_set_output_source(2, IntPtr.Zero);
                 obs_source_release(desktopSource);
                 desktopSource = IntPtr.Zero;
             }
@@ -419,16 +428,12 @@ namespace Segra.Backend.Utils
         {
             if (videoEncoder != IntPtr.Zero)
             {
-                var reference = obs_encoder_get_ref(videoEncoder);
-                obs_encoder_release(reference);
                 obs_encoder_release(videoEncoder);
                 videoEncoder = IntPtr.Zero;
             }
 
             if (audioEncoder != IntPtr.Zero)
             {
-                var reference = obs_encoder_get_ref(audioEncoder);
-                obs_encoder_release(reference);
                 obs_encoder_release(audioEncoder);
                 audioEncoder = IntPtr.Zero;
             }
@@ -438,9 +443,7 @@ namespace Segra.Backend.Utils
         {
             if (output != IntPtr.Zero)
             {
-                var reference = obs_output_get_ref(output);
-                signal_handler_disconnect(obs_output_get_signal_handler(reference), "stop", outputStopCallback, IntPtr.Zero);
-                obs_output_release(reference);
+                signal_handler_disconnect(obs_output_get_signal_handler(output), "stop", outputStopCallback, IntPtr.Zero);
                 obs_output_release(output);
                 output = IntPtr.Zero;
             }
