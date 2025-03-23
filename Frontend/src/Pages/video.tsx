@@ -11,7 +11,7 @@ import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun } from "react-icons/fa6";
-import { MdAddBox, MdBookmark, MdBookmarkAdd, MdCleaningServices, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload } from "react-icons/md";
+import { MdAddBox, MdBookmark, MdBookmarkAdd, MdCleaningServices, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload, MdVolumeUp, MdVolumeOff, MdVolumeMute, MdVolumeDown } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
@@ -63,6 +63,16 @@ export default function VideoComponent({ video }: { video: Content }) {
     const [containerWidth, setContainerWidth] = useState(0);
     const [isPlaying, setIsPlaying] = useState(true);
     const [showNoSegmentsIndicator, setShowNoSegmentsIndicator] = useState(false);
+    const [volume, setVolume] = useState(() => {
+        // Initialize volume from localStorage or default to 1
+        const savedVolume = localStorage.getItem('segra-volume');
+        return savedVolume ? parseFloat(savedVolume) : 1;
+    });
+    const [isMuted, setIsMuted] = useState(() => {
+        // Initialize muted state from localStorage or default to false
+        return localStorage.getItem('segra-muted') === 'true';
+    });
+    const [isVideoHovered, setIsVideoHovered] = useState(false);
 
     // Interaction state
     const [isDragging, setIsDragging] = useState(false);
@@ -106,6 +116,10 @@ export default function VideoComponent({ video }: { video: Content }) {
         const vid = videoRef.current;
         if (!vid) return;
         
+        // Apply saved volume and muted state on load
+        vid.volume = volume;
+        vid.muted = isMuted;
+        
         const onLoadedMetadata = () => {
             setDuration(vid.duration);
             setZoom(1);
@@ -113,10 +127,21 @@ export default function VideoComponent({ video }: { video: Content }) {
 
         const onPlay = () => setIsPlaying(true);
         const onPause = () => setIsPlaying(false);
+        const onVolumeChange = () => {
+            if (vid) {
+                setVolume(vid.volume);
+                setIsMuted(vid.muted);
+                
+                // Save to localStorage when volume changes
+                localStorage.setItem('segra-volume', vid.volume.toString());
+                localStorage.setItem('segra-muted', vid.muted.toString());
+            }
+        };
         
         vid.addEventListener("loadedmetadata", onLoadedMetadata);
         vid.addEventListener("play", onPlay);
         vid.addEventListener("pause", onPause);
+        vid.addEventListener("volumechange", onVolumeChange);
         
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
@@ -132,9 +157,10 @@ export default function VideoComponent({ video }: { video: Content }) {
             vid.removeEventListener("loadedmetadata", onLoadedMetadata);
             vid.removeEventListener("play", onPlay);
             vid.removeEventListener("pause", onPause);
+            vid.removeEventListener("volumechange", onVolumeChange);
             window.removeEventListener("keydown", handleKeyDown);
         };
-    }, []);
+    }, [volume, isMuted]);
 
     // Handle video playback time updates using requestAnimationFrame for smooth updates
     useEffect(() => {
@@ -723,18 +749,88 @@ export default function VideoComponent({ video }: { video: Content }) {
         }
     };
 
+    // Handle volume change
+    const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newVolume = parseFloat(e.target.value);
+        setVolume(newVolume);
+        
+        if (videoRef.current) {
+            videoRef.current.volume = newVolume;
+            
+            // If we're adjusting volume from zero or to zero, update muted state
+            if (newVolume === 0) {
+                videoRef.current.muted = true;
+                setIsMuted(true);
+            } else if (isMuted) {
+                videoRef.current.muted = false;
+                setIsMuted(false);
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('segra-volume', newVolume.toString());
+            localStorage.setItem('segra-muted', videoRef.current.muted.toString());
+        }
+    };
+
+    // Toggle mute state
+    const toggleMute = () => {
+        if (videoRef.current) {
+            const newMutedState = !videoRef.current.muted;
+            videoRef.current.muted = newMutedState;
+            setIsMuted(newMutedState);
+            
+            // Save to localStorage
+            localStorage.setItem('segra-muted', newMutedState.toString());
+        }
+    };
+
     return (
         <DndProvider backend={HTML5Backend}>
             <div className="flex w-full h-full" ref={containerRef}>
                 <div className="flex-1 p-4 w-full lg:w-3/4">
-                    <div>
+                    <div className="relative">
                         <video
                             autoPlay
                             className="relative rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]"
                             src={getVideoPath()}
                             ref={videoRef}
                             onClick={togglePlayPause}
+                            onMouseEnter={() => setIsVideoHovered(true)}
+                            onMouseLeave={() => setIsVideoHovered(false)}
                         />
+                        
+                        {/* Volume control that appears on hover */}
+                        <div 
+                            className={`absolute bottom-4 right-4 bg-black/70 rounded-lg p-2 flex items-center gap-2 transition-opacity duration-300 ${isVideoHovered ? 'opacity-100' : 'opacity-0'}`}
+                            onMouseEnter={() => setIsVideoHovered(true)}
+                        >
+                            <button 
+                                onClick={toggleMute}
+                                className="text-white hover:text-accent transition-colors"
+                            >
+                                {isMuted || volume === 0 ? (
+                                    <MdVolumeOff className="w-6 h-6" />
+                                ) : volume < 0.33 ? (
+                                    <MdVolumeMute className="w-6 h-6" />
+                                ) : volume < 0.67 ? (
+                                    <MdVolumeDown className="w-6 h-6" />
+                                ) : (
+                                    <MdVolumeUp className="w-6 h-6" />
+                                )}
+                            </button>
+                            
+                            <div className="w-24 flex items-center">
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value={volume}
+                                    onChange={handleVolumeChange}
+                                    className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-accent"
+                                />
+                            </div>
+                        </div>
                     </div>
                     <div
                         className="timeline-wrapper mt-2 relative overflow-x-scroll overflow-y-hidden w-full select-none"
