@@ -11,4 +11,16 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version)
   },
+  build: {
+    // Add cache busting for assets with content hashing
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
+      }
+    },
+    // Ensure no caching issues by generating proper cache headers
+    manifest: true,
+  }
 })
