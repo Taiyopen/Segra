@@ -5,15 +5,14 @@ import {themeChange} from 'theme-change';
 import {AudioDevice} from '../Models/types';
 import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
-import {useAuth} from '../Hooks/useAuth';
+import {useAuth} from '../Hooks/useAuth.tsx';
 import {useProfile} from '../Hooks/useUserProfile';
-import {MdOutlineLogout, MdWarning} from 'react-icons/md';
+import {MdOutlineLogout, MdWarning, MdLock} from 'react-icons/md';
 import {useUpdate} from '../Context/UpdateContext';
 
 export default function Settings() {
-	const {session} = useAuth();
+	const {session, authError, isAuthenticating, clearAuthError, signOut} = useAuth();
 	const {data: profile, error: profileError} = useProfile();
-	const [authInProgress, setAuthInProgress] = useState(false);
 	const [error, setError] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
@@ -21,37 +20,15 @@ export default function Settings() {
 	const settings = useSettings();
 	const updateSettings = useSettingsUpdater();
 	const [localStorageLimit, setLocalStorageLimit] = useState<number>(settings.storageLimit);
+	const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-	// Handle OAuth callback and initial session check
+	// Set error from auth if present
 	useEffect(() => {
-		const handleAuthCallback = async () => {
-			try {
-				const urlParams = new URLSearchParams(window.location.search);
-				const code = urlParams.get('code');
-
-				if (code) {
-					setAuthInProgress(true);
-					const {error} = await supabase.auth.exchangeCodeForSession(code);
-
-					if (error) throw error;
-					// Clean URL after successful login
-					if(session) {
-						sendMessageToBackend("Login", {
-						  accessToken: session.access_token,
-						  refreshToken: session.refresh_token
-						});
-					  }
-					window.history.replaceState({}, document.title, window.location.pathname);
-				}
-			} catch (err) {
-				setError(err instanceof Error ? err.message : 'Authentication failed');
-			} finally {
-				setAuthInProgress(false);
-			}
-		};
-
-		handleAuthCallback();
-	}, []);
+		if (authError) {
+			setError(authError);
+			clearAuthError();
+		}
+	}, [authError, clearAuthError]);
 
 	// Rest of your existing settings logic
 	useEffect(() => {
@@ -76,7 +53,6 @@ export default function Settings() {
 
 	// Updated Discord login handler
 	const handleDiscordLogin = async () => {
-		setAuthInProgress(true);
 		setError('');
 		try {
 			const {error} = await supabase.auth.signInWithOAuth({
@@ -90,169 +66,176 @@ export default function Settings() {
 			if (error) throw error;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to start authentication');
-		} finally {
-			setAuthInProgress(false);
 		}
 	};
 
 	const handleEmailLogin = async (e: React.FormEvent) => {
 		e.preventDefault();
-		setAuthInProgress(true);
 		setError('');
 		try {
 			const {error} = await supabase.auth.signInWithPassword({email, password});
 			if (error) throw error;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Login failed');
-		} finally {
-			setAuthInProgress(false);
 		}
 	};
 
 	const handleLogout = async () => {
-		await supabase.auth.signOut({scope: 'local'});
+		try {
+			setIsLoggingOut(true);
+			// Use the AuthProvider's signOut method to ensure UI is updated
+			await signOut();
+		} catch (err) {
+			console.error("Logout failed:", err);
+			setError(err instanceof Error ? err.message : 'Logout failed');
+		} finally {
+			setIsLoggingOut(false);
+		}
 	};
 
-	// Auth UI components
-	const authSection = !session ? (
-		<div className="card bg-base-300 shadow-xl mb-8">
-			<div className="card-body">
-				<h2 className="card-title text-2xl font-bold mb-4 justify-center">Login to Segra</h2>
+	// Render the authentication section based on login state
+	const renderAuthSection = () => {
+		if (!session) {
+			return (
+				<div className="p-4 bg-base-300 rounded-lg shadow-md">
+					<h2 className="text-xl font-semibold mb-4">Authentication</h2>
+					
+					{error && (
+						<div className="alert alert-error mb-4" role="alert">
+							<MdWarning className="w-5 h-5" />
+							<span>{error}</span>
+						</div>
+					)}
+					
+					<div className="bg-base-100 p-6 rounded-lg space-y-4">
+						<button
+							onClick={handleDiscordLogin}
+							disabled={isAuthenticating}
+							className={`btn btn-neutral w-full gap-2 font-semibold text-white ${isAuthenticating ? 'btn-loading' : ''}`}
+						>
+							<FaDiscord className="w-5 h-5" />
+							{isAuthenticating ? 'Connecting...' : 'Continue with Discord'}
+						</button>
 
-				{error && <div className="alert alert-error text-white mb-4">{error}</div>}
+						<div className="divider">or use email</div>
 
-				<button
-					onClick={handleDiscordLogin}
-					disabled={authInProgress}
-					className={`btn btn-neutral w-full gap-2 font-semibold text-white ${authInProgress ? 'loading' : ''}`}
-				>
-					<FaDiscord className="w-5 h-5" />
-					{authInProgress ? 'Connecting...' : 'Continue with Discord'}
-				</button>
-
-				<div className="divider">or use email</div>
-
-				<form onSubmit={handleEmailLogin} className="space-y-4">
-					<div className="form-control">
-						<label className="label">
-							<span className="label-text">Email</span>
-						</label>
-						<input
-							type="email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							className="input input-bordered"
-							disabled={authInProgress}
-							required
-						/>
-					</div>
-
-					<div className="form-control">
-						<label className="label">
-							<span className="label-text">Password</span>
-						</label>
-						<input
-							type="password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							className="input input-bordered"
-							disabled={authInProgress}
-							required
-						/>
-					</div>
-
-					<button
-						type="submit"
-						disabled={authInProgress}
-						className={`btn btn-neutral w-full font-semibold text-white ${authInProgress ? 'loading' : ''}`}
-					>
-						Sign in with Email
-					</button>
-				</form>
-			</div>
-		</div>
-	) : (
-		<div className="space-y-4">
-			<div className="flex items-center justify-between flex-wrap gap-4">
-				<div className="flex items-center gap-4 min-w-0">
-					{/* Avatar Container */}
-					<div className="relative w-20 h-20">
-						<div className="w-full h-full rounded-full overflow-hidden bg-base-200 bg-base-300 ring-4 ring-base-300">
-							{profile?.avatar_url ? (
-								<img
-									src={profile.avatar_url}
-									alt={`${profile.username}'s avatar`}
-									className="w-full h-full object-cover"
-									onError={(e) => {
-										(e.target as HTMLImageElement).src = '/default-avatar.png';
-									}}
+						<form onSubmit={handleEmailLogin} className="space-y-4">
+							<div className="form-control">
+								<label className="label">
+									<span className="label-text">Email</span>
+								</label>
+								<input
+									type="email"
+									value={email}
+									onChange={(e) => setEmail(e.target.value)}
+									className="input input-bordered"
+									disabled={isAuthenticating}
+									required
 								/>
-							) : (
-								<div
-									className="w-full h-full bg-base-300 flex items-center justify-center"
-									aria-hidden="true"
-								>
-									<span className="text-2xl"></span>
+							</div>
+
+							<div className="form-control">
+								<label className="label">
+									<span className="label-text">Password</span>
+								</label>
+								<input
+									type="password"
+									value={password}
+									onChange={(e) => setPassword(e.target.value)}
+									className="input input-bordered"
+									disabled={isAuthenticating}
+									required
+								/>
+							</div>
+
+							<button
+								type="submit"
+								disabled={isAuthenticating}
+								className={`btn btn-neutral w-full font-semibold text-white ${isAuthenticating ? 'btn-loading' : ''}`}
+							>
+								Sign in with Email
+							</button>
+						</form>
+					</div>
+				</div>
+			);
+		}
+		
+		return (
+			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+				<h2 className="text-xl font-semibold mb-4">Account</h2>
+				
+				<div className="bg-base-100 p-4 rounded-lg">
+					<div className="flex items-center justify-between flex-wrap gap-4">
+						<div className="flex items-center gap-4 min-w-0">
+							{/* Avatar Container */}
+							<div className="relative w-16 h-16">
+								<div className="w-full h-full rounded-full overflow-hidden bg-base-200 ring-2 ring-base-300">
+									{profile?.avatar_url ? (
+										<img
+											src={profile.avatar_url}
+											alt={`${profile.username}'s avatar`}
+											className="w-full h-full object-cover"
+											onError={(e) => {
+												(e.target as HTMLImageElement).src = '/default-avatar.png';
+											}}
+										/>
+									) : (
+										<div
+											className="w-full h-full bg-base-300 flex items-center justify-center"
+											aria-hidden="true"
+										>
+											<span className="text-2xl"></span>
+										</div>
+									)}
 								</div>
-							)}
+							</div>
+
+							{/* Profile Info */}
+							<div className="min-w-0 flex-1">
+								<h3 className="font-bold truncate">
+									{profile?.username ? (
+										profile.username
+									) : (
+										<div className="skeleton h-[24px] w-24"></div>
+									)}
+								</h3>
+								<p className="text-sm opacity-70 truncate">
+									{session?.user?.email || 'Authenticated User'}
+								</p>
+							</div>
+							
+							{/* Logout Button */}
+							<button
+								onClick={handleLogout}
+								className="btn btn-sm no-animation btn-outline btn-error"
+								disabled={isLoggingOut}
+							>
+								{!isLoggingOut && <MdOutlineLogout className="w-4 h-4" />}
+								{isLoggingOut ? 'Logging out...' : 'Logout'}
+							</button>
 						</div>
 					</div>
-
-					{/* Profile Info with Dropdown */}
-					<div className="min-w-0 flex-1">
-						<div className="flex items-center gap-2">
-							<h1 className="text-3xl font-bold truncate flex items-center gap-2">
-								{profile?.username ? (
-									profile.username
-								) : (
-									<div className="skeleton h-[36px] w-24"></div>
-								)}
-							</h1>
-							<div className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
-								<div tabIndex={0} role="button" className="btn btn-ghost btn-xs p-1 h-8 w-8">
-									<svg fill="currentColor" viewBox="0 0 32.055 32.055">
-										<path d="M3.968,12.061C1.775,12.061,0,13.835,0,16.027c0,2.192,1.773,3.967,3.968,3.967c2.189,0,3.966-1.772,3.966-3.967 C7.934,13.835,6.157,12.061,3.968,12.061z M16.233,12.061c-2.188,0-3.968,1.773-3.968,3.965c0,2.192,1.778,3.967,3.968,3.967 s3.97-1.772,3.97-3.967C20.201,13.835,18.423,12.061,16.233,12.061z M28.09,12.061c-2.192,0-3.969,1.774-3.969,3.967 c0,2.19,1.774,3.965,3.969,3.965c2.188,0,3.965-1.772,3.965-3.965S30.278,12.061,28.09,12.061z"></path>
-									</svg>
-								</div>
-								<ul tabIndex={0} className="dropdown-content menu bg-base-300 rounded-box z-[999] w-52 p-2 shadow">
-									<li>
-										<button
-											onClick={() => {
-												(document.activeElement as HTMLElement).blur();
-												handleLogout();
-											}}
-											className="flex w-full items-center gap-2 px-4 py-3 text-error hover:bg-error/10 active:bg-error/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
-											aria-busy={false}
-										>
-											<MdOutlineLogout size="20" />
-											Logout
-										</button>
-									</li>
-								</ul>
+					
+					{/* Error State */}
+					{profileError && (
+						<div
+							className="alert alert-error mt-3"
+							role="alert"
+							aria-live="assertive"
+						>
+							<MdWarning className="w-5 h-5" />
+							<div>
+								<h3 className="font-bold">Profile load failed!</h3>
+								<div className="text-xs">{profileError.message || 'Unknown error occurred'}</div>
 							</div>
 						</div>
-					</div>
+					)}
 				</div>
 			</div>
+		);
+	};
 
-			{/* Error State */}
-			{profileError && (
-				<div
-					className="alert alert-error mt-3"
-					role="alert"
-					aria-live="assertive"
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-					</svg>
-					<div>
-						<h3 className="font-bold">Profile load failed!</h3>
-						<div className="text-xs">{profileError.message || 'Unknown error occurred'}</div>
-					</div>
-				</div>
-			)}
-		</div>
-	);
 	// Helper function to check if the selected device is available
 	const isDeviceAvailable = (deviceId: string, devices: AudioDevice[]) => {
 		return devices.some((device) => device.id === deviceId);
@@ -265,15 +248,24 @@ export default function Settings() {
 	// Get the name of the selected output device, or indicate if it's unavailable
 	const selectedOutputDevice = settings.state.outputDevices.find((device) => device.id === settings.outputDevice);
 	const outputDeviceName = selectedOutputDevice ? selectedOutputDevice.name : settings.outputDevice ? 'Unavailable Device' : 'Select Output Device';
+	
 	return (
 		<div className="p-5 space-y-6 rounded-lg">
 			<h1 className="text-3xl font-bold">Settings</h1>
-			{authSection}
+			
+			{/* Authentication Section */}
+			{renderAuthSection()}
 
 			{/* Segra AI Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md">
 				<h2 className="text-xl font-semibold mb-4">Segra AI</h2>
 				<div className="bg-base-100 p-4 rounded-lg">
+					{!session && (
+						<div className="flex items-center gap-2 mb-3 text-sm text-warning">
+							<MdLock className="w-4 h-4" />
+							<span>Sign in to access AI features</span>
+						</div>
+					)}
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<span className="font-medium">Enable Segra AI</span>
@@ -284,6 +276,7 @@ export default function Settings() {
 							checked={settings.enableAi}
 							onChange={(e) => updateSettings({enableAi: e.target.checked})}
 							className="toggle"
+							disabled={!session}
 						/>
 					</div>
 				</div>

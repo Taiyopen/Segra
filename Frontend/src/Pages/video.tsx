@@ -4,7 +4,7 @@ import { sendMessageToBackend } from "../Utils/MessageUtils";
 import { useSettings } from "../Context/SettingsContext";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { useAuth } from "../Hooks/useAuth";
+import { useAuth } from "../Hooks/useAuth.tsx";
 import { useSelections } from "../Context/SelectionsContext";
 import { useUploads } from "../Context/UploadContext";
 import { useModal } from "../Context/ModalContext";

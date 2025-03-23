@@ -133,9 +133,13 @@ namespace Segra
                 Settings.Instance.State.Initialize();
                 SettingsUtils.SaveSettings();
 
+                // Try to login with stored credentials
+                Task.Run(async () => await AuthService.TryAutoLogin());
+
                 // Start WebSocket and Load Settings
                 Task.Run(MessageUtils.StartWebsocket);
                 Task.Run(StorageUtils.EnsureStorageBelowLimit);
+                
                 // Initialize the PhotinoWindow
                 window = new PhotinoWindow()
                     .SetNotificationsEnabled(false) // Disabled due to it creating a second start menu entry with incorrect start path. See https://github.com/tryphotino/photino.NET/issues/85

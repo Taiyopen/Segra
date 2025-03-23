@@ -1,4 +1,4 @@
-﻿using Segra.Backend.Audio;
+using Segra.Backend.Audio;
 using Segra.Backend.Utils;
 using Serilog;
 using Serilog.Core;
@@ -32,6 +32,7 @@ namespace Segra.Models
         private bool _enableDisplayRecording = false;
         private bool _enableAi = true;
         private State _state = new State();
+        private Auth _auth = new Auth();
 
         public Settings()
         {
@@ -247,6 +248,17 @@ namespace Segra.Models
                 _state = value;
                 SendToFrontend();
             }*/
+        }
+
+        [JsonPropertyName("auth")]
+        public Auth Auth
+        {
+            get => _auth;
+            set
+            {
+                _auth = value;
+                SendToFrontend();
+            }
         }
     }
 
@@ -533,6 +545,46 @@ namespace Segra.Models
         public override int GetHashCode()
         {
             return (Id + Name).GetHashCode();
+        }
+    }
+
+    // Auth class for storing authentication tokens
+    internal class Auth
+    {
+        private string _jwt = string.Empty;
+        private string _refreshToken = string.Empty;
+
+        [JsonPropertyName("jwt")]
+        public string Jwt
+        {
+            get => _jwt;
+            set
+            {
+                _jwt = value;
+                if (Settings.Instance != null && !Settings.Instance._isBulkUpdating)
+                {
+                    SettingsUtils.SaveSettings();
+                }
+            }
+        }
+
+        [JsonPropertyName("refreshToken")]
+        public string RefreshToken
+        {
+            get => _refreshToken;
+            set
+            {
+                _refreshToken = value;
+                if (Settings.Instance != null && !Settings.Instance._isBulkUpdating)
+                {
+                    SettingsUtils.SaveSettings();
+                }
+            }
+        }
+
+        public bool HasCredentials()
+        {
+            return !string.IsNullOrEmpty(_jwt) && !string.IsNullOrEmpty(_refreshToken);
         }
     }
 }

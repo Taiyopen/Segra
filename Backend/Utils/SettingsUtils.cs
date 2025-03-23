@@ -81,6 +81,8 @@ namespace Segra.Backend.Utils
                     Settings.Instance.CqLevel = loadedSettings.CqLevel;
                     Settings.Instance.EnableDisplayRecording = loadedSettings.EnableDisplayRecording;
 
+                    Settings.Instance.Auth = loadedSettings.Auth;
+
                     // End bulk update
                     Settings.Instance.EndBulkUpdateAndSaveSettings();
                 }
@@ -115,6 +117,7 @@ namespace Segra.Backend.Utils
             }
         }
 
+        // TODO (os) refactor
         private static void UpdateSettingsInstance(Settings updatedSettings)
         {
             var settings = Settings.Instance;

@@ -5,6 +5,7 @@ import {supabase} from './lib/supabase/client';
 import './globals.css';
 import App from './App.tsx';
 import {SelectedVideoProvider} from './Context/SelectedVideoContext.tsx';
+import {AuthProvider} from './Hooks/useAuth.tsx';
 
 // Create a React Query client
 const queryClient = new QueryClient({
@@ -26,9 +27,11 @@ supabase.auth.onAuthStateChange((event) => {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <SelectedVideoProvider>
-        <App />
-      </SelectedVideoProvider>
+      <AuthProvider>
+        <SelectedVideoProvider>
+          <App />
+        </SelectedVideoProvider>
+      </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

@@ -1,6 +1,6 @@
 import {useQuery} from '@tanstack/react-query';
 import {supabase} from '../lib/supabase/client';
-import {useAuth} from './useAuth';
+import {useAuth} from './useAuth.tsx';
 
 export function useProfile() {
   const {user} = useAuth();

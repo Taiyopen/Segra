@@ -1,7 +1,7 @@
 import {useSettings} from '../Context/SettingsContext';
 import {Content} from '../Models/types';
 import {sendMessageToBackend} from '../Utils/MessageUtils'
-import {useAuth} from '../Hooks/useAuth';
+import {useAuth} from '../Hooks/useAuth.tsx';
 import {useModal} from '../Context/ModalContext';
 import UploadModal from './UploadModal';
 import {MdDeleteOutline, MdOutlineFileUpload, MdOutlineInsertDriveFile} from 'react-icons/md';
@@ -181,13 +181,15 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
             {(type === "Session" || type === "Buffer") && (
               <li>
                 {(() => {
-                  // Check if there's an AI clip being generated for this file
+                  // Get authentication status
+                  const { session } = useAuth();
+                  const isLoggedIn = !!session;
+                  
+                  const hasBookmarks = content?.bookmarks && content.bookmarks.length > 0;
                   const isProcessing = Object.values(aiProgress).some(
                     progress => progress.content.fileName === content?.fileName && progress.status === 'processing'
                   );
-                  
-                  const hasBookmarks = content?.bookmarks && content.bookmarks.length > 0;
-                  const isDisabled = !hasBookmarks || isProcessing;
+                  const isDisabled = !hasBookmarks || isProcessing || !isLoggedIn;
                   
                   return (
                     <a
@@ -197,8 +199,8 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                           : 'text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20'
                       } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
                       onClick={() => {
-                        // Only proceed if there are bookmarks and no processing
-                        if (hasBookmarks && !isProcessing) {
+                        // Only proceed if there are bookmarks, user is logged in, and no processing
+                        if (hasBookmarks && !isProcessing && isLoggedIn) {
                           // Blur the active element before handling create AI clip
                           (document.activeElement as HTMLElement).blur();
                           handleCreateAiClip();
@@ -209,7 +211,11 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                       <span>
                         {isProcessing 
                           ? 'Generating AI Clip...' 
-                          : (hasBookmarks ? 'Create AI Clip' : 'No Highlights')}
+                          : (!isLoggedIn 
+                              ? 'Log In to Create AI Clip'
+                              : (hasBookmarks ? 'Create AI Clip' : 'No Highlights')
+                            )
+                        }
                       </span>
                     </a>
                   );

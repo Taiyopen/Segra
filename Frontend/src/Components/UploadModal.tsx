@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Content } from '../Models/types';
 import { useSettings } from '../Context/SettingsContext';
-import { useAuth } from '../Hooks/useAuth';
+import { useAuth } from '../Hooks/useAuth.tsx';
 
 interface UploadModalProps {
   video: Content;
