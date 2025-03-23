@@ -893,14 +893,15 @@ export default function VideoComponent({ video }: { video: Content }) {
                             />
                         </div>
                     </div>
-                    {video.type === "Clip" && (
+                    {(video.type === "Clip" || video.type === "Highlight") && (
                         <div className="mt-2">
                             <button
-                                className="btn btn-sm btn-secondary h-12 px-8 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-top tooltip" data-tip="Upload"
+                                className="btn btn-sm btn-secondary h-12 px-8 text-gray-400 hover:text-accent flex items-center gap-2"
                                 onClick={handleUpload}
                                 disabled={uploads[video.fileName + ".mp4"]?.status === 'uploading' || uploads[video.fileName + ".mp4"]?.status === 'processing'}
                             >
                                 <MdOutlineFileUpload className="w-6 h-6" />
+                                <span>Upload</span>
                             </button>
                         </div>
                     )}
