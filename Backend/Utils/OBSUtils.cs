@@ -306,12 +306,12 @@ namespace Segra.Backend.Utils
 
         public static void StopRecording()
         {
+            CurrentTrackedFileName = null;
             if (output != IntPtr.Zero)
             {
                 if (Settings.Instance.State.Recording != null)
                     Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
 
-                CurrentTrackedFileName = null;
                 obs_output_stop(output);
 
                 int attempts = 0;
@@ -384,7 +384,7 @@ namespace Segra.Backend.Utils
 
         }
 
-        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 40000)
+        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 80000)
         {
             int elapsed = 0;
             const int step = 100;
