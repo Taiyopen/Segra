@@ -100,7 +100,7 @@ namespace Segra.Backend.Utils
                                 appVersion = UpdateUtils.UpdateManager.CurrentVersion.ToString();
                             }
                             
-                            // Send version to frontend
+                            // Send version to frontend to prevent mismatch
                             await SendFrontendMessage("AppVersion", new
                             {
                                 version = appVersion
