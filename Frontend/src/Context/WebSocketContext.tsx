@@ -17,7 +17,7 @@ interface WebSocketMessage {
 export function WebSocketProvider({ children }: { children: ReactNode }) {
   // Get the auth session to properly handle authentication
   const { session } = useAuth();
-  // Ref to track if we've already handled a version mismatch
+  // Ref to track if we've already handled a version mismatch (prevent multiple reloads)
   const versionCheckHandled = useRef(false);
   
   // Log when the WebSocket provider mounts or session changes
