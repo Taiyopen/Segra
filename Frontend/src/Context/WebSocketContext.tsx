@@ -11,7 +11,7 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 
 interface WebSocketMessage {
   method: string;
-  parameters: any;
+  content: any;
 }
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
@@ -48,7 +48,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         // Handle version check
         if (data.method === "AppVersion" && !versionCheckHandled.current) {
           versionCheckHandled.current = true;
-          const backendVersion = data.parameters?.version;
+          const backendVersion = data.content?.version;
           
           if (backendVersion && backendVersion !== __APP_VERSION__) {
             console.log(`Version mismatch: Backend ${backendVersion}, Frontend ${__APP_VERSION__}. Reloading...`);
