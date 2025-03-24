@@ -60,7 +60,7 @@ export default function UpdateCard() {
         {/* Progress Bar (only show when downloading) */}
         {updateInfo.status === 'downloading' && (
           <div className="w-full mb-3">
-            <div className="w-full bg-base-200 rounded-full h-2 overflow-hidden">
+            <div className="w-full rounded-full h-2 overflow-hidden">
               <div 
                 className="bg-primary h-full rounded-full transition-all duration-300 ease-in-out"
                 style={{ width: `${updateInfo.progress}%` }}
@@ -73,7 +73,7 @@ export default function UpdateCard() {
         <div className="flex flex-col gap-2">
           {updateInfo.progress === 100 && (
             <button 
-              className="btn btn-primary btn-sm w-full normal-case font-medium"
+              className="btn btn-primary no-animation btn-sm w-full normal-case font-medium"
               onClick={handleInstallClick}
             >
               <FaDownload className="mr-2" /> Install Now
@@ -83,7 +83,7 @@ export default function UpdateCard() {
           {/* Release Notes Button (only when there are notes) */}
           {releaseNotes.length > 0 && (
             <button 
-              className="btn btn-sm text-xs text-gray-300 bg-base-300 hover:bg-base-300/70 w-full normal-case flex items-center justify-center gap-2"
+              className="btn btn-sm no-animation text-xs text-gray-300 bg-base-300 hover:bg-base-300/70 w-full normal-case flex items-center justify-center gap-2"
               onClick={() => openReleaseNotesModal(__APP_VERSION__)}
             >
               <SiGithub /> View Release Notes

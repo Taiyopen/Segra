@@ -133,6 +133,16 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
     }
   };
 
+  // Helper function to properly decode base64 strings with UTF-8 characters
+  const decodeBase64 = (base64: string): string => {
+    try {
+      return decodeURIComponent(escape(atob(base64)));
+    } catch (error) {
+      console.error('Error decoding base64 markdown:', error);
+      return 'Error decoding content';
+    }
+  };
+
   // Filter notes to only show those newer than the current app version if filterVersion is provided
   const filteredNotes = filterVersion 
     ? localReleaseNotes.filter(note => isVersionNewer(filterVersion, note.version))
@@ -187,7 +197,7 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
               {/* Markdown content with custom components for larger text */}
               <div className="text-gray-300 markdown-content text-lg">
                 <Markdown options={{ overrides: MarkdownComponents }}>
-                  {atob(note.base64Markdown)}
+                  {decodeBase64(note.base64Markdown)}
                 </Markdown>
               </div>
               
