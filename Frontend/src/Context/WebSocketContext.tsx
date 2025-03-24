@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useCallback, useEffect } from 'react';
+import { createContext, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
 import useWebSocket from 'react-use-websocket';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { useAuth } from '../Hooks/useAuth.tsx';
@@ -17,6 +17,8 @@ interface WebSocketMessage {
 export function WebSocketProvider({ children }: { children: ReactNode }) {
   // Get the auth session to properly handle authentication
   const { session } = useAuth();
+  // Ref to track if we've already handled a version mismatch
+  const versionCheckHandled = useRef(false);
   
   // Log when the WebSocket provider mounts or session changes
   useEffect(() => {
@@ -42,6 +44,19 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       try {
         const data: WebSocketMessage = JSON.parse(event.data);
         console.log("WebSocket message received:", data);
+        
+        // Handle version check
+        if (data.method === "AppVersion" && !versionCheckHandled.current) {
+          versionCheckHandled.current = true;
+          const backendVersion = data.parameters?.version;
+          
+          if (backendVersion && backendVersion !== __APP_VERSION__) {
+            console.log(`Version mismatch: Backend ${backendVersion}, Frontend ${__APP_VERSION__}. Reloading...`);
+            window.location.reload();
+            return;
+          }
+        }
+        
         // Dispatch the message to all listeners
         window.dispatchEvent(new CustomEvent('websocket-message', {
           detail: data

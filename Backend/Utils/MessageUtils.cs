@@ -92,6 +92,20 @@ namespace Segra.Backend.Utils
                         case "NewConnection":
                             Log.Information("NewConnection command received.");
                             await SendSettingsToFrontend();
+                            
+                            // Get current version
+                            string appVersion = "0.0.0";
+                            if (UpdateUtils.UpdateManager.CurrentVersion != null)
+                            {
+                                appVersion = UpdateUtils.UpdateManager.CurrentVersion.ToString();
+                            }
+                            
+                            // Send version to frontend
+                            await SendFrontendMessage("AppVersion", new
+                            {
+                                version = appVersion
+                            });
+                            
                             Task.Run(UpdateUtils.GetReleaseNotes);
                             break;
                         case "SetVideoLocation":
