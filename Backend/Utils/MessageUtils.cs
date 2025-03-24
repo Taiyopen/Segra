@@ -92,20 +92,19 @@ namespace Segra.Backend.Utils
                         case "NewConnection":
                             Log.Information("NewConnection command received.");
                             await SendSettingsToFrontend();
-                            
+
                             // Get current version
-                            string appVersion = "0.0.0";
                             if (UpdateUtils.UpdateManager.CurrentVersion != null)
                             {
-                                appVersion = UpdateUtils.UpdateManager.CurrentVersion.ToString();
+                                string appVersion = UpdateUtils.UpdateManager.CurrentVersion.ToString();
+
+                                // Send version to frontend to prevent mismatch
+                                await SendFrontendMessage("AppVersion", new
+                                {
+                                    version = appVersion
+                                });
                             }
-                            
-                            // Send version to frontend to prevent mismatch
-                            await SendFrontendMessage("AppVersion", new
-                            {
-                                version = appVersion
-                            });
-                            
+
                             Task.Run(UpdateUtils.GetReleaseNotes);
                             break;
                         case "SetVideoLocation":
@@ -357,7 +356,7 @@ namespace Segra.Backend.Utils
                     // Read existing metadata
                     string metadataJson = await File.ReadAllTextAsync(metadataFilePath);
                     var content = JsonSerializer.Deserialize<Content>(metadataJson);
-                    
+
                     if (content == null)
                     {
                         Log.Error($"Failed to deserialize metadata: {metadataFilePath}");
@@ -388,10 +387,10 @@ namespace Segra.Backend.Utils
                     await File.WriteAllTextAsync(metadataFilePath, updatedMetadataJson);
 
                     // Update the bookmark in the in-memory content collection
-                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c => 
-                        c.FilePath == filePath && 
+                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c =>
+                        c.FilePath == filePath &&
                         c.Type.ToString() == contentTypeStr);
-                    
+
                     contentItem.Bookmarks.Add(bookmark);
 
                     await SendSettingsToFrontend();
@@ -449,7 +448,7 @@ namespace Segra.Backend.Utils
                     // Read existing metadata
                     string metadataJson = await File.ReadAllTextAsync(metadataFilePath);
                     var content = JsonSerializer.Deserialize<Content>(metadataJson);
-                    
+
                     if (content == null)
                     {
                         Log.Error($"Failed to deserialize metadata: {metadataFilePath}");
@@ -471,10 +470,10 @@ namespace Segra.Backend.Utils
                     await File.WriteAllTextAsync(metadataFilePath, updatedMetadataJson);
 
                     // Update the bookmark in the in-memory content collection
-                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c => 
-                        c.FilePath == filePath && 
+                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c =>
+                        c.FilePath == filePath &&
                         c.Type.ToString() == contentTypeStr);
-                    
+
                     if (contentItem != null && contentItem.Bookmarks != null)
                     {
                         contentItem.Bookmarks = contentItem.Bookmarks.Where(b => b.Id != bookmarkId).ToList();
