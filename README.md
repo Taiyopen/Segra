@@ -2,6 +2,8 @@
 
 **Segra** is a powerful recording software built on Open Broadcaster Software (OBS), designed for gamers and content creators. Record, clip, and upload gameplay highlights effortlessly, with smart automation and deep game integration.
 
+![image](https://github.com/user-attachments/assets/c8fea599-9b91-4608-8854-59fd868544c9)
+
 ---
 
 ## ✨ Features  
