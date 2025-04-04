@@ -1,4 +1,5 @@
-﻿using Segra.Models;
+﻿using NAudio.Wave;
+using Segra.Models;
 using Serilog;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -56,10 +57,30 @@ namespace Segra.Backend.Services
                         Type = BookmarkType.Manual,
                         Time = DateTime.Now - Settings.Instance.State.Recording.StartTime
                     });
+                    PlayBookmarkSound();
                 }
             }
 
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
+        }
+
+        private static void PlayBookmarkSound()
+        {
+            using (var audioStream = new MemoryStream(Properties.Resources.bookmark))
+            using (var audioReader = new WaveFileReader(audioStream))
+            using (var waveOut = new WaveOutEvent())
+            {
+                var volumeStream = new VolumeWaveProvider16(audioReader)
+                {
+                    Volume = 0.5f
+                };
+
+                waveOut.Init(volumeStream);
+                waveOut.Play();
+
+                while (waveOut.PlaybackState == PlaybackState.Playing)
+                    Thread.Sleep(100);
+            }
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
