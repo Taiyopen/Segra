@@ -4,6 +4,7 @@ using Segra.Backend.Services;
 using Segra.Models;
 using Serilog;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using static LibObs.Obs;
 
 namespace Segra.Backend.Utils
@@ -24,6 +25,9 @@ namespace Segra.Backend.Utils
         {
             signalOutputStop = true;
         };
+
+        static signal_callback_ptr_t hookedCallback;
+        static signal_callback_ptr_t unhookedCallback;
 
         private static bool _isGameCaptureHooked = false;
 
@@ -167,6 +171,13 @@ namespace Segra.Backend.Utils
             displaySource = obs_source_create("game_capture", "gameplay", videoSourceSettings, IntPtr.Zero);
             obs_data_release(videoSourceSettings);
             obs_set_output_source(0, displaySource);
+
+            // Connect to 'hooked' and 'unhooked' signals for game capture
+            IntPtr signalHandler = obs_source_get_signal_handler(displaySource);
+            hookedCallback = new signal_callback_ptr_t(OnGameCaptureHooked);
+            unhookedCallback = new signal_callback_ptr_t(OnGameCaptureUnhooked);
+            signal_handler_connect(signalHandler, "hooked", hookedCallback, IntPtr.Zero);
+            signal_handler_connect(signalHandler, "unhooked", unhookedCallback, IntPtr.Zero);
 
             bool hooked = WaitUntilGameCaptureHooks();
 
@@ -381,7 +392,39 @@ namespace Segra.Backend.Utils
             {
                 Task.Run(() => AiService.AnalyzeVideo(fileName));
             }
+        }
 
+        [System.Diagnostics.DebuggerStepThrough]
+        private static void OnGameCaptureHooked(IntPtr data, IntPtr cdPtr)
+        {
+            if (cdPtr == IntPtr.Zero)
+            {
+                Log.Warning("GameCaptureHooked callback received null calldata pointer.");
+                return;
+            }
+
+            try
+            {
+                calldata_get_string(cdPtr, "title", out IntPtr title);
+                calldata_get_string(cdPtr, "class", out IntPtr windowClass);
+                calldata_get_string(cdPtr, "executable", out IntPtr executable);
+
+                _isGameCaptureHooked = true;
+                Log.Information($"Game hooked: Title='{Marshal.PtrToStringAnsi(title)}', Class='{Marshal.PtrToStringAnsi(windowClass)}', Executable='{Marshal.PtrToStringAnsi(executable)}'");
+
+                // Overwrite the current tracked file name with the hooked one because sometimes the current tracked file name is the startup exe instead of the actual game 
+                CurrentTrackedFileName = Path.GetFileName(Marshal.PtrToStringAnsi(executable));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error processing OnGameCaptureHooked signal");
+            }
+        }
+
+        private static void OnGameCaptureUnhooked(IntPtr data, IntPtr cdPtr)
+        {
+            _isGameCaptureHooked = false;
+            Log.Information("Game unhooked.");
         }
 
         private static bool WaitUntilGameCaptureHooks(int timeoutMs = 80000)
@@ -404,6 +447,20 @@ namespace Segra.Backend.Utils
         {
             if (displaySource != IntPtr.Zero)
             {
+                IntPtr signalHandler = obs_source_get_signal_handler(displaySource);
+
+                if (hookedCallback != null)
+                {
+                    signal_handler_disconnect(signalHandler, "hooked", hookedCallback, IntPtr.Zero);
+                    hookedCallback = null;
+                }
+
+                if (unhookedCallback != null)
+                {
+                    signal_handler_disconnect(signalHandler, "unhooked", unhookedCallback, IntPtr.Zero);
+                    unhookedCallback = null;
+                }
+
                 obs_set_output_source(0, IntPtr.Zero);
                 obs_source_release(displaySource);
                 displaySource = IntPtr.Zero;
