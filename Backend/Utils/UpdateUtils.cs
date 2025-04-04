@@ -12,8 +12,7 @@ namespace Segra.Backend.Utils
     {
         // Store the update information
         public static UpdateInfo? LatestUpdateInfo { get; private set; } = null;
-        private static string Token = "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"; // Read access to Segra. Remove when Public
-        public static GithubSource Source = new GithubSource("https://github.com/Segergren/Segra", Token, false);
+        public static GithubSource Source = new GithubSource("https://github.com/Segergren/Segra", null, false);
         public static UpdateManager UpdateManager { get; private set; } = new UpdateManager(Source);
         
         public static async Task<bool> UpdateAppIfNecessary()

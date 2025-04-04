@@ -532,7 +532,6 @@ namespace Segra.Backend.Utils
             {
                 httpClient.DefaultRequestHeaders.Add("User-Agent", "Segra");
                 httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3.json");
-                httpClient.DefaultRequestHeaders.Add("Authorization", "token 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");
 
                 Log.Information("Fetching download URL...");
 
