@@ -6,11 +6,11 @@
 
 ## ✨ Features  
 - **Auto-Start Recording**: Begin recording automatically when your game launches.  
-- **Instant Clipping**: Save key moments with a hotkey.  
+- **Instant Clipping**: Save key moments with a hotkey.
 - **Direct Upload**: Share clips to **[Segra.tv](https://segra.tv)** instantly.  
-- **Game Integration**: Tracks in-game stats (kills, deaths, assists, headshot%) to auto-generate highlights.  
-- **Lightweight & Fast**: Built on OBS for 4K60 capture with minimal performance impact.  
-- **Customizable Settings**: Adjust recording quality (NVENC/AMD VCE), hotkeys, storage paths, etc.  
+- **Game Integration**: Tracks in-game stats (kills, deaths, assists) to auto-generate highlights, powered by AI.  
+- **Lightweight & Fast**: Built on OBS for 4K with 144 FPS capture with minimal performance impact.  
+- **Customizable Settings**: Adjust recording quality (NVENC/AMD VCE), hotkeys, storage paths, etc.
 
 ---
 
@@ -43,5 +43,5 @@ Segra is **GPLv2 licensed**.
 
 ## Acknowledgments  
 - **[OBS Studio](https://obsproject.com)**: The backbone of Segra’s recording engine.  
-- **Lulzsun**: Creator of **[libobs-sharp](https://github.com/lulzsun/libobs-sharp)**, the critical C#/OBS bridge that powers Segra’s core functionality. 
+- [**Lulzsun**](https://github.com/lulzsun): Creator of **[libobs-sharp](https://github.com/lulzsun/libobs-sharp)**, the critical C#/OBS bridge that powers Segra’s core functionality. 
 - **[FFmpeg](https://github.com/FFmpeg/FFmpeg)**: for video and image encoding.  
