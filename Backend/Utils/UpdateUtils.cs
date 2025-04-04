@@ -132,7 +132,6 @@ namespace Segra.Backend.Utils
                 using var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
                 httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Segra", currentVersion.ToString()));
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
 
                 // Fetch releases from GitHub API
                 var response = await httpClient.GetAsync($"https://api.github.com/repos/Segergren/Segra/releases");
