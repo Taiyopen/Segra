@@ -26,8 +26,8 @@ namespace Segra.Backend.Utils
             signalOutputStop = true;
         };
 
-        static signal_callback_ptr_t hookedCallback;
-        static signal_callback_ptr_t unhookedCallback;
+        static signal_callback_t hookedCallback;
+        static signal_callback_t unhookedCallback;
 
         private static bool _isGameCaptureHooked = false;
 
@@ -174,8 +174,8 @@ namespace Segra.Backend.Utils
 
             // Connect to 'hooked' and 'unhooked' signals for game capture
             IntPtr signalHandler = obs_source_get_signal_handler(displaySource);
-            hookedCallback = new signal_callback_ptr_t(OnGameCaptureHooked);
-            unhookedCallback = new signal_callback_ptr_t(OnGameCaptureUnhooked);
+            hookedCallback = new signal_callback_t(OnGameCaptureHooked);
+            unhookedCallback = new signal_callback_t(OnGameCaptureUnhooked);
             signal_handler_connect(signalHandler, "hooked", hookedCallback, IntPtr.Zero);
             signal_handler_connect(signalHandler, "unhooked", unhookedCallback, IntPtr.Zero);
 
@@ -395,8 +395,11 @@ namespace Segra.Backend.Utils
         }
 
         [System.Diagnostics.DebuggerStepThrough]
-        private static void OnGameCaptureHooked(IntPtr data, IntPtr cdPtr)
+        private static void OnGameCaptureHooked(IntPtr data, calldata_t cd)
         {
+            IntPtr cdPtr = Marshal.AllocHGlobal(Marshal.SizeOf<calldata_t>());
+            Marshal.StructureToPtr(cd, cdPtr, false);
+
             if (cdPtr == IntPtr.Zero)
             {
                 Log.Warning("GameCaptureHooked callback received null calldata pointer.");
@@ -421,8 +424,11 @@ namespace Segra.Backend.Utils
             }
         }
 
-        private static void OnGameCaptureUnhooked(IntPtr data, IntPtr cdPtr)
+        private static void OnGameCaptureUnhooked(IntPtr data, calldata_t cd)
         {
+            IntPtr cdPtr = Marshal.AllocHGlobal(Marshal.SizeOf<calldata_t>());
+            Marshal.StructureToPtr(cd, cdPtr, false);
+
             _isGameCaptureHooked = false;
             Log.Information("Game unhooked.");
         }
