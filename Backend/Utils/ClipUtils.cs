@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Serilog;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -16,8 +16,8 @@ namespace Segra.Backend.Utils
                 return;
             }
 
-            // Convert bookmarks to selections
-            List<Selection> selections = new List<Selection>();
+            // Convert bookmarks to initial selections with buffer times
+            List<Selection> initialSelections = new List<Selection>();
 
             foreach (var bookmark in bookmarks)
             {
@@ -26,20 +26,56 @@ namespace Segra.Backend.Utils
                 double startTime = Math.Max(0, bookmark.Time.TotalSeconds - 5); // Ensure not negative
                 double endTime = bookmark.Time.TotalSeconds + 5;
 
-                Selection selection = new Selection
+                initialSelections.Add(new Selection
                 {
                     Type = aiProgressMessage.Content.Type.ToString(),
                     StartTime = startTime,
                     EndTime = endTime,
                     FileName = aiProgressMessage.Content.FileName,
                     Game = aiProgressMessage.Content.Game
-                };
-
-                selections.Add(selection);
+                });
             }
 
-            // Call the existing CreateClips method
-            await CreateClips(selections, false, aiProgressMessage);
+            // Merge overlapping selections
+            List<Selection> mergedSelections = MergeOverlappingSelections(initialSelections);
+            
+            Log.Information($"Merged {initialSelections.Count} bookmarks into {mergedSelections.Count} clip sections");
+
+            await CreateClips(mergedSelections, false, aiProgressMessage);
+        }
+
+        private static List<Selection> MergeOverlappingSelections(List<Selection> selections)
+        {
+            // Sort selections by start time
+            var sortedSelections = selections.OrderBy(s => s.StartTime).ToList();
+            List<Selection> mergedSelections = new List<Selection>();
+            
+            // Start with the first selection
+            Selection current = sortedSelections[0];
+            
+            // Iterate through the sorted selections
+            for (int i = 1; i < sortedSelections.Count; i++)
+            {
+                var next = sortedSelections[i];
+                
+                // Check if the current selection overlaps with the next one
+                if (current.EndTime >= next.StartTime)
+                {
+                    // Merge by extending the end time if needed
+                    current.EndTime = Math.Max(current.EndTime, next.EndTime);
+                }
+                else
+                {
+                    // No overlap, add current to result and move to next
+                    mergedSelections.Add(current);
+                    current = next;
+                }
+            }
+            
+            // Add the last merged selection
+            mergedSelections.Add(current);
+            
+            return mergedSelections;
         }
 
         public static async Task CreateClips(List<Selection> selections, bool updateFrontend = true, AiProgressMessage? aiProgressMessage = null)
