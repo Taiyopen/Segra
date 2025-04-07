@@ -31,6 +31,7 @@ namespace Segra.Models
         private string _outputDevice = string.Empty;
         private bool _enableDisplayRecording = false;
         private bool _enableAi = true;
+        private bool _runOnStartup = false;
         private State _state = new State();
         private Auth _auth = new Auth();
 
@@ -235,6 +236,18 @@ namespace Segra.Models
             set
             {
                 _enableAi = value;
+                SendToFrontend();
+            }
+        }
+
+        [JsonPropertyName("runOnStartup")]
+        public bool RunOnStartup
+        {
+            get => _runOnStartup;
+            set
+            {
+                _runOnStartup = value;
+                StartupUtils.SetStartupStatus(value);
                 SendToFrontend();
             }
         }

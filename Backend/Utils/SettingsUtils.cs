@@ -1,4 +1,4 @@
-﻿using Segra.Models;
+using Segra.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -80,6 +80,9 @@ namespace Segra.Backend.Utils
                     Settings.Instance.CrfValue = loadedSettings.CrfValue;
                     Settings.Instance.CqLevel = loadedSettings.CqLevel;
                     Settings.Instance.EnableDisplayRecording = loadedSettings.EnableDisplayRecording;
+                    Settings.Instance.EnableAi = loadedSettings.EnableAi;
+
+                    Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
 
                     Settings.Instance.Auth = loadedSettings.Auth;
 
@@ -227,6 +230,13 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"EnableAi changed from '{settings.EnableAi}' to '{updatedSettings.EnableAi}'");
                 settings.EnableAi = updatedSettings.EnableAi;
+            }
+
+            // Update RunOnStartup
+            if (settings.RunOnStartup != updatedSettings.RunOnStartup)
+            {
+                Log.Information($"RunOnStartup changed from '{settings.RunOnStartup}' to '{updatedSettings.RunOnStartup}'");
+                settings.RunOnStartup = updatedSettings.RunOnStartup;
             }
 
             settings.EndBulkUpdateAndSaveSettings();

@@ -73,6 +73,11 @@ namespace Segra
                         File.Delete(previousVersionPath);
                     }
                 })
+                .WithFirstRun((v) =>
+                {
+                    Log.Information($"First run of Segra {v}");
+                    StartupUtils.SetStartupStatus(true);
+                })
                 .Run();
 
             Task.Run(() =>
@@ -157,6 +162,24 @@ namespace Segra
 
                 AddNotifyIcon();
                 GameDetectionService.ForegroundHook.Start();
+                
+                // Check if application was launched from startup
+                bool startMinimized = IsLaunchedFromStartup();
+                Log.Information($"Starting application{(startMinimized ? " minimized from startup" : "")}");
+                
+                // If started from startup, minimize the window and show in system tray
+                if (startMinimized)
+                {
+                    window.Minimized = true;
+                    // Add a small delay to ensure the window is created before hiding it
+                    Task.Run(async () => 
+                    {
+                        await Task.Delay(500);
+                        IntPtr hWnd = Process.GetCurrentProcess().MainWindowHandle;
+                        ShowWindow(hWnd, SW_HIDE); // Hide from taskbar
+                        notifyIcon.Visible = true;
+                    });
+                }
 
                 // intentional space after name because of https://github.com/tryphotino/photino.NET/issues/106
                 window.SetTitle("Segra ");
@@ -178,6 +201,29 @@ namespace Segra
             }
         }
 
+        // Check if the application was launched from startup
+        private static bool IsLaunchedFromStartup()
+        {
+            try
+            {
+                // Get the process that started this process
+                using (var current = Process.GetCurrentProcess())
+                {
+                    var startTime = current.StartTime;
+                    // If the process was started within 30 seconds of system boot, it's likely from startup
+                    var bootTime = DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount);
+                    var timeSinceBoot = startTime - bootTime;
+
+                    return timeSinceBoot.TotalSeconds < 30;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Failed to determine if launched from startup: {ex.Message}");
+                return false;
+            }
+        }
+        
         private static void AddNotifyIcon()
         {
             notifyIcon = new NotifyIcon

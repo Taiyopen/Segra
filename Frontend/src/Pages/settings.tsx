@@ -548,7 +548,20 @@ export default function Settings() {
 			{/* Advanced Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md">
 				<h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
-				<div className="bg-base-100 p-4 rounded-lg">
+				<div className="bg-base-100 p-4 rounded-lg space-y-4">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<span className="font-medium">Run on Startup</span>
+						</div>
+						<input
+							type="checkbox"
+							name="runOnStartup"
+							checked={settings.runOnStartup}
+							onChange={(e) => updateSettings({runOnStartup: e.target.checked})}
+							className="toggle toggle-primary"
+						/>
+					</div>
+
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<span className="font-medium">Enable Display Recording</span>

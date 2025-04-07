@@ -59,6 +59,7 @@ export interface Settings {
 	outputDevice: string;
 	enableDisplayRecording: boolean;
 	enableAi: boolean;
+	runOnStartup: boolean;
 	state: State;
 }
 
@@ -86,6 +87,7 @@ export const initialSettings: Settings = {
 	outputDevice: '',
 	enableDisplayRecording: false,
 	enableAi: true,
+	runOnStartup: false,
 	state: initialState,
 };
 
