@@ -290,7 +290,7 @@ namespace Segra.Backend.Utils
             };
             MessageUtils.SendSettingsToFrontend();
 
-            PlayStartSound();
+            Task.Run(PlayStartSound);
             if (!obs_output_start(output))
             {
                 Log.Error("Failed to start recording.");
@@ -593,7 +593,7 @@ namespace Segra.Backend.Utils
                     waveOut.Play();
 
                     while (waveOut.PlaybackState == PlaybackState.Playing)
-                        System.Threading.Thread.Sleep(100);
+                        Thread.Sleep(100);
                 }
             }
         }

@@ -57,7 +57,7 @@ namespace Segra.Backend.Services
                         Type = BookmarkType.Manual,
                         Time = DateTime.Now - Settings.Instance.State.Recording.StartTime
                     });
-                    PlayBookmarkSound();
+                    Task.Run(PlayBookmarkSound);
                 }
             }
 
