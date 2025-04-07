@@ -77,8 +77,11 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
       const time = duration.split('.')[0]; // Remove fractional seconds
       const [hours, minutes, seconds] = time.split(':').map(Number);
 
-      const totalMinutes = (hours || 0) * 60 + (minutes || 0); // Convert hours to minutes
-      return `${totalMinutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      } else {
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
     } catch {
       return '00:00'; // Fallback for invalid duration
     }

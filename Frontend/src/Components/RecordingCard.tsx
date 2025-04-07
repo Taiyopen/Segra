@@ -7,7 +7,7 @@ interface RecordingCardProps {
 }
 
 const RecordingCard: React.FC<RecordingCardProps> = ({recording}) => {
-	const [elapsedTime, setElapsedTime] = useState({minutes: 0, seconds: 0});
+	const [elapsedTime, setElapsedTime] = useState({hours: 0, minutes: 0, seconds: 0});
 
 	useEffect(() => {
 		if (!recording?.startTime) return;
@@ -18,10 +18,11 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording}) => {
 			const now = Date.now(); // Current time in milliseconds
 			const secondsElapsed = Math.max(0, Math.floor((now - startTime) / 1000));
 
-			const minutes = Math.floor(secondsElapsed / 60);
+			const hours = Math.floor(secondsElapsed / 3600);
+			const minutes = Math.floor((secondsElapsed % 3600) / 60);
 			const seconds = secondsElapsed % 60;
 
-			setElapsedTime({minutes, seconds});
+			setElapsedTime({hours, minutes, seconds});
 		};
 
 		// Update the timer every second
@@ -37,12 +38,12 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording}) => {
 				<div className="bg-neutral border border-secondary border-opacity-75 rounded-md px-3 py-3 cursor-default">
 					{/* Recording Indicator */}
 					<div className="flex items-center mb-1">
-						<span className={`w-3 h-3 rounded-full mr-2 ${elapsedTime.minutes === 0 && elapsedTime.seconds === 0
+						<span className={`w-3 h-3 rounded-full mr-2 ${elapsedTime.hours === 0 && elapsedTime.minutes === 0 && elapsedTime.seconds === 0
 							? 'bg-orange-500'
 							: 'bg-red-500 animate-pulse'
 							}`}></span>
 						<span className="text-gray-200 text-sm font-medium">
-							{elapsedTime.minutes === 0 && elapsedTime.seconds === 0
+							{elapsedTime.hours === 0 && elapsedTime.minutes === 0 && elapsedTime.seconds === 0
 								? 'Initializing'
 								: 'Recording'
 							}
@@ -52,6 +53,11 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording}) => {
 					{/* Recording Details */}
 					<div className="flex justify-between items-center text-gray-400 text-sm">
 						<span className="countdown">
+							{elapsedTime.hours > 0 && (
+								<>
+									<span style={{"--value": elapsedTime.hours} as React.CSSProperties}></span>:
+								</>
+							)}
 							<span style={{"--value": elapsedTime.minutes} as React.CSSProperties}></span>:
 							<span style={{"--value": elapsedTime.seconds} as React.CSSProperties}></span>
 						</span>
