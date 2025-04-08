@@ -1,5 +1,4 @@
-using System;
-using System.IO;
+using System.Reflection;
 using Serilog;
 
 namespace Segra.Backend.Utils
@@ -10,40 +9,28 @@ namespace Segra.Backend.Utils
         {
             try
             {
-                string startMenuShortcut = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.Programs),
-                    "Segra.lnk"
-                );
-
-                string startupShortcut = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.Startup),
-                    "Segra.lnk"
-                );
-
+                string exePath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".exe");
+                string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+                string linkPath = Path.Combine(startupFolder, "Segra.lnk");
                 if (enable)
                 {
-                    if (File.Exists(startMenuShortcut))
-                    {
-                        File.Copy(startMenuShortcut, startupShortcut, true);
-                        Log.Information("Copied Segra shortcut to startup folder");
-                    }
-                    else
-                    {
-                        Log.Error("Segra shortcut not found in Start Menu");
-                    }
+                    Type shellType = Type.GetTypeFromProgID("WScript.Shell");
+                    object shell = Activator.CreateInstance(shellType);
+                    object shortcut = shellType.InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, shell, new object[] { linkPath });
+                    shortcut.GetType().InvokeMember("TargetPath", BindingFlags.SetProperty, null, shortcut, new object[] { exePath });
+                    shortcut.GetType().InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, shortcut, new object[] { Path.GetDirectoryName(exePath) });
+                    shortcut.GetType().InvokeMember("Save", BindingFlags.InvokeMethod, null, shortcut, null);
+                    Log.Information("Added Segra to startup");
                 }
                 else
                 {
-                    if (File.Exists(startupShortcut))
-                    {
-                        File.Delete(startupShortcut);
-                        Log.Information("Removed Segra shortcut from startup folder");
-                    }
+                    if (File.Exists(linkPath)) File.Delete(linkPath);
+                    Log.Information("Removed Segra from startup");
                 }
             }
             catch (Exception ex)
             {
-                Log.Error($"Failed to set startup status: {ex.Message}");
+                Log.Error(ex.Message);
             }
         }
 
@@ -51,15 +38,12 @@ namespace Segra.Backend.Utils
         {
             try
             {
-                string startupShortcut = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.Startup),
-                    "Segra.lnk"
-                );
-                return File.Exists(startupShortcut);
+                string linkPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "Segra.lnk");
+                return File.Exists(linkPath);
             }
             catch (Exception ex)
             {
-                Log.Error($"Failed to get startup status: {ex.Message}");
+                Log.Error(ex.Message);
                 return false;
             }
         }
