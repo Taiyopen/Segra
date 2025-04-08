@@ -1,37 +1,43 @@
-using Microsoft.Win32;
-using Serilog;
 using System;
 using System.IO;
-using System.Reflection;
+using Serilog;
 
 namespace Segra.Backend.Utils
 {
     internal static class StartupUtils
     {
-        private const string StartupKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
-        private const string AppName = "Segra";
-
         public static void SetStartupStatus(bool enable)
         {
             try
             {
-                using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(StartupKey, true))
+                string startMenuShortcut = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Programs),
+                    "Segra.lnk"
+                );
+
+                string startupShortcut = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Startup),
+                    "Segra.lnk"
+                );
+
+                if (enable)
                 {
-                    if (key != null)
+                    if (File.Exists(startMenuShortcut))
                     {
-                        if (enable)
-                        {
-                            string appPath = Assembly.GetExecutingAssembly().Location;
-                            // Use the actual executable, not the DLL
-                            appPath = Path.ChangeExtension(appPath, ".exe");
-                            key.SetValue(AppName, $"\"{appPath}\"");
-                            Log.Information("Added Segra to startup programs");
-                        }
-                        else
-                        {
-                            key.DeleteValue(AppName, false);
-                            Log.Information("Removed Segra from startup programs");
-                        }
+                        File.Copy(startMenuShortcut, startupShortcut, true);
+                        Log.Information("Copied Segra shortcut to startup folder");
+                    }
+                    else
+                    {
+                        Log.Error("Segra shortcut not found in Start Menu");
+                    }
+                }
+                else
+                {
+                    if (File.Exists(startupShortcut))
+                    {
+                        File.Delete(startupShortcut);
+                        Log.Information("Removed Segra shortcut from startup folder");
                     }
                 }
             }
@@ -45,10 +51,11 @@ namespace Segra.Backend.Utils
         {
             try
             {
-                using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(StartupKey, false))
-                {
-                    return key?.GetValue(AppName) != null;
-                }
+                string startupShortcut = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Startup),
+                    "Segra.lnk"
+                );
+                return File.Exists(startupShortcut);
             }
             catch (Exception ex)
             {
