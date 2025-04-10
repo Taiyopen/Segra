@@ -33,7 +33,7 @@ export enum KeybindAction {
 	CreateBookmark = 'CreateBookmark'
 }
 
-export interface KeybindSettings {
+export interface Keybind {
 	keys: number[];
 	action: KeybindAction;
 	enabled: boolean;
@@ -70,7 +70,7 @@ export interface Settings {
 	enableDisplayRecording: boolean;
 	enableAi: boolean;
 	runOnStartup: boolean;
-	keybindings: KeybindSettings[];
+	keybindings: Keybind[];
 	state: State;
 }
 
