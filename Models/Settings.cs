@@ -1,10 +1,6 @@
 using Segra.Backend.Audio;
 using Segra.Backend.Utils;
 using Serilog;
-using Serilog.Core;
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
@@ -32,6 +28,10 @@ namespace Segra.Models
         private bool _enableDisplayRecording = false;
         private bool _enableAi = true;
         private bool _runOnStartup = false;
+        private List<Keybind> _keybindings = new List<Keybind> 
+        { 
+            new Keybind(new List<int> { 119 }, KeybindAction.CreateBookmark, true) // 119 is F8
+        };
         private State _state = new State();
         private Auth _auth = new Auth();
 
@@ -270,6 +270,17 @@ namespace Segra.Models
             set
             {
                 _auth = value;
+                SendToFrontend();
+            }
+        }
+
+        [JsonPropertyName("keybindings")]
+        public List<Keybind> Keybindings
+        {
+            get => _keybindings;
+            set
+            {
+                _keybindings = value;
                 SendToFrontend();
             }
         }
@@ -599,5 +610,11 @@ namespace Segra.Models
         {
             return !string.IsNullOrEmpty(_jwt) && !string.IsNullOrEmpty(_refreshToken);
         }
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum KeyAction
+    {
+        CreateBookmark
     }
 }
