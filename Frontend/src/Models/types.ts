@@ -29,6 +29,16 @@ export enum BookmarkSubtype {
 	Headshot = 'Headshot'
 }
 
+export enum KeybindAction {
+	CreateBookmark = 'CreateBookmark'
+}
+
+export interface Keybind {
+	keys: number[];
+	action: KeybindAction;
+	enabled: boolean;
+}
+
 export interface Bookmark {
 	id: number;
 	type: BookmarkType;
@@ -60,6 +70,7 @@ export interface Settings {
 	enableDisplayRecording: boolean;
 	enableAi: boolean;
 	runOnStartup: boolean;
+	keybindings: Keybind[];
 	state: State;
 }
 
@@ -88,6 +99,7 @@ export const initialSettings: Settings = {
 	enableDisplayRecording: false,
 	enableAi: true,
 	runOnStartup: false,
+	keybindings: [{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }], // 119 is F8
 	state: initialState,
 };
 

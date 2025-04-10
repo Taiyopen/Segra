@@ -81,10 +81,9 @@ namespace Segra.Backend.Utils
                     Settings.Instance.CqLevel = loadedSettings.CqLevel;
                     Settings.Instance.EnableDisplayRecording = loadedSettings.EnableDisplayRecording;
                     Settings.Instance.EnableAi = loadedSettings.EnableAi;
-
                     Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
-
                     Settings.Instance.Auth = loadedSettings.Auth;
+                    Settings.Instance.Keybindings = loadedSettings.Keybindings;
 
                     // End bulk update
                     Settings.Instance.EndBulkUpdateAndSaveSettings();
@@ -237,6 +236,13 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"RunOnStartup changed from '{settings.RunOnStartup}' to '{updatedSettings.RunOnStartup}'");
                 settings.RunOnStartup = updatedSettings.RunOnStartup;
+            }
+
+            // Update Keybindings
+            if (settings.Keybindings != updatedSettings.Keybindings)
+            {
+                Log.Information($"Keybindings changed from '{settings.Keybindings}' to '{updatedSettings.Keybindings}'");
+                settings.Keybindings = updatedSettings.Keybindings;
             }
 
             settings.EndBulkUpdateAndSaveSettings();

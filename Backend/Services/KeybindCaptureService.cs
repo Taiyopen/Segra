@@ -1,6 +1,5 @@
-﻿using NAudio.Wave;
+using NAudio.Wave;
 using Segra.Models;
-using Serilog;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -27,60 +26,101 @@ namespace Segra.Backend.Services
 
         private static IntPtr SetHook(LowLevelKeyboardProc proc)
         {
-            using (Process curProcess = Process.GetCurrentProcess())
-            using (ProcessModule curModule = curProcess.MainModule)
-            {
-                return SetWindowsHookEx(
-                    WH_KEYBOARD_LL,
-                    proc,
-                    GetModuleHandle(curModule.ModuleName),
-                    0
-                );
-            }
+            ProcessModule curModule = Process.GetCurrentProcess().MainModule;
+            return SetWindowsHookEx(
+                WH_KEYBOARD_LL,
+                proc,
+                GetModuleHandle(curModule.ModuleName),
+                0
+            );
         }
 
         private delegate IntPtr LowLevelKeyboardProc(
             int nCode, IntPtr wParam, IntPtr lParam);
 
+        private static readonly List<int> _pressedKeys = new List<int>(4);
+        
         private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode >= 0 && wParam == (IntPtr)WM_KEYDOWN)
+            if (nCode >= 0 && wParam == WM_KEYDOWN)
             {
                 int vkCode = Marshal.ReadInt32(lParam);
+                
+                bool ctrlPressed = (Control.ModifierKeys & Keys.Control) == Keys.Control;
+                bool altPressed = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
+                bool shiftPressed = (Control.ModifierKeys & Keys.Shift) == Keys.Shift;
 
-                // Check for F8 key
-                if ((Keys)vkCode == Keys.F8)
+                _pressedKeys.Clear();
+                if (ctrlPressed) _pressedKeys.Add(17);
+                if (altPressed) _pressedKeys.Add(18);
+                if (shiftPressed) _pressedKeys.Add(16);
+                _pressedKeys.Add(vkCode);
+                
+                var keybindings = Settings.Instance.Keybindings;
+                if (keybindings != null)
                 {
-                    Log.Information("F8 Pressed");
-                    Settings.Instance.State.Recording.Bookmarks.Add(new Bookmark
+                    foreach (var keybind in keybindings)
                     {
-                        Type = BookmarkType.Manual,
-                        Time = DateTime.Now - Settings.Instance.State.Recording.StartTime
-                    });
-                    Task.Run(PlayBookmarkSound);
+                        if (keybind.Enabled && DoKeysMatch(keybind.Keys, _pressedKeys))
+                        {
+                            switch (keybind.Action)
+                            {
+                                case KeybindAction.CreateBookmark:
+                                    var recording = Settings.Instance.State.Recording;
+                                    if (recording != null)
+                                    {
+                                        recording.Bookmarks.Add(new Bookmark
+                                        {
+                                            Type = BookmarkType.Manual,
+                                            Time = DateTime.Now - recording.StartTime
+                                        });
+                                        Task.Run(PlayBookmarkSound);
+                                    }
+                                    break;
+                            }
+                        }
+                    }
                 }
             }
 
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
         }
+        
+        private static bool DoKeysMatch(List<int> keybindKeys, List<int> pressedKeys)
+        {
+            if (keybindKeys.Count != pressedKeys.Count)
+                return false;
+                
+            foreach (var key in keybindKeys)
+            {
+                if (!pressedKeys.Contains(key))
+                    return false;
+            }
+            
+            return true;
+        }
 
         private static void PlayBookmarkSound()
         {
-            using (var audioStream = new MemoryStream(Properties.Resources.bookmark))
-            using (var audioReader = new WaveFileReader(audioStream))
-            using (var waveOut = new WaveOutEvent())
+            var audioStream = new MemoryStream(Properties.Resources.bookmark);
+            var audioReader = new WaveFileReader(audioStream);
+            var waveOut = new WaveOutEvent();
+            
+            var volumeStream = new VolumeWaveProvider16(audioReader)
             {
-                var volumeStream = new VolumeWaveProvider16(audioReader)
-                {
-                    Volume = 0.5f
-                };
+                Volume = 0.5f
+            };
 
-                waveOut.Init(volumeStream);
-                waveOut.Play();
-
-                while (waveOut.PlaybackState == PlaybackState.Playing)
-                    Thread.Sleep(100);
-            }
+            waveOut.Init(volumeStream);
+            
+            waveOut.PlaybackStopped += (sender, args) =>
+            {
+                waveOut.Dispose();
+                audioReader.Dispose();
+                audioStream.Dispose();
+            };
+            
+            waveOut.Play();
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
