@@ -578,7 +578,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Input Devices</span>
 						</label>
-						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto">
+						<div className="bg-base-100 rounded-lg p-2 max-h-48 overflow-y-auto">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableInputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -589,7 +589,7 @@ export default function Settings() {
 							{/* List available input devices as checkboxes */}
 							{settings.state.inputDevices.map((device) => (
 								<div key={device.id} className="form-control mb-1 last:mb-0">
-									<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-300 rounded">
+									<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-200 rounded">
 										<input
 											type="checkbox"
 											className="checkbox checkbox-sm checkbox-accent"
@@ -606,7 +606,7 @@ export default function Settings() {
 								.filter(deviceId => !isDeviceAvailable(deviceId, settings.state.inputDevices) && deviceId)
 								.map(deviceId => (
 									<div key={deviceId} className="form-control mb-1 last:mb-0">
-										<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-300 rounded">
+										<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-200 rounded">
 											<input
 												type="checkbox"
 												className="checkbox checkbox-sm checkbox-warning"
@@ -636,7 +636,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Output Devices</span>
 						</label>
-						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto">
+						<div className="bg-base-100 rounded-lg p-2 max-h-48 overflow-y-auto">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableOutputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -647,7 +647,7 @@ export default function Settings() {
 							{/* List available output devices as checkboxes */}
 							{settings.state.outputDevices.map((device) => (
 								<div key={device.id} className="form-control mb-1 last:mb-0">
-									<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-300 rounded">
+									<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-200 rounded">
 										<input
 											type="checkbox"
 											className="checkbox checkbox-sm checkbox-accent"
@@ -664,7 +664,7 @@ export default function Settings() {
 								.filter(deviceId => !isDeviceAvailable(deviceId, settings.state.outputDevices) && deviceId)
 								.map(deviceId => (
 									<div key={deviceId} className="form-control mb-1 last:mb-0">
-										<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-300 rounded">
+										<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-200 rounded">
 											<input
 												type="checkbox"
 												className="checkbox checkbox-sm checkbox-warning"
