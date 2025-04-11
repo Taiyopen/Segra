@@ -65,8 +65,8 @@ export interface Settings {
 	codec: 'h264' | 'h265';
 	storageLimit: number;
 	contentFolder: string;
-	inputDevice: string;
-	outputDevice: string;
+	inputDevices: string[];
+	outputDevices: string[];
 	enableDisplayRecording: boolean;
 	enableAi: boolean;
 	runOnStartup: boolean;
@@ -94,8 +94,8 @@ export const initialSettings: Settings = {
 	codec: 'h264',
 	storageLimit: 100,
 	contentFolder: '',
-	inputDevice: '',
-	outputDevice: '',
+	inputDevices: [],
+	outputDevices: [],
 	enableDisplayRecording: false,
 	enableAi: true,
 	runOnStartup: false,
@@ -127,6 +127,7 @@ export interface SelectionCardProps {
 export interface AudioDevice {
 	id: string;
 	name: string;
+	isDefault?: boolean;
 }
 
 export interface AiProgress {

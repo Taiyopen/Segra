@@ -299,13 +299,49 @@ export default function Settings() {
 		return devices.some((device) => device.id === deviceId);
 	};
 
-	// Get the name of the selected input device, or indicate if it's unavailable
-	const selectedInputDevice = settings.state.inputDevices.find((device) => device.id === settings.inputDevice);
-	const inputDeviceName = selectedInputDevice ? selectedInputDevice.name : settings.inputDevice ? 'Unavailable Device' : 'Select Input Device';
+	const toggleInputDevice = (deviceId: string) => {
+		const currentDevices = [...settings.inputDevices];
+		const index = currentDevices.indexOf(deviceId);
+		
+		if (index === -1) {
+			currentDevices.push(deviceId);
+		} else {
+			currentDevices.splice(index, 1);
+		}
+		
+		updateSettings({ inputDevices: currentDevices });
+	};
 
-	// Get the name of the selected output device, or indicate if it's unavailable
-	const selectedOutputDevice = settings.state.outputDevices.find((device) => device.id === settings.outputDevice);
-	const outputDeviceName = selectedOutputDevice ? selectedOutputDevice.name : settings.outputDevice ? 'Unavailable Device' : 'Select Output Device';
+	const toggleOutputDevice = (deviceId: string) => {
+		const currentDevices = [...settings.outputDevices];
+		const index = currentDevices.indexOf(deviceId);
+		
+		if (index === -1) {
+			currentDevices.push(deviceId);
+		} else {
+			currentDevices.splice(index, 1);
+		}
+		
+		updateSettings({ outputDevices: currentDevices });
+	};
+
+	const getInputDeviceNameById = (deviceId: string) => {
+		const device = settings.state.inputDevices.find((device) => device.id === deviceId);
+		return device ? device.name : 'Unavailable Device';
+	};
+	
+	const hasUnavailableInputDevices = settings.inputDevices.some(
+		deviceId => !isDeviceAvailable(deviceId, settings.state.inputDevices) && deviceId
+	);
+
+	const getOutputDeviceNameById = (deviceId: string) => {
+		const device = settings.state.outputDevices.find((device) => device.id === deviceId);
+		return device ? device.name : 'Unavailable Device';
+	};
+	
+	const hasUnavailableOutputDevices = settings.outputDevices.some(
+		deviceId => !isDeviceAvailable(deviceId, settings.state.outputDevices) && deviceId
+	);
 	
 	return (
 		<div className="p-5 space-y-6 rounded-lg">
@@ -537,67 +573,119 @@ export default function Settings() {
 			<div className="p-4 bg-base-300 rounded-lg shadow-md">
 				<h2 className="text-xl font-semibold mb-4">Input/Output Devices</h2>
 				<div className="grid grid-cols-2 gap-4">
-					{/* Input Device */}
+					{/* Input Devices (Multiple Selection) */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Input Device</span>
+							<span className="label-text">Input Devices</span>
 						</label>
-						<div className="relative">
-							<select
-								name="inputDevice"
-								value={settings.inputDevice}
-								onChange={handleChange}
-								className="select select-bordered w-full"
-							>
-								<option value={''}>
-									Select Input Device
-								</option>
-								{/* If the selected device is not available, show it with a warning */}
-								{!isDeviceAvailable(settings.inputDevice, settings.state.inputDevices) && settings.inputDevice && (
-									<option value={settings.inputDevice}>
-										⚠️ &lrm;
-										{inputDeviceName}
-									</option>
-								)}
-								{/* List available input devices */}
-								{settings.state.inputDevices.map((device) => (
-									<option key={device.id} value={device.id}>
-										{device.name}
-									</option>
-								))}
-							</select>
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto">
+							{/* Warning for unavailable devices */}
+							{hasUnavailableInputDevices && (
+								<div className="text-warning text-xs mb-2 flex items-center">
+									<span className="mr-1">⚠️</span> Some selected devices are unavailable
+								</div>
+							)}
+
+							{/* List available input devices as checkboxes */}
+							{settings.state.inputDevices.map((device) => (
+								<div key={device.id} className="form-control mb-1 last:mb-0">
+									<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-300 rounded">
+										<input
+											type="checkbox"
+											className="checkbox checkbox-sm checkbox-accent"
+											checked={settings.inputDevices.includes(device.id)}
+											onChange={() => toggleInputDevice(device.id)}
+										/>
+										<span className="label-text">{device.name}</span>
+									</label>
+								</div>
+							))}
+
+							{/* Show unavailable devices that are still selected */}
+							{settings.inputDevices
+								.filter(deviceId => !isDeviceAvailable(deviceId, settings.state.inputDevices) && deviceId)
+								.map(deviceId => (
+									<div key={deviceId} className="form-control mb-1 last:mb-0">
+										<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-300 rounded">
+											<input
+												type="checkbox"
+												className="checkbox checkbox-sm checkbox-warning"
+												checked={true}
+												onChange={() => toggleInputDevice(deviceId)}
+											/>
+											<span className="label-text text-warning flex items-center">
+												<span className="mr-1">⚠️</span>
+												{getInputDeviceNameById(deviceId)}
+											</span>
+										</label>
+									</div>
+								))
+							}
+
+							{/* Show message when no devices are available */}
+							{settings.state.inputDevices.length === 0 && (
+								<div className="text-center py-2 text-gray-500">
+									No input devices available
+								</div>
+							)}
 						</div>
 					</div>
 
-					{/* Output Device */}
+					{/* Output Devices (Multiple Selection) */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Output Device</span>
+							<span className="label-text">Output Devices</span>
 						</label>
-						<div className="relative">
-							<select
-								name="outputDevice"
-								value={settings.outputDevice}
-								onChange={handleChange}
-								className="select select-bordered w-full"
-							>
-								<option value={''}>
-									Select Output Device
-								</option>
-								{/* If the selected device is not available, show it with a warning */}
-								{!isDeviceAvailable(settings.outputDevice, settings.state.outputDevices) && settings.outputDevice && (
-									<option value={settings.outputDevice}>
-										⚠️ &lrm;
-										{outputDeviceName}
-									</option>
-								)}
-								{/* List available output devices */}
-								{settings.state.outputDevices.map((device) => (
-									<option key={device.id} value={device.id}>
-										{device.name}
-									</option>
-								))}
-							</select>
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto">
+							{/* Warning for unavailable devices */}
+							{hasUnavailableOutputDevices && (
+								<div className="text-warning text-xs mb-2 flex items-center">
+									<span className="mr-1">⚠️</span> Some selected devices are unavailable
+								</div>
+							)}
+
+							{/* List available output devices as checkboxes */}
+							{settings.state.outputDevices.map((device) => (
+								<div key={device.id} className="form-control mb-1 last:mb-0">
+									<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-300 rounded">
+										<input
+											type="checkbox"
+											className="checkbox checkbox-sm checkbox-accent"
+											checked={settings.outputDevices.includes(device.id)}
+											onChange={() => toggleOutputDevice(device.id)}
+										/>
+										<span className="label-text">{device.name}</span>
+									</label>
+								</div>
+							))}
+
+							{/* Show unavailable devices that are still selected */}
+							{settings.outputDevices
+								.filter(deviceId => !isDeviceAvailable(deviceId, settings.state.outputDevices) && deviceId)
+								.map(deviceId => (
+									<div key={deviceId} className="form-control mb-1 last:mb-0">
+										<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-300 rounded">
+											<input
+												type="checkbox"
+												className="checkbox checkbox-sm checkbox-warning"
+												checked={true}
+												onChange={() => toggleOutputDevice(deviceId)}
+											/>
+											<span className="label-text text-warning flex items-center">
+												<span className="mr-1">⚠️</span>
+												{getOutputDeviceNameById(deviceId)}
+											</span>
+										</label>
+									</div>
+								))
+							}
+
+							{/* Show message when no devices are available */}
+							{settings.state.outputDevices.length === 0 && (
+								<div className="text-center py-2 text-gray-500">
+									No output devices available
+								</div>
+							)}
 						</div>
 					</div>
 				</div>

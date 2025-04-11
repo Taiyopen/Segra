@@ -23,8 +23,8 @@ namespace Segra.Models
         private string _encoder = "gpu";
         private string _codec = "h264";
         private int _storageLimit = 100;
-        private string _inputDevice = string.Empty;
-        private string _outputDevice = string.Empty;
+        private List<string> _inputDevices = new List<string>();
+        private List<string> _outputDevices = new List<string>();
         private bool _enableDisplayRecording = false;
         private bool _enableAi = true;
         private bool _runOnStartup = false;
@@ -198,23 +198,23 @@ namespace Segra.Models
             }
         }
 
-        [JsonPropertyName("inputDevice")]
-        public string InputDevice
+        [JsonPropertyName("inputDevices")]
+        public List<string> InputDevices
         {
-            get => _inputDevice;
+            get => _inputDevices;
             set
             {
-                _inputDevice = value;
+                _inputDevices = value;
             }
         }
 
-        [JsonPropertyName("outputDevice")]
-        public string OutputDevice
+        [JsonPropertyName("outputDevices")]
+        public List<string> OutputDevices
         {
-            get => _outputDevice;
+            get => _outputDevices;
             set
             {
-                _outputDevice = value;
+                _outputDevices = value;
             }
         }
 
@@ -354,6 +354,13 @@ namespace Segra.Models
             _deviceWatcher.DevicesChanged += UpdateAudioDevices;
 
             UpdateAudioDevices();
+
+            bool hasNoSelectedAudioDevices = Settings.Instance.InputDevices.Count == 0 && Settings.Instance.OutputDevices.Count == 0;
+            Log.Information($"Has no selected audio devices: {hasNoSelectedAudioDevices}");
+            if (hasNoSelectedAudioDevices)
+            {
+                SelectDefaultDevices();
+            }
         }
 
         private void SendToFrontend()
@@ -448,6 +455,27 @@ namespace Segra.Models
             }
             Log.Information("-------------");
             MessageUtils.SendSettingsToFrontend();
+        }
+
+        private void SelectDefaultDevices()
+        {
+            var defaultInputDevice = _inputDevices.FirstOrDefault(d => d.IsDefault);
+            if (defaultInputDevice != null)
+            {
+                Settings.Instance.BeginBulkUpdate();
+                Settings.Instance.InputDevices.Add(defaultInputDevice.Id);
+                Settings.Instance.EndBulkUpdateAndSaveSettings();
+                Log.Information($"Auto-selected default input device: {defaultInputDevice.Name}");
+            }
+
+            var defaultOutputDevice = _outputDevices.FirstOrDefault(d => d.IsDefault);
+            if (defaultOutputDevice != null)
+            {
+                Settings.Instance.BeginBulkUpdate();
+                Settings.Instance.OutputDevices.Add(defaultOutputDevice.Id);
+                Settings.Instance.EndBulkUpdateAndSaveSettings();
+                Log.Information($"Auto-selected default output device: {defaultOutputDevice.Name}");
+            }
         }
 
         public void UpdateRecordingEndTime(DateTime endTime)
@@ -558,6 +586,7 @@ namespace Segra.Models
     {
         public string Id { get; set; }
         public string Name { get; set; }
+        public bool IsDefault { get; set; }
 
         public bool Equals(AudioDevice other)
         {
