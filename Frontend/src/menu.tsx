@@ -7,6 +7,7 @@ import {useUpdate} from './Context/UpdateContext';
 import UploadCard from './Components/UploadCard';
 import ClippingCard from './Components/ClippingCard';
 import UpdateCard from './Components/UpdateCard';
+import UnavailableDeviceCard from './Components/UnavailableDeviceCard';
 import {MdOutlineContentCut, MdOutlinePlayCircleOutline, MdOutlineSettings, MdReplay30} from 'react-icons/md';
 import {HiOutlineSparkles} from 'react-icons/hi';
 
@@ -16,11 +17,25 @@ interface MenuProps {
 }
 
 export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
-	const {state} = useSettings();
-	const {hasLoadedObs, recording} = state;
+	const settings = useSettings();
+	const {hasLoadedObs, recording} = settings.state;
 	const {uploads} = useUploads();
 	const {updateInfo} = useUpdate();
 	const uploadFiles = Object.keys(uploads);
+	
+	const isDeviceAvailable = (deviceId: string, devices: Array<{id: string; name: string}>) => {
+		return devices.some(device => device.id === deviceId);
+	};
+
+	const hasUnavailableDevices = () => {
+		const hasUnavailableInputs = settings.inputDevices.some(
+			(deviceId: string) => deviceId && !isDeviceAvailable(deviceId, settings.state.inputDevices)
+		);
+		const hasUnavailableOutputs = settings.outputDevices.some(
+			(deviceId: string) => deviceId && !isDeviceAvailable(deviceId, settings.state.outputDevices)
+		);
+		return hasUnavailableInputs || hasUnavailableOutputs;
+	};
 
 	return (
 		<div className="bg-base-300 w-56 h-screen flex flex-col">
@@ -82,6 +97,8 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				{uploadFiles.map((fileName) => (
 					<UploadCard key={fileName} fileName={fileName} />
 				))}
+				{/* Show warning if there are unavailable audio devices */}
+				{hasUnavailableDevices() && <UnavailableDeviceCard />}
 				{recording && recording.endTime == null && <RecordingCard recording={recording} />}
 				{Object.values(useClipping().clippingProgress).map((clipping) => (
 					<ClippingCard key={clipping.id} clipping={clipping} />
@@ -107,14 +124,14 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				<div className="flex flex-col items-center space-y-2">
 					<button
 						className="btn btn-neutral w-full"
-						disabled={state.recording != null}
+						disabled={settings.state.recording != null}
 						onClick={() => sendMessageToBackend('StartRecording')}
 					>
 						Start
 					</button>
 					<button
 						className="btn btn-neutral w-full"
-						disabled={!state.recording}
+						disabled={!settings.state.recording}
 						onClick={() => sendMessageToBackend('StopRecording')}
 					>
 						Stop

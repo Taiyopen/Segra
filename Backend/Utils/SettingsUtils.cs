@@ -73,8 +73,8 @@ namespace Segra.Backend.Utils
                     Settings.Instance.Encoder = loadedSettings.Encoder;
                     Settings.Instance.Codec = loadedSettings.Codec;
                     Settings.Instance.StorageLimit = loadedSettings.StorageLimit;
-                    Settings.Instance.InputDevice = loadedSettings.InputDevice;
-                    Settings.Instance.OutputDevice = loadedSettings.OutputDevice;
+                    Settings.Instance.InputDevices = loadedSettings.InputDevices;
+                    Settings.Instance.OutputDevices = loadedSettings.OutputDevices;
 
                     Settings.Instance.RateControl = loadedSettings.RateControl;
                     Settings.Instance.CrfValue = loadedSettings.CrfValue;
@@ -183,17 +183,17 @@ namespace Segra.Backend.Utils
             }
 
             // Update InputDevice
-            if (settings.InputDevice != updatedSettings.InputDevice)
+            if (!settings.InputDevices.SequenceEqual(updatedSettings.InputDevices))
             {
-                Log.Information($"InputDevice changed from '{settings.InputDevice}' to '{updatedSettings.InputDevice}'");
-                settings.InputDevice = updatedSettings.InputDevice;
+                Log.Information($"InputDevice changed from '{string.Join(", ", settings.InputDevices)}' to '{string.Join(", ", updatedSettings.InputDevices)}'");
+                settings.InputDevices = updatedSettings.InputDevices;
             }
 
             // Update OutputDevice
-            if (settings.OutputDevice != updatedSettings.OutputDevice)
+            if (!settings.OutputDevices.SequenceEqual(updatedSettings.OutputDevices))
             {
-                Log.Information($"OutputDevice changed from '{settings.OutputDevice}' to '{updatedSettings.OutputDevice}'");
-                settings.OutputDevice = updatedSettings.OutputDevice;
+                Log.Information($"OutputDevice changed from '{string.Join(", ", settings.OutputDevices)}' to '{string.Join(", ", updatedSettings.OutputDevices)}'");
+                settings.OutputDevices = updatedSettings.OutputDevices;
             }
 
             // Update RateControl
@@ -247,8 +247,6 @@ namespace Segra.Backend.Utils
 
             settings.EndBulkUpdateAndSaveSettings();
         }
-
-
 
         public static void LoadContentFromFolderIntoState(bool sendToFrontend = true)
         {

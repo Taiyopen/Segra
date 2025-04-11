@@ -16,8 +16,8 @@ namespace Segra.Backend.Utils
         static bool signalOutputStop = false;
         static IntPtr output = IntPtr.Zero;
         static IntPtr displaySource = IntPtr.Zero;
-        static IntPtr micSource = IntPtr.Zero;
-        static IntPtr desktopSource = IntPtr.Zero;
+        static List<IntPtr> micSources = new List<IntPtr>();
+        static List<IntPtr> desktopSources = new List<IntPtr>();
         static IntPtr videoEncoder = IntPtr.Zero;
         static IntPtr audioEncoder = IntPtr.Zero;
 
@@ -235,22 +235,70 @@ namespace Segra.Backend.Utils
             obs_data_release(videoEncoderSettings);
             obs_encoder_set_video(videoEncoder, obs_get_video());
 
-            if (Settings.Instance.InputDevice != null && Settings.Instance.InputDevice != "")
+            foreach (var source in micSources)
             {
-                IntPtr micSettings = obs_data_create();
-                obs_data_set_string(micSettings, "device_id", Settings.Instance.InputDevice);
-                micSource = obs_source_create("wasapi_input_capture", "Microphone", micSettings, IntPtr.Zero);
-                obs_data_release(micSettings);
-                obs_set_output_source(1, micSource);
+                if (source != IntPtr.Zero)
+                {
+                    obs_source_release(source);
+                }
+            }
+            micSources.Clear();
+            if (Settings.Instance.InputDevices != null && Settings.Instance.InputDevices.Count > 0)
+            {
+                int audioSourceIndex = 1;
+                
+                foreach (var deviceId in Settings.Instance.InputDevices)
+                {
+                    if (!string.IsNullOrEmpty(deviceId))
+                    {
+                        IntPtr micSettings = obs_data_create();
+                        obs_data_set_string(micSettings, "device_id", deviceId);
+                        
+                        string sourceName = $"Microphone_{micSources.Count + 1}";
+                        IntPtr micSource = obs_source_create("wasapi_input_capture", sourceName, micSettings, IntPtr.Zero);
+                        
+                        obs_data_release(micSettings);
+                        
+                        obs_set_output_source((uint)audioSourceIndex, micSource);
+                        micSources.Add(micSource);
+                        
+                        audioSourceIndex++;
+                        Log.Information($"Added input device: {deviceId} as {sourceName}");
+                    }
+                }
             }
 
-            if (Settings.Instance.OutputDevice != null && Settings.Instance.OutputDevice != "")
+            foreach (var source in desktopSources)
             {
-                IntPtr desktopSettings = obs_data_create();
-                obs_data_set_string(desktopSettings, "device_id", Settings.Instance.OutputDevice);
-                desktopSource = obs_source_create("wasapi_output_capture", "DesktopAudio", desktopSettings, IntPtr.Zero);
-                obs_data_release(desktopSettings);
-                obs_set_output_source(2, desktopSource);
+                if (source != IntPtr.Zero)
+                {
+                    obs_source_release(source);
+                }
+            }
+            desktopSources.Clear();
+            if (Settings.Instance.OutputDevices != null && Settings.Instance.OutputDevices.Count > 0)
+            {
+                int desktopSourceIndex = micSources.Count + 1;
+                
+                foreach (var deviceId in Settings.Instance.OutputDevices)
+                {
+                    if (!string.IsNullOrEmpty(deviceId))
+                    {
+                        IntPtr desktopSettings = obs_data_create();
+                        obs_data_set_string(desktopSettings, "device_id", deviceId);
+                        
+                        string sourceName = $"DesktopAudio_{desktopSources.Count + 1}";
+                        IntPtr desktopSource = obs_source_create("wasapi_output_capture", sourceName, desktopSettings, IntPtr.Zero);
+                        
+                        obs_data_release(desktopSettings);
+                        
+                        obs_set_output_source((uint)desktopSourceIndex, desktopSource);
+                        desktopSources.Add(desktopSource);
+                        
+                        desktopSourceIndex++;
+                        Log.Information($"Added output device: {deviceId} as {sourceName}");
+                    }
+                }
             }
 
             IntPtr audioEncoderSettings = obs_data_create();
@@ -472,19 +520,28 @@ namespace Segra.Backend.Utils
                 displaySource = IntPtr.Zero;
             }
 
-            if (micSource != IntPtr.Zero)
+            for (int i = 0; i < micSources.Count; i++)
             {
-                obs_set_output_source(1, IntPtr.Zero);
-                obs_source_release(micSource);
-                micSource = IntPtr.Zero;
+                if (micSources[i] != IntPtr.Zero)
+                {
+                    obs_set_output_source((uint)(i + 1), IntPtr.Zero);
+                    obs_source_release(micSources[i]);
+                    micSources[i] = IntPtr.Zero;
+                }
             }
+            micSources.Clear();
 
-            if (desktopSource != IntPtr.Zero)
+            for (int i = 0; i < desktopSources.Count; i++)
             {
-                obs_set_output_source(2, IntPtr.Zero);
-                obs_source_release(desktopSource);
-                desktopSource = IntPtr.Zero;
+                if (desktopSources[i] != IntPtr.Zero)
+                {
+                    int desktopIndex = i + micSources.Count + 1;
+                    obs_set_output_source((uint)desktopIndex, IntPtr.Zero);
+                    obs_source_release(desktopSources[i]);
+                    desktopSources[i] = IntPtr.Zero;
+                }
             }
+            desktopSources.Clear();
         }
 
         public static void DisposeEncoders()
