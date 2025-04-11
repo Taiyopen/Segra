@@ -235,14 +235,6 @@ namespace Segra.Backend.Utils
             obs_data_release(videoEncoderSettings);
             obs_encoder_set_video(videoEncoder, obs_get_video());
 
-            foreach (var source in micSources)
-            {
-                if (source != IntPtr.Zero)
-                {
-                    obs_source_release(source);
-                }
-            }
-            micSources.Clear();
             if (Settings.Instance.InputDevices != null && Settings.Instance.InputDevices.Count > 0)
             {
                 int audioSourceIndex = 1;
@@ -268,14 +260,6 @@ namespace Segra.Backend.Utils
                 }
             }
 
-            foreach (var source in desktopSources)
-            {
-                if (source != IntPtr.Zero)
-                {
-                    obs_source_release(source);
-                }
-            }
-            desktopSources.Clear();
             if (Settings.Instance.OutputDevices != null && Settings.Instance.OutputDevices.Count > 0)
             {
                 int desktopSourceIndex = micSources.Count + 1;
@@ -520,6 +504,7 @@ namespace Segra.Backend.Utils
                 displaySource = IntPtr.Zero;
             }
 
+            int micSourcesCount = micSources.Count;
             for (int i = 0; i < micSources.Count; i++)
             {
                 if (micSources[i] != IntPtr.Zero)
@@ -535,7 +520,7 @@ namespace Segra.Backend.Utils
             {
                 if (desktopSources[i] != IntPtr.Zero)
                 {
-                    int desktopIndex = i + micSources.Count + 1;
+                    int desktopIndex = i + micSourcesCount + 1;
                     obs_set_output_source((uint)desktopIndex, IntPtr.Zero);
                     obs_source_release(desktopSources[i]);
                     desktopSources[i] = IntPtr.Zero;
