@@ -142,9 +142,10 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0'
+          dotnet-version: 8.x
+          cache: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
