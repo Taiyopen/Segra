@@ -8,6 +8,13 @@ namespace Segra.Backend.Utils
     {
         private static string GetCleanDeviceName(string friendlyName)
         {
+
+            // If it's Voicemeeter, return the original name
+            if (friendlyName.Contains("Voicemeeter"))
+            {
+                return friendlyName;
+            }
+
             // Looks for patterns like "Microphone (2- Shure MV7)" or "Speakers (Sound BlasterX AE-5 Plus)"
             var match = Regex.Match(friendlyName, @"\((?:\d+\-\s*)?([^\)]+)\)");
             
@@ -44,7 +51,12 @@ namespace Segra.Backend.Utils
                 }
             }
 
-            return devices;
+            // Sort devices by name (except the default which stays at the top)
+            var defaultDev = devices[0];
+            var sortedDevices = devices.Skip(1).OrderBy(d => d.Name).ToList();
+            sortedDevices.Insert(0, defaultDev);
+            
+            return sortedDevices;
         }
 
         public static List<AudioDevice> GetOutputDevices()
@@ -71,7 +83,12 @@ namespace Segra.Backend.Utils
                 }
             }
 
-            return devices;
+            // Sort devices by name (except the default which stays at the top)
+            var defaultDev = devices[0];
+            var sortedDevices = devices.Skip(1).OrderBy(d => d.Name).ToList();
+            sortedDevices.Insert(0, defaultDev);
+            
+            return sortedDevices;
         }
     }
 }
