@@ -1,0 +1,368 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0-windows7.0": {
+      "EventHook": {
+        "type": "Direct",
+        "requested": "[1.4.113, )",
+        "resolved": "1.4.113",
+        "contentHash": "IL9FGekRmqXSsXl8pnhZrFhL4uWrHpNNViysFEbVSLGISCVbmR0hCTSchuQb+PCC/XEy4cdqraIbQkZPZKMzSw=="
+      },
+      "Microsoft.Extensions.FileProviders.Embedded": {
+        "type": "Direct",
+        "requested": "[8.0.10, )",
+        "resolved": "8.0.10",
+        "contentHash": "N/Ow71LLKXbC4fOFoAG7QNyyhgRypd8in8lc92xInZyyNFlBTgGR3R1BV91Wr5+1/l9+Qvo+2Ee2cAth43OP/Q==",
+        "dependencies": {
+          "Microsoft.Extensions.FileProviders.Abstractions": "8.0.0"
+        }
+      },
+      "NAudio": {
+        "type": "Direct",
+        "requested": "[2.2.1, )",
+        "resolved": "2.2.1",
+        "contentHash": "c0DzwiyyklM0TP39Y7RObwO3QkWecgM6H60ikiEnsV/aEAJPbj5MFCLaD8BSfKuZe0HGuh9GRGWWlJmSxDc9MA==",
+        "dependencies": {
+          "NAudio.Asio": "2.2.1",
+          "NAudio.Core": "2.2.1",
+          "NAudio.Midi": "2.2.1",
+          "NAudio.Wasapi": "2.2.1",
+          "NAudio.WinForms": "2.2.1",
+          "NAudio.WinMM": "2.2.1"
+        }
+      },
+      "Photino.NET": {
+        "type": "Direct",
+        "requested": "[3.2.3, )",
+        "resolved": "3.2.3",
+        "contentHash": "RclLYqWaiL4C1COsZPXa+iw4mN5IQO2Re7qspWB0R9HXWzMD1tOPsdHm192A2OHD7bgWgGKRUm2iTxO1qrZMwQ==",
+        "dependencies": {
+          "Photino.Native": "3.2.3"
+        }
+      },
+      "Photino.NET.Server": {
+        "type": "Direct",
+        "requested": "[3.0.11, )",
+        "resolved": "3.0.11",
+        "contentHash": "Yn6TUgXBA8SbieteBmqFwUscjnF8r8rA6SOYi+j4mbefy6Y/C9bzRExEyWhzIkMqDap5F/+8xlKJbnx+g7pF7w=="
+      },
+      "Serilog": {
+        "type": "Direct",
+        "requested": "[4.1.0, )",
+        "resolved": "4.1.0",
+        "contentHash": "u1aZI8HZ62LWlq5dZLFwm6jMax/sUwnWZSw5lkPsCt518cJBxFKoNmc7oSxe5aA5BgSkzy9rzwFGR/i/acnSPw=="
+      },
+      "Serilog.Sinks.Console": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "fQGWqVMClCP2yEyTXPIinSr5c+CBGUvBybPxjAGcf7ctDhadFhrQw03Mv8rJ07/wR5PDfFjewf2LimvXCDzpbA==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
+      "Serilog.Sinks.Debug": {
+        "type": "Direct",
+        "requested": "[3.0.0, )",
+        "resolved": "3.0.0",
+        "contentHash": "4BzXcdrgRX7wde9PmHuYd9U6YqycCC28hhpKonK7hx0wb19eiuRj16fPcPSVp0o/Y1ipJuNLYQ00R3q2Zs8FDA==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
+      "Serilog.Sinks.File": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "lxjg89Y8gJMmFxVkbZ+qDgjl+T4yC5F7WSLTvA+5q0R04tfKVLRL/EHpYoJ/MEQd2EeCKDuylBIVnAYMotmh2A==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
+      "Supabase": {
+        "type": "Direct",
+        "requested": "[1.1.1, )",
+        "resolved": "1.1.1",
+        "contentHash": "LW9O05IiZBW3YUDT/gndPKvzT3I7PVgx0j87+AdJu7mT42m7oh2nOnjuDR9pU0E9FE2Ke/QGovrH/u5OjGn7lg==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "Supabase.Core": "1.0.0",
+          "Supabase.Functions": "2.0.0",
+          "Supabase.Gotrue": "6.0.3",
+          "Supabase.Postgrest": "4.0.3",
+          "Supabase.Realtime": "7.0.2",
+          "Supabase.Storage": "2.0.2"
+        }
+      },
+      "System.Management": {
+        "type": "Direct",
+        "requested": "[9.0.2, )",
+        "resolved": "9.0.2",
+        "contentHash": "U6SXFe1kfJySAvcPPdbdb+fycaY+3c/KV0PwTjurvrALMnlSm37s5z8zcoI7qbkV2kYhxiLfsZRGiF0XeSsqSQ==",
+        "dependencies": {
+          "System.CodeDom": "9.0.2"
+        }
+      },
+      "System.Runtime.CompilerServices.Unsafe": {
+        "type": "Direct",
+        "requested": "[6.0.0, )",
+        "resolved": "6.0.0",
+        "contentHash": "/iUeP3tq1S0XdNNoMz5C9twLSrM/TH+qElHkXWaPvuNOt+99G75NrV0OS2EqHx5wMN7popYjpc8oTjC1y16DLg=="
+      },
+      "Velopack": {
+        "type": "Direct",
+        "requested": "[0.0.1053, )",
+        "resolved": "0.0.1053",
+        "contentHash": "hbSFBfwAAEg5GGKkocDPiyYA+FxyrkXo2pJJCcrgOv1xnSupINpYXk2l9M/M7LEjKiH42pq+NmcG/+CwQvTbvA==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+          "NuGet.Versioning": "6.12.1"
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "cjWrLkJXK0rs4zofsK4bSdg+jhDLTaxrkXu4gS6Y7MAlCvRyNNgwY/lJi5RDlQOnSZweHqoyvgvbdvQsRIW+hg=="
+      },
+      "Microsoft.Extensions.FileProviders.Abstractions": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "ZbaMlhJlpisjuWbvXr4LdAst/1XxH3vZ6A0BsgTphZ2L4PGuxRLz7Jr/S7mkAAnOn78Vu0fKhEgNF5JO3zfjqQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Primitives": "8.0.0"
+        }
+      },
+      "Microsoft.Extensions.Logging.Abstractions": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "arDBqTgFCyS0EvRV7O3MZturChstm50OJ0y9bDJvAcmEPJm0FFpFyjU/JLYyStNGGey081DvnQYlncNX5SJJGA==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0"
+        }
+      },
+      "Microsoft.Extensions.Primitives": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "bXJEZrW9ny8vjMF1JV253WeLhpEVzFo1lyaZu1vQ4ZxWUlVvknZ/+ftFgVheLubb4eZPSwwxBeqS1JkCOjxd8g=="
+      },
+      "Microsoft.IdentityModel.Abstractions": {
+        "type": "Transitive",
+        "resolved": "7.5.1",
+        "contentHash": "PT16ZFbPIiMsYv07oy3zOjqUOJ7xutGBkJTOX0+IbNyU6+O6X7aIxjq9EaSSRLWbekRgamgtmfg8Xjw6A6Ua9g=="
+      },
+      "Microsoft.IdentityModel.JsonWebTokens": {
+        "type": "Transitive",
+        "resolved": "7.5.1",
+        "contentHash": "93CGSa8RPdZU8zfvA3nf9NGKUqEnQrE12VzYlMqKh72ddhzusosqLNEUgH/YhFWBLRFOnY1RCgHMV7pR+sAx2w==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Tokens": "7.5.1"
+        }
+      },
+      "Microsoft.IdentityModel.Logging": {
+        "type": "Transitive",
+        "resolved": "7.5.1",
+        "contentHash": "PnpAQX20BAiDIPYmWUyQSlEaWD8BLXzHpiDGTCT568Cs0ReOeyzNe401LzCeiv6ilug/KefVeV1CeqtCHTo8dw==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Abstractions": "7.5.1"
+        }
+      },
+      "Microsoft.IdentityModel.Tokens": {
+        "type": "Transitive",
+        "resolved": "7.5.1",
+        "contentHash": "Q3DKpyFViP84IUlTFKH/zIkswIrmSh2Vd/eFDo4wlOHy4DYxoweZEEw4kDEiKt9VCX6o7SddK3HK2xDYyFpexA==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Logging": "7.5.1"
+        }
+      },
+      "Microsoft.IO.RecyclableMemoryStream": {
+        "type": "Transitive",
+        "resolved": "3.0.0",
+        "contentHash": "irv0HuqoH8Ig5i2fO+8dmDNdFdsrO+DoQcedwIlb810qpZHBNQHZLW7C/AHBQDgLLpw2T96vmMAy/aE4Yj55Sg=="
+      },
+      "Microsoft.NETCore.Platforms": {
+        "type": "Transitive",
+        "resolved": "3.1.0",
+        "contentHash": "z7aeg8oHln2CuNulfhiLYxCVMPEwBl3rzicjvIX+4sUuCwvXw5oXQEtbiU2c0z4qYL5L3Kmx0mMA/+t/SbY67w=="
+      },
+      "Microsoft.Win32.Registry": {
+        "type": "Transitive",
+        "resolved": "4.7.0",
+        "contentHash": "KSrRMb5vNi0CWSGG1++id2ZOs/1QhRqROt+qgbEAdQuGjGrFcl4AOl4/exGPUYz2wUnU42nvJqon1T3U0kPXLA==",
+        "dependencies": {
+          "System.Security.AccessControl": "4.7.0",
+          "System.Security.Principal.Windows": "4.7.0"
+        }
+      },
+      "MimeMapping": {
+        "type": "Transitive",
+        "resolved": "3.0.1",
+        "contentHash": "lhYcUVnWKaqrboAwi05YLCx3wdluM9Sr1Mv5Emhgc8c8yNVvdiSEnQJMdDvgb4grlYTaOmbnhYaezoeateX95w=="
+      },
+      "NAudio.Asio": {
+        "type": "Transitive",
+        "resolved": "2.2.1",
+        "contentHash": "hQglyOT5iT3XuGpBP8ZG0+aoqwRfidHjTNehpoWwX0g6KJEgtH2VaqM2nuJ2mheKZa/IBqB4YQTZVvrIapzfOA==",
+        "dependencies": {
+          "Microsoft.Win32.Registry": "4.7.0",
+          "NAudio.Core": "2.2.1"
+        }
+      },
+      "NAudio.Core": {
+        "type": "Transitive",
+        "resolved": "2.2.1",
+        "contentHash": "GgkdP6K/7FqXFo7uHvoqGZTJvW4z8g2IffhOO4JHaLzKCdDOUEzVKtveoZkCuUX8eV2HAINqi7VFqlFndrnz/g=="
+      },
+      "NAudio.Midi": {
+        "type": "Transitive",
+        "resolved": "2.2.1",
+        "contentHash": "6r23ylGo5aeP02WFXsPquz0T0hFJWyh+7t++tz19tc3Kr38NHm+Z9j+FiAv+xkH8tZqXJqus9Q8p6u7bidIgbw==",
+        "dependencies": {
+          "NAudio.Core": "2.2.1"
+        }
+      },
+      "NAudio.Wasapi": {
+        "type": "Transitive",
+        "resolved": "2.2.1",
+        "contentHash": "lFfXoqacZZe0WqNChJgGYI+XV/n/61LzPHT3C1CJp4khoxeo2sziyX5wzNYWeCMNbsWxFvT3b3iXeY1UYjBhZw==",
+        "dependencies": {
+          "NAudio.Core": "2.2.1"
+        }
+      },
+      "NAudio.WinForms": {
+        "type": "Transitive",
+        "resolved": "2.2.1",
+        "contentHash": "DlDkewY1myY0A+3NrYRJD+MZhZV0yy1mNF6dckB27IQ9XCs/My5Ip8BZcoSHOsaPSe2GAjvoaDnk6N9w8xTv7w==",
+        "dependencies": {
+          "NAudio.WinMM": "2.2.1"
+        }
+      },
+      "NAudio.WinMM": {
+        "type": "Transitive",
+        "resolved": "2.2.1",
+        "contentHash": "xFHRFwH4x6aq3IxRbewvO33ugJRvZFEOfO62i7uQJRUNW2cnu6BeBTHUS0JD5KBucZbHZaYqxQG8dwZ47ezQuQ==",
+        "dependencies": {
+          "Microsoft.Win32.Registry": "4.7.0",
+          "NAudio.Core": "2.2.1"
+        }
+      },
+      "Newtonsoft.Json": {
+        "type": "Transitive",
+        "resolved": "13.0.3",
+        "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
+      },
+      "NuGet.Versioning": {
+        "type": "Transitive",
+        "resolved": "6.12.1",
+        "contentHash": "fJ6rFYANDnohFsdpaY79FvrJxI6murmoOxXz6nZlf819F48+IBKMnAIg3oIBRtZq5y498ObMtKnro5IitvizUg=="
+      },
+      "Photino.Native": {
+        "type": "Transitive",
+        "resolved": "3.2.3",
+        "contentHash": "TsaTqpXOYB/xutQJGyFb3R93rEXBHMh5YHlfZgd4TqG20jCH7w/Nk91MnzFHCyTWKHywpGfjvfOYvaEbpDXZGQ=="
+      },
+      "Supabase.Core": {
+        "type": "Transitive",
+        "resolved": "1.0.0",
+        "contentHash": "fJK3Kfq1alw53AGWHBr+dhPu+BUR5dKuBjGhcxrFRVdsFFFWSD5iPIdTYi0CUQDA2b1OjGudYL1xd51yp4hU9Q=="
+      },
+      "Supabase.Functions": {
+        "type": "Transitive",
+        "resolved": "2.0.0",
+        "contentHash": "rc6zlo6XFkQw/B9fEgwpXHtmNPrnnHmtc96PTbviBJ9lzqPT/Un/G3V9MltlORtnG2RLkLvvS/t2AXAO8m2SCQ==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "Supabase.Core": "1.0.0"
+        }
+      },
+      "Supabase.Gotrue": {
+        "type": "Transitive",
+        "resolved": "6.0.3",
+        "contentHash": "8dkg000ib95bJm0ffDPUrALrefBHrkiqcolNjuUEStF2TeytPbV+OtOUJAMBOqZ2f1nsCY61Ck/7NOmOyGteDw==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "Supabase.Core": "1.0.0",
+          "System.IdentityModel.Tokens.Jwt": "7.5.1"
+        }
+      },
+      "Supabase.Postgrest": {
+        "type": "Transitive",
+        "resolved": "4.0.3",
+        "contentHash": "hpDIh+E5bDgZiHMuM6l+RDm9WWlt/T3fXXFQoqzlsrJFesFMNzkK9feVBG5egJyL/OlwmxuLsnPkR7O+bV3Vcw==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "Supabase.Core": "1.0.0"
+        }
+      },
+      "Supabase.Realtime": {
+        "type": "Transitive",
+        "resolved": "7.0.2",
+        "contentHash": "9nwlR9RR+uyD63VUaiqAPsd76NaeM6ORAHq7otc4G34RzBtf6aqjPg9IF6d1DGIk78/lJP31+D4NJmQhl3PkJQ==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "Supabase.Core": "1.0.0",
+          "Supabase.Postgrest": "4.0.3",
+          "Websocket.Client": "5.1.1"
+        }
+      },
+      "Supabase.Storage": {
+        "type": "Transitive",
+        "resolved": "2.0.2",
+        "contentHash": "YKxgwVgLjxi32ze29FT8aSLifiTVSZSxSyI9taOewp6wuxh+aMIPLKWtGEhFhegLv2iFwGcZ3ybMDkCi6RB7Rw==",
+        "dependencies": {
+          "MimeMapping": "3.0.1",
+          "Newtonsoft.Json": "13.0.3",
+          "Supabase.Core": "1.0.0"
+        }
+      },
+      "System.CodeDom": {
+        "type": "Transitive",
+        "resolved": "9.0.2",
+        "contentHash": "VnlzS7afE8LaXXwKdHOe2D6FcDekqThzU1E67CONV7gp71q3zposqcSeXH+PxARMXC5j31efwXrxP8VGvD70Ug=="
+      },
+      "System.IdentityModel.Tokens.Jwt": {
+        "type": "Transitive",
+        "resolved": "7.5.1",
+        "contentHash": "UUw+E0R73lZLlXgneYIJQxNs1kfbcxjVzw64JQyiwjqCd4HMpAbjn+xRo86QZT84uHq8/MkqvfH82tgjgPzpuw==",
+        "dependencies": {
+          "Microsoft.IdentityModel.JsonWebTokens": "7.5.1",
+          "Microsoft.IdentityModel.Tokens": "7.5.1"
+        }
+      },
+      "System.Reactive": {
+        "type": "Transitive",
+        "resolved": "6.0.0",
+        "contentHash": "31kfaW4ZupZzPsI5PVe77VhnvFF55qgma7KZr/E0iFTs6fmdhhG8j0mgEx620iLTey1EynOkEfnyTjtNEpJzGw=="
+      },
+      "System.Security.AccessControl": {
+        "type": "Transitive",
+        "resolved": "4.7.0",
+        "contentHash": "JECvTt5aFF3WT3gHpfofL2MNNP6v84sxtXxpqhLBCcDRzqsPBmHhQ6shv4DwwN2tRlzsUxtb3G9M3763rbXKDg==",
+        "dependencies": {
+          "Microsoft.NETCore.Platforms": "3.1.0",
+          "System.Security.Principal.Windows": "4.7.0"
+        }
+      },
+      "System.Security.Principal.Windows": {
+        "type": "Transitive",
+        "resolved": "4.7.0",
+        "contentHash": "ojD0PX0XhneCsUbAZVKdb7h/70vyYMDYs85lwEI+LngEONe/17A0cFaRFqZU+sOEidcVswYWikYOQ9PPfjlbtQ=="
+      },
+      "System.Threading.Channels": {
+        "type": "Transitive",
+        "resolved": "8.0.0",
+        "contentHash": "CMaFr7v+57RW7uZfZkPExsPB6ljwzhjACWW1gfU35Y56rk72B/Wu+sTqxVmGSk4SFUlPc3cjeKND0zktziyjBA=="
+      },
+      "Websocket.Client": {
+        "type": "Transitive",
+        "resolved": "5.1.1",
+        "contentHash": "VpQV6b8HRnw6bFFIPTOOMtOxba3/viH9K2U2LdOYNjQ2b2HrLHxjodmJr3nPwyNSrtrRPr1RDwOMJ5qqlPnCVg==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+          "Microsoft.IO.RecyclableMemoryStream": "3.0.0",
+          "System.Reactive": "6.0.0",
+          "System.Threading.Channels": "8.0.0"
+        }
+      }
+    }
+  }
+}
