@@ -32,31 +32,61 @@ namespace Segra.Backend.Utils
             var devices = new List<AudioDevice>();
             var enumerator = new MMDeviceEnumerator();
             var collection = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
-            var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
-
-            // Add default device first with (Default)
-            var defaultDeviceName = GetCleanDeviceName(defaultDevice.FriendlyName);
-            devices.Add(new AudioDevice { 
-                Id = defaultDevice.ID, 
-                Name = defaultDeviceName + " (Default)", 
-                IsDefault = true 
-            });
-
-            foreach (var device in collection)
+            
+            try
             {
-                if (device.ID != defaultDevice.ID)
+                var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
+                if (defaultDevice != null)
                 {
-                    var cleanName = GetCleanDeviceName(device.FriendlyName);
-                    devices.Add(new AudioDevice { Id = device.ID, Name = cleanName, IsDefault = false });
+                    // Add default device first with (Default)
+                    var defaultDeviceName = GetCleanDeviceName(defaultDevice.FriendlyName);
+                    devices.Add(new AudioDevice { 
+                        Id = defaultDevice.ID, 
+                        Name = defaultDeviceName + " (Default)", 
+                        IsDefault = true 
+                    });
+                }
+            }
+            catch
+            {
+                // No default device available
+            }
+
+            if (collection != null)
+            {
+                foreach (var device in collection)
+                {
+                    if (device == null) continue;
+                    
+                    // Skip if this device is already added as the default
+                    if (devices.Any(d => d.Id == device.ID)) continue;
+                    
+                    try {
+                        var cleanName = GetCleanDeviceName(device.FriendlyName);
+                        devices.Add(new AudioDevice { Id = device.ID, Name = cleanName, IsDefault = false });
+                    } catch {
+                        // Device name is invalid
+                    }
                 }
             }
 
-            // Sort devices by name (except the default which stays at the top)
-            var defaultDev = devices[0];
-            var sortedDevices = devices.Skip(1).OrderBy(d => d.Name).ToList();
-            sortedDevices.Insert(0, defaultDev);
+            // Sort devices by name (keeping the default at the top if it exists)
+            if (devices.Count > 0)
+            {
+                var defaultDev = devices.FirstOrDefault(d => d.IsDefault);
+                var devicesToSort = defaultDev != null ? devices.Where(d => !d.IsDefault).ToList() : devices;
+                var sortedDevices = devicesToSort.OrderBy(d => d.Name).ToList();
+                
+                if (defaultDev != null)
+                {
+                    sortedDevices.Insert(0, defaultDev);
+                    return sortedDevices;
+                }
+                
+                return sortedDevices;
+            }
             
-            return sortedDevices;
+            return devices;
         }
 
         public static List<AudioDevice> GetOutputDevices()
@@ -64,31 +94,61 @@ namespace Segra.Backend.Utils
             var devices = new List<AudioDevice>();
             var enumerator = new MMDeviceEnumerator();
             var collection = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
-            var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-
-            // Add default device first with (Default)
-            var defaultDeviceName = GetCleanDeviceName(defaultDevice.FriendlyName);
-            devices.Add(new AudioDevice { 
-                Id = defaultDevice.ID, 
-                Name = defaultDeviceName + " (Default)", 
-                IsDefault = true 
-            });
-
-            foreach (var device in collection)
+            
+            try
             {
-                if (device.ID != defaultDevice.ID)
+                var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                if (defaultDevice != null)
                 {
-                    var cleanName = GetCleanDeviceName(device.FriendlyName);
-                    devices.Add(new AudioDevice { Id = device.ID, Name = cleanName, IsDefault = false });
+                    // Add default device first with (Default)
+                    var defaultDeviceName = GetCleanDeviceName(defaultDevice.FriendlyName);
+                    devices.Add(new AudioDevice { 
+                        Id = defaultDevice.ID, 
+                        Name = defaultDeviceName + " (Default)", 
+                        IsDefault = true 
+                    });
+                }
+            }
+            catch
+            {
+                // No default device available
+            }
+
+            if (collection != null)
+            {
+                foreach (var device in collection)
+                {
+                    if (device == null) continue;
+                    
+                    // Skip if this device is already added as the default
+                    if (devices.Any(d => d.Id == device.ID)) continue;
+                    
+                    try {
+                        var cleanName = GetCleanDeviceName(device.FriendlyName);
+                        devices.Add(new AudioDevice { Id = device.ID, Name = cleanName, IsDefault = false });
+                    } catch {
+                        // Device name is invalid
+                    }
                 }
             }
 
-            // Sort devices by name (except the default which stays at the top)
-            var defaultDev = devices[0];
-            var sortedDevices = devices.Skip(1).OrderBy(d => d.Name).ToList();
-            sortedDevices.Insert(0, defaultDev);
+            // Sort devices by name (keeping the default at the top if it exists)
+            if (devices.Count > 0)
+            {
+                var defaultDev = devices.FirstOrDefault(d => d.IsDefault);
+                var devicesToSort = defaultDev != null ? devices.Where(d => !d.IsDefault).ToList() : devices;
+                var sortedDevices = devicesToSort.OrderBy(d => d.Name).ToList();
+                
+                if (defaultDev != null)
+                {
+                    sortedDevices.Insert(0, defaultDev);
+                    return sortedDevices;
+                }
+                
+                return sortedDevices;
+            }
             
-            return sortedDevices;
+            return devices;
         }
     }
 }

@@ -249,9 +249,9 @@ namespace Segra.Backend.Utils
             }
 
             // Update Keybindings
-            if (settings.Keybindings != updatedSettings.Keybindings)
+            if (!settings.Keybindings.SequenceEqual(updatedSettings.Keybindings))
             {
-                Log.Information($"Keybindings changed from '{settings.Keybindings}' to '{updatedSettings.Keybindings}'");
+                Log.Information("Keybindings changed");
                 settings.Keybindings = updatedSettings.Keybindings;
             }
 
