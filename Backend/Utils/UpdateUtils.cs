@@ -1,4 +1,4 @@
-﻿using Serilog;
+using Serilog;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -13,12 +13,27 @@ namespace Segra.Backend.Utils
         // Store the update information
         public static UpdateInfo? LatestUpdateInfo { get; private set; } = null;
         public static GithubSource Source = new GithubSource("https://github.com/Segergren/Segra", null, false);
+        public static GithubSource BetaSource = new GithubSource("https://github.com/Segergren/Segra", null, true);
         public static UpdateManager UpdateManager { get; private set; } = new UpdateManager(Source);
         
         public static async Task<bool> UpdateAppIfNecessary()
         {
             try
             {
+                Models.Settings.Instance.State.IsCheckingForUpdates = true;
+                
+                bool useBetaChannel = Models.Settings.Instance.ReceiveBetaUpdates;
+                if (useBetaChannel)
+                {
+                    UpdateManager = new UpdateManager(BetaSource);
+                    Log.Information("Using beta update channel");
+                }
+                else
+                {
+                    UpdateManager = new UpdateManager(Source);
+                    Log.Information("Using stable update channel");
+                }
+
                 Log.Information("Checking if update is necessary");
                 UpdateInfo newVersion = await UpdateManager.CheckForUpdatesAsync();
 
@@ -65,6 +80,13 @@ namespace Segra.Backend.Utils
             {
                 Log.Error(ex, "Error during update check/installation");
                 return false;
+            }
+            finally
+            {
+                // Ensure we wait at least 1 second before setting isCheckingForUpdates to false
+                // so the user can see the loading indicator
+                await Task.Delay(1000);
+                Models.Settings.Instance.State.IsCheckingForUpdates = false;
             }
         }
 
@@ -153,9 +175,17 @@ namespace Segra.Backend.Utils
                 var releaseNotesList = new List<object>();
                 Version targetVersion = null;
 
+                // Check if beta releases should be included
+                bool includeBeta = Models.Settings.Instance.ReceiveBetaUpdates;
+
                 // Process releases
                 foreach (var release in releases)
                 {
+                    if(!includeBeta && release.Prerelease)
+                    {
+                        continue;
+                    }
+
                     // Try to parse the tag name as a version
                     string versionString = release.TagName;
                     if (versionString.StartsWith("v") || versionString.StartsWith("V"))
@@ -194,8 +224,8 @@ namespace Segra.Backend.Utils
 
                     Log.Information($"Added release notes for version {versionString}");
 
-                    // Limit to 10 releases if we're not filtering by version
-                    if (targetVersion == null && releaseNotesList.Count >= 10)
+                    // Limit to 20 releases if we're not filtering by version
+                    if (targetVersion == null && releaseNotesList.Count >= 20)
                     {
                         break;
                     }

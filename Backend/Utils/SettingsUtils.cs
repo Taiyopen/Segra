@@ -231,6 +231,15 @@ namespace Segra.Backend.Utils
                 settings.EnableAi = updatedSettings.EnableAi;
             }
 
+            // Update ReceiveBetaUpdates
+            if (settings.ReceiveBetaUpdates != updatedSettings.ReceiveBetaUpdates)
+            {
+                Log.Information($"ReceiveBetaUpdates changed from '{settings.ReceiveBetaUpdates}' to '{updatedSettings.ReceiveBetaUpdates}'");
+                settings.ReceiveBetaUpdates = updatedSettings.ReceiveBetaUpdates;
+                _ = Task.Run(UpdateUtils.UpdateAppIfNecessary);
+                _ = Task.Run(UpdateUtils.GetReleaseNotes);
+            }
+
             // Update RunOnStartup
             if (settings.RunOnStartup != updatedSettings.RunOnStartup)
             {

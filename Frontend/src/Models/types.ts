@@ -16,6 +16,7 @@ export interface State {
 	content: Content[];
 	inputDevices: AudioDevice[];
 	outputDevices: AudioDevice[];
+	isCheckingForUpdates: boolean;
 }
 
 export enum BookmarkType {
@@ -70,6 +71,7 @@ export interface Settings {
 	enableDisplayRecording: boolean;
 	enableAi: boolean;
 	runOnStartup: boolean;
+	receiveBetaUpdates: boolean;
 	keybindings: Keybind[];
 	state: State;
 }
@@ -80,6 +82,7 @@ export const initialState: State = {
 	content: [],
 	inputDevices: [],
 	outputDevices: [],
+	isCheckingForUpdates: false,
 };
 
 export const initialSettings: Settings = {
@@ -99,6 +102,7 @@ export const initialSettings: Settings = {
 	enableDisplayRecording: false,
 	enableAi: true,
 	runOnStartup: false,
+	receiveBetaUpdates: false,
 	keybindings: [{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }], // 119 is F8
 	state: initialState,
 };

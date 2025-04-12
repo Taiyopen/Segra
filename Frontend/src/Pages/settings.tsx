@@ -16,7 +16,7 @@ export default function Settings() {
 	const [error, setError] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
-	const {openReleaseNotesModal} = useUpdate();
+	const {openReleaseNotesModal, checkForUpdates} = useUpdate();
 	const settings = useSettings();
 	const updateSettings = useSettingsUpdater();
 	const [localStorageLimit, setLocalStorageLimit] = useState<number>(settings.storageLimit);
@@ -802,6 +802,33 @@ export default function Settings() {
 			<div className="p-4 bg-base-300 rounded-lg shadow-md">
 				<h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
 				<div className="bg-base-100 p-4 rounded-lg space-y-4">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<span className="font-medium">Update Channel</span>
+						</div>
+						<div className="flex items-center gap-2">
+							<button
+								className="btn btn-sm btn-primary flex items-center gap-1"
+								onClick={() => checkForUpdates()}
+								disabled={settings.state.isCheckingForUpdates}
+							>
+								{settings.state.isCheckingForUpdates && (
+									<span className="loading loading-spinner loading-xs"></span>
+								)}
+								Check for Updates
+							</button>
+							<select
+								name="receiveBetaUpdates"
+								value={settings.receiveBetaUpdates ? "beta" : "stable"}
+								onChange={(e) => updateSettings({receiveBetaUpdates: e.target.value === "beta"})}
+								className="select select-bordered select-sm w-32"
+							>
+								<option value="stable">Stable</option>
+								<option value="beta">Beta</option>
+							</select>
+						</div>
+					</div>
+
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<span className="font-medium">Run on Startup</span>

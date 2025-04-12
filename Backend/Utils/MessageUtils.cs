@@ -62,6 +62,10 @@ namespace Segra.Backend.Utils
                         case "ApplyUpdate":
                             UpdateUtils.ApplyUpdate();
                             break;
+                        case "CheckForUpdates":
+                            Log.Information("CheckForUpdates command received.");
+                            _ = Task.Run(UpdateUtils.UpdateAppIfNecessary);
+                            break;
                         case "DeleteContent":
                             root.TryGetProperty("Parameters", out JsonElement deleteContentParameterElement);
                             await HandleDeleteContent(deleteContentParameterElement);

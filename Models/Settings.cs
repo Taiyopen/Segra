@@ -28,6 +28,7 @@ namespace Segra.Models
         private bool _enableDisplayRecording = false;
         private bool _enableAi = true;
         private bool _runOnStartup = false;
+        private bool _receiveBetaUpdates = false;
         private List<Keybind> _keybindings = new List<Keybind> 
         { 
             new Keybind(new List<int> { 119 }, KeybindAction.CreateBookmark, true) // 119 is F8
@@ -252,6 +253,17 @@ namespace Segra.Models
             }
         }
 
+        [JsonPropertyName("receiveBetaUpdates")]
+        public bool ReceiveBetaUpdates
+        {
+            get => _receiveBetaUpdates;
+            set
+            {
+                _receiveBetaUpdates = value;
+                SendToFrontend();
+            }
+        }
+
         [JsonPropertyName("state")]
         public State State
         {
@@ -345,6 +357,7 @@ namespace Segra.Models
 
         private List<AudioDevice> _inputDevices = new List<AudioDevice>();
         private List<AudioDevice> _outputDevices = new List<AudioDevice>();
+        private bool _isCheckingForUpdates = false;
 
         private AudioDeviceWatcher _deviceWatcher;
 
@@ -422,6 +435,17 @@ namespace Segra.Models
             set
             {
                 _outputDevices = value;
+                SendToFrontend();
+            }
+        }
+
+        [JsonPropertyName("isCheckingForUpdates")]
+        public bool IsCheckingForUpdates
+        {
+            get => _isCheckingForUpdates;
+            set
+            {
+                _isCheckingForUpdates = value;
                 SendToFrontend();
             }
         }

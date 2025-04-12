@@ -3,6 +3,7 @@ import { isUpdateProgressMessage, isReleaseNotesMessage, ReleaseNote, isShowRele
 import { useModal } from './ModalContext';
 import ReleaseNotesModal from '../Components/ReleaseNotesModal';
 import { ReleaseNotesContext } from '../App';
+import { sendMessageToBackend } from '../Utils/MessageUtils';
 
 export interface UpdateProgress {
   version: string;
@@ -16,6 +17,7 @@ interface UpdateContextType {
   releaseNotes: ReleaseNote[];
   openReleaseNotesModal: (filterVersion?: string | null) => void;
   clearUpdateInfo: () => void;
+  checkForUpdates: () => void;
 }
 
 const UpdateContext = createContext<UpdateContextType | undefined>(undefined);
@@ -62,6 +64,10 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     setReleaseNotes([]);
   };
 
+  const checkForUpdates = () => {
+    sendMessageToBackend('CheckForUpdates');
+  };
+
   const openReleaseNotesModal = (filterVersion: string | null = __APP_VERSION__) => {
     openModal(
       <ReleaseNotesModal 
@@ -76,7 +82,8 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       updateInfo, 
       releaseNotes, 
       openReleaseNotesModal,
-      clearUpdateInfo 
+      clearUpdateInfo,
+      checkForUpdates
     }}>
       {children}
     </UpdateContext.Provider>
