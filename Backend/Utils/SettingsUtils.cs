@@ -82,6 +82,7 @@ namespace Segra.Backend.Utils
                     Settings.Instance.EnableDisplayRecording = loadedSettings.EnableDisplayRecording;
                     Settings.Instance.EnableAi = loadedSettings.EnableAi;
                     Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
+                    Settings.Instance.ReceiveBetaUpdates = loadedSettings.ReceiveBetaUpdates;
                     Settings.Instance.Auth = loadedSettings.Auth;
                     Settings.Instance.Keybindings = loadedSettings.Keybindings;
 
