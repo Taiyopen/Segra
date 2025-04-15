@@ -107,6 +107,10 @@ namespace Segra.Models
                 _contentFolder = value.Replace("\\", "/");
                 SendToFrontend();
                 SettingsUtils.LoadContentFromFolderIntoState();
+                if (Instance != null && !Instance._isBulkUpdating)
+                {
+                    SettingsUtils.SaveSettings();
+                }
             }
         }
 
