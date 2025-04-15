@@ -1,4 +1,4 @@
-﻿using LibObs;
+using LibObs;
 using NAudio.Wave;
 using Segra.Backend.Services;
 using Segra.Models;
@@ -15,6 +15,8 @@ namespace Segra.Backend.Utils
         public static string CurrentTrackedFileName { get; set; }
         static bool signalOutputStop = false;
         static IntPtr output = IntPtr.Zero;
+        static IntPtr bufferOutput = IntPtr.Zero;
+        static bool replaySaved = false;
         static IntPtr displaySource = IntPtr.Zero;
         static List<IntPtr> micSources = new List<IntPtr>();
         static List<IntPtr> desktopSources = new List<IntPtr>();
@@ -26,10 +28,106 @@ namespace Segra.Backend.Utils
             signalOutputStop = true;
         };
 
+        static signal_callback_t replaySavedCallback = (data, cd) =>
+        {
+            replaySaved = true;
+            Log.Information("Replay buffer saved callback received");
+        };
+
+        // Variable to store the replay buffer path extracted from logs
+        private static string? _lastReplayBufferPath;
+
         static signal_callback_t hookedCallback;
         static signal_callback_t unhookedCallback;
 
         private static bool _isGameCaptureHooked = false;
+
+        public static bool SaveReplayBuffer()
+        {
+            // Check if replay buffer is active before trying to save
+            if (bufferOutput == IntPtr.Zero || !obs_output_active(bufferOutput))
+            {
+                Log.Warning("Cannot save replay buffer: buffer is not active");
+                return false;
+            }
+
+            Log.Information("Attempting to save replay buffer...");
+            replaySaved = false;
+            _lastReplayBufferPath = null;
+
+            // Get the procedure handler for the replay buffer
+            IntPtr procHandler = obs_output_get_proc_handler(bufferOutput);
+            if (procHandler == IntPtr.Zero)
+            {
+                Log.Warning("Cannot save replay buffer: failed to get proc handler");
+                return false;
+            }
+
+            // Step 1: Call the save procedure
+            calldata_t cd = new calldata_t();
+            IntPtr cdPtr = Marshal.AllocHGlobal(Marshal.SizeOf<calldata_t>());
+            Marshal.StructureToPtr(cd, cdPtr, false);
+
+            try
+            {
+                bool result = proc_handler_call(procHandler, "save", cd);
+
+                if (!result)
+                {
+                    Log.Warning("Failed to save replay buffer");
+                    return false;
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(cdPtr);
+            }
+
+            // Wait for the save callback to complete (up to 5 seconds)
+            Log.Information("Waiting for replay buffer saved callback...");
+            int attempts = 0;
+            while (!replaySaved && attempts < 50)
+            {
+                Thread.Sleep(100);
+                attempts++;
+            }
+
+            if (!replaySaved)
+            {
+                Log.Warning("Replay buffer may not have saved correctly");
+                return false;
+            }
+
+            string? savedPath = _lastReplayBufferPath;
+            if (string.IsNullOrEmpty(savedPath))
+            {
+                Thread.Sleep(1000);
+                savedPath = _lastReplayBufferPath;
+            }
+
+            if (string.IsNullOrEmpty(savedPath))
+            {
+                Log.Error("Replay buffer path is null or empty");
+                return false;
+            }
+
+            Log.Information($"Replay buffer saved to: {savedPath}");
+            string game = Settings.Instance.State.Recording?.Game ?? "Unknown";
+
+            // Create metadata for the buffer recording
+            ContentUtils.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game);
+            ContentUtils.CreateThumbnail(savedPath, Content.ContentType.Buffer);
+
+            // Reload content list to include the new buffer file
+            SettingsUtils.LoadContentFromFolderIntoState(true);
+
+            Log.Information("Replay buffer save process completed successfully");
+
+            // Reset the flag
+            replaySaved = false;
+
+            return true;
+        }
 
         public static async Task InitializeAsync()
         {
@@ -52,6 +150,23 @@ namespace Segra.Backend.Utils
 
                     if (formattedMessage.Contains("capture stopped"))
                         _isGameCaptureHooked = false;
+
+                    // Check if this is a replay buffer save message
+                    if (formattedMessage.Contains("Wrote replay buffer to"))
+                    {
+                        // Extract the path from the message
+                        // Example: "[ffmpeg muxer: 'replay_buffer_output'] Wrote replay buffer to 'E:/Segra/buffers/2025-04-13_11-15-32.mp4'"
+                        int lastQuoteIndex = formattedMessage.LastIndexOf("'");
+                        int secondLastQuoteIndex = formattedMessage.LastIndexOf("'", lastQuoteIndex - 1);
+                        int startIndex = secondLastQuoteIndex + 1;
+                        int endIndex = lastQuoteIndex;
+
+                        if (startIndex > 0 && endIndex > startIndex)
+                        {
+                            _lastReplayBufferPath = formattedMessage.Substring(startIndex, endIndex - startIndex);
+                            Log.Information($"Extracted replay buffer path from log: {_lastReplayBufferPath}");
+                        }
+                    }
 
                     Log.Information($"{((LogErrorLevel)level)}: {formattedMessage}");
                 }
@@ -141,9 +256,11 @@ namespace Segra.Backend.Utils
 
         public static bool StartRecording(string name = "Unknown")
         {
-            if (output != IntPtr.Zero)
+            bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
+
+            if ((isReplayBufferMode && bufferOutput != IntPtr.Zero) || (!isReplayBufferMode && output != IntPtr.Zero))
             {
-                Log.Information("Recording is already in progress.");
+                Log.Information($"{(isReplayBufferMode ? "Replay buffer" : "Recording")} is already in progress.");
                 return false;
             }
 
@@ -152,7 +269,7 @@ namespace Segra.Backend.Utils
             // Note: According to docs, audio settings cannot be reconfigured after initialization
             // but video can be reset as long as no outputs are active
 
-            // Configure video settings specifically for this recording
+            // Configure video settings specifically for this recording/buffer
             uint outputWidth, outputHeight;
             SettingsUtils.GetResolution(Settings.Instance.Resolution, out outputWidth, out outputHeight);
 
@@ -238,22 +355,22 @@ namespace Segra.Backend.Utils
             if (Settings.Instance.InputDevices != null && Settings.Instance.InputDevices.Count > 0)
             {
                 int audioSourceIndex = 1;
-                
+
                 foreach (var deviceId in Settings.Instance.InputDevices)
                 {
                     if (!string.IsNullOrEmpty(deviceId))
                     {
                         IntPtr micSettings = obs_data_create();
                         obs_data_set_string(micSettings, "device_id", deviceId);
-                        
+
                         string sourceName = $"Microphone_{micSources.Count + 1}";
                         IntPtr micSource = obs_source_create("wasapi_input_capture", sourceName, micSettings, IntPtr.Zero);
-                        
+
                         obs_data_release(micSettings);
-                        
+
                         obs_set_output_source((uint)audioSourceIndex, micSource);
                         micSources.Add(micSource);
-                        
+
                         audioSourceIndex++;
                         Log.Information($"Added input device: {deviceId} as {sourceName}");
                     }
@@ -263,22 +380,22 @@ namespace Segra.Backend.Utils
             if (Settings.Instance.OutputDevices != null && Settings.Instance.OutputDevices.Count > 0)
             {
                 int desktopSourceIndex = micSources.Count + 1;
-                
+
                 foreach (var deviceId in Settings.Instance.OutputDevices)
                 {
                     if (!string.IsNullOrEmpty(deviceId))
                     {
                         IntPtr desktopSettings = obs_data_create();
                         obs_data_set_string(desktopSettings, "device_id", deviceId);
-                        
+
                         string sourceName = $"DesktopAudio_{desktopSources.Count + 1}";
                         IntPtr desktopSource = obs_source_create("wasapi_output_capture", sourceName, desktopSettings, IntPtr.Zero);
-                        
+
                         obs_data_release(desktopSettings);
-                        
+
                         obs_set_output_source((uint)desktopSourceIndex, desktopSource);
                         desktopSources.Add(desktopSource);
-                        
+
                         desktopSourceIndex++;
                         Log.Information($"Added output device: {deviceId} as {sourceName}");
                     }
@@ -291,26 +408,57 @@ namespace Segra.Backend.Utils
             obs_data_release(audioEncoderSettings);
             obs_encoder_set_audio(audioEncoder, obs_get_audio());
 
-            IntPtr outputSettings = obs_data_create();
-            Content.ContentType contentType = Content.ContentType.Session; // TODO (os): implement dynamic if replay buffer
-            string videoPath = Settings.Instance.ContentFolder + "/" + contentType.ToString().ToLower() + "s";
+            // Determine content type and paths based on recording mode
+            Content.ContentType contentType = Settings.Instance.RecordingMode == RecordingMode.Buffer
+                ? Content.ContentType.Buffer
+                : Content.ContentType.Session;
 
+            string videoPath = Settings.Instance.ContentFolder + "/" + contentType.ToString().ToLower() + "s";
             if (!Directory.Exists(videoPath))
                 Directory.CreateDirectory(videoPath);
 
             string videoOutputPath = $"{Settings.Instance.ContentFolder}/{contentType.ToString().ToLower()}s/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
-            string filePath = $"{Settings.Instance.ContentFolder}/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
 
-            obs_data_set_string(outputSettings, "path", videoOutputPath);
-            obs_data_set_string(outputSettings, "format_name", "mp4");
+            if (isReplayBufferMode)
+            {
+                // Set up replay buffer output
+                IntPtr bufferOutputSettings = obs_data_create();
+                obs_data_set_string(bufferOutputSettings, "directory", videoPath);
+                obs_data_set_string(bufferOutputSettings, "format", "%CCYY-%MM-%DD_%hh-%mm-%ss");
+                obs_data_set_string(bufferOutputSettings, "extension", "mp4");
+                // Set replay buffer duration and max size from settings
+                obs_data_set_int(bufferOutputSettings, "max_time_sec", (uint)Settings.Instance.ReplayBufferDuration);
+                obs_data_set_int(bufferOutputSettings, "max_size_mb", (uint)Settings.Instance.ReplayBufferMaxSize);
 
-            output = obs_output_create("ffmpeg_muxer", "simple_output", outputSettings, IntPtr.Zero);
-            obs_data_release(outputSettings);
+                bufferOutput = obs_output_create("replay_buffer", "replay_buffer_output", bufferOutputSettings, IntPtr.Zero);
+                obs_data_release(bufferOutputSettings);
 
-            obs_output_set_video_encoder(output, videoEncoder);
-            obs_output_set_audio_encoder(output, audioEncoder, 0);
+                // Set encoders for replay buffer
+                obs_output_set_video_encoder(bufferOutput, videoEncoder);
+                obs_output_set_audio_encoder(bufferOutput, audioEncoder, 0);
 
-            signal_handler_connect(obs_output_get_signal_handler(output), "stop", outputStopCallback, IntPtr.Zero);
+                // Set up signal handlers for replay buffer
+                IntPtr bufferOutputHandler = obs_output_get_signal_handler(bufferOutput);
+                signal_handler_connect(bufferOutputHandler, "stop", outputStopCallback, IntPtr.Zero);
+                signal_handler_connect(bufferOutputHandler, "saved", replaySavedCallback, IntPtr.Zero);
+            }
+            else
+            {
+                // Set up standard recording output
+                IntPtr outputSettings = obs_data_create();
+                obs_data_set_string(outputSettings, "path", videoOutputPath);
+                obs_data_set_string(outputSettings, "format_name", "mp4");
+
+                output = obs_output_create("ffmpeg_muxer", "simple_output", outputSettings, IntPtr.Zero);
+                obs_data_release(outputSettings);
+
+                // Set encoders for standard recording
+                obs_output_set_video_encoder(output, videoEncoder);
+                obs_output_set_audio_encoder(output, audioEncoder, 0);
+
+                // Set up signal handler for standard recording
+                signal_handler_connect(obs_output_get_signal_handler(output), "stop", outputStopCallback, IntPtr.Zero);
+            }
 
             // Used to show "Initializing" in frontend
             Settings.Instance.State.Recording = new Recording()
@@ -322,13 +470,34 @@ namespace Segra.Backend.Utils
             };
             MessageUtils.SendSettingsToFrontend();
 
-            Task.Run(PlayStartSound);
-            if (!obs_output_start(output))
+            _ = Task.Run(PlayStartSound);
+
+            bool outputStarted;
+            if (isReplayBufferMode)
             {
-                Log.Error("Failed to start recording.");
-                Settings.Instance.State.Recording = null;
-                MessageUtils.SendSettingsToFrontend();
-                return false;
+                // Start replay buffer
+                outputStarted = obs_output_start(bufferOutput);
+                if (!outputStarted)
+                {
+                    Log.Error($"Failed to start replay buffer: {obs_output_get_last_error(bufferOutput)}");
+                    Settings.Instance.State.Recording = null;
+                    MessageUtils.SendSettingsToFrontend();
+                    return false;
+                }
+
+                Log.Information("Replay buffer started successfully");
+                CurrentTrackedFileName = "ReplayBuffer";
+            }
+            else
+            {
+                // Start standard recording
+                outputStarted = obs_output_start(output);
+                if (!outputStarted)
+                {
+                    Log.Error($"Failed to start recording: {obs_output_get_last_error(output)}");
+                    Settings.Instance.State.Recording = null;
+                    return false;
+                }
             }
 
             // The recording has actually started, set actual start time
@@ -341,8 +510,11 @@ namespace Segra.Backend.Utils
             };
             MessageUtils.SendSettingsToFrontend();
 
-            Log.Information("Recording started: " + filePath);
-            GameIntegrationService.Start(name);
+            Log.Information("Recording started: " + videoOutputPath);
+            if (!isReplayBufferMode)
+            {
+                GameIntegrationService.Start(name);
+            }
             Task.Run(KeybindCaptureService.Start);
             return true;
         }
@@ -350,15 +522,53 @@ namespace Segra.Backend.Utils
         public static void StopRecording()
         {
             CurrentTrackedFileName = null;
-            if (output != IntPtr.Zero)
+            bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
+
+            if (isReplayBufferMode && bufferOutput != IntPtr.Zero)
             {
+                // Stop replay buffer
+                obs_output_stop(bufferOutput);
+
+                int attempts = 0;
+                while (!signalOutputStop && attempts < 300)
+                {
+                    Thread.Sleep(100);
+                    attempts++;
+                }
+
+                if (!signalOutputStop)
+                {
+                    Log.Warning("Failed to stop replay buffer. Forcing stop.");
+                    obs_output_force_stop(bufferOutput);
+                }
+                else
+                {
+                    Log.Information("Replay buffer stopped.");
+                }
+
+                Thread.Sleep(200);
+
+                DisposeOutput();
+                DisposeSources();
+                DisposeEncoders();
+
+                Log.Information("Replay buffer stopped and disposed.");
+
+                GameIntegrationService.Shutdown();
+                KeybindCaptureService.Stop();
+
+                // Reload content list
+                SettingsUtils.LoadContentFromFolderIntoState(false);
+            }
+            else if (!isReplayBufferMode && output != IntPtr.Zero)
+            {
+                // Stop standard recording
                 if (Settings.Instance.State.Recording != null)
                     Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
 
                 obs_output_stop(output);
 
                 int attempts = 0;
-
                 while (!signalOutputStop && attempts < 300)
                 {
                     Thread.Sleep(100);
@@ -408,6 +618,7 @@ namespace Segra.Backend.Utils
                 DisposeSources();
                 DisposeEncoders();
             }
+
             Task.Run(StorageUtils.EnsureStorageBelowLimit);
 
             // If the recording ends before it started, don't do anything
@@ -551,6 +762,17 @@ namespace Segra.Backend.Utils
                 signal_handler_disconnect(obs_output_get_signal_handler(output), "stop", outputStopCallback, IntPtr.Zero);
                 obs_output_release(output);
                 output = IntPtr.Zero;
+            }
+
+            if (bufferOutput != IntPtr.Zero)
+            {
+                if (replaySavedCallback != null)
+                {
+                    signal_handler_disconnect(obs_output_get_signal_handler(bufferOutput), "saved", replaySavedCallback, IntPtr.Zero);
+                }
+                signal_handler_disconnect(obs_output_get_signal_handler(bufferOutput), "stop", outputStopCallback, IntPtr.Zero);
+                obs_output_release(bufferOutput);
+                bufferOutput = IntPtr.Zero;
             }
         }
 

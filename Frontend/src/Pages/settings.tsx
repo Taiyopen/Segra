@@ -2,7 +2,7 @@ import React, {useEffect, useState, useRef} from 'react';
 import {useSettings, useSettingsUpdater} from '../Context/SettingsContext';
 import {sendMessageToBackend} from '../Utils/MessageUtils';
 import {themeChange} from 'theme-change';
-import {AudioDevice} from '../Models/types';
+import {AudioDevice, KeybindAction, RecordingMode} from '../Models/types';
 import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth.tsx';
@@ -20,6 +20,8 @@ export default function Settings() {
 	const settings = useSettings();
 	const updateSettings = useSettingsUpdater();
 	const [localStorageLimit, setLocalStorageLimit] = useState<number>(settings.storageLimit);
+	const [localReplayBufferDuration, setLocalReplayBufferDuration] = useState<number>(settings.replayBufferDuration);
+	const [localReplayBufferMaxSize, setLocalReplayBufferMaxSize] = useState<number>(settings.replayBufferMaxSize);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const [isCapturingKey, setIsCapturingKey] = useState<number | null>(null);
 	const activeKeysRef = useRef<number[]>([]);
@@ -92,6 +94,14 @@ export default function Settings() {
 	useEffect(() => {
 		setLocalStorageLimit(settings.storageLimit);
 	}, [settings.storageLimit]);
+
+	useEffect(() => {
+		setLocalReplayBufferDuration(settings.replayBufferDuration);
+	}, [settings.replayBufferDuration]);
+
+	useEffect(() => {
+		setLocalReplayBufferMaxSize(settings.replayBufferMaxSize);
+	}, [settings.replayBufferMaxSize]);
 
 	const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
 		const {name, value} = event.target;
@@ -220,10 +230,10 @@ export default function Settings() {
 		}
 		
 		return (
-			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Account</h2>
 				
-				<div className="bg-base-100 p-4 rounded-lg">
+				<div className="bg-base-100 p-4 rounded-lg border border-custom">
 					<div className="flex items-center justify-between flex-wrap gap-4">
 						<div className="flex items-center gap-4 min-w-0">
 							{/* Avatar Container */}
@@ -351,9 +361,9 @@ export default function Settings() {
 			{renderAuthSection()}
 
 			{/* Segra AI Settings */}
-			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Segra AI</h2>
-				<div className="bg-base-100 p-4 rounded-lg">
+				<div className="bg-base-100 p-4 rounded-lg border border-custom">
 					{!session && (
 						<div className="flex items-center gap-2 mb-3 text-sm text-warning">
 							<MdLock className="w-4 h-4" />
@@ -369,16 +379,103 @@ export default function Settings() {
 							name="enableAI"
 							checked={settings.enableAi}
 							onChange={(e) => updateSettings({enableAi: e.target.checked})}
-							className="toggle"
+							className="toggle toggle-primary"
 							disabled={!session}
 						/>
 					</div>
 				</div>
 			</div>
 
+			{/* Capture Mode */}
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
+				<h2 className="text-xl font-semibold mb-4">Capture Mode</h2>
+				<div className="grid grid-cols-2 gap-6">
+					<div 
+						className={`bg-base-100 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primary' : 'border-custom'} ${settings.state.recording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						onClick={() => !settings.state.recording && updateSettings({ recordingMode: 'Session' })}
+					>
+						<div className="text-lg font-semibold mb-3">Session Recording</div>
+						<div className="text-sm text-left text-base-content">
+							<p className="mb-2">
+								Records your entire gaming session from start to finish. Ideal for content creators who want complete gameplay recordings.
+							</p>
+							<div className="text-xs text-base-content text-opacity-70">
+								• Uses more storage space<br/>
+								• Full game integration features<br/>
+								• Access to AI-generated clips<br/>
+								• Access to Bookmarks
+							</div>
+						</div>
+					</div>
+					<div 
+						className={`bg-base-100 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primary' : 'border-custom'} ${settings.state.recording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						onClick={() => !settings.state.recording && updateSettings({ recordingMode: 'Buffer'})}
+					>
+						<div className="flex items-center gap-2 mb-3">
+							<div className="text-lg font-semibold text-center">Replay Buffer</div>
+							<div className="badge badge-warning badge-sm">Beta</div>
+						</div>
+						<div className="text-sm text-left text-base-content">
+							<p className="mb-2">
+								Continuously records in the background. Save only your best moments with a hotkey press.
+							</p>
+							<div className="text-xs text-base-content text-opacity-70">
+								• Efficient storage usage<br/>
+								• No game integration<br/>
+								• No bookmarks
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
 			{/* Video Settings */}
-			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Video Settings</h2>
+				
+				{/* Replay Buffer Settings - Only show when Replay Buffer mode is selected */}
+				{settings.recordingMode === 'Buffer' && (
+					<div className="bg-base-100 p-3 rounded-lg mb-4 border border-custom">
+						<h3 className="text-md font-medium mb-3">Replay Buffer Settings</h3>
+						<div className="grid grid-cols-2 gap-4">
+							{/* Buffer Duration */}
+							<div className="form-control">
+								<label className="label">
+									<span className="label-text">Buffer Duration (seconds)</span>
+								</label>
+								<input
+									type="number"
+									name="replayBufferDuration"
+									value={localReplayBufferDuration}
+									onChange={(e) => setLocalReplayBufferDuration(Number(e.target.value))}
+									onBlur={() => updateSettings({ replayBufferDuration: localReplayBufferDuration })}
+									min="5"
+									max="600"
+									className="input input-bordered"
+								/>
+								<span className="text-xs text-base-content text-opacity-60 mt-1">How many seconds of gameplay to keep in memory</span>
+							</div>
+
+							{/* Buffer Max Size */}
+							<div className="form-control">
+								<label className="label">
+									<span className="label-text">Maximum Size (MB)</span>
+								</label>
+								<input
+									type="number"
+									name="replayBufferMaxSize"
+									value={localReplayBufferMaxSize}
+									onChange={(e) => setLocalReplayBufferMaxSize(Number(e.target.value))}
+									onBlur={() => updateSettings({ replayBufferMaxSize: localReplayBufferMaxSize })}
+									min="100"
+									max="5000"
+									className="input input-bordered"
+								/>
+								<span className="text-xs text-base-content text-opacity-60 mt-1">Maximum buffer size in megabytes</span>
+							</div>
+						</div>
+					</div>
+				)}
 				<div className="grid grid-cols-2 gap-4">
 					{/* Resolution */}
 					<div className="form-control">
@@ -527,7 +624,7 @@ export default function Settings() {
 			</div>
 
 			{/* Storage Settings */}
-			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Storage Settings</h2>
 				<div className="grid grid-cols-2 gap-4">
 					{/* Recording Path */}
@@ -570,7 +667,7 @@ export default function Settings() {
 			</div>
 
 			{/* Input/Output Devices */}
-			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Input/Output Devices</h2>
 				<div className="grid grid-cols-2 gap-4">
 					{/* Input Devices (Multiple Selection) */}
@@ -578,7 +675,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Input Devices</span>
 						</label>
-						<div className="bg-base-100 rounded-lg p-2 max-h-48 overflow-y-auto">
+						<div className="bg-base-100 rounded-lg p-2 max-h-48 overflow-y-auto border border-custom">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableInputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -636,7 +733,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Output Devices</span>
 						</label>
-						<div className="bg-base-100 rounded-lg p-2 max-h-48 overflow-y-auto">
+						<div className="bg-base-100 rounded-lg p-2 max-h-48 overflow-y-auto border border-custom">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableOutputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -692,13 +789,13 @@ export default function Settings() {
 			</div>
 
 			{/* Keybindings Settings */}
-			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Keybindings</h2>
-				<div className="bg-base-100 p-4 rounded-lg space-y-4">
+				<div className="bg-base-100 p-4 rounded-lg space-y-4 border border-custom">
 					{settings.keybindings.map((keybind, index) => (
-						<div key={index} className="flex items-center justify-between gap-4 p-2">
-							<div className="flex items-center gap-2">
-								<span className="font-medium w-36">Create Bookmark</span>
+						<div key={index} className="flex items-center justify-between gap-0 p-2">
+							<div className="flex items-center gap-1">
+								<span className="font-medium w-36">{keybind.action == KeybindAction.CreateBookmark ? 'Create Bookmark' : 'Save Replay Buffer'}</span>
 								<div className="flex items-center gap-3">
 									<button 
 										className={`kbd kbd-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
@@ -778,7 +875,6 @@ export default function Settings() {
 								</div>
 							</div>
 							<div className="flex items-center gap-2">
-								<span className="text-sm mr-2">Enabled</span>
 								<input
 									type="checkbox"
 									checked={keybind.enabled}
@@ -799,9 +895,9 @@ export default function Settings() {
 			</div>
 
 			{/* Advanced Settings */}
-			<div className="p-4 bg-base-300 rounded-lg shadow-md">
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
-				<div className="bg-base-100 p-4 rounded-lg space-y-4">
+				<div className="bg-base-100 p-4 rounded-lg space-y-4 border border-custom">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<span className="font-medium">Update Channel</span>
@@ -852,18 +948,19 @@ export default function Settings() {
 							name="enableDisplayRecording"
 							checked={settings.enableDisplayRecording}
 							onChange={(e) => updateSettings({enableDisplayRecording: e.target.checked})}
-							className="toggle toggle-warning"
+							className="toggle toggle-primary"
 						/>
 					</div>
-
-					<div className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 py-2 text-amber-400 text-sm flex items-center">
-						<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
-						<span>
-							This feature enables recording of games that do not support game hook.
-							<strong className="text-amber-300"> WARNING: This WILL cause lag</strong> during gameplay as it uses display capture instead of game capture.
-							For more details, see <a href="https://github.com/Segergren/Segra/issues/1" target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 underline">GitHub Issue #1</a>.
-						</span>
-					</div>
+					{settings.enableDisplayRecording && (
+						<div className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 py-2 text-amber-400 text-sm flex items-center">
+							<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
+							<span>
+								This feature enables recording of games that do not support game hook.
+								<strong className="text-amber-300"> WARNING: This WILL cause lag</strong> during gameplay as it uses display capture instead of game capture.
+								For more details, see <a href="https://github.com/Segergren/Segra/issues/1" target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 underline">GitHub Issue #1</a>.
+							</span>
+						</div>
+					)}
 				</div>
 			</div>
 

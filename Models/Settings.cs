@@ -29,16 +29,27 @@ namespace Segra.Models
         private bool _enableAi = true;
         private bool _runOnStartup = false;
         private bool _receiveBetaUpdates = false;
-        private List<Keybind> _keybindings = new List<Keybind> 
-        { 
-            new Keybind(new List<int> { 119 }, KeybindAction.CreateBookmark, true) // 119 is F8
-        };
+        private RecordingMode _recordingMode = RecordingMode.Session;
+        private int _replayBufferDuration = 30;
+        private int _replayBufferMaxSize = 500;
+        private List<Keybind> _keybindings;
         private State _state = new State();
         private Auth _auth = new Auth();
+
+        // Returns the default keybindings
+        private static List<Keybind> GetDefaultKeybindings()
+        {
+            return new List<Keybind>
+            { 
+                new Keybind(new List<int> { 119 }, KeybindAction.CreateBookmark, true), // 119 is F8
+                new Keybind(new List<int> { 121 }, KeybindAction.SaveReplayBuffer, true) // 121 is F10
+            };
+        }
 
         public Settings()
         {
             SetDefaultResolution();
+            _keybindings = GetDefaultKeybindings();
         }
 
         // Begin bulk update suppression
@@ -264,15 +275,43 @@ namespace Segra.Models
             }
         }
 
+        [JsonPropertyName("recordingMode")]
+        public RecordingMode RecordingMode
+        {
+            get => _recordingMode;
+            set
+            {
+                _recordingMode = value;
+                SendToFrontend();
+            }
+        }
+
+        [JsonPropertyName("replayBufferDuration")]
+        public int ReplayBufferDuration
+        {
+            get => _replayBufferDuration;
+            set
+            {
+                _replayBufferDuration = value;
+                SendToFrontend();
+            }
+        }
+
+        [JsonPropertyName("replayBufferMaxSize")]
+        public int ReplayBufferMaxSize
+        {
+            get => _replayBufferMaxSize;
+            set
+            {
+                _replayBufferMaxSize = value;
+                SendToFrontend();
+            }
+        }
+
         [JsonPropertyName("state")]
         public State State
         {
             get => _state;
-            /*set
-            {
-                _state = value;
-                SendToFrontend();
-            }*/
         }
 
         [JsonPropertyName("auth")]
@@ -292,7 +331,18 @@ namespace Segra.Models
             get => _keybindings;
             set
             {
-                _keybindings = value;
+                _keybindings = value ?? new List<Keybind>();
+
+                // Check for each default keybind action and add it if missing
+                foreach (var defaultKeybind in GetDefaultKeybindings())
+                {
+                    if (!_keybindings.Any(k => k.Action == defaultKeybind.Action))
+                    {
+                        _keybindings.Add(defaultKeybind);
+                        Log.Information($"Added missing keybind for action {defaultKeybind.Action}");
+                    }
+                }
+
                 SendToFrontend();
             }
         }
@@ -666,8 +716,9 @@ namespace Segra.Models
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public enum KeyAction
+    public enum RecordingMode
     {
-        CreateBookmark
+        Session,
+        Buffer
     }
 }

@@ -2,7 +2,11 @@
 export default {
   content: ['./src/**/*.{vue,js,ts,tsx}'],
   theme: {
-    extend: {},
+    extend: {
+      borderColor: {
+        custom: 'var(--fallback-bc, oklch(var(--bc)/0.2))',
+      },
+    },
   },
   daisyui: {
     themes: [

@@ -52,6 +52,7 @@ namespace Segra.Models
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum KeybindAction
     {
-        CreateBookmark
+        CreateBookmark,
+        SaveReplayBuffer
     }
 }

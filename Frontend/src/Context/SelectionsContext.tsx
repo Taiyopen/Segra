@@ -1,8 +1,9 @@
 import {createContext, useContext, useState, ReactNode} from 'react';
+import { ContentType } from '../Models/types';
 
 export interface Selection {
 	id: number;
-	type: 'Session' | 'Buffer' | 'Clip' | 'Highlight';
+	type: ContentType;
 	startTime: number;
 	endTime: number;
 	thumbnailDataUrl?: string;

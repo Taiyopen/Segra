@@ -1,5 +1,6 @@
 using NAudio.Wave;
 using Segra.Models;
+using Serilog;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -63,17 +64,27 @@ namespace Segra.Backend.Services
                     {
                         if (keybind.Enabled && DoKeysMatch(keybind.Keys, _pressedKeys))
                         {
+                            var recording = Settings.Instance.State.Recording;
                             switch (keybind.Action)
                             {
                                 case KeybindAction.CreateBookmark:
-                                    var recording = Settings.Instance.State.Recording;
-                                    if (recording != null)
+                                    if (recording != null && Settings.Instance.RecordingMode == RecordingMode.Session)
                                     {
+                                        Log.Information("Saving bookmark...");
                                         recording.Bookmarks.Add(new Bookmark
                                         {
                                             Type = BookmarkType.Manual,
                                             Time = DateTime.Now - recording.StartTime
                                         });
+                                        Task.Run(PlayBookmarkSound);
+                                    }
+                                    break;
+                                    
+                                case KeybindAction.SaveReplayBuffer:
+                                    if (recording != null && Settings.Instance.RecordingMode == RecordingMode.Buffer)
+                                    {
+                                        Log.Information("Saving replay buffer...");
+                                        Task.Run(Utils.OBSUtils.SaveReplayBuffer);
                                         Task.Run(PlayBookmarkSound);
                                     }
                                     break;
