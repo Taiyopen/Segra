@@ -2,7 +2,7 @@ import React, {useEffect, useState, useRef} from 'react';
 import {useSettings, useSettingsUpdater} from '../Context/SettingsContext';
 import {sendMessageToBackend} from '../Utils/MessageUtils';
 import {themeChange} from 'theme-change';
-import {AudioDevice, KeybindAction, RecordingMode} from '../Models/types';
+import {AudioDevice, KeybindAction} from '../Models/types';
 import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth.tsx';
