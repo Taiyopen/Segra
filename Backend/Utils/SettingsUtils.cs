@@ -71,6 +71,7 @@ namespace Segra.Backend.Utils
                     Settings.Instance.FrameRate = loadedSettings.FrameRate;
                     Settings.Instance.Bitrate = loadedSettings.Bitrate;
                     Settings.Instance.Encoder = loadedSettings.Encoder;
+                    Settings.Instance.RecordingMode = loadedSettings.RecordingMode;
                     Settings.Instance.Codec = loadedSettings.Codec;
                     Settings.Instance.StorageLimit = loadedSettings.StorageLimit;
                     Settings.Instance.InputDevices = loadedSettings.InputDevices;
@@ -139,6 +140,27 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"ContentFolder changed from '{settings.ContentFolder}' to '{updatedSettings.ContentFolder}'");
                 settings.ContentFolder = updatedSettings.ContentFolder;
+            }
+
+            // Update RecordingMode
+            if (settings.RecordingMode != updatedSettings.RecordingMode)
+            {
+                Log.Information($"RecordingMode changed from '{settings.RecordingMode}' to '{updatedSettings.RecordingMode}'");
+                settings.RecordingMode = updatedSettings.RecordingMode;
+            }
+
+            // Update ReplayBufferDuration
+            if (settings.ReplayBufferDuration != updatedSettings.ReplayBufferDuration)
+            {
+                Log.Information($"ReplayBufferDuration changed from '{settings.ReplayBufferDuration}' to '{updatedSettings.ReplayBufferDuration}'");
+                settings.ReplayBufferDuration = updatedSettings.ReplayBufferDuration;
+            }
+
+            // Update ReplayBufferMaxSize
+            if (settings.ReplayBufferMaxSize != updatedSettings.ReplayBufferMaxSize)
+            {
+                Log.Information($"ReplayBufferMaxSize changed from '{settings.ReplayBufferMaxSize}' to '{updatedSettings.ReplayBufferMaxSize}'");
+                settings.ReplayBufferMaxSize = updatedSettings.ReplayBufferMaxSize;
             }
 
             // Update Resolution

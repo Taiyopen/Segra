@@ -1,5 +1,9 @@
+export type ContentType = 'Session' | 'Buffer' | 'Clip' | 'Highlight';
+
+export type RecordingMode = 'Session' | 'Buffer';
+
 export interface Content {
-	type: 'Session' | 'Buffer' | 'Clip' | 'Highlight';
+	type: ContentType;
 	title: string;
 	game: string;
 	bookmarks: Bookmark[];
@@ -31,7 +35,8 @@ export enum BookmarkSubtype {
 }
 
 export enum KeybindAction {
-	CreateBookmark = 'CreateBookmark'
+	CreateBookmark = 'CreateBookmark',
+	SaveReplayBuffer = 'SaveReplayBuffer'
 }
 
 export interface Keybind {
@@ -72,6 +77,9 @@ export interface Settings {
 	enableAi: boolean;
 	runOnStartup: boolean;
 	receiveBetaUpdates: boolean;
+	recordingMode: RecordingMode;
+	replayBufferDuration: number; // in seconds
+	replayBufferMaxSize: number; // in MB
 	keybindings: Keybind[];
 	state: State;
 }
@@ -103,13 +111,19 @@ export const initialSettings: Settings = {
 	enableAi: true,
 	runOnStartup: false,
 	receiveBetaUpdates: false,
-	keybindings: [{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }], // 119 is F8
+	recordingMode: 'Session',
+	replayBufferDuration: 30, // 30 seconds default
+	replayBufferMaxSize: 500, // 500 MB default
+	keybindings: [
+		{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
+		{ keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true } // 121 is F10
+	],
 	state: initialState,
 };
 
 export interface Selection {
     id: number;
-    type: Content['type'];
+    type: ContentType;
     startTime: number;
     endTime: number;
     thumbnailDataUrl?: string;

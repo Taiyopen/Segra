@@ -43,8 +43,8 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 			<ul className="menu">
 				<li>
 					<a
-						className={selectedMenu === 'Full Sessions' ? 'active py-3' : 'py-3'}
-						onClick={() => onSelectMenu('Full Sessions')}
+						className={selectedMenu === 'Full Sessions' ? 'py-3 focus' : 'py-3 link-base-content'}
+						onMouseDown={() => onSelectMenu('Full Sessions')}
 					>
 						<MdOutlinePlayCircleOutline className="w-6 h-6" />
 						Full Sessions
@@ -52,8 +52,8 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				</li>
 				<li>
 					<a
-						className={selectedMenu === 'Replay Buffer' ? 'active py-3' : 'py-3'}
-						onClick={() => onSelectMenu('Replay Buffer')}
+						className={selectedMenu === 'Replay Buffer' ? 'py-3 focus' : 'py-3 link-base-content'}
+						onMouseDown={() => onSelectMenu('Replay Buffer')}
 					>
 						<MdReplay30 className="w-6 h-6" />
 						Replay Buffer
@@ -61,8 +61,8 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				</li>
 				<li>
 					<a
-						className={selectedMenu === 'Clips' ? 'active py-3' : 'py-3'}
-						onClick={() => onSelectMenu('Clips')}
+						className={selectedMenu === 'Clips' ? 'py-3 focus' : 'py-3 link-base-content'}
+						onMouseDown={() => onSelectMenu('Clips')}
 					>
 						<MdOutlineContentCut className="w-6 h-6" />
 						Clips
@@ -70,8 +70,8 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				</li>
 				<li>
 					<a
-						className={selectedMenu === 'Highlights' ? 'active py-3' : 'py-3'}
-						onClick={() => onSelectMenu('Highlights')}
+						className={selectedMenu === 'Highlights' ? 'py-3 focus' : 'py-3 link-base-content'}
+						onMouseDown={() => onSelectMenu('Highlights')}
 					>
 						<HiOutlineSparkles className="w-6 h-6" />
 						Highlights
@@ -79,8 +79,8 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				</li>
 				<li>
 					<a
-						className={selectedMenu === 'Settings' ? 'active py-3' : 'py-3'}
-						onClick={() => onSelectMenu('Settings')}
+						className={selectedMenu === 'Settings' ? 'py-3 focus' : 'py-3 link-base-content'}
+						onMouseDown={() => onSelectMenu('Settings')}
 					>
 						<MdOutlineSettings className="w-6 h-6" />
 						Settings
