@@ -655,10 +655,10 @@ namespace Segra.Backend.Utils
 
         public static async Task SendSettingsToFrontend()
         {
-            if (!Program.hasLoadedInitialSettings)
+            if (!Program.hasLoadedInitialSettings || Settings.Instance._isBulkUpdating)
                 return;
 
-            Log.Information("Sending state to frontend");
+            Log.Information("Sending settings to frontend");
             await SendFrontendMessage("Settings", Settings.Instance);
         }
     }

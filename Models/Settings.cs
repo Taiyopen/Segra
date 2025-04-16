@@ -61,6 +61,7 @@ namespace Segra.Models
         public void EndBulkUpdateAndSaveSettings()
         {
             _isBulkUpdating = false;
+            Log.Information("End bulk update");
             SendToFrontend();
             SettingsUtils.SaveSettings();
         }
@@ -104,16 +105,23 @@ namespace Segra.Models
             get => _contentFolder;
             set
             {
+                bool hasChanged = Instance._contentFolder != value.Replace("\\", "/");
+
                 _contentFolder = value.Replace("\\", "/");
-                SendToFrontend();
-                SettingsUtils.LoadContentFromFolderIntoState();
-                if (Instance != null && !Instance._isBulkUpdating)
+                Instance._contentFolder = value.Replace("\\", "/");
+
+                if(hasChanged)
                 {
-                    SettingsUtils.SaveSettings();
+                    SendToFrontend();
+                    SettingsUtils.LoadContentFromFolderIntoState();
+                    if (Instance != null && !Instance._isBulkUpdating)
+                    {
+                        SettingsUtils.SaveSettings();
+                    }
                 }
             }
         }
-
+        
         [JsonPropertyName("theme")]
         public string Theme
         {
@@ -240,8 +248,11 @@ namespace Segra.Models
             get => _enableDisplayRecording;
             set
             {
-                _enableDisplayRecording = value;
-                SendToFrontend();
+                if (_enableDisplayRecording != value)
+                {
+                    _enableDisplayRecording = value;
+                    SendToFrontend();
+                }
             }
         }
 
@@ -251,8 +262,11 @@ namespace Segra.Models
             get => _enableAi;
             set
             {
-                _enableAi = value;
-                SendToFrontend();
+                if (_enableAi != value)
+                {
+                    _enableAi = value;
+                    SendToFrontend();
+                }
             }
         }
 
@@ -262,9 +276,12 @@ namespace Segra.Models
             get => _runOnStartup;
             set
             {
-                _runOnStartup = value;
-                StartupUtils.SetStartupStatus(value);
-                SendToFrontend();
+                if (_runOnStartup != value)
+                {
+                    _runOnStartup = value;
+                    StartupUtils.SetStartupStatus(value);
+                    SendToFrontend();
+                }
             }
         }
 
@@ -274,8 +291,11 @@ namespace Segra.Models
             get => _receiveBetaUpdates;
             set
             {
-                _receiveBetaUpdates = value;
-                SendToFrontend();
+                if (_receiveBetaUpdates != value)
+                {
+                    _receiveBetaUpdates = value;
+                    SendToFrontend();
+                }
             }
         }
 
@@ -285,8 +305,11 @@ namespace Segra.Models
             get => _recordingMode;
             set
             {
-                _recordingMode = value;
-                SendToFrontend();
+                if (_recordingMode != value)
+                {
+                    _recordingMode = value;
+                    SendToFrontend();
+                }
             }
         }
 
@@ -296,8 +319,11 @@ namespace Segra.Models
             get => _replayBufferDuration;
             set
             {
-                _replayBufferDuration = value;
-                SendToFrontend();
+                if (_replayBufferDuration != value)
+                {
+                    _replayBufferDuration = value;
+                    SendToFrontend();
+                }
             }
         }
 
@@ -307,8 +333,11 @@ namespace Segra.Models
             get => _replayBufferMaxSize;
             set
             {
-                _replayBufferMaxSize = value;
-                SendToFrontend();
+                if (_replayBufferMaxSize != value)
+                {
+                    _replayBufferMaxSize = value;
+                    SendToFrontend();
+                }
             }
         }
 
@@ -324,8 +353,12 @@ namespace Segra.Models
             get => _auth;
             set
             {
+                bool hasChanged = Instance._auth.Jwt != value.Jwt || Instance._auth.RefreshToken != value.RefreshToken;
                 _auth = value;
-                SendToFrontend();
+                if (hasChanged)
+                {   
+                    SendToFrontend();
+                }
             }
         }
 
@@ -335,19 +368,20 @@ namespace Segra.Models
             get => _keybindings;
             set
             {
-                _keybindings = value ?? new List<Keybind>();
-
-                // Check for each default keybind action and add it if missing
-                foreach (var defaultKeybind in GetDefaultKeybindings())
+                if (value == null || !_keybindings.SequenceEqual(value))
                 {
-                    if (!_keybindings.Any(k => k.Action == defaultKeybind.Action))
+                    _keybindings = value ?? new List<Keybind>();
+                    // Check for each default keybind action and add it if missing
+                    foreach (var defaultKeybind in GetDefaultKeybindings())
                     {
-                        _keybindings.Add(defaultKeybind);
-                        Log.Information($"Added missing keybind for action {defaultKeybind.Action}");
+                        if (!_keybindings.Any(k => k.Action == defaultKeybind.Action))
+                        {
+                            _keybindings.Add(defaultKeybind);
+                            Log.Information($"Added missing keybind for action {defaultKeybind.Action}");
+                        }
                     }
+                    SendToFrontend();
                 }
-
-                SendToFrontend();
             }
         }
     }
@@ -444,8 +478,11 @@ namespace Segra.Models
             get => _recording;
             set
             {
-                _recording = value;
-                SendToFrontend();
+                if (_recording != value)
+                {
+                    _recording = value;
+                    SendToFrontend();
+                }
             }
         }
 
@@ -455,8 +492,11 @@ namespace Segra.Models
             get => _hasLoadedObs;
             set
             {
-                _hasLoadedObs = value;
-                SendToFrontend();
+                if (_hasLoadedObs != value)
+                {
+                    _hasLoadedObs = value;
+                    SendToFrontend();
+                }
             }
         }
 
@@ -466,48 +506,60 @@ namespace Segra.Models
             get => _content;
             private set
             {
-                _content = value;
-                SendToFrontend();
+                if (_content != value)
+                {
+                    _content = value;
+                    SendToFrontend();
+                }
             }
         }
-
+        
         [JsonPropertyName("inputDevices")]
         public List<AudioDevice> InputDevices
         {
             get => _inputDevices;
             set
             {
-                _inputDevices = value;
-                SendToFrontend();
+                if (_inputDevices != value)
+                {
+                    _inputDevices = value;
+                    SendToFrontend();
+                }
             }
         }
-
+        
         [JsonPropertyName("outputDevices")]
         public List<AudioDevice> OutputDevices
         {
             get => _outputDevices;
             set
             {
-                _outputDevices = value;
-                SendToFrontend();
+                if (_outputDevices != value)
+                {
+                    _outputDevices = value;
+                    SendToFrontend();
+                }
             }
         }
-
+        
         [JsonPropertyName("isCheckingForUpdates")]
         public bool IsCheckingForUpdates
         {
             get => _isCheckingForUpdates;
             set
             {
-                _isCheckingForUpdates = value;
-                SendToFrontend();
+                if (_isCheckingForUpdates != value)
+                {
+                    _isCheckingForUpdates = value;
+                    SendToFrontend();
+                }
             }
         }
-
+        
         public void UpdateAudioDevices()
         {
             // Get the list of input devices
-            var inputDevices = AudioDeviceUtils.GetInputDevices();
+    var inputDevices = AudioDeviceUtils.GetInputDevices();
             if (!Enumerable.SequenceEqual(_inputDevices, inputDevices))
             {
                 _inputDevices = inputDevices;
@@ -567,10 +619,16 @@ namespace Segra.Models
 
         public void SetContent(List<Content> contents, bool sendToFrontend)
         {
-            _content = contents;
-            if (sendToFrontend)
+            // Check if the content has actually changed
+            bool contentChanged = _content == null || _content.Count != contents.Count || !_content.SequenceEqual(contents);
+            
+            if (contentChanged)
             {
-                SendToFrontend();
+                _content = contents;
+                if (sendToFrontend)
+                {
+                    SendToFrontend();
+                }
             }
         }
 
@@ -691,12 +749,16 @@ namespace Segra.Models
             get => _jwt;
             set
             {
-                _jwt = value;
-                if (Settings.Instance != null && !Settings.Instance._isBulkUpdating)
-                {
-                    SettingsUtils.SaveSettings();
+                if(_jwt != value) {
+                    bool hasChanged = !Settings.Instance.Auth.Jwt.Equals(value);
+                    _jwt = value;
+
+                    if (Settings.Instance != null && hasChanged && !Settings.Instance._isBulkUpdating)
+                    {
+                        SettingsUtils.SaveSettings();
+                    }
                 }
-            }
+            }   
         }
 
         [JsonPropertyName("refreshToken")]
@@ -705,10 +767,13 @@ namespace Segra.Models
             get => _refreshToken;
             set
             {
-                _refreshToken = value;
-                if (Settings.Instance != null && !Settings.Instance._isBulkUpdating)
-                {
-                    SettingsUtils.SaveSettings();
+                if(_refreshToken != value) {
+                    bool hasChanged = !Settings.Instance.Auth.RefreshToken.Equals(value);
+                    _refreshToken = value;
+                    if (Settings.Instance != null && hasChanged && !Settings.Instance._isBulkUpdating)
+                    {
+                        SettingsUtils.SaveSettings();
+                    }
                 }
             }
         }

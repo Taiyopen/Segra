@@ -111,11 +111,12 @@ namespace Segra.Backend.Utils
             }
         }
 
-        // TODO (os) refactor
         private static void UpdateSettingsInstance(Settings updatedSettings)
         {
             var settings = Settings.Instance;
+            bool hasChanges = false;
 
+            // Begin bulk update to suppress multiple state updates
             settings.BeginBulkUpdate();
 
             // Update Theme
@@ -123,6 +124,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"Theme changed from '{settings.Theme}' to '{updatedSettings.Theme}'");
                 settings.Theme = updatedSettings.Theme;
+                hasChanges = true;
             }
 
             // Update ContentFolder
@@ -130,6 +132,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"ContentFolder changed from '{settings.ContentFolder}' to '{updatedSettings.ContentFolder}'");
                 settings.ContentFolder = updatedSettings.ContentFolder;
+                hasChanges = true;
             }
 
             // Update RecordingMode
@@ -137,6 +140,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"RecordingMode changed from '{settings.RecordingMode}' to '{updatedSettings.RecordingMode}'");
                 settings.RecordingMode = updatedSettings.RecordingMode;
+                hasChanges = true;
             }
 
             // Update ReplayBufferDuration
@@ -144,6 +148,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"ReplayBufferDuration changed from '{settings.ReplayBufferDuration}' to '{updatedSettings.ReplayBufferDuration}'");
                 settings.ReplayBufferDuration = updatedSettings.ReplayBufferDuration;
+                hasChanges = true;
             }
 
             // Update ReplayBufferMaxSize
@@ -151,6 +156,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"ReplayBufferMaxSize changed from '{settings.ReplayBufferMaxSize}' to '{updatedSettings.ReplayBufferMaxSize}'");
                 settings.ReplayBufferMaxSize = updatedSettings.ReplayBufferMaxSize;
+                hasChanges = true;
             }
 
             // Update Resolution
@@ -158,6 +164,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"Resolution changed from '{settings.Resolution}' to '{updatedSettings.Resolution}'");
                 settings.Resolution = updatedSettings.Resolution;
+                hasChanges = true;
             }
 
             // Update FrameRate
@@ -165,6 +172,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"FrameRate changed from '{settings.FrameRate}' to '{updatedSettings.FrameRate}'");
                 settings.FrameRate = updatedSettings.FrameRate;
+                hasChanges = true;
             }
 
             // Update Bitrate
@@ -172,6 +180,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"Bitrate changed from '{settings.Bitrate} Mbps' to '{updatedSettings.Bitrate} Mbps'");
                 settings.Bitrate = updatedSettings.Bitrate;
+                hasChanges = true;
             }
 
             // Update Encoder
@@ -179,6 +188,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"Encoder changed from '{settings.Encoder}' to '{updatedSettings.Encoder}'");
                 settings.Encoder = updatedSettings.Encoder;
+                hasChanges = true;
             }
 
             // Update Codec
@@ -186,6 +196,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"Codec changed from '{settings.Codec}' to '{updatedSettings.Codec}'");
                 settings.Codec = updatedSettings.Codec;
+                hasChanges = true;
             }
 
             // Update StorageLimit
@@ -193,6 +204,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"StorageLimit changed from '{settings.StorageLimit} GB' to '{updatedSettings.StorageLimit} GB'");
                 settings.StorageLimit = updatedSettings.StorageLimit;
+                hasChanges = true;
             }
 
             // Update InputDevice
@@ -200,6 +212,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"InputDevice changed from '{string.Join(", ", settings.InputDevices)}' to '{string.Join(", ", updatedSettings.InputDevices)}'");
                 settings.InputDevices = updatedSettings.InputDevices;
+                hasChanges = true;
             }
 
             // Update OutputDevice
@@ -207,6 +220,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"OutputDevice changed from '{string.Join(", ", settings.OutputDevices)}' to '{string.Join(", ", updatedSettings.OutputDevices)}'");
                 settings.OutputDevices = updatedSettings.OutputDevices;
+                hasChanges = true;
             }
 
             // Update RateControl
@@ -214,6 +228,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"RateControl changed from '{settings.RateControl}' to '{updatedSettings.RateControl}'");
                 settings.RateControl = updatedSettings.RateControl;
+                hasChanges = true;
             }
 
             // Update CrfValue
@@ -221,6 +236,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"CrfValue changed from '{settings.CrfValue}' to '{updatedSettings.CrfValue}'");
                 settings.CrfValue = updatedSettings.CrfValue;
+                hasChanges = true;
             }
 
             // Update CqLevel
@@ -228,6 +244,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"CqLevel changed from '{settings.CqLevel}' to '{updatedSettings.CqLevel}'");
                 settings.CqLevel = updatedSettings.CqLevel;
+                hasChanges = true;
             }
 
             // Update EnableDisplayRecording
@@ -235,6 +252,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"EnableDisplayRecording changed from '{settings.EnableDisplayRecording}' to '{updatedSettings.EnableDisplayRecording}'");
                 settings.EnableDisplayRecording = updatedSettings.EnableDisplayRecording;
+                hasChanges = true;
             }
 
             // Update EnableAi
@@ -242,6 +260,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"EnableAi changed from '{settings.EnableAi}' to '{updatedSettings.EnableAi}'");
                 settings.EnableAi = updatedSettings.EnableAi;
+                hasChanges = true;
             }
 
             // Update ReceiveBetaUpdates
@@ -249,25 +268,39 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"ReceiveBetaUpdates changed from '{settings.ReceiveBetaUpdates}' to '{updatedSettings.ReceiveBetaUpdates}'");
                 settings.ReceiveBetaUpdates = updatedSettings.ReceiveBetaUpdates;
+                hasChanges = true;
                 _ = Task.Run(UpdateUtils.UpdateAppIfNecessary);
                 _ = Task.Run(UpdateUtils.GetReleaseNotes);
             }
 
-            // Update RunOnStartup
+            // Update EnableRunOnStartup
             if (settings.RunOnStartup != updatedSettings.RunOnStartup)
             {
                 Log.Information($"RunOnStartup changed from '{settings.RunOnStartup}' to '{updatedSettings.RunOnStartup}'");
                 settings.RunOnStartup = updatedSettings.RunOnStartup;
+                hasChanges = true;
             }
 
             // Update Keybindings
-            if (!settings.Keybindings.SequenceEqual(updatedSettings.Keybindings))
+            if (updatedSettings.Keybindings != null && !settings.Keybindings.SequenceEqual(updatedSettings.Keybindings))
             {
-                Log.Information("Keybindings changed");
+                Log.Information("Keybindings updated");
                 settings.Keybindings = updatedSettings.Keybindings;
+                hasChanges = true;
             }
 
-            settings.EndBulkUpdateAndSaveSettings();
+            // Only save settings and send to frontend if changes were actually made
+            if (hasChanges)
+            {
+                Log.Information("Settings updated, saving changes");
+                settings.EndBulkUpdateAndSaveSettings();
+            }
+            else
+            {
+                // End bulk update without saving if no changes were made
+                settings._isBulkUpdating = false;
+                Log.Information("No settings changes detected");
+            }
         }
 
         public static void LoadContentFromFolderIntoState(bool sendToFrontend = true)
