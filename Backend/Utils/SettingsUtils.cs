@@ -64,28 +64,18 @@ namespace Segra.Backend.Utils
                     // Begin bulk update to suppress unnecessary updates
                     Settings.Instance.BeginBulkUpdate();
 
-                    // Update properties individually
-                    Settings.Instance.Theme = loadedSettings.Theme;
-                    Settings.Instance.ContentFolder = loadedSettings.ContentFolder;
-                    Settings.Instance.Resolution = loadedSettings.Resolution;
-                    Settings.Instance.FrameRate = loadedSettings.FrameRate;
-                    Settings.Instance.Bitrate = loadedSettings.Bitrate;
-                    Settings.Instance.Encoder = loadedSettings.Encoder;
-                    Settings.Instance.RecordingMode = loadedSettings.RecordingMode;
-                    Settings.Instance.Codec = loadedSettings.Codec;
-                    Settings.Instance.StorageLimit = loadedSettings.StorageLimit;
-                    Settings.Instance.InputDevices = loadedSettings.InputDevices;
-                    Settings.Instance.OutputDevices = loadedSettings.OutputDevices;
-
-                    Settings.Instance.RateControl = loadedSettings.RateControl;
-                    Settings.Instance.CrfValue = loadedSettings.CrfValue;
-                    Settings.Instance.CqLevel = loadedSettings.CqLevel;
-                    Settings.Instance.EnableDisplayRecording = loadedSettings.EnableDisplayRecording;
-                    Settings.Instance.EnableAi = loadedSettings.EnableAi;
+                    // Copy properties from loaded settings to instance (exclude RunOnStartup and State)
+                    CopyProperties(loadedSettings, Settings.Instance, new HashSet<string> 
+                    { 
+                        nameof(Settings.RunOnStartup),
+                        nameof(Settings.State)
+                    });
+                    
+                    // Log successful settings load
+                    Log.Information("Settings loaded successfully from {0}", SettingsFilePath);
+                    
+                    // Special handling for RunOnStartup (comes from the system)
                     Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
-                    Settings.Instance.ReceiveBetaUpdates = loadedSettings.ReceiveBetaUpdates;
-                    Settings.Instance.Auth = loadedSettings.Auth;
-                    Settings.Instance.Keybindings = loadedSettings.Keybindings;
 
                     // End bulk update
                     Settings.Instance.EndBulkUpdateAndSaveSettings();
@@ -388,6 +378,42 @@ namespace Segra.Backend.Utils
         {
             // Check if the file is a metadata file
             return Path.GetExtension(filePath).Equals(".json", StringComparison.OrdinalIgnoreCase);
+        }
+        private static void CopyProperties(object source, object destination, HashSet<string>? excludedProperties = null)
+        {
+            if (source == null || destination == null)
+                return;
+
+            var properties = destination.GetType().GetProperties(
+                System.Reflection.BindingFlags.Public | 
+                System.Reflection.BindingFlags.Instance);
+
+            foreach (var property in properties)
+            {
+                if (excludedProperties != null && excludedProperties.Contains(property.Name))
+                    continue;
+
+                if (!property.CanRead || !property.CanWrite)
+                    continue;
+
+                try
+                {
+                    var sourceProperty = source.GetType().GetProperty(property.Name);
+                    if (sourceProperty == null)
+                        continue;
+
+                    var value = sourceProperty.GetValue(source);
+                    
+                    if (value != null)
+                    {
+                        property.SetValue(destination, value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"Failed to copy property {property.Name}: {ex.Message}");
+                }
+            }
         }
     }
 }

@@ -451,7 +451,8 @@ export default function Settings() {
 									onBlur={() => updateSettings({ replayBufferDuration: localReplayBufferDuration })}
 									min="5"
 									max="600"
-									className="input input-bordered"
+									disabled={settings.state.recording != null}
+									className={`input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80`}
 								/>
 								<span className="text-xs text-base-content text-opacity-60 mt-1">How many seconds of gameplay to keep in memory</span>
 							</div>
@@ -469,7 +470,8 @@ export default function Settings() {
 									onBlur={() => updateSettings({ replayBufferMaxSize: localReplayBufferMaxSize })}
 									min="100"
 									max="5000"
-									className="input input-bordered"
+									disabled={settings.state.recording != null}
+									className="input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80"
 								/>
 								<span className="text-xs text-base-content text-opacity-60 mt-1">Maximum buffer size in megabytes</span>
 							</div>
