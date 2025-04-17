@@ -110,7 +110,7 @@ namespace Segra.Models
                 _contentFolder = value.Replace("\\", "/");
                 Instance._contentFolder = value.Replace("\\", "/");
 
-                if(hasChanged)
+                if(hasChanged || Instance.State.Content.Count == 0)
                 {
                     SendToFrontend();
                     SettingsUtils.LoadContentFromFolderIntoState();
@@ -619,17 +619,15 @@ namespace Segra.Models
 
         public void SetContent(List<Content> contents, bool sendToFrontend)
         {
-            // Check if the content has actually changed
-            bool contentChanged = _content == null || _content.Count != contents.Count || !_content.SequenceEqual(contents);
+
             
-            if (contentChanged)
-            {
+
                 _content = contents;
                 if (sendToFrontend)
                 {
                     SendToFrontend();
                 }
-            }
+            
         }
 
         public void Dispose()
