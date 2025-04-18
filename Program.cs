@@ -7,6 +7,7 @@ using Segra.Backend.Utils;
 using Segra.Models;
 using Serilog;
 using System.Diagnostics;
+using System.IO.Pipes;
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -26,10 +27,42 @@ namespace Segra
         private static readonly string LogFilePath =
           Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra", "logs.log");
         private static NotifyIcon notifyIcon;
+        private const string PipeName = "Segra_SingleInstance";
+        private static Mutex singleInstanceMutex;
+        private static Thread pipeServerThread;
 
         [STAThread]
         static void Main(string[] args)
         {
+            // Try to create a named mutex - this will fail if another instance exists
+            singleInstanceMutex = new Mutex(true, "SegraApplicationMutex", out bool createdNew);
+
+            if (!createdNew)
+            {
+                // Another instance exists, send a message to it via named pipe
+                try
+                {
+                    using (var pipeClient = new NamedPipeClientStream(".", PipeName, PipeDirection.Out))
+                    {
+                        pipeClient.Connect(3000);
+
+                        using (var writer = new StreamWriter(pipeClient))
+                        {
+                            writer.WriteLine("SHOW_WINDOW");
+                            writer.Flush();
+                        }
+                    }
+
+                    Environment.Exit(0);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to communicate with existing instance: {ex.Message}");
+                }
+            }
+
+            StartNamedPipeServer();
+
             var logDirectory = Path.GetDirectoryName(LogFilePath);
             if (!Directory.Exists(logDirectory))
             {
@@ -144,7 +177,7 @@ namespace Segra
                 // Start WebSocket and Load Settings
                 Task.Run(MessageUtils.StartWebsocket);
                 Task.Run(StorageUtils.EnsureStorageBelowLimit);
-                
+
                 // Initialize the PhotinoWindow
                 window = new PhotinoWindow()
                     .SetNotificationsEnabled(false) // Disabled due to it creating a second start menu entry with incorrect start path. See https://github.com/tryphotino/photino.NET/issues/85
@@ -162,22 +195,20 @@ namespace Segra
 
                 AddNotifyIcon();
                 GameDetectionService.ForegroundHook.Start();
-                
+
                 // Check if application was launched from startup
                 bool startMinimized = IsLaunchedFromStartup();
                 Log.Information($"Starting application{(startMinimized ? " minimized from startup" : "")}");
-                
+
                 // If started from startup, minimize the window and show in system tray
                 if (startMinimized)
                 {
                     window.Minimized = true;
                     // Add a small delay to ensure the window is created before hiding it
-                    Task.Run(async () => 
+                    Task.Run(async () =>
                     {
                         await Task.Delay(500);
-                        IntPtr hWnd = Process.GetCurrentProcess().MainWindowHandle;
-                        ShowWindow(hWnd, SW_HIDE); // Hide from taskbar
-                        notifyIcon.Visible = true;
+                        HideApplicationWindow();
                     });
                 }
 
@@ -198,7 +229,89 @@ namespace Segra
             {
                 Log.Information("Application shutting down.");
                 Log.CloseAndFlush(); // Ensure all logs are written before the application exits
+
+                // Release the mutex when closing
+                if (singleInstanceMutex != null)
+                {
+                    singleInstanceMutex.ReleaseMutex();
+                    singleInstanceMutex.Dispose();
+                }
             }
+        }
+
+        private static async Task ShowApplicationWindow()
+        {
+            if (notifyIcon != null)
+                notifyIcon.Visible = false;
+
+            if (window != null)
+            {
+                window.Minimized = false;
+
+                window.SetTopMost(true);
+                await Task.Delay(200);
+                window.SetTopMost(false);
+
+                Log.Information("Application window brought to foreground");
+            }
+        }
+
+        private static void HideApplicationWindow()
+        {
+            if (window != null)
+                window.Minimized = true; // Minimize first
+
+
+            if (notifyIcon != null)
+                notifyIcon.Visible = true;
+
+            IntPtr hWnd = Process.GetCurrentProcess().MainWindowHandle;
+            ShowWindow(hWnd, SW_HIDE); // Hides the window from the taskbar
+
+            Log.Information("Application window hidden");
+        }
+
+        private static void StartNamedPipeServer()
+        {
+            pipeServerThread = new Thread(() =>
+            {
+                while (true)
+                {
+                    try
+                    {
+                        using (var pipeServer = new NamedPipeServerStream(PipeName, PipeDirection.In))
+                        {
+                            pipeServer.WaitForConnection();
+
+                            using (var reader = new StreamReader(pipeServer))
+                            {
+                                string message = reader.ReadLine();
+                                if (message == "SHOW_WINDOW")
+                                {
+                                    Log.Information("Received message to show application window from another instance.");
+                                    Task.Run(async () => await ShowApplicationWindow()).Wait();
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (Log.Logger != null)
+                        {
+                            Log.Error(ex, "Error in named pipe server");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Error in named pipe server: {ex.Message}");
+                        }
+
+						Thread.Sleep(1000);
+                    }
+                }
+            });
+
+            pipeServerThread.IsBackground = true;
+            pipeServerThread.Start();
         }
 
         // Check if the application was launched from startup
@@ -236,12 +349,7 @@ namespace Segra
             var contextMenu = new ContextMenuStrip();
             contextMenu.Items.Add("Open", null, async (sender, e) =>
             {
-                notifyIcon.Visible = false;
-                window.Minimized = false;
-
-                window.SetTopMost(true);
-                await Task.Delay(200);
-                window.SetTopMost(false);
+                await ShowApplicationWindow();
             });
 
             contextMenu.Items.Add("Exit", null, (sender, e) =>
@@ -256,23 +364,13 @@ namespace Segra
             {
                 if (e.Button == MouseButtons.Left)
                 {
-                    notifyIcon.Visible = false;
-                    window.Minimized = false;
-
-                    window.SetTopMost(true);
-                    await Task.Delay(200);
-                    window.SetTopMost(false);
+                    await ShowApplicationWindow();
                 }
             };
 
             window.RegisterWindowClosingHandler((sender, eventArgs) =>
             {
-                window.Minimized = true; // Minimize first
-                notifyIcon.Visible = true;
-
-                IntPtr hWnd = Process.GetCurrentProcess().MainWindowHandle;
-                ShowWindow(hWnd, SW_HIDE); // Hides the window from the taskbar
-
+                HideApplicationWindow();
                 return true;
             });
         }
