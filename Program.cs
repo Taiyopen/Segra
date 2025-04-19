@@ -166,10 +166,15 @@ namespace Segra
                     ContentServer.StartServer(prefix);
                 });
 
-                SettingsUtils.LoadSettings();
+                bool firstRun = !SettingsUtils.LoadSettings();
                 hasLoadedInitialSettings = true;
                 Settings.Instance.State.Initialize();
                 SettingsUtils.SaveSettings();
+                if (firstRun)
+                {
+                    SettingsUtils.LoadContentFromFolderIntoState(true);
+                }
+
 
                 // Try to login with stored credentials
                 Task.Run(async () => await AuthService.TryAutoLogin());

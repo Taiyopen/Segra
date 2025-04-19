@@ -45,14 +45,14 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static void LoadSettings()
+        public static bool LoadSettings()
         {
             try
             {
                 if (!File.Exists(SettingsFilePath))
                 {
                     Log.Information($"Settings file not found at {SettingsFilePath}. Using default settings.");
-                    return;
+                    return false;
                 }
 
                 var json = File.ReadAllText(SettingsFilePath);
@@ -180,10 +180,12 @@ namespace Segra.Backend.Utils
                 Log.Information("Settings loaded from {0}", SettingsFilePath);
                 
                 Settings.Instance.EndBulkUpdateAndSaveSettings();
+                return true;
             }
             catch (Exception ex)
             {
                 Log.Error($"Failed to load settings: {ex.Message}");
+                return false;
             }
         }
 
