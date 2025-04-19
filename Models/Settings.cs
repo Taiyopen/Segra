@@ -23,8 +23,8 @@ namespace Segra.Models
         private string _encoder = "gpu";
         private string _codec = "h264";
         private int _storageLimit = 100;
-        private List<string> _inputDevices = new List<string>();
-        private List<string> _outputDevices = new List<string>();
+        private List<DeviceSetting> _inputDevices = new List<DeviceSetting>();
+        private List<DeviceSetting> _outputDevices = new List<DeviceSetting>();
         private bool _enableDisplayRecording = false;
         private bool _enableAi = true;
         private bool _runOnStartup = false;
@@ -223,22 +223,34 @@ namespace Segra.Models
         }
 
         [JsonPropertyName("inputDevices")]
-        public List<string> InputDevices
+        public List<DeviceSetting> InputDevices
         {
             get => _inputDevices;
             set
             {
+                bool hasChanged = !_inputDevices.SequenceEqual(value); 
                 _inputDevices = value;
+
+                if (Instance != null && hasChanged && !Instance._isBulkUpdating)
+                {
+                    SendToFrontend();
+                }
             }
         }
 
         [JsonPropertyName("outputDevices")]
-        public List<string> OutputDevices
+        public List<DeviceSetting> OutputDevices
         {
             get => _outputDevices;
             set
             {
+                bool hasChanged = !_outputDevices.SequenceEqual(value, new DeviceSettingEqualityComparer());
                 _outputDevices = value;
+
+                if (Instance != null && hasChanged && !Instance._isBulkUpdating)
+                {
+                    SendToFrontend();
+                }
             }
         }
 
@@ -383,6 +395,37 @@ namespace Segra.Models
                     SendToFrontend();
                 }
             }
+        }
+    }
+
+    // Class definition for device settings
+    public class DeviceSetting
+    {
+        [JsonPropertyName("id")]
+        public required string Id { get; set; }
+        [JsonPropertyName("name")]
+        public required string Name { get; set; }
+        [JsonPropertyName("volume")]
+        public float Volume { get; set; } = 1.0f; // Default volume for all devices initially
+    }
+
+    // Equality comparer for DeviceSetting based on Id and Name
+    public class DeviceSettingEqualityComparer : IEqualityComparer<DeviceSetting>
+    {
+        public bool Equals(DeviceSetting? x, DeviceSetting? y)
+        {
+            if (ReferenceEquals(x, y)) return true;
+            if (ReferenceEquals(x, null) || ReferenceEquals(y, null))
+                return false;
+            return x.Id == y.Id && x.Name == y.Name && x.Volume == y.Volume;
+        }
+
+        public int GetHashCode(DeviceSetting obj)
+        {
+            if (ReferenceEquals(obj, null)) return 0;
+            int hashId = obj.Id == null ? 0 : obj.Id.GetHashCode();
+            int hashName = obj.Name == null ? 0 : obj.Name.GetHashCode();
+            return hashId ^ hashName;
         }
     }
 
@@ -593,7 +636,12 @@ namespace Segra.Models
             if (defaultInputDevice != null)
             {
                 Settings.Instance.BeginBulkUpdate();
-                Settings.Instance.InputDevices.Add(defaultInputDevice.Id);
+                Settings.Instance.InputDevices.Add(new DeviceSetting 
+                {
+                     Id = defaultInputDevice.Id, 
+                     Name = defaultInputDevice.Name, 
+                     Volume = 1.0f 
+                });
                 Settings.Instance.EndBulkUpdateAndSaveSettings();
                 Log.Information($"Auto-selected default input device: {defaultInputDevice.Name}");
             }
@@ -602,7 +650,12 @@ namespace Segra.Models
             if (defaultOutputDevice != null)
             {
                 Settings.Instance.BeginBulkUpdate();
-                Settings.Instance.OutputDevices.Add(defaultOutputDevice.Id);
+                Settings.Instance.OutputDevices.Add(new DeviceSetting 
+                {
+                     Id = defaultOutputDevice.Id, 
+                     Name = defaultOutputDevice.Name, 
+                     Volume = 1.0f 
+                });
                 Settings.Instance.EndBulkUpdateAndSaveSettings();
                 Log.Information($"Auto-selected default output device: {defaultOutputDevice.Name}");
             }

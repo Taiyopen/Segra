@@ -25,6 +25,7 @@ export default function Settings() {
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const [isCapturingKey, setIsCapturingKey] = useState<number | null>(null);
 	const activeKeysRef = useRef<number[]>([]);
+	const [draggingVolume, setDraggingVolume] = useState<{ deviceId: string | null; volume: number | null }>({ deviceId: null, volume: null });
 
 	// Helper function to get a display name for a key code
 	const getKeyDisplayName = (keyCode: number): string => {
@@ -309,50 +310,61 @@ export default function Settings() {
 		return devices.some((device) => device.id === deviceId);
 	};
 
-	const toggleInputDevice = (deviceId: string) => {
-		const currentDevices = [...settings.inputDevices];
-		const index = currentDevices.indexOf(deviceId);
-		
-		if (index === -1) {
-			currentDevices.push(deviceId);
-		} else {
-			currentDevices.splice(index, 1);
-		}
-		
-		updateSettings({ inputDevices: currentDevices });
-	};
-
-	const toggleOutputDevice = (deviceId: string) => {
-		const currentDevices = [...settings.outputDevices];
-		const index = currentDevices.indexOf(deviceId);
-		
-		if (index === -1) {
-			currentDevices.push(deviceId);
-		} else {
-			currentDevices.splice(index, 1);
-		}
-		
-		updateSettings({ outputDevices: currentDevices });
-	};
-
-	const getInputDeviceNameById = (deviceId: string) => {
-		const device = settings.state.inputDevices.find((device) => device.id === deviceId);
-		return device ? device.name : 'Unavailable Device';
-	};
-	
+	// Check if any selected input device is unavailable
 	const hasUnavailableInputDevices = settings.inputDevices.some(
-		deviceId => !isDeviceAvailable(deviceId, settings.state.inputDevices) && deviceId
+		deviceSetting => !isDeviceAvailable(deviceSetting.id, settings.state.inputDevices)
 	);
 
-	const getOutputDeviceNameById = (deviceId: string) => {
-		const device = settings.state.outputDevices.find((device) => device.id === deviceId);
-		return device ? device.name : 'Unavailable Device';
-	};
-	
+	// Check if any selected output device is unavailable
 	const hasUnavailableOutputDevices = settings.outputDevices.some(
-		deviceId => !isDeviceAvailable(deviceId, settings.state.outputDevices) && deviceId
+		deviceSetting => !isDeviceAvailable(deviceSetting.id, settings.state.outputDevices)
 	);
-	
+
+	// Function to toggle input device selection
+	const toggleInputDevice = (deviceId: string) => {
+		const isSelected = settings.inputDevices.some(d => d.id === deviceId);
+		let updatedDevices;
+
+		if (isSelected) {
+			// Remove the device
+			updatedDevices = settings.inputDevices.filter(d => d.id !== deviceId);
+		} else {
+			// Add the device
+			const deviceToAdd = settings.state.inputDevices.find(d => d.id === deviceId);
+			if (deviceToAdd) {
+				updatedDevices = [...settings.inputDevices, { id: deviceId, name: deviceToAdd.name, volume: 1.0 }]; // Default volume 1.0
+			}
+		}
+		updateSettings({ inputDevices: updatedDevices });
+	};
+
+	// Function to toggle output device selection
+	const toggleOutputDevice = (deviceId: string) => {
+		const isSelected = settings.outputDevices.some(d => d.id === deviceId); // Check based on ID
+		let updatedDevices;
+
+		if (isSelected) {
+			updatedDevices = settings.outputDevices.filter(d => d.id !== deviceId); // Filter based on ID
+		} else {
+			// Add the device - find its name from the available list
+			const deviceToAdd = settings.state.outputDevices.find(d => d.id === deviceId);
+			if (deviceToAdd) {
+				// Add as DeviceSetting with volume 1.0
+				updatedDevices = [...settings.outputDevices, { id: deviceId, name: deviceToAdd.name, volume: 1.0 }]; 
+			}
+		}
+		updateSettings({ outputDevices: updatedDevices });
+	};
+
+	// Function to handle input device volume change
+	const handleInputVolumeChange = (deviceId: string, volume: number) => {
+		const updatedDevices = settings.inputDevices.map(device =>
+			device.id === deviceId ? { ...device, volume: volume } : device
+		);
+
+		updateSettings({ inputDevices: updatedDevices });
+	};
+
 	return (
 		<div className="p-5 space-y-6 rounded-lg">
 			<h1 className="text-3xl font-bold">Settings</h1>
@@ -692,30 +704,86 @@ export default function Settings() {
 										<input
 											type="checkbox"
 											className="checkbox checkbox-sm checkbox-accent"
-											checked={settings.inputDevices.includes(device.id)}
+											checked={settings.inputDevices.some(d => d.id === device.id)}
 											onChange={() => toggleInputDevice(device.id)}
 										/>
-										<span className="label-text">{device.name}</span>
+										<span className="label-text flex-1 mr-2">{device.name}</span>
+										{/* Volume slider */} 
+										{settings.inputDevices.some(d => d.id === device.id) && (
+											<div className="flex items-center gap-1 w-32">
+												<input
+													type="range"
+													min="0"
+													max="1"
+													step="0.01"
+													value={draggingVolume.deviceId === device.id ? draggingVolume.volume ?? 0 : settings.inputDevices.find(d => d.id === device.id)?.volume ?? 1.0}
+													className="range range-xs range-primary"
+													onChange={(e) => {
+														if (draggingVolume.deviceId === device.id) {
+															setDraggingVolume({ ...draggingVolume, volume: parseFloat(e.target.value) });
+														}
+													}}
+													onMouseDown={(e) => setDraggingVolume({ deviceId: device.id, volume: parseFloat(e.currentTarget.value) })}
+													onMouseUp={(e) => {
+														if (draggingVolume.deviceId === device.id) {
+															handleInputVolumeChange(device.id, parseFloat(e.currentTarget.value));
+															setDraggingVolume({ deviceId: null, volume: null }); // Reset dragging state
+														}
+													}}
+												/>
+												<span className="text-xs w-8 text-right">
+													{/* Display percentage based on dragging state or global state */}
+													{Math.round((draggingVolume.deviceId === device.id ? draggingVolume.volume ?? 0 : settings.inputDevices.find(d => d.id === device.id)?.volume ?? 1.0) * 100)}%
+												</span>
+											</div>
+										)}
 									</label>
 								</div>
 							))}
 
-							{/* Show unavailable devices that are still selected */}
+							{/* Show unavailable devices that are still selected */} 
 							{settings.inputDevices
-								.filter(deviceId => !isDeviceAvailable(deviceId, settings.state.inputDevices) && deviceId)
-								.map(deviceId => (
-									<div key={deviceId} className="form-control mb-1 last:mb-0">
+								.filter(deviceSetting => !isDeviceAvailable(deviceSetting.id, settings.state.inputDevices) && deviceSetting.id)
+								.map(deviceSetting => (
+									<div key={deviceSetting.id} className="form-control mb-1 last:mb-0">
 										<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-200 rounded">
 											<input
 												type="checkbox"
 												className="checkbox checkbox-sm checkbox-warning"
 												checked={true}
-												onChange={() => toggleInputDevice(deviceId)}
+												onChange={() => toggleInputDevice(deviceSetting.id)}
 											/>
-											<span className="label-text text-warning flex items-center">
+											<span className="label-text text-warning flex items-center flex-1 mr-2">
 												<span className="mr-1">⚠️</span>
-												{getInputDeviceNameById(deviceId)}
+												{deviceSetting.name} (Unavailable)
 											</span>
+											{/* Also show slider for unavailable but selected device */}
+											<div className="flex items-center gap-1 w-32">
+												<input
+													type="range"
+													min="0"
+													max="1"
+													step="0.01"
+													value={draggingVolume.deviceId === deviceSetting.id ? draggingVolume.volume ?? 0 : deviceSetting.volume}
+													className="range range-xs range-warning"
+													onChange={(e) => {
+														if (draggingVolume.deviceId === deviceSetting.id) {
+															setDraggingVolume({ ...draggingVolume, volume: parseFloat(e.target.value) });
+														}
+													}}
+													onMouseDown={(e) => setDraggingVolume({ deviceId: deviceSetting.id, volume: parseFloat(e.currentTarget.value) })}
+													onMouseUp={(e) => {
+														if (draggingVolume.deviceId === deviceSetting.id) {
+															handleInputVolumeChange(deviceSetting.id, parseFloat(e.currentTarget.value));
+															setDraggingVolume({ deviceId: null, volume: null }); // Reset dragging state
+														}
+													}}
+												/>
+												<span className="text-xs w-8 text-right">
+													{/* Display percentage based on dragging state or global state */}
+													{Math.round((draggingVolume.deviceId === deviceSetting.id ? draggingVolume.volume ?? 0 : deviceSetting.volume) * 100)}%
+												</span>
+											</div>
 										</label>
 									</div>
 								))
@@ -750,7 +818,7 @@ export default function Settings() {
 										<input
 											type="checkbox"
 											className="checkbox checkbox-sm checkbox-accent"
-											checked={settings.outputDevices.includes(device.id)}
+											checked={settings.outputDevices.some(d => d.id === device.id)}
 											onChange={() => toggleOutputDevice(device.id)}
 										/>
 										<span className="label-text">{device.name}</span>
@@ -760,19 +828,19 @@ export default function Settings() {
 
 							{/* Show unavailable devices that are still selected */}
 							{settings.outputDevices
-								.filter(deviceId => !isDeviceAvailable(deviceId, settings.state.outputDevices) && deviceId)
-								.map(deviceId => (
-									<div key={deviceId} className="form-control mb-1 last:mb-0">
+								.filter(deviceSetting => !isDeviceAvailable(deviceSetting.id, settings.state.outputDevices) && deviceSetting.id)
+								.map(deviceSetting => (
+									<div key={deviceSetting.id} className="form-control mb-1 last:mb-0">
 										<label className="cursor-pointer flex items-center gap-2 p-1 hover:bg-base-200 rounded">
 											<input
 												type="checkbox"
 												className="checkbox checkbox-sm checkbox-warning"
 												checked={true}
-												onChange={() => toggleOutputDevice(deviceId)}
+												onChange={() => toggleOutputDevice(deviceSetting.id)}
 											/>
 											<span className="label-text text-warning flex items-center">
 												<span className="mr-1">⚠️</span>
-												{getOutputDeviceNameById(deviceId)}
+												{deviceSetting.name} (Unavailable)
 											</span>
 										</label>
 									</div>

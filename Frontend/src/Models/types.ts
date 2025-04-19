@@ -59,6 +59,18 @@ export interface Recording {
 	isUsingGameHook: boolean;
 }
 
+export interface AudioDevice {
+	id: string;
+	name: string;
+	isDefault?: boolean;
+}
+
+export interface DeviceSetting {
+	id: string;
+	name: string;
+	volume: number; // Volume from 0.0 to 1.0
+}
+
 export interface Settings {
 	theme: 'segra' | 'rich' | 'dark' | 'night' | 'dracula' | 'black' | 'luxury' | 'forest' | 'halloween' | 'coffee' | 'dim' | 'sunset';
 	resolution: '720p' | '1080p' | '1440p' | '4K';
@@ -71,8 +83,8 @@ export interface Settings {
 	codec: 'h264' | 'h265';
 	storageLimit: number;
 	contentFolder: string;
-	inputDevices: string[];
-	outputDevices: string[];
+	inputDevices: DeviceSetting[];
+	outputDevices: DeviceSetting[];
 	enableDisplayRecording: boolean;
 	enableAi: boolean;
 	runOnStartup: boolean;
@@ -140,12 +152,6 @@ export interface SelectionCardProps {
     isHovered: boolean;
     setHoveredSelectionId: (id: number | null) => void;
     removeSelection: (id: number) => void;
-}
-
-export interface AudioDevice {
-	id: string;
-	name: string;
-	isDefault?: boolean;
 }
 
 export interface AiProgress {

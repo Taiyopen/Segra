@@ -8,10 +8,19 @@ using Serilog;
 using System.Net.Http.Headers;
 using System.Diagnostics;
 using Segra.Backend.Services;
-using System.Runtime.InteropServices;
 
 namespace Segra.Backend.Utils
 {
+    public class Selection
+    {   
+        // TODO (os): make this of type ContentType
+        public required string Type { get; set; }
+        public double StartTime { get; set; }
+        public double EndTime { get; set; }
+        public required string FileName { get; set; }
+        public string? Game { get; set; }
+    }
+
     public static class MessageUtils
     {
         private static WebSocket activeWebSocket;
@@ -661,16 +670,5 @@ namespace Segra.Backend.Utils
             Log.Information("Sending settings to frontend");
             await SendFrontendMessage("Settings", Settings.Instance);
         }
-    }
-
-    // Define the Selection class
-    public class Selection
-    {
-        // TODO (os): make this of type ContentType
-        public string Type { get; set; }
-        public double StartTime { get; set; }
-        public double EndTime { get; set; }
-        public string FileName { get; set; }
-        public string? Game { get; set; }
     }
 }

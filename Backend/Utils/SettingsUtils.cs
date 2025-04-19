@@ -208,17 +208,17 @@ namespace Segra.Backend.Utils
             }
 
             // Update InputDevice
-            if (!settings.InputDevices.SequenceEqual(updatedSettings.InputDevices))
+            if (!settings.InputDevices.SequenceEqual(updatedSettings.InputDevices, new DeviceSettingEqualityComparer()))
             {
-                Log.Information($"InputDevice changed from '{string.Join(", ", settings.InputDevices)}' to '{string.Join(", ", updatedSettings.InputDevices)}'");
+                Log.Information($"InputDevice changed from '[{string.Join(", ", settings.InputDevices.Select(d => $"{d.Name}"))}]' to '[{string.Join(", ", updatedSettings.InputDevices.Select(d => $"{d.Name}"))}]'");
                 settings.InputDevices = updatedSettings.InputDevices;
                 hasChanges = true;
             }
 
             // Update OutputDevice
-            if (!settings.OutputDevices.SequenceEqual(updatedSettings.OutputDevices))
+            if (!settings.OutputDevices.SequenceEqual(updatedSettings.OutputDevices, new DeviceSettingEqualityComparer()))
             {
-                Log.Information($"OutputDevice changed from '{string.Join(", ", settings.OutputDevices)}' to '{string.Join(", ", updatedSettings.OutputDevices)}'");
+                Log.Information($"OutputDevice changed from '[{string.Join(", ", settings.OutputDevices.Select(d => $"{d.Name}"))}]' to '[{string.Join(", ", updatedSettings.OutputDevices.Select(d => $"{d.Name}"))}]'");
                 settings.OutputDevices = updatedSettings.OutputDevices;
                 hasChanges = true;
             }

@@ -356,23 +356,26 @@ namespace Segra.Backend.Utils
             {
                 int audioSourceIndex = 1;
 
-                foreach (var deviceId in Settings.Instance.InputDevices)
+                foreach (var deviceSetting in Settings.Instance.InputDevices)
                 {
-                    if (!string.IsNullOrEmpty(deviceId))
+                    if (!string.IsNullOrEmpty(deviceSetting.Id))
                     {
                         IntPtr micSettings = obs_data_create();
-                        obs_data_set_string(micSettings, "device_id", deviceId);
+                        obs_data_set_string(micSettings, "device_id", deviceSetting.Id);
 
                         string sourceName = $"Microphone_{micSources.Count + 1}";
                         IntPtr micSource = obs_source_create("wasapi_input_capture", sourceName, micSettings, IntPtr.Zero);
 
                         obs_data_release(micSettings);
 
+                        float volume = deviceSetting.Volume;
+                        obs_source_set_volume(micSource, volume);
+
                         obs_set_output_source((uint)audioSourceIndex, micSource);
                         micSources.Add(micSource);
 
                         audioSourceIndex++;
-                        Log.Information($"Added input device: {deviceId} as {sourceName}");
+                        Log.Information($"Added input device: {deviceSetting.Id} as {sourceName} with volume {volume}");
                     }
                 }
             }
@@ -381,23 +384,26 @@ namespace Segra.Backend.Utils
             {
                 int desktopSourceIndex = micSources.Count + 1;
 
-                foreach (var deviceId in Settings.Instance.OutputDevices)
+                foreach (var deviceSetting in Settings.Instance.OutputDevices)
                 {
-                    if (!string.IsNullOrEmpty(deviceId))
+                    if (!string.IsNullOrEmpty(deviceSetting.Id))
                     {
                         IntPtr desktopSettings = obs_data_create();
-                        obs_data_set_string(desktopSettings, "device_id", deviceId);
+                        obs_data_set_string(desktopSettings, "device_id", deviceSetting.Id);
 
                         string sourceName = $"DesktopAudio_{desktopSources.Count + 1}";
                         IntPtr desktopSource = obs_source_create("wasapi_output_capture", sourceName, desktopSettings, IntPtr.Zero);
 
                         obs_data_release(desktopSettings);
 
+                        float desktopVolume = 1.0f; // Use fixed volume (100%)
+                        obs_source_set_volume(desktopSource, desktopVolume);
+
                         obs_set_output_source((uint)desktopSourceIndex, desktopSource);
                         desktopSources.Add(desktopSource);
 
                         desktopSourceIndex++;
-                        Log.Information($"Added output device: {deviceId} as {sourceName}");
+                        Log.Information($"Added output device: {deviceSetting.Name} ({deviceSetting.Id}) as {sourceName} with fixed volume {desktopVolume}");
                     }
                 }
             }

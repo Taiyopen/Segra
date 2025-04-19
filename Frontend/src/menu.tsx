@@ -23,18 +23,14 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 	const {updateInfo} = useUpdate();
 	const uploadFiles = Object.keys(uploads);
 	
-	const isDeviceAvailable = (deviceId: string, devices: Array<{id: string; name: string}>) => {
-		return devices.some(device => device.id === deviceId);
-	};
-
 	const hasUnavailableDevices = () => {
-		const hasUnavailableInputs = settings.inputDevices.some(
-			(deviceId: string) => deviceId && !isDeviceAvailable(deviceId, settings.state.inputDevices)
+		const unavailableInput = settings.inputDevices.some(
+			(deviceSetting: { id: string }) => !settings.state.inputDevices.some(d => d.id === deviceSetting.id)
 		);
-		const hasUnavailableOutputs = settings.outputDevices.some(
-			(deviceId: string) => deviceId && !isDeviceAvailable(deviceId, settings.state.outputDevices)
+		const unavailableOutput = settings.outputDevices.some(
+			(deviceSetting: { id: string }) => !settings.state.outputDevices.some(d => d.id === deviceSetting.id)
 		);
-		return hasUnavailableInputs || hasUnavailableOutputs;
+		return unavailableInput || unavailableOutput;
 	};
 
 	return (
