@@ -42,17 +42,17 @@ namespace Segra.Backend.Utils
 
             try
             {
-                var jsonDocument = JsonDocument.Parse(message);
-                var root = jsonDocument.RootElement;
+                var jsonDoc = JsonDocument.Parse(message);
+                var root = jsonDoc.RootElement;
 
-                if (root.TryGetProperty("method", out var methodElement) && methodElement.ValueKind == JsonValueKind.String)
+                if (root.TryGetProperty("Method", out JsonElement methodElement))
                 {
                     string method = methodElement.GetString();
 
                     switch (method)
                     {
                         case "Login":
-                            root.TryGetProperty("parameters", out JsonElement loginParameterElement);
+                            root.TryGetProperty("Parameters", out JsonElement loginParameterElement);
                             string accessToken = loginParameterElement.GetProperty("accessToken").GetString();
                             string refreshToken = loginParameterElement.GetProperty("refreshToken").GetString();
                             await AuthService.Login(accessToken, refreshToken);
@@ -61,11 +61,11 @@ namespace Segra.Backend.Utils
                             await AuthService.Logout();
                             break;
                         case "CreateClip":
-                            root.TryGetProperty("parameters", out JsonElement clipParameterElement);
+                            root.TryGetProperty("Parameters", out JsonElement clipParameterElement);
                             await HandleCreateClip(clipParameterElement);
                             break;
                         case "CreateAiClip":
-                            root.TryGetProperty("parameters", out JsonElement aiClipParameterElement);
+                            root.TryGetProperty("Parameters", out JsonElement aiClipParameterElement);
                             await HandleCreateAiClip(aiClipParameterElement);
                             break;
                         case "ApplyUpdate":
@@ -76,15 +76,15 @@ namespace Segra.Backend.Utils
                             _ = Task.Run(UpdateUtils.UpdateAppIfNecessary);
                             break;
                         case "DeleteContent":
-                            root.TryGetProperty("parameters", out JsonElement deleteContentParameterElement);
+                            root.TryGetProperty("Parameters", out JsonElement deleteContentParameterElement);
                             await HandleDeleteContent(deleteContentParameterElement);
                             break;
                         case "UploadContent":
-                            root.TryGetProperty("parameters", out JsonElement uploadContentParameterElement);
+                            root.TryGetProperty("Parameters", out JsonElement uploadContentParameterElement);
                             await HandleUploadContent(uploadContentParameterElement);
                             break;
                         case "OpenFileLocation":
-                            root.TryGetProperty("parameters", out JsonElement openFileLocationParameterElement);
+                            root.TryGetProperty("Parameters", out JsonElement openFileLocationParameterElement);
                             openFileLocationParameterElement.TryGetProperty("FilePath", out JsonElement filePathElement);
                             Process.Start("explorer.exe", $"/select,\"{filePathElement.ToString().Replace("/", "\\")}\"");
                             break;
