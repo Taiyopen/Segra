@@ -42,17 +42,17 @@ namespace Segra.Backend.Utils
 
             try
             {
-                var jsonDoc = JsonDocument.Parse(message);
-                var root = jsonDoc.RootElement;
+                var jsonDocument = JsonDocument.Parse(message);
+                var root = jsonDocument.RootElement;
 
-                if (root.TryGetProperty("Method", out JsonElement methodElement))
+                if (root.TryGetProperty("method", out var methodElement) && methodElement.ValueKind == JsonValueKind.String)
                 {
                     string method = methodElement.GetString();
 
                     switch (method)
                     {
                         case "Login":
-                            root.TryGetProperty("Parameters", out JsonElement loginParameterElement);
+                            root.TryGetProperty("parameters", out JsonElement loginParameterElement);
                             string accessToken = loginParameterElement.GetProperty("accessToken").GetString();
                             string refreshToken = loginParameterElement.GetProperty("refreshToken").GetString();
                             await AuthService.Login(accessToken, refreshToken);
@@ -61,11 +61,11 @@ namespace Segra.Backend.Utils
                             await AuthService.Logout();
                             break;
                         case "CreateClip":
-                            root.TryGetProperty("Parameters", out JsonElement clipParameterElement);
+                            root.TryGetProperty("parameters", out JsonElement clipParameterElement);
                             await HandleCreateClip(clipParameterElement);
                             break;
                         case "CreateAiClip":
-                            root.TryGetProperty("Parameters", out JsonElement aiClipParameterElement);
+                            root.TryGetProperty("parameters", out JsonElement aiClipParameterElement);
                             await HandleCreateAiClip(aiClipParameterElement);
                             break;
                         case "ApplyUpdate":
@@ -76,15 +76,15 @@ namespace Segra.Backend.Utils
                             _ = Task.Run(UpdateUtils.UpdateAppIfNecessary);
                             break;
                         case "DeleteContent":
-                            root.TryGetProperty("Parameters", out JsonElement deleteContentParameterElement);
+                            root.TryGetProperty("parameters", out JsonElement deleteContentParameterElement);
                             await HandleDeleteContent(deleteContentParameterElement);
                             break;
                         case "UploadContent":
-                            root.TryGetProperty("Parameters", out JsonElement uploadContentParameterElement);
+                            root.TryGetProperty("parameters", out JsonElement uploadContentParameterElement);
                             await HandleUploadContent(uploadContentParameterElement);
                             break;
                         case "OpenFileLocation":
-                            root.TryGetProperty("Parameters", out JsonElement openFileLocationParameterElement);
+                            root.TryGetProperty("parameters", out JsonElement openFileLocationParameterElement);
                             openFileLocationParameterElement.TryGetProperty("FilePath", out JsonElement filePathElement);
                             Process.Start("explorer.exe", $"/select,\"{filePathElement.ToString().Replace("/", "\\")}\"");
                             break;
@@ -102,6 +102,7 @@ namespace Segra.Backend.Utils
                                 Log.Information("StopRecording command received.");
                             });
                             break;
+
                         case "NewConnection":
                             Log.Information("NewConnection command received.");
                             await SendSettingsToFrontend();
@@ -660,6 +661,27 @@ namespace Segra.Backend.Utils
             {
                 sendLock.Release();
             }
+        }
+
+        public static async Task ShowModal(string title, string description, string type = "info", string? subtitle = null)
+        {
+            // Validate the modal type
+            if (type != "info" && type != "warning" && type != "error")
+            {
+                Log.Warning($"Invalid modal type '{type}'. Defaulting to 'info'.");
+                type = "info";
+            }
+
+            var modalContent = new
+            {
+                title,
+                subtitle,
+                description,
+                type
+            };
+
+            await SendFrontendMessage("ShowModal", modalContent);
+            Log.Information($"Sent modal to frontend: {title} ({type})");
         }
 
         public static async Task SendSettingsToFrontend()

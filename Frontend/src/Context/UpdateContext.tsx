@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { isUpdateProgressMessage, isReleaseNotesMessage, ReleaseNote, isShowReleaseNotesMessage } from '../Models/WebSocketMessages';
+import { isUpdateProgressMessage, isReleaseNotesMessage, ReleaseNote, isShowReleaseNotesMessage, isShowModalMessage, ModalMessage } from '../Models/WebSocketMessages';
 import { useModal } from './ModalContext';
 import ReleaseNotesModal from '../Components/ReleaseNotesModal';
+import GenericModal from '../Components/GenericModal';
 import { ReleaseNotesContext } from '../App';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 
@@ -16,6 +17,7 @@ interface UpdateContextType {
   updateInfo: UpdateProgress | null;
   releaseNotes: ReleaseNote[];
   openReleaseNotesModal: (filterVersion?: string | null) => void;
+  openModal: (modalData: ModalMessage) => void;
   clearUpdateInfo: () => void;
   checkForUpdates: () => void;
 }
@@ -50,6 +52,10 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       if(isShowReleaseNotesMessage(message)) {
         openReleaseNotesModal(message.content);
       }
+      
+      if(isShowModalMessage(message)) {
+        openGenericModal(message.content);
+      }
     };
 
     window.addEventListener('websocket-message', handleWebSocketMessage as EventListener);
@@ -76,12 +82,25 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       />
     );
   };
+  
+  const openGenericModal = (modalData: ModalMessage) => {
+    openModal(
+      <GenericModal
+        title={modalData.title}
+        subtitle={modalData.subtitle}
+        description={modalData.description}
+        type={modalData.type}
+        onClose={closeModal}
+      />
+    );
+  };
 
   return (
     <UpdateContext.Provider value={{ 
       updateInfo, 
       releaseNotes, 
       openReleaseNotesModal,
+      openModal: openGenericModal,
       clearUpdateInfo,
       checkForUpdates
     }}>

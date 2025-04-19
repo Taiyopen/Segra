@@ -1,5 +1,12 @@
 import { Settings } from './types';
 
+export interface ModalMessage {
+  title: string;
+  subtitle?: string;
+  description: string;
+  type: 'info' | 'warning' | 'error';
+}
+
 export interface UploadProgressMessage {
   fileName: string;
   progress: number;
@@ -33,7 +40,7 @@ export interface WebSocketMessage<T = any> {
   parameters: T;
 }
 
-export type WebSocketMessageType = 'uploadProgress' | 'settings' | 'UpdateProgress' | 'ReleaseNotes';
+export type WebSocketMessageType = 'uploadProgress' | 'settings' | 'UpdateProgress' | 'ReleaseNotes' | 'ShowModal';
 
 export function isUpdateProgressMessage(message: WebSocketMessage<any>): boolean {
   return message.method === 'UpdateProgress';
@@ -45,4 +52,8 @@ export function isReleaseNotesMessage(message: WebSocketMessage<any>): boolean {
 
 export function isShowReleaseNotesMessage(message: WebSocketMessage<any>): boolean {
   return message.method === 'ShowReleaseNotes';
+}
+
+export function isShowModalMessage(message: WebSocketMessage<any>): boolean {
+  return message.method === 'ShowModal';
 }

@@ -133,8 +133,23 @@ namespace Segra.Backend.Utils
         {
             if (IsInitialized)
                 return;
-
-            await CheckIfExistsOrDownloadAsync();
+                
+            try
+            {
+                await CheckIfExistsOrDownloadAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"OBS installation failed: {ex.Message}");
+                await MessageUtils.ShowModal(
+                    "Recorder Error", 
+                    "The recorder installation failed. Please check your internet connection and try again. If you have any games running, please close them and restart Segra.", 
+                    "error",
+                    "Could not install recorder"
+                );
+                Settings.Instance.State.HasLoadedObs = true;
+                return;
+            }
 
             if (obs_initialized())
                 throw new Exception("Error: OBS is already initialized.");
@@ -794,16 +809,22 @@ namespace Segra.Backend.Utils
                 Log.Information("OBS is installed");
                 return;
             }
-
-            string zipPath = Path.Combine(currentDirectory, "obs.zip");
+            
+            // Store obs.zip and hash in AppData to preserve them across updates
+            string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra");
+            Directory.CreateDirectory(appDataDir); // Ensure directory exists
+            
+            string zipPath = Path.Combine(appDataDir, "obs.zip");
             string apiUrl = "https://api.github.com/repos/Segergren/Segra/contents/obs.zip?ref=main";
+            string localHashPath = Path.Combine(appDataDir, "obs.hash");
+            bool needsDownload = true;
 
             using (var httpClient = new HttpClient())
             {
                 httpClient.DefaultRequestHeaders.Add("User-Agent", "Segra");
                 httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3.json");
 
-                Log.Information("Fetching download URL...");
+                Log.Information("Fetching file metadata...");
 
                 var response = await httpClient.GetAsync(apiUrl);
 
@@ -821,24 +842,48 @@ namespace Segra.Backend.Utils
                     Log.Error("Download URL not found in the API response.");
                     throw new Exception("Invalid API response: Missing download URL.");
                 }
+                
+                string remoteHash = metadata.Sha;
+                
+                // Check if we already have the file with the correct hash
+                if (File.Exists(zipPath) && File.Exists(localHashPath))
+                {
+                    string localHash = await File.ReadAllTextAsync(localHashPath);
+                    if (localHash == remoteHash)
+                    {
+                        Log.Information("Found existing obs.zip with matching hash. Skipping download.");
+                        needsDownload = false;
+                    }
+                    else
+                    {
+                        Log.Information("Found existing obs.zip but hash doesn't match. Downloading new version.");
+                    }
+                }
 
-                Log.Information("Downloading OBS...");
+                if (needsDownload)
+                {
+                    Log.Information("Downloading OBS...");
 
-                httpClient.DefaultRequestHeaders.Clear();
-                var zipBytes = await httpClient.GetByteArrayAsync(metadata.DownloadUrl);
-                await File.WriteAllBytesAsync(zipPath, zipBytes);
+                    httpClient.DefaultRequestHeaders.Clear();
+                    var zipBytes = await httpClient.GetByteArrayAsync(metadata.DownloadUrl);
+                    await File.WriteAllBytesAsync(zipPath, zipBytes);
+                    
+                    // Save the hash for future reference
+                    await File.WriteAllTextAsync(localHashPath, remoteHash);
 
-                Log.Information("Download complete");
+                    Log.Information("Download complete");
+                }
             }
 
             Log.Information("Extracting OBS...");
-            ZipFile.ExtractToDirectory(zipPath, currentDirectory);
-            File.Delete(zipPath);
+            ZipFile.ExtractToDirectory(zipPath, currentDirectory, true);
             Log.Information("OBS setup complete");
         }
 
         private class GitHubFileMetadata
         {
+            [System.Text.Json.Serialization.JsonPropertyName("sha")]
+            public string Sha { get; set; }
             [System.Text.Json.Serialization.JsonPropertyName("download_url")]
             public string DownloadUrl { get; set; }
         }
