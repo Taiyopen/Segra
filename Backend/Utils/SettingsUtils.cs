@@ -55,31 +55,131 @@ namespace Segra.Backend.Utils
                     return;
                 }
 
-                // Read and deserialize settings
                 var json = File.ReadAllText(SettingsFilePath);
-                var loadedSettings = JsonSerializer.Deserialize<Settings>(json);
-
-                if (loadedSettings != null)
+                
+                var options = new JsonSerializerOptions
                 {
-                    // Begin bulk update to suppress unnecessary updates
-                    Settings.Instance.BeginBulkUpdate();
-
-                    // Copy properties from loaded settings to instance (exclude RunOnStartup and State)
-                    CopyProperties(loadedSettings, Settings.Instance, new HashSet<string> 
-                    { 
-                        nameof(Settings.RunOnStartup),
-                        nameof(Settings.State)
-                    });
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+                    ReadCommentHandling = JsonCommentHandling.Skip,
+                    AllowTrailingCommas = true,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+                
+                Settings.Instance.BeginBulkUpdate();
+                
+                using (JsonDocument document = JsonDocument.Parse(json))
+                {
+                    JsonElement root = document.RootElement;
                     
-                    // Log successful settings load
-                    Log.Information("Settings loaded successfully from {0}", SettingsFilePath);
-                    
-                    // Special handling for RunOnStartup (comes from the system)
-                    Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
-
-                    // End bulk update
-                    Settings.Instance.EndBulkUpdateAndSaveSettings();
+                    foreach (JsonProperty property in root.EnumerateObject())
+                    {
+                        try
+                        {
+                            if (property.Value.ValueKind == JsonValueKind.Array)
+                            {
+                                var propertyName = char.ToUpper(property.Name[0]) + property.Name.Substring(1);
+                                var targetProperty = typeof(Settings).GetProperty(
+                                    propertyName,
+                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                                
+                                if (targetProperty != null && targetProperty.CanWrite)
+                                {
+                                    try
+                                    {
+                                        Type collectionType = targetProperty.PropertyType;
+                                        
+                                        Type elementType = collectionType.IsGenericType ? 
+                                            collectionType.GetGenericArguments()[0] : typeof(object);
+                                        
+                                        var listType = typeof(List<>).MakeGenericType(elementType);
+                                        var validItems = Activator.CreateInstance(listType);
+                                        
+                                        var addMethod = listType.GetMethod("Add");
+                                        
+                                        foreach (JsonElement itemElement in property.Value.EnumerateArray())
+                                        {
+                                            try
+                                            {
+                                                var item = JsonSerializer.Deserialize(itemElement.GetRawText(), elementType, options);
+                                                if (item != null)
+                                                {
+                                                    addMethod?.Invoke(validItems, new[] { item });
+                                                }
+                                            }
+                                            catch (Exception itemEx)
+                                            {
+                                                Log.Warning($"Failed to deserialize an item in {property.Name}: {itemEx.Message}");
+                                            }
+                                        }
+                                        
+                                        targetProperty.SetValue(Settings.Instance, validItems);
+                                    }
+                                    catch (Exception collEx)
+                                    {
+                                        Log.Warning($"Failed to process collection property {property.Name}: {collEx.Message}");
+                                    }
+                                }
+                            }
+                            else if (property.Value.ValueKind == JsonValueKind.Object)
+                            {
+                                var propertyName = char.ToUpper(property.Name[0]) + property.Name.Substring(1);
+                                var targetProperty = typeof(Settings).GetProperty(
+                                    propertyName,
+                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                                
+                                if (targetProperty != null && targetProperty.CanWrite)
+                                {
+                                    try
+                                    {
+                                        var value = JsonSerializer.Deserialize(property.Value.GetRawText(), targetProperty.PropertyType, options);
+                                        if (value != null)
+                                        {
+                                            targetProperty.SetValue(Settings.Instance, value);
+                                        }
+                                    }
+                                    catch (Exception objEx)
+                                    {
+                                        Log.Warning($"Failed to deserialize object property {property.Name}: {objEx.Message}");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                var propertyName = char.ToUpper(property.Name[0]) + property.Name.Substring(1);
+                                var targetProperty = typeof(Settings).GetProperty(
+                                    propertyName,
+                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                                
+                                if (targetProperty != null && targetProperty.CanWrite)
+                                {
+                                    try
+                                    {
+                                        var value = JsonSerializer.Deserialize(property.Value.GetRawText(), targetProperty.PropertyType, options);
+                                        if (value != null)
+                                        {
+                                            targetProperty.SetValue(Settings.Instance, value);
+                                        }
+                                    }
+                                    catch (Exception primEx)
+                                    {
+                                        Log.Warning($"Failed to deserialize primitive property {property.Name}: {primEx.Message}");
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception propEx)
+                        {
+                            Log.Warning($"Error processing property {property.Name}: {propEx.Message}");
+                        }
+                    }
                 }
+                
+                Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
+                
+                Log.Information("Settings loaded from {0}", SettingsFilePath);
+                
+                Settings.Instance.EndBulkUpdateAndSaveSettings();
             }
             catch (Exception ex)
             {
