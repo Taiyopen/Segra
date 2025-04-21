@@ -4,7 +4,7 @@ using Serilog;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
-namespace Segra.Models
+namespace Segra.Backend.Models
 {
     internal class Settings
     {
@@ -42,7 +42,7 @@ namespace Segra.Models
         private static List<Keybind> GetDefaultKeybindings()
         {
             return new List<Keybind>
-            { 
+            {
                 new Keybind(new List<int> { 119 }, KeybindAction.CreateBookmark, true), // 119 is F8
                 new Keybind(new List<int> { 121 }, KeybindAction.SaveReplayBuffer, true) // 121 is F10
             };
@@ -112,7 +112,7 @@ namespace Segra.Models
                 _contentFolder = value.Replace("\\", "/");
                 Instance._contentFolder = value.Replace("\\", "/");
 
-                if(hasChanged || Instance.State.Content.Count == 0)
+                if (hasChanged || Instance.State.Content.Count == 0)
                 {
                     SendToFrontend();
                     SettingsUtils.LoadContentFromFolderIntoState();
@@ -123,7 +123,7 @@ namespace Segra.Models
                 }
             }
         }
-        
+
         [JsonPropertyName("theme")]
         public string Theme
         {
@@ -230,7 +230,7 @@ namespace Segra.Models
             get => _inputDevices;
             set
             {
-                bool hasChanged = !_inputDevices.SequenceEqual(value); 
+                bool hasChanged = !_inputDevices.SequenceEqual(value);
                 _inputDevices = value;
 
                 if (Instance != null && hasChanged && !Instance._isBulkUpdating)
@@ -402,7 +402,7 @@ namespace Segra.Models
                 bool hasChanged = Instance._auth.Jwt != value.Jwt || Instance._auth.RefreshToken != value.RefreshToken;
                 _auth = value;
                 if (hasChanged)
-                {   
+                {
                     SendToFrontend();
                 }
             }
@@ -590,7 +590,7 @@ namespace Segra.Models
                 }
             }
         }
-        
+
         [JsonPropertyName("inputDevices")]
         public List<AudioDevice> InputDevices
         {
@@ -604,7 +604,7 @@ namespace Segra.Models
                 }
             }
         }
-        
+
         [JsonPropertyName("outputDevices")]
         public List<AudioDevice> OutputDevices
         {
@@ -618,7 +618,7 @@ namespace Segra.Models
                 }
             }
         }
-        
+
         [JsonPropertyName("isCheckingForUpdates")]
         public bool IsCheckingForUpdates
         {
@@ -632,11 +632,11 @@ namespace Segra.Models
                 }
             }
         }
-        
+
         public void UpdateAudioDevices()
         {
             // Get the list of input devices
-    var inputDevices = AudioDeviceUtils.GetInputDevices();
+            var inputDevices = AudioDeviceUtils.GetInputDevices();
             if (!Enumerable.SequenceEqual(_inputDevices, inputDevices))
             {
                 _inputDevices = inputDevices;
@@ -670,11 +670,11 @@ namespace Segra.Models
             if (defaultInputDevice != null)
             {
                 Settings.Instance.BeginBulkUpdate();
-                Settings.Instance.InputDevices.Add(new DeviceSetting 
+                Settings.Instance.InputDevices.Add(new DeviceSetting
                 {
-                     Id = defaultInputDevice.Id, 
-                     Name = defaultInputDevice.Name, 
-                     Volume = 1.0f 
+                    Id = defaultInputDevice.Id,
+                    Name = defaultInputDevice.Name,
+                    Volume = 1.0f
                 });
                 Settings.Instance.EndBulkUpdateAndSaveSettings();
                 Log.Information($"Auto-selected default input device: {defaultInputDevice.Name}");
@@ -684,11 +684,11 @@ namespace Segra.Models
             if (defaultOutputDevice != null)
             {
                 Settings.Instance.BeginBulkUpdate();
-                Settings.Instance.OutputDevices.Add(new DeviceSetting 
+                Settings.Instance.OutputDevices.Add(new DeviceSetting
                 {
-                     Id = defaultOutputDevice.Id, 
-                     Name = defaultOutputDevice.Name, 
-                     Volume = 1.0f 
+                    Id = defaultOutputDevice.Id,
+                    Name = defaultOutputDevice.Name,
+                    Volume = 1.0f
                 });
                 Settings.Instance.EndBulkUpdateAndSaveSettings();
                 Log.Information($"Auto-selected default output device: {defaultOutputDevice.Name}");
@@ -707,14 +707,14 @@ namespace Segra.Models
         public void SetContent(List<Content> contents, bool sendToFrontend)
         {
 
-            
 
-                _content = contents;
-                if (sendToFrontend)
-                {
-                    SendToFrontend();
-                }
-            
+
+            _content = contents;
+            if (sendToFrontend)
+            {
+                SendToFrontend();
+            }
+
         }
 
         public void Dispose()
@@ -813,7 +813,7 @@ namespace Segra.Models
         {
             if (other == null)
                 return false;
-            return this.Id == other.Id && this.Name == other.Name;
+            return Id == other.Id && Name == other.Name;
         }
 
         public override int GetHashCode()
@@ -834,7 +834,8 @@ namespace Segra.Models
             get => _jwt;
             set
             {
-                if(_jwt != value) {
+                if (_jwt != value)
+                {
                     bool hasChanged = !Settings.Instance.Auth.Jwt.Equals(value);
                     _jwt = value;
 
@@ -843,7 +844,7 @@ namespace Segra.Models
                         SettingsUtils.SaveSettings();
                     }
                 }
-            }   
+            }
         }
 
         [JsonPropertyName("refreshToken")]
@@ -852,7 +853,8 @@ namespace Segra.Models
             get => _refreshToken;
             set
             {
-                if(_refreshToken != value) {
+                if (_refreshToken != value)
+                {
                     bool hasChanged = !Settings.Instance.Auth.RefreshToken.Equals(value);
                     _refreshToken = value;
                     if (Settings.Instance != null && hasChanged && !Settings.Instance._isBulkUpdating)

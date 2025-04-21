@@ -1,6 +1,5 @@
 using Serilog;
 using Supabase.Gotrue;
-using Segra.Models;
 
 namespace Segra.Backend.Services
 {
@@ -22,7 +21,7 @@ namespace Segra.Backend.Services
         {
             try
             {
-                var auth = Segra.Models.Settings.Instance.Auth;
+                var auth = Models.Settings.Instance.Auth;
                 if (auth.HasCredentials())
                 {
                     Log.Information("Attempting to login with stored credentials");
@@ -62,8 +61,8 @@ namespace Segra.Backend.Services
                     if (Session != null)
                     {
                         Log.Debug($"Saving tokens to settings. AccessToken length: {Session.AccessToken?.Length ?? 0}, RefreshToken length: {Session.RefreshToken?.Length ?? 0}");
-                        Segra.Models.Settings.Instance.Auth.Jwt = Session.AccessToken ?? string.Empty;
-                        Segra.Models.Settings.Instance.Auth.RefreshToken = Session.RefreshToken ?? string.Empty;
+                        Models.Settings.Instance.Auth.Jwt = Session.AccessToken ?? string.Empty;
+                        Models.Settings.Instance.Auth.RefreshToken = Session.RefreshToken ?? string.Empty;
                         
                         if (isAutoLogin)
                         {
@@ -107,16 +106,16 @@ namespace Segra.Backend.Services
                     Session = null;
                     
                     // Clear stored credentials
-                    Segra.Models.Settings.Instance.Auth.Jwt = string.Empty;
-                    Segra.Models.Settings.Instance.Auth.RefreshToken = string.Empty;
+                    Models.Settings.Instance.Auth.Jwt = string.Empty;
+                    Models.Settings.Instance.Auth.RefreshToken = string.Empty;
                 }
                 catch (Exception ex)
                 {
                     Log.Error($"Logout failed: {ex.Message}");
 
                     // Clear stored credentials
-                    Segra.Models.Settings.Instance.Auth.Jwt = string.Empty;
-                    Segra.Models.Settings.Instance.Auth.RefreshToken = string.Empty;
+                    Models.Settings.Instance.Auth.Jwt = string.Empty;
+                    Models.Settings.Instance.Auth.RefreshToken = string.Empty;
                 }
             }
         }
@@ -159,8 +158,8 @@ namespace Segra.Backend.Services
                     if (Session != null)
                     {
                         Log.Debug($"Refreshed tokens. New AccessToken length: {Session.AccessToken?.Length ?? 0}, RefreshToken length: {Session.RefreshToken?.Length ?? 0}");
-                        Segra.Models.Settings.Instance.Auth.Jwt = Session.AccessToken ?? string.Empty;
-                        Segra.Models.Settings.Instance.Auth.RefreshToken = Session.RefreshToken ?? string.Empty;
+                        Models.Settings.Instance.Auth.Jwt = Session.AccessToken ?? string.Empty;
+                        Models.Settings.Instance.Auth.RefreshToken = Session.RefreshToken ?? string.Empty;
                     }
                     else
                     {

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Segra.Models
+namespace Segra.Backend.Models
 {
     public class AiProgressMessage
     {

@@ -2,12 +2,11 @@ using System.Net.WebSockets;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-
-using Segra.Models;
 using Serilog;
 using System.Net.Http.Headers;
 using System.Diagnostics;
 using Segra.Backend.Services;
+using Segra.Backend.Models;
 
 namespace Segra.Backend.Utils
 {

@@ -1,5 +1,5 @@
 using NAudio.CoreAudioApi;
-using Segra.Models;
+using Segra.Backend.Models;
 using System.Text.RegularExpressions;
 
 namespace Segra.Backend.Utils

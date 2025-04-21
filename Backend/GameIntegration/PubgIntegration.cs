@@ -1,5 +1,5 @@
 ﻿using Segra.Backend;
-using Segra.Models;
+using Segra.Backend.Models;
 using Serilog;
 using System.Text;
 using System.Text.Json;

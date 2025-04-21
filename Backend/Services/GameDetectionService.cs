@@ -1,5 +1,5 @@
+using Segra.Backend.Models;
 using Segra.Backend.Utils;
-using Segra.Models;
 using Serilog;
 using System.Diagnostics;
 using System.Management;
@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Security;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Segra.Backend.Services
 {
@@ -61,13 +62,16 @@ namespace Segra.Backend.Services
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
-        public static void StartAsync()
+        public static async void StartAsync()
         {
             if (_running)
                 return;
 
             _running = true;
             _cts = new CancellationTokenSource();
+
+            // Initialize game detection from JSON
+            await GameUtils.InitializeAsync();
 
             _task = Task.Run(() =>
             {
@@ -251,14 +255,21 @@ namespace Segra.Backend.Services
                 }
             }
             
-            // 3. If not in either list, use the default Steam detection
+            // 3. Check if the game is in the games.json list
+            bool isKnownGame = GameUtils.IsGameExePath(exePath);
+            if (isKnownGame)
+            {
+                string gameName = GameUtils.GetGameNameFromExePath(exePath) ?? Path.GetFileNameWithoutExtension(exePath);
+                Log.Information($"Detected known game {gameName} at {exePath}, will record");
+                return true;
+            }
+            
+            // 4. If not in any list, use the default Steam detection
             bool isSteamGame = exePath.Replace("\\", "/").Contains("/steamapps/common/", StringComparison.OrdinalIgnoreCase);
             if (isSteamGame)
             {
                 Log.Information($"Detected Steam game at {exePath}, will record");
             }
-
-            //TODO (os): Add more detection methods
 
             return isSteamGame;
         }
@@ -362,8 +373,16 @@ namespace Segra.Backend.Services
         private static string ExtractGameName(string exePath)
         {
             if (string.IsNullOrEmpty(exePath)) return "Unknown";
+            
+            // First check if it's in our games.json database
+            string? jsonGameName = GameUtils.GetGameNameFromExePath(exePath);
+            if (!string.IsNullOrEmpty(jsonGameName)) return jsonGameName;
+            
+            // Then try Steam lookup
             string steamName = AttemptSteamAcfLookup(exePath);
             if (!string.IsNullOrEmpty(steamName)) return steamName;
+            
+            // Fall back to filename
             return Path.GetFileNameWithoutExtension(exePath);
         }
 

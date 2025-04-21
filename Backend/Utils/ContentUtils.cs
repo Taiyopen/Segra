@@ -1,4 +1,4 @@
-﻿using Segra.Models;
+﻿using Segra.Backend.Models;
 using Serilog;
 using System.Diagnostics;
 using System.Globalization;

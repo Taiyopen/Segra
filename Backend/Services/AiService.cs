@@ -1,9 +1,9 @@
-﻿using Segra.Models;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Serilog;
 using Segra.Backend.Utils;
+using Segra.Backend.Models;
 
 namespace Segra.Backend.Services
 {
