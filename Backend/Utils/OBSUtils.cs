@@ -11,7 +11,17 @@ namespace Segra.Backend.Utils
 {
     public static class OBSUtils
     {
+        // Enum for GPU vendor types
+        public enum GpuVendor
+        {
+            Unknown,
+            Nvidia,
+            AMD,
+            Intel
+        }
+
         public static bool IsInitialized { get; private set; }
+        public static GpuVendor DetectedGpuVendor { get; private set; } = GpuVendor.Unknown;
         public static string CurrentTrackedFileName { get; set; }
         static bool signalOutputStop = false;
         static IntPtr output = IntPtr.Zero;
@@ -22,6 +32,12 @@ namespace Segra.Backend.Utils
         static List<IntPtr> desktopSources = new List<IntPtr>();
         static IntPtr videoEncoder = IntPtr.Zero;
         static IntPtr audioEncoder = IntPtr.Zero;
+
+        // Available encoder IDs for different hardware
+        private const string NVIDIA_ENCODER = "jim_nvenc";
+        private const string AMD_ENCODER = "amd_amf_h264";
+        private const string INTEL_ENCODER = "qsv_h264";
+        private const string CPU_ENCODER = "x264";
 
         static signal_callback_t outputStopCallback = (data, cd) =>
         {
@@ -131,9 +147,12 @@ namespace Segra.Backend.Utils
 
         public static async Task InitializeAsync()
         {
+            // Detect GPU vendor early in initialization
+            DetectGpuVendor();
+
             if (IsInitialized)
                 return;
-                
+
             try
             {
                 await CheckIfExistsOrDownloadAsync();
@@ -363,7 +382,9 @@ namespace Segra.Backend.Utils
                     throw new Exception("Unsupported Rate Control method.");
             }
 
-            videoEncoder = obs_video_encoder_create("jim_nvenc", "Segra Recorder", videoEncoderSettings, IntPtr.Zero);
+            // Select the appropriate encoder based on settings and available hardware
+            string encoderId = GetEncoderIdBasedOnSettings();
+            videoEncoder = obs_video_encoder_create(encoderId, "Segra Recorder", videoEncoderSettings, IntPtr.Zero);
             obs_data_release(videoEncoderSettings);
             obs_encoder_set_video(videoEncoder, obs_get_video());
 
@@ -886,6 +907,75 @@ namespace Segra.Backend.Utils
             public string Sha { get; set; }
             [System.Text.Json.Serialization.JsonPropertyName("download_url")]
             public string DownloadUrl { get; set; }
+        }
+
+        private static string GetEncoderIdBasedOnSettings()
+        {
+            // Check if user wants CPU or GPU encoding
+            if (Settings.Instance.Encoder.Equals("cpu", StringComparison.CurrentCultureIgnoreCase))
+            {
+                Log.Information("Using CPU encoder (x264)");
+                return CPU_ENCODER;
+            }
+            
+            // User wants GPU encoding, check which GPU vendor is available
+            switch (DetectedGpuVendor)
+            {
+                case GpuVendor.Nvidia:
+                    Log.Information("Using NVIDIA GPU encoder (NVENC)");
+                    return NVIDIA_ENCODER;
+                case GpuVendor.AMD:
+                    Log.Information("Using AMD GPU encoder (AMF)");
+                    return AMD_ENCODER;
+                case GpuVendor.Intel:
+                    Log.Information("Using Intel GPU encoder (QSV)");
+                    return INTEL_ENCODER;
+                default:
+                    // Fall back to CPU encoding if no supported GPU is detected
+                    Log.Warning("No supported GPU detected, falling back to CPU encoder (x264)");
+                    return CPU_ENCODER;
+            }
+        }
+
+        private static void DetectGpuVendor()
+        {
+            try
+            {
+                // Get GPU information using Windows Management Instrumentation (WMI)
+                using (var searcher = new System.Management.ManagementObjectSearcher("SELECT * FROM Win32_VideoController"))
+                {
+                    foreach (var obj in searcher.Get())
+                    {
+                        string name = obj["Name"]?.ToString()?.ToLower() ?? string.Empty;
+                        
+                        if (name.Contains("nvidia"))
+                        {
+                            DetectedGpuVendor = GpuVendor.Nvidia;
+                            Log.Information($"Detected NVIDIA GPU: {obj["Name"]}");
+                            return;
+                        }
+                        else if (name.Contains("amd") || name.Contains("radeon") || name.Contains("ati"))
+                        {
+                            DetectedGpuVendor = GpuVendor.AMD;
+                            Log.Information($"Detected AMD GPU: {obj["Name"]}");
+                            return;
+                        }
+                        else if (name.Contains("intel"))
+                        {
+                            DetectedGpuVendor = GpuVendor.Intel;
+                            Log.Information($"Detected Intel GPU: {obj["Name"]}");
+                            return;
+                        }
+                    }
+                }
+                
+                Log.Warning("Could not identify GPU vendor, will default to CPU encoding if GPU encoding is selected");
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error detecting GPU vendor: {ex.Message}");
+                DetectedGpuVendor = GpuVendor.Unknown;
+            }
         }
 
         private static void PlayStartSound()
