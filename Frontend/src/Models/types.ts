@@ -71,6 +71,11 @@ export interface DeviceSetting {
 	volume: number; // Volume from 0.0 to 1.0
 }
 
+export interface Game {
+	name: string;
+	path: string;
+}
+
 export interface Settings {
 	theme: 'segra' | 'rich' | 'dark' | 'night' | 'dracula' | 'black' | 'luxury' | 'forest' | 'halloween' | 'coffee' | 'dim' | 'sunset';
 	resolution: '720p' | '1080p' | '1440p' | '4K';
@@ -93,6 +98,8 @@ export interface Settings {
 	replayBufferDuration: number; // in seconds
 	replayBufferMaxSize: number; // in MB
 	keybindings: Keybind[];
+	whitelist: Game[];
+	blacklist: Game[];
 	state: State;
 }
 
@@ -130,6 +137,8 @@ export const initialSettings: Settings = {
 		{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
 		{ keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true } // 121 is F10
 	],
+	whitelist: [],
+	blacklist: [],
 	state: initialState,
 };
 

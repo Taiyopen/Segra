@@ -1,4 +1,4 @@
-import { Settings } from './types';
+import { Settings, Game } from './types';
 
 export interface ModalMessage {
   title: string;
@@ -35,12 +35,16 @@ export interface ReleaseNotesMessage {
   releaseNotesList: ReleaseNote[];
 }
 
+export interface SelectedGameExecutableMessage {
+  game: Game;
+}
+
 export interface WebSocketMessage<T = any> {
   method: string;
   parameters: T;
 }
 
-export type WebSocketMessageType = 'uploadProgress' | 'settings' | 'UpdateProgress' | 'ReleaseNotes' | 'ShowModal';
+export type WebSocketMessageType = 'uploadProgress' | 'settings' | 'UpdateProgress' | 'ReleaseNotes' | 'ShowModal' | 'SelectedGameExecutable';
 
 export function isUpdateProgressMessage(message: WebSocketMessage<any>): boolean {
   return message.method === 'UpdateProgress';
@@ -56,4 +60,8 @@ export function isShowReleaseNotesMessage(message: WebSocketMessage<any>): boole
 
 export function isShowModalMessage(message: WebSocketMessage<any>): boolean {
   return message.method === 'ShowModal';
+}
+
+export function isSelectedGameExecutableMessage(message: WebSocketMessage<any>): boolean {
+  return message.method === 'SelectedGameExecutable';
 }

@@ -9,6 +9,7 @@ import {useAuth} from '../Hooks/useAuth.tsx';
 import {useProfile} from '../Hooks/useUserProfile';
 import {MdOutlineLogout, MdWarning, MdLock} from 'react-icons/md';
 import {useUpdate} from '../Context/UpdateContext';
+import GameListManager from '../Components/GameListManager';
 
 export default function Settings() {
 	const {session, authError, isAuthenticating, clearAuthError, signOut} = useAuth();
@@ -962,6 +963,13 @@ export default function Settings() {
 						</div>
 					))}
 				</div>
+			</div>
+
+			{/* Game Whitelist and Blacklist */}
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
+				<h2 className="text-xl font-semibold mb-4">Game Lists</h2>
+				<GameListManager listType="whitelist" />
+				<GameListManager listType="blacklist" />
 			</div>
 
 			{/* Advanced Settings */}

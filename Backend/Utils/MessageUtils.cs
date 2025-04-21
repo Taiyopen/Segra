@@ -33,7 +33,7 @@ namespace Segra.Backend.Utils
 
         public static async Task HandleMessage(string message)
         {
-            Log.Information("WEBSOCKET: " + message);
+            Log.Information("Websocket message received: " + message);
             if (string.IsNullOrEmpty(message))
             {
                 Log.Information("Received empty message.");
@@ -75,6 +75,22 @@ namespace Segra.Backend.Utils
                             Log.Information("CheckForUpdates command received.");
                             _ = Task.Run(UpdateUtils.UpdateAppIfNecessary);
                             break;
+                        case "AddToWhitelist":
+                            root.TryGetProperty("Parameters", out JsonElement addWhitelistParameterElement);
+                            await HandleAddToWhitelist(addWhitelistParameterElement);
+                            break;
+                        case "RemoveFromWhitelist":
+                            root.TryGetProperty("Parameters", out JsonElement removeWhitelistParameterElement);
+                            await HandleRemoveFromWhitelist(removeWhitelistParameterElement);
+                            break;
+                        case "AddToBlacklist":
+                            root.TryGetProperty("Parameters", out JsonElement addBlacklistParameterElement);
+                            await HandleAddToBlacklist(addBlacklistParameterElement);
+                            break;
+                        case "RemoveFromBlacklist":
+                            root.TryGetProperty("Parameters", out JsonElement removeBlacklistParameterElement);
+                            await HandleRemoveFromBlacklist(removeBlacklistParameterElement);
+                            break;
                         case "DeleteContent":
                             root.TryGetProperty("Parameters", out JsonElement deleteContentParameterElement);
                             await HandleDeleteContent(deleteContentParameterElement);
@@ -87,6 +103,9 @@ namespace Segra.Backend.Utils
                             root.TryGetProperty("Parameters", out JsonElement openFileLocationParameterElement);
                             openFileLocationParameterElement.TryGetProperty("FilePath", out JsonElement filePathElement);
                             Process.Start("explorer.exe", $"/select,\"{filePathElement.ToString().Replace("/", "\\")}\"");
+                            break;
+                        case "SelectGameExecutable":
+                            await HandleSelectGameExecutable();
                             break;
                         case "StartRecording":
                             await Task.Run(() =>
@@ -691,6 +710,175 @@ namespace Segra.Backend.Utils
 
             Log.Information("Sending settings to frontend");
             await SendFrontendMessage("Settings", Settings.Instance);
+        }
+
+        public static async Task HandleAddToWhitelist(JsonElement parameters)
+        {
+            try
+            {
+                if (parameters.TryGetProperty("game", out JsonElement gameElement))
+                {
+                    var game = JsonSerializer.Deserialize<Game>(gameElement.GetRawText());
+                    if (game != null && !string.IsNullOrEmpty(game.Name) && !string.IsNullOrEmpty(game.Path))
+                    {
+                        var comparer = new GameEqualityComparer();
+                        bool exists = Settings.Instance.Whitelist.Any(g => comparer.Equals(g, game));
+                        
+                        if (!exists)
+                        {
+                            var whitelist = new List<Game>(Settings.Instance.Whitelist);
+                            whitelist.Add(game);
+                            Settings.Instance.Whitelist = whitelist;
+                            Log.Information($"Added game {game.Name} to whitelist");
+                        }
+                        else
+                        {
+                            Log.Information($"Game {game.Name} already exists in whitelist");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error adding to whitelist: {ex.Message}");
+                await ShowModal("Error", $"Failed to add game to whitelist: {ex.Message}", "error");
+            }
+        }
+
+        public static async Task HandleRemoveFromWhitelist(JsonElement parameters)
+        {
+            try
+            {
+                if (parameters.TryGetProperty("game", out JsonElement gameElement))
+                {
+                    var game = JsonSerializer.Deserialize<Game>(gameElement.GetRawText());
+                    if (game != null && !string.IsNullOrEmpty(game.Name) && !string.IsNullOrEmpty(game.Path))
+                    {
+                        var comparer = new GameEqualityComparer();
+                        var existingGame = Settings.Instance.Whitelist.FirstOrDefault(g => comparer.Equals(g, game));
+                        
+                        if (existingGame != null)
+                        {
+                            var whitelist = new List<Game>(Settings.Instance.Whitelist);
+                            whitelist.Remove(existingGame);
+                            Settings.Instance.Whitelist = whitelist;
+                            Log.Information($"Removed game {game.Name} from whitelist");
+                        }
+                        else
+                        {
+                            Log.Information($"Game {game.Name} does not exist in whitelist");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error removing from whitelist: {ex.Message}");
+                await ShowModal("Error", $"Failed to remove game from whitelist: {ex.Message}", "error");
+            }
+        }
+
+        public static async Task HandleAddToBlacklist(JsonElement parameters)
+        {
+            try
+            {
+                if (parameters.TryGetProperty("game", out JsonElement gameElement))
+                {
+                    var game = JsonSerializer.Deserialize<Game>(gameElement.GetRawText());
+                    if (game != null && !string.IsNullOrEmpty(game.Name) && !string.IsNullOrEmpty(game.Path))
+                    {
+                        var comparer = new GameEqualityComparer();
+                        bool exists = Settings.Instance.Blacklist.Any(g => comparer.Equals(g, game));
+                        
+                        if (!exists)
+                        {
+                            var blacklist = new List<Game>(Settings.Instance.Blacklist);
+                            blacklist.Add(game);
+                            Settings.Instance.Blacklist = blacklist;
+                            Log.Information($"Added game {game.Name} to blacklist");
+                        }
+                        else
+                        {
+                            Log.Information($"Game {game.Name} already exists in blacklist");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error adding to blacklist: {ex.Message}");
+                await ShowModal("Error", $"Failed to add game to blacklist: {ex.Message}", "error");
+            }
+        }
+
+        public static async Task HandleRemoveFromBlacklist(JsonElement parameters)
+        {
+            try
+            {
+                if (parameters.TryGetProperty("game", out JsonElement gameElement))
+                {
+                    var game = JsonSerializer.Deserialize<Game>(gameElement.GetRawText());
+                    if (game != null && !string.IsNullOrEmpty(game.Name) && !string.IsNullOrEmpty(game.Path))
+                    {
+                        var comparer = new GameEqualityComparer();
+                        var existingGame = Settings.Instance.Blacklist.FirstOrDefault(g => comparer.Equals(g, game));
+                        
+                        if (existingGame != null)
+                        {
+                            var blacklist = new List<Game>(Settings.Instance.Blacklist);
+                            blacklist.Remove(existingGame);
+                            Settings.Instance.Blacklist = blacklist;
+                            Log.Information($"Removed game {game.Name} from blacklist");
+                        }
+                        else
+                        {
+                            Log.Information($"Game {game.Name} does not exist in blacklist");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error removing from blacklist: {ex.Message}");
+                await ShowModal("Error", $"Failed to remove game from blacklist: {ex.Message}", "error");
+            }
+        }
+
+        public static async Task HandleSelectGameExecutable()
+        {
+            try
+            {
+                var openFileDialog = new OpenFileDialog
+                {
+                    Filter = "Executable Files (*.exe)|*.exe",
+                    Title = "Select Game Executable",
+                    CheckFileExists = true,
+                    CheckPathExists = true,
+                    Multiselect = false
+                };
+
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    string filePath = openFileDialog.FileName;
+                    string fileName = Path.GetFileNameWithoutExtension(filePath);
+
+                    // Create a game object with lowercase property names to match frontend expectations
+                    var gameObject = new
+                    {
+                        name = fileName,
+                        path = filePath
+                    };
+
+                    // Send the selected game back to the frontend
+                    await SendFrontendMessage("SelectedGameExecutable", gameObject);
+                    Log.Information($"Selected game executable: {filePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error selecting game executable: {ex.Message}");
+                await ShowModal("Error", $"Failed to select game executable: {ex.Message}", "error");
+            }
         }
     }
 }

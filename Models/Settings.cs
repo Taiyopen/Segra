@@ -33,6 +33,8 @@ namespace Segra.Models
         private int _replayBufferDuration = 30;
         private int _replayBufferMaxSize = 500;
         private List<Keybind> _keybindings;
+        private List<Game> _whitelist = new List<Game>();
+        private List<Game> _blacklist = new List<Game>();
         private State _state = new State();
         private Auth _auth = new Auth();
 
@@ -321,6 +323,38 @@ namespace Segra.Models
                 {
                     _recordingMode = value;
                     SendToFrontend();
+                }
+            }
+        }
+
+        [JsonPropertyName("whitelist")]
+        public List<Game> Whitelist
+        {
+            get => _whitelist;
+            set
+            {
+                bool hasChanged = !_whitelist.SequenceEqual(value, new GameEqualityComparer());
+                _whitelist = value;
+                if (hasChanged && !_isBulkUpdating)
+                {
+                    SendToFrontend();
+                    SettingsUtils.SaveSettings();
+                }
+            }
+        }
+
+        [JsonPropertyName("blacklist")]
+        public List<Game> Blacklist
+        {
+            get => _blacklist;
+            set
+            {
+                bool hasChanged = !_blacklist.SequenceEqual(value, new GameEqualityComparer());
+                _blacklist = value;
+                if (hasChanged && !_isBulkUpdating)
+                {
+                    SendToFrontend();
+                    SettingsUtils.SaveSettings();
                 }
             }
         }
@@ -840,5 +874,30 @@ namespace Segra.Models
     {
         Session,
         Buffer
+    }
+
+    public class Game
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("path")]
+        public string Path { get; set; } = string.Empty;
+    }
+
+    public class GameEqualityComparer : IEqualityComparer<Game>
+    {
+        public bool Equals(Game? x, Game? y)
+        {
+            if (x == null && y == null) return true;
+            if (x == null || y == null) return false;
+            return x.Name == y.Name && x.Path == y.Path;
+        }
+
+        public int GetHashCode(Game obj)
+        {
+            if (obj == null) return 0;
+            return (obj.Name + obj.Path).GetHashCode();
+        }
     }
 }
