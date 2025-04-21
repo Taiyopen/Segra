@@ -73,8 +73,6 @@ namespace Segra.Backend.Services
                         {
                             Log.Information($"Manual login successful for user {Session.User?.Id}");
                         }
-                        
-                        Log.Information($"JWT token: {Session.AccessToken}");
                     }
                     else
                     {

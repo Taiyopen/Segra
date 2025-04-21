@@ -1,4 +1,4 @@
-﻿using Segra.Backend.Utils;
+using Segra.Backend.Utils;
 using Segra.Models;
 using Serilog;
 using System.Diagnostics;
@@ -19,6 +19,7 @@ namespace Segra.Backend.Services
         private static bool _running;
         private static Task _task;
         private static CancellationTokenSource _cts;
+        private static System.Threading.Timer? _processCheckTimer;
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
@@ -106,7 +107,10 @@ namespace Segra.Backend.Services
             processStopWatcher.EventArrived += OnProcessStopped;
             processStopWatcher.Start();
 
-            Log.Information("WMI watchers are now active.");
+            // Start periodic process scanning for games that might not trigger foreground events
+            _processCheckTimer = new System.Threading.Timer(_ => CheckForGames(), null, 10000, 10000);
+
+            Log.Information("WMI watchers and process check timer are now active.");
         }
 
         private static void Stop()
@@ -117,6 +121,11 @@ namespace Segra.Backend.Services
                 processStopWatcher?.Stop();
                 processStartWatcher?.Dispose();
                 processStopWatcher?.Dispose();
+                
+                // Stop and dispose the process check timer
+                _processCheckTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                _processCheckTimer?.Dispose();
+                _processCheckTimer = null;
             }
             catch { }
 
@@ -134,7 +143,7 @@ namespace Segra.Backend.Services
                 string exePath = ResolveProcessPath(pid);
 
                 Log.Information($"[OnProcessStarted] Application started: PID {pid}, Path: {exePath}");
-                if (IsGameExecutable(exePath))
+                if (ShouldRecordGame(exePath))
                 {
                     StartGameRecording(pid, exePath);
                 }
@@ -216,10 +225,42 @@ namespace Segra.Backend.Services
             }
         }
 
-        private static bool IsGameExecutable(string exePath)
+        private static bool ShouldRecordGame(string exePath)
         {
             if (string.IsNullOrEmpty(exePath)) return false;
-            return exePath.Replace("\\", "/").Contains("/steamapps/common/", StringComparison.OrdinalIgnoreCase);
+            
+            // 1. Check if the game is in the whitelist - if so, always record
+            var whitelist = Settings.Instance.Whitelist;
+            foreach (var game in whitelist)
+            {
+                if (string.Equals(game.Path, exePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Information($"Game {game.Name} found in whitelist, will record");
+                    return true;
+                }
+            }
+            
+            // 2. Check if the game is in the blacklist - if so, never record
+            var blacklist = Settings.Instance.Blacklist;
+            foreach (var game in blacklist)
+            {
+                if (string.Equals(game.Path, exePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Information($"Game {game.Name} found in blacklist, will not record");
+                    return false;
+                }
+            }
+            
+            // 3. If not in either list, use the default Steam detection
+            bool isSteamGame = exePath.Replace("\\", "/").Contains("/steamapps/common/", StringComparison.OrdinalIgnoreCase);
+            if (isSteamGame)
+            {
+                Log.Information($"Detected Steam game at {exePath}, will record");
+            }
+
+            //TODO (os): Add more detection methods
+
+            return isSteamGame;
         }
 
         private static string ResolveProcessPath(int pid)
@@ -228,7 +269,11 @@ namespace Segra.Backend.Services
             try
             {
                 var proc = Process.GetProcessById(pid);
-                return Path.GetFullPath(proc.MainModule.FileName);
+                if (proc.MainModule != null)
+                {
+                    return Path.GetFullPath(proc.MainModule.FileName);
+                }
+                return ResolvePathViaWinAPI(pid);
             }
             catch
             {
@@ -262,6 +307,57 @@ namespace Segra.Backend.Services
                     return path.Replace(kv.Key, kv.Value);
             return path;
         }
+
+        private static void CheckForGames()
+        {
+            // Skip if already recording
+            if (Settings.Instance.State.Recording != null || OBSUtils.CurrentTrackedFileName != null) return;
+            
+            try
+            {
+                // Get the foreground window and its process ID
+                IntPtr foregroundWindow = GetForegroundWindow();
+                uint foregroundPid = 0;
+                GetWindowThreadProcessId(foregroundWindow, out foregroundPid);
+                
+                if (foregroundPid <= 0)
+                {
+                    Log.Debug("[ProcessCheck] No valid foreground window found");
+                    return;
+                }
+                
+                // Get the executable path of the foreground process
+                string foregroundExePath = ResolveProcessPath((int)foregroundPid);
+                
+                if (string.IsNullOrEmpty(foregroundExePath))
+                {
+                    Log.Debug("[ProcessCheck] Could not resolve foreground process path");
+                    return;
+                }
+                
+                // Check if the foreground process is a game we should record
+                if (ShouldRecordGame(foregroundExePath))
+                {
+                    string processName = "Unknown";
+                    try
+                    {
+                        using var process = Process.GetProcessById((int)foregroundPid);
+                        processName = process.ProcessName;
+                    }
+                    catch { }
+                    
+                    Log.Information($"[ProcessCheck] Foreground window is a game: {processName}, Path: {foregroundExePath}");
+                    StartGameRecording((int)foregroundPid, foregroundExePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[ProcessCheck] Error checking foreground window: {ex.Message}");
+            }
+        }
+        
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
 
         private static string ExtractGameName(string exePath)
         {
@@ -444,12 +540,14 @@ namespace Segra.Backend.Services
                     uint pid = 0;
                     GetWindowThreadProcessId(hwnd, out pid);
 
+                    Log.Information($"Foreground window process ID: {pid}");
+
                     if (pid > 0)
                     {
                         try
                         {
                             string exePath = ResolveProcessPath((int)pid);
-                            if (IsGameExecutable(exePath))
+                            if (ShouldRecordGame(exePath))
                             {
                                 StartGameRecording((int)pid, exePath);
                             }
