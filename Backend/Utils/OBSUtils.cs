@@ -1,7 +1,7 @@
 using LibObs;
 using NAudio.Wave;
+using Segra.Backend.Models;
 using Segra.Backend.Services;
-using Segra.Models;
 using Serilog;
 using System.IO.Compression;
 using System.Runtime.InteropServices;

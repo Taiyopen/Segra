@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Segra.Models
+namespace Segra.Backend.Models
 {
     public class Keybind : IEquatable<Keybind>
     {
@@ -24,9 +24,9 @@ namespace Segra.Models
         public bool Equals(Keybind? other)
         {
             if (other == null) return false;
-            
-            return Action == other.Action && 
-                   Enabled == other.Enabled && 
+
+            return Action == other.Action &&
+                   Enabled == other.Enabled &&
                    Keys.SequenceEqual(other.Keys);
         }
 

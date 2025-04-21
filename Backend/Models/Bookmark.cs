@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Segra.Models
+namespace Segra.Backend.Models
 {
     public class Bookmark
     {

@@ -2,7 +2,7 @@ using System.Diagnostics;
 using Serilog;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using Segra.Models;
+using Segra.Backend.Models;
 
 namespace Segra.Backend.Utils
 {
