@@ -6,6 +6,7 @@ using Serilog;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using static LibObs.Obs;
+using size_t = System.UIntPtr;
 
 namespace Segra.Backend.Utils
 {
@@ -35,7 +36,7 @@ namespace Segra.Backend.Utils
 
         // Available encoder IDs for different hardware
         private const string NVIDIA_ENCODER = "jim_nvenc";
-        private const string AMD_ENCODER = "amd_amf_h264";
+        private const string AMD_ENCODER = "h264_texture_amf";
         private const string INTEL_ENCODER = "qsv_h264";
         private const string CPU_ENCODER = "x264";
 
@@ -240,6 +241,9 @@ namespace Segra.Backend.Utils
 
             // Step 6: Post-load modules
             obs_post_load_modules();
+
+            // Step 7: Log available encoders
+            LogAvailableEncoders();
 
             IsInitialized = true;
             Settings.Instance.State.HasLoadedObs = true;
@@ -1001,6 +1005,22 @@ namespace Segra.Backend.Utils
                         Thread.Sleep(100);
                 }
             }
+        }
+        private static void LogAvailableEncoders()
+        {
+            Log.Information("Available encoders:");
+            
+            // Enumerate all encoder types
+            string encoderId = string.Empty;
+            size_t idx = 0;
+            
+            while (obs_enum_encoder_types(idx, ref encoderId))
+            {
+                Log.Information($"  - Encoder: {encoderId}");
+                idx++;
+            }
+
+            Log.Information($"Total encoders found: {idx}");
         }
     }
 }
