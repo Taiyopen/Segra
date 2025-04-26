@@ -190,8 +190,13 @@ jobs:
         working-directory: ./Frontend
         shell: bash
         run: |
-          bunx --bun json -I -f package.json -e "this.version='${{ env.new_version }}'"
+          bunx --bun json -I -f package.json -e "this.version=\"${{ env.new_version }}\""
           grep '"version"' package.json
+
+      - name: Exit Workflow
+        run: |
+          echo "Test"
+          exit 0
 
       - name: Install Frontend dependencies
         working-directory: ./Frontend
