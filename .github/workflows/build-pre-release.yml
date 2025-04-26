@@ -23,7 +23,7 @@ jobs:
       release_notes: ${{ steps.generate_release_notes.outputs.release_notes }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -43,21 +43,17 @@ jobs:
           echo "$GIT_LOG" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-      - name: Cache Bun dependencies
-        uses: actions/cache@v3
+      - uses: oven-sh/setup-bun@v2
         with:
-          path: ./Frontend/node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('Frontend/bun.lockb') }}
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('Frontend/bun.lock*') }}
           restore-keys: |
             ${{ runner.os }}-bun-
-
-      - name: Cache .NET packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
 
       - name: Display Git Log
         shell: bash
@@ -147,11 +143,6 @@ jobs:
           dotnet-version: 8.x
           cache: true
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
       - name: Determine Version
         id: get_version
         shell: pwsh
@@ -195,23 +186,20 @@ jobs:
           $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
         shell: pwsh
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Update Frontend Version
+      - name: Update Frontend version
         working-directory: ./Frontend
-        run: npm version "${{ env.new_version }}" --no-git-tag-version
+        shell: bash
+        run: |
+          bunx --bun json -I -f package.json -e "this.version='${{ env.new_version }}'"
+          grep '"version"' package.json
 
-      - name: Install Frontend Dependencies
+      - name: Install Frontend dependencies
         working-directory: ./Frontend
-        run: npm install
-        shell: pwsh
+        run: bun install --frozen-lockfile
 
       - name: Build Frontend
         working-directory: ./Frontend
-        run: npm run build
-        shell: pwsh
+        run: bun run build
 
       - name: Move Frontend Build to Resources/wwwroot
         run: |
@@ -220,10 +208,6 @@ jobs:
           if (-Not (Test-Path -Path $destination)) { New-Item -ItemType Directory -Path $destination -Force }
           Remove-Item -Path "$destination\*" -Recurse -Force
           Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
-        shell: pwsh
-
-      - name: Build the App
-        run: dotnet build --configuration Release
         shell: pwsh
 
       - name: Publish the App
