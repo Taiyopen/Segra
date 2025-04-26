@@ -7,9 +7,10 @@ import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth.tsx';
 import {useProfile} from '../Hooks/useUserProfile';
-import {MdOutlineLogout, MdWarning, MdLock} from 'react-icons/md';
+import {MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription} from 'react-icons/md';
 import {useUpdate} from '../Context/UpdateContext';
 import GameListManager from '../Components/GameListManager';
+import { SiGithub } from 'react-icons/si';
 
 export default function Settings() {
 	const {session, authError, isAuthenticating, clearAuthError, signOut} = useAuth();
@@ -981,6 +982,13 @@ export default function Settings() {
 							<span className="font-medium">Update Channel</span>
 						</div>
 						<div className="flex items-center gap-2">
+						<button
+							onClick={() => openReleaseNotesModal(null)}
+							className="btn btn-sm btn-secondary text-gray-400 hover:text-gray-300 flex items-center justify-center"
+						>
+							<SiGithub className="text-lg flex-shrink-0" aria-hidden="true" />
+							<span className="inline-block">View Release Notes</span>
+						</button>
 							<button
 								className="btn btn-sm btn-primary flex items-center gap-1"
 								onClick={() => checkForUpdates()}
@@ -1046,10 +1054,11 @@ export default function Settings() {
 			<div className="text-center mt-4 text-sm text-gray-500">
 				<div className="flex flex-col items-center gap-2">
 					<button
-						onClick={() => openReleaseNotesModal(null)}
-						className="btn btn-sm btn-ghost text-gray-400 hover:text-gray-300"
+						onClick={() => sendMessageToBackend('OpenLogsLocation')}
+						className="btn btn-sm btn-secondary text-gray-400 hover:text-gray-300 flex items-center justify-center"
 					>
-						View Release Notes
+						<MdOutlineDescription className="text-lg flex-shrink-0" aria-hidden="true" />
+						<span className="inline-block">View Logs</span>
 					</button>
 					<div>Segra {__APP_VERSION__}</div>
 				</div>

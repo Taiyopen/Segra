@@ -23,7 +23,16 @@ namespace Segra.Backend.Utils
 
         public static bool IsInitialized { get; private set; }
         public static GpuVendor DetectedGpuVendor { get; private set; } = GpuVendor.Unknown;
-        public static string CurrentTrackedFileName { get; set; }
+        private static string _currentTrackedFileName = string.Empty;
+        public static string CurrentTrackedFileName
+        {
+            get => _currentTrackedFileName;
+            set
+            {
+                _currentTrackedFileName = value;
+                Log.Information("CurrentTrackedFileName set to: {FileName}", value);
+            }
+        }
         static bool signalOutputStop = false;
         static IntPtr output = IntPtr.Zero;
         static IntPtr bufferOutput = IntPtr.Zero;
@@ -532,7 +541,6 @@ namespace Segra.Backend.Utils
                 }
 
                 Log.Information("Replay buffer started successfully");
-                CurrentTrackedFileName = "ReplayBuffer";
             }
             else
             {

@@ -29,10 +29,16 @@ namespace Segra.Backend.Utils
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
+        private static readonly string[] SensitiveProperties = new string[] 
+        { 
+            "accessToken", 
+            "refreshToken",
+            "JWT"
+        };
 
         public static async Task HandleMessage(string message)
         {
-            Log.Information("Websocket message received: " + message);
+            Log.Information("Websocket message received: " + RedactSensitiveInfo(message));
             if (string.IsNullOrEmpty(message))
             {
                 Log.Information("Received empty message.");
@@ -102,6 +108,10 @@ namespace Segra.Backend.Utils
                             root.TryGetProperty("Parameters", out JsonElement openFileLocationParameterElement);
                             openFileLocationParameterElement.TryGetProperty("FilePath", out JsonElement filePathElement);
                             Process.Start("explorer.exe", $"/select,\"{filePathElement.ToString().Replace("/", "\\")}\"");
+                            break;
+                        case "OpenLogsLocation":
+                            string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra", "logs.log");
+                            Process.Start("explorer.exe", $"/select,\"{logFilePath}\"");
                             break;
                         case "SelectGameExecutable":
                             await HandleSelectGameExecutable();
@@ -711,7 +721,7 @@ namespace Segra.Backend.Utils
             await SendFrontendMessage("Settings", Settings.Instance);
         }
 
-        public static async Task HandleAddToWhitelist(JsonElement parameters)
+        private static async Task HandleAddToWhitelist(JsonElement parameters)
         {
             try
             {
@@ -744,7 +754,7 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static async Task HandleRemoveFromWhitelist(JsonElement parameters)
+        private static async Task HandleRemoveFromWhitelist(JsonElement parameters)
         {
             try
             {
@@ -777,7 +787,7 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static async Task HandleAddToBlacklist(JsonElement parameters)
+        private static async Task HandleAddToBlacklist(JsonElement parameters)
         {
             try
             {
@@ -810,7 +820,7 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static async Task HandleRemoveFromBlacklist(JsonElement parameters)
+        private static async Task HandleRemoveFromBlacklist(JsonElement parameters)
         {
             try
             {
@@ -843,7 +853,7 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static async Task HandleSelectGameExecutable()
+        private static async Task HandleSelectGameExecutable()
         {
             try
             {
@@ -878,6 +888,20 @@ namespace Segra.Backend.Utils
                 Log.Error($"Error selecting game executable: {ex.Message}");
                 await ShowModal("Error", $"Failed to select game executable: {ex.Message}", "error");
             }
+        }
+
+        private static string RedactSensitiveInfo(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return message;
+
+            foreach (var prop in SensitiveProperties)
+            {
+                var pattern = $"\"{prop}\":\"([^\"]+)\"";
+                message = System.Text.RegularExpressions.Regex.Replace(message, pattern, $"\"{prop}\":\"-REDACTED-\""); 
+            }
+
+            return message;
         }
     }
 }
