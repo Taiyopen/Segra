@@ -188,14 +188,12 @@ jobs:
 
       - name: Update Frontend version
         working-directory: ./Frontend
-        shell: bash
+        shell: pwsh
         run: |
-          bun add -g jq
-
-          jq ".version = \"${{ env.new_version }}\"" package.json > temp.json
-          mv temp.json package.json
-
-          echo "Updated version: $(jq -r .version package.json)"
+          $content = Get-Content package.json -Raw
+          $content = $content -replace '"version": "Developer Preview",', ('"version": "{0}",' -f $env:new_version)
+          Set-Content package.json $content
+          Write-Host "Updated version: $(Select-String -Path package.json -Pattern 'version')"
 
       - name: Install Frontend dependencies
         working-directory: ./Frontend
