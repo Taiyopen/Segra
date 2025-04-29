@@ -189,6 +189,8 @@ namespace Segra.Backend.Services
             if (Settings.Instance.State.Recording != null || OBSUtils.CurrentTrackedFileName != null)
             {
                 Log.Information("[StartGameRecording] Recording already in progress. Skipping...");
+                Log.Information($"[StartGameRecording] Current tracked file name: {OBSUtils.CurrentTrackedFileName} {Settings.Instance.State.Recording != null}");
+                Log.Information($"[StartGameRecording] Current recording state: {Settings.Instance.State.Recording} {OBSUtils.CurrentTrackedFileName != null}");
                 return;
             }
 

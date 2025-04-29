@@ -23,7 +23,7 @@ namespace Segra.Backend.Utils
 
         public static bool IsInitialized { get; private set; }
         public static GpuVendor DetectedGpuVendor { get; private set; } = GpuVendor.Unknown;
-        private static string _currentTrackedFileName = string.Empty;
+        private static string? _currentTrackedFileName;
         public static string CurrentTrackedFileName
         {
             get => _currentTrackedFileName;
