@@ -27,7 +27,8 @@ namespace Segra.Backend.Utils
                 string metadataFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".metadata", type.ToString().ToLower() + "s");
                 if (!Directory.Exists(metadataFolderPath))
                 {
-                    Directory.CreateDirectory(metadataFolderPath);
+                    DirectoryInfo dir = Directory.CreateDirectory(metadataFolderPath);
+                    dir.Attributes |= FileAttributes.Hidden;
                 }
 
                 // Create the metadata file
@@ -70,7 +71,8 @@ namespace Segra.Backend.Utils
                 string thumbnailsFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".thumbnails", type.ToString().ToLower() + "s");
                 if (!Directory.Exists(thumbnailsFolderPath))
                 {
-                    Directory.CreateDirectory(thumbnailsFolderPath);
+                    DirectoryInfo dir = Directory.CreateDirectory(thumbnailsFolderPath);
+                    dir.Attributes |= FileAttributes.Hidden;
                 }
 
                 // Define the output thumbnail file path

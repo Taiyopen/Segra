@@ -211,7 +211,8 @@ namespace Segra.Backend.Utils
 
             // Create .ai directory if it doesn't exist
             string aiOutputFolder = Path.Combine(videoFolder, ".ai").Replace("\\", "/");
-            Directory.CreateDirectory(aiOutputFolder);
+            DirectoryInfo dir = Directory.CreateDirectory(aiOutputFolder);
+            dir.Attributes |= FileAttributes.Hidden;
 
             string inputFilePath = Path.Combine(videoFolder, content.Type.ToString().ToLower() + "s", $"{content.FileName}.mp4").Replace("\\", "/");
             if (!File.Exists(inputFilePath))
