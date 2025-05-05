@@ -1094,7 +1094,7 @@
   { "name": "Prototype 2", "exe": "Prototype 2/prototype2engine.exe" },
   { "name": "Psychonauts", "exe": "Psychonauts/Psychonauts.exe" },
   { "name": "Psychonauts 2", "exe": "Psychonauts 2/Psychonauts2/Binaries/WinGDK/Psychonauts2-WinGDK-Shipping.exe" },
-  { "name": "PUBG: Battlegrounds", "exe": "PUBG/TslGame/Binaries/Win64/TslGame.exe" },
+  { "name": "PUBG: BATTLEGROUNDS", "exe": "PUBG/TslGame/Binaries/Win64/TslGame.exe" },
   { "name": "Pummel Party", "exe": "Pummel Party/PummelParty.exe" },
   { "name": "Punch Club", "exe": "Punch Club/PunchClub.exe" },
   { "name": "Pyre", "exe": "Pyre/x64/Pyre.exe" },
