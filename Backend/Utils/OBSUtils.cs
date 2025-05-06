@@ -549,6 +549,7 @@ namespace Segra.Backend.Utils
                 Game = name,
                 IsUsingGameHook = hooked
             };
+            isInitializingRecording = false;
             MessageUtils.SendSettingsToFrontend();
 
             Log.Information("Recording started: " + videoOutputPath);
