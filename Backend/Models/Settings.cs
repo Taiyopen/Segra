@@ -738,10 +738,13 @@ namespace Segra.Backend.Models
         public DateTime? EndTime { get; set; } // Nullable in case recording is ongoing
 
         [JsonPropertyName("filePath")]
-        public string FilePath { get; set; }
+        public required string FilePath { get; set; }
 
         [JsonPropertyName("game")]
-        public string Game { get; set; }
+        public required string Game { get; set; }
+
+        [JsonPropertyName("fileName")]
+        public required string FileName { get; set; }
 
         [JsonPropertyName("isUsingGameHook")]
         public bool IsUsingGameHook { get; set; }

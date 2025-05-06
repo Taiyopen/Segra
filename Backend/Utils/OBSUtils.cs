@@ -12,6 +12,7 @@ namespace Segra.Backend.Utils
 {
     public static class OBSUtils
     {
+        public static bool isInitializingRecording = false;
         // Enum for GPU vendor types
         public enum GpuVendor
         {
@@ -23,16 +24,6 @@ namespace Segra.Backend.Utils
 
         public static bool IsInitialized { get; private set; }
         public static GpuVendor DetectedGpuVendor { get; private set; } = GpuVendor.Unknown;
-        private static string? _currentTrackedFileName;
-        public static string CurrentTrackedFileName
-        {
-            get => _currentTrackedFileName;
-            set
-            {
-                _currentTrackedFileName = value;
-                Log.Information("CurrentTrackedFileName set to: {FileName}", value);
-            }
-        }
         static bool signalOutputStop = false;
         static IntPtr output = IntPtr.Zero;
         static IntPtr bufferOutput = IntPtr.Zero;
@@ -42,6 +33,7 @@ namespace Segra.Backend.Utils
         static List<IntPtr> desktopSources = new List<IntPtr>();
         static IntPtr videoEncoder = IntPtr.Zero;
         static IntPtr audioEncoder = IntPtr.Zero;
+        private static string? hookedExecutableFileName;
 
         // Available encoder IDs for different hardware
         private const string NVIDIA_ENCODER = "jim_nvenc";
@@ -171,8 +163,8 @@ namespace Segra.Backend.Utils
             {
                 Log.Error($"OBS installation failed: {ex.Message}");
                 await MessageUtils.ShowModal(
-                    "Recorder Error", 
-                    "The recorder installation failed. Please check your internet connection and try again. If you have any games running, please close them and restart Segra.", 
+                    "Recorder Error",
+                    "The recorder installation failed. Please check your internet connection and try again. If you have any games running, please close them and restart Segra.",
                     "error",
                     "Could not install recorder"
                 );
@@ -301,8 +293,9 @@ namespace Segra.Backend.Utils
             return obs_reset_video(ref videoInfo) == 0; // Returns true if successful
         }
 
-        public static bool StartRecording(string name = "Unknown")
+        public static bool StartRecording(string name = "Unknown", string fileName = "Unknown")
         {
+            isInitializingRecording = true;
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
 
             if ((isReplayBufferMode && bufferOutput != IntPtr.Zero) || (!isReplayBufferMode && output != IntPtr.Zero))
@@ -515,16 +508,9 @@ namespace Segra.Backend.Utils
                 signal_handler_connect(obs_output_get_signal_handler(output), "stop", outputStopCallback, IntPtr.Zero);
             }
 
-            // Used to show "Initializing" in frontend
-            Settings.Instance.State.Recording = new Recording()
-            {
-                StartTime = DateTime.Now.AddSeconds(2),
-                FilePath = videoOutputPath,
-                Game = name,
-                IsUsingGameHook = hooked
-            };
-            MessageUtils.SendSettingsToFrontend();
-
+            // Overwrite the file name with the hooked executable name if using game hook
+            fileName = hookedExecutableFileName ?? fileName;
+            
             _ = Task.Run(PlayStartSound);
 
             bool outputStarted;
@@ -559,9 +545,11 @@ namespace Segra.Backend.Utils
             {
                 StartTime = DateTime.Now,
                 FilePath = videoOutputPath,
+                FileName = fileName,
                 Game = name,
                 IsUsingGameHook = hooked
             };
+            isInitializingRecording = false;
             MessageUtils.SendSettingsToFrontend();
 
             Log.Information("Recording started: " + videoOutputPath);
@@ -575,7 +563,6 @@ namespace Segra.Backend.Utils
 
         public static void StopRecording()
         {
-            CurrentTrackedFileName = null;
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
 
             if (isReplayBufferMode && bufferOutput != IntPtr.Zero)
@@ -684,7 +671,7 @@ namespace Segra.Backend.Utils
             string fileName = Path.GetFileNameWithoutExtension(Settings.Instance.State.Recording.FilePath);
 
             Settings.Instance.State.Recording = null;
-            OBSUtils.CurrentTrackedFileName = null;
+            hookedExecutableFileName = null;
             if (Settings.Instance.EnableAi && AuthService.IsAuthenticated())
             {
                 Task.Run(() => AiService.AnalyzeVideo(fileName));
@@ -712,8 +699,12 @@ namespace Segra.Backend.Utils
                 _isGameCaptureHooked = true;
                 Log.Information($"Game hooked: Title='{Marshal.PtrToStringAnsi(title)}', Class='{Marshal.PtrToStringAnsi(windowClass)}', Executable='{Marshal.PtrToStringAnsi(executable)}'");
 
-                // Overwrite the current tracked file name with the hooked one because sometimes the current tracked file name is the startup exe instead of the actual game 
-                CurrentTrackedFileName = Path.GetFileName(Marshal.PtrToStringAnsi(executable));
+                // Overwrite the file name with the hooked one because sometimes the current tracked file name is the startup exe instead of the actual game 
+                hookedExecutableFileName = Marshal.PtrToStringAnsi(executable);
+                if (Settings.Instance.State.Recording != null && hookedExecutableFileName != null)
+                {
+                    Settings.Instance.State.Recording.FileName = hookedExecutableFileName;
+                }
             }
             catch (Exception ex)
             {
@@ -842,11 +833,11 @@ namespace Segra.Backend.Utils
                 Log.Information("OBS is installed");
                 return;
             }
-            
+
             // Store obs.zip and hash in AppData to preserve them across updates
             string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra");
             Directory.CreateDirectory(appDataDir); // Ensure directory exists
-            
+
             string zipPath = Path.Combine(appDataDir, "obs.zip");
             string apiUrl = "https://api.github.com/repos/Segergren/Segra/contents/obs.zip?ref=main";
             string localHashPath = Path.Combine(appDataDir, "obs.hash");
@@ -875,9 +866,9 @@ namespace Segra.Backend.Utils
                     Log.Error("Download URL not found in the API response.");
                     throw new Exception("Invalid API response: Missing download URL.");
                 }
-                
+
                 string remoteHash = metadata.Sha;
-                
+
                 // Check if we already have the file with the correct hash
                 if (File.Exists(zipPath) && File.Exists(localHashPath))
                 {
@@ -900,7 +891,7 @@ namespace Segra.Backend.Utils
                     httpClient.DefaultRequestHeaders.Clear();
                     var zipBytes = await httpClient.GetByteArrayAsync(metadata.DownloadUrl);
                     await File.WriteAllBytesAsync(zipPath, zipBytes);
-                    
+
                     // Save the hash for future reference
                     await File.WriteAllTextAsync(localHashPath, remoteHash);
 
@@ -929,7 +920,7 @@ namespace Segra.Backend.Utils
                 Log.Information("Using CPU encoder (x264)");
                 return CPU_ENCODER;
             }
-            
+
             // User wants GPU encoding, check which GPU vendor is available
             switch (DetectedGpuVendor)
             {
@@ -959,7 +950,7 @@ namespace Segra.Backend.Utils
                     foreach (var obj in searcher.Get())
                     {
                         string name = obj["Name"]?.ToString()?.ToLower() ?? string.Empty;
-                        
+
                         if (name.Contains("nvidia"))
                         {
                             DetectedGpuVendor = GpuVendor.Nvidia;
@@ -980,7 +971,7 @@ namespace Segra.Backend.Utils
                         }
                     }
                 }
-                
+
                 Log.Warning("Could not identify GPU vendor, will default to CPU encoding if GPU encoding is selected");
             }
             catch (Exception ex)
@@ -1017,11 +1008,11 @@ namespace Segra.Backend.Utils
         private static void LogAvailableEncoders()
         {
             Log.Information("Available encoders:");
-            
+
             // Enumerate all encoder types
             string encoderId = string.Empty;
             size_t idx = 0;
-            
+
             while (obs_enum_encoder_types(idx, ref encoderId))
             {
                 Log.Information($"  - Encoder: {encoderId}");

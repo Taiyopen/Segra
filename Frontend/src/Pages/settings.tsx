@@ -716,7 +716,7 @@ export default function Settings() {
 												<input
 													type="range"
 													min="0"
-													max="1"
+													max="2"
 													step="0.01"
 													value={draggingVolume.deviceId === device.id ? draggingVolume.volume ?? 0 : settings.inputDevices.find(d => d.id === device.id)?.volume ?? 1.0}
 													className="range range-xs range-primary"

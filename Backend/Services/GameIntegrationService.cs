@@ -1,4 +1,4 @@
-﻿using RePlays.Integrations;
+using RePlays.Integrations;
 using Serilog;
 
 namespace Segra.Backend.Services
@@ -6,36 +6,42 @@ namespace Segra.Backend.Services
     public static class GameIntegrationService
     {
         private const string PUBG = "PUBG: BATTLEGROUNDS";
-        private static Integration? gameIntegration;
-        public static Integration GameIntegration { get { return gameIntegration; } }
-        public static async void Start(string gameName)
+        private static Integration? _gameIntegration;
+        public static Integration? GameIntegration => _gameIntegration;
+
+        public static async Task Start(string gameName)
         {
-            if (gameIntegration != null)
+            if (_gameIntegration != null)
             {
                 Log.Information("Active game integration already exists! Shutting down before starting");
-                await GameIntegration.Shutdown();
-            }
-            switch (gameName)
-            {
-                case PUBG:
-                    gameIntegration = new PubgIntegration();
-                    break;
-                default:
-                    gameIntegration = null;
-                    break;
+                await _gameIntegration.Shutdown();
             }
 
-            if (GameIntegration == null) return;
-            Log.Information("Starting game integration for: " + gameName);
-            await GameIntegration.Start();
+            _gameIntegration = gameName switch
+            {
+                PUBG => new PubgIntegration(),
+                _ => null,
+            };
+
+            if (_gameIntegration == null) 
+            {
+                return;
+            }
+
+            Log.Information($"Starting game integration for: {gameName}");
+            await _gameIntegration.Start();
         }
 
-        public static async void Shutdown()
+        public static async Task Shutdown()
         {
-            if (gameIntegration == null) return;
+            if (_gameIntegration == null) 
+            {
+                return;
+            }
+
             Log.Information("Shutting down game integration");
-            await GameIntegration.Shutdown();
-            gameIntegration = null;
+            await _gameIntegration.Shutdown();
+            _gameIntegration = null;
         }
     }
 }

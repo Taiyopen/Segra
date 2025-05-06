@@ -38,15 +38,9 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording}) => {
 				<div className="bg-neutral border border-secondary border-opacity-75 rounded-md px-3 py-3 cursor-default">
 					{/* Recording Indicator */}
 					<div className="flex items-center mb-1">
-						<span className={`w-3 h-3 rounded-full mr-2 ${elapsedTime.hours === 0 && elapsedTime.minutes === 0 && elapsedTime.seconds === 0
-							? 'bg-orange-500'
-							: 'bg-red-500 animate-pulse'
-							}`}></span>
+						<span className="w-3 h-3 rounded-full mr-2 bg-red-500 animate-pulse"></span>
 						<span className="text-gray-200 text-sm font-medium">
-							{elapsedTime.hours === 0 && elapsedTime.minutes === 0 && elapsedTime.seconds === 0
-								? 'Initializing'
-								: 'Recording'
-							}
+							Recording
 						</span>
 					</div>
 

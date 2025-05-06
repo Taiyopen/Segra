@@ -117,20 +117,11 @@ namespace Segra.Backend.Utils
                             await HandleSelectGameExecutable();
                             break;
                         case "StartRecording":
-                            await Task.Run(() =>
-                            {
-                                OBSUtils.StartRecording();
-                                Log.Information("StartRecording command received.");
-                            });
+                            await Task.Run(() => OBSUtils.StartRecording());
                             break;
                         case "StopRecording":
-                            await Task.Run(() =>
-                            {
-                                OBSUtils.StopRecording();
-                                Log.Information("StopRecording command received.");
-                            });
+                            await Task.Run(OBSUtils.StopRecording);
                             break;
-
                         case "NewConnection":
                             Log.Information("NewConnection command received.");
                             await SendSettingsToFrontend();
@@ -147,7 +138,7 @@ namespace Segra.Backend.Utils
                                 });
                             }
 
-                            Task.Run(UpdateUtils.GetReleaseNotes);
+                            _ = Task.Run(UpdateUtils.GetReleaseNotes);
                             break;
                         case "SetVideoLocation":
                             await SetVideoLocationAsync();
@@ -168,7 +159,6 @@ namespace Segra.Backend.Utils
                             await HandleDeleteBookmark(deleteBookmarkParameterElement);
                             Log.Information("DeleteBookmark command received.");
                             break;
-                        // Handle other methods if needed
                         default:
                             Log.Information($"Unknown method: {method}");
                             break;
