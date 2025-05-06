@@ -160,7 +160,7 @@ namespace Segra.Backend.Services
 
         private static void OnProcessStopped(object sender, EventArrivedEventArgs e)
         {
-            if (OBSUtils.CurrentTrackedFileName == null) return;
+            if (Settings.Instance.State.Recording == null) return;
 
             try
             {
@@ -172,7 +172,7 @@ namespace Segra.Backend.Services
                 string fileNameWithExtension = Path.GetFileName(exePath);
 
                 Log.Information($"[OnProcessStopped] Application stopped: PID {pid}, Path: {exePath}");
-                if (fileNameWithExtension == OBSUtils.CurrentTrackedFileName)
+                if (fileNameWithExtension == Settings.Instance.State.Recording?.FileName)
                 {
                     Log.Information($"[OnTrackedProcessExited] Confirmed that PID {pid} is no longer running. Stopping recording.");
                     OBSUtils.StopRecording();
@@ -186,28 +186,14 @@ namespace Segra.Backend.Services
 
         private static void StartGameRecording(int pid, string exePath)
         {
-            if (Settings.Instance.State.Recording != null || OBSUtils.CurrentTrackedFileName != null)
+            if (Settings.Instance.State.Recording != null || OBSUtils.isInitializingRecording)
             {
                 Log.Information("[StartGameRecording] Recording already in progress. Skipping...");
                 return;
             }
 
             Log.Information($"[StartGameRecording] Starting recording for game: PID {pid}, Path: {exePath}");
-
-            try
-            {
-                var proc = Process.GetProcessById(pid);
-                if (!proc.HasExited)
-                {
-                    OBSUtils.CurrentTrackedFileName = Path.GetFileName(exePath);
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"[StartGameRecording] Error accessing process {pid}: {ex.Message}");
-            }
-
-            OBSUtils.StartRecording(ExtractGameName(exePath));
+            OBSUtils.StartRecording(ExtractGameName(exePath), Path.GetFileName(exePath));
         }
 
         [DllImport("user32.dll")]
@@ -231,7 +217,7 @@ namespace Segra.Backend.Services
 
         private static bool ShouldRecordGame(string exePath)
         {
-            if (string.IsNullOrEmpty(exePath)) return false;
+            if (string.IsNullOrEmpty(exePath) || Settings.Instance.State.Recording != null || OBSUtils.isInitializingRecording) return false;
             
             // 1. Check if the game is in the whitelist - if so, always record
             var whitelist = Settings.Instance.Whitelist;
@@ -322,15 +308,14 @@ namespace Segra.Backend.Services
         private static void CheckForGames()
         {
             // Skip if already recording
-            if (Settings.Instance.State.Recording != null || OBSUtils.CurrentTrackedFileName != null) return;
+            if (Settings.Instance.State.Recording != null) return;
             
             try
             {
                 // Get the foreground window and its process ID
                 IntPtr foregroundWindow = GetForegroundWindow();
-                uint foregroundPid = 0;
-                GetWindowThreadProcessId(foregroundWindow, out foregroundPid);
-                
+                _ = GetWindowThreadProcessId(foregroundWindow, out uint foregroundPid);
+
                 if (foregroundPid <= 0)
                 {
                     Log.Debug("[ProcessCheck] No valid foreground window found");
@@ -406,7 +391,7 @@ namespace Segra.Backend.Services
                     string contents = File.ReadAllText(acfFile);
                     string acfDir = ExtractAcfField(contents, "installdir");
                     string acfName = ExtractAcfField(contents, "name");
-                    if (acfDir.Equals(folder, System.StringComparison.OrdinalIgnoreCase)) return acfName;
+                    if (acfDir.Equals(folder, StringComparison.OrdinalIgnoreCase)) return acfName;
                 }
                 return null;
             }
@@ -556,8 +541,7 @@ namespace Segra.Backend.Services
 
                     if (Settings.Instance.State.Recording != null) return;
 
-                    uint pid = 0;
-                    GetWindowThreadProcessId(hwnd, out pid);
+                    _ = GetWindowThreadProcessId(hwnd, out uint pid);
 
                     Log.Information($"Foreground window process ID: {pid}");
 

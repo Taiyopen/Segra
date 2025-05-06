@@ -10,12 +10,6 @@ namespace Segra.Backend.Utils
     {
         public static async Task CreateAiClipFromBookmarks(List<Bookmark> bookmarks, AiProgressMessage aiProgressMessage)
         {
-            if (bookmarks == null || !bookmarks.Any())
-            {
-                Log.Information("No bookmarks provided to create clips.");
-                return;
-            }
-
             // Convert bookmarks to initial selections with buffer times
             List<Selection> initialSelections = new List<Selection>();
 

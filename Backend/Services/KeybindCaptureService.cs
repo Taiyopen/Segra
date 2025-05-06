@@ -8,10 +8,13 @@ namespace Segra.Backend.Services
 {
     internal class KeybindCaptureService
     {
+        // Windows hook type for low-level keyboard input events
         private const int WH_KEYBOARD_LL = 13;
+        // Windows message for key down event
         private const int WM_KEYDOWN = 0x0100;
-
+        // Delegate instance for the keyboard hook callback function
         private static LowLevelKeyboardProc _proc = HookCallback;
+        // Handle to the installed keyboard hook
         private static IntPtr _hookID = IntPtr.Zero;
 
         public static void Start()
@@ -65,6 +68,11 @@ namespace Segra.Backend.Services
                         if (keybind.Enabled && DoKeysMatch(keybind.Keys, _pressedKeys))
                         {
                             var recording = Settings.Instance.State.Recording;
+                            if (recording == null)
+                            {
+                                return CallNextHookEx(_hookID, nCode, wParam, lParam);
+                            }
+
                             switch (keybind.Action)
                             {
                                 case KeybindAction.CreateBookmark:

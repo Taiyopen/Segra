@@ -43,10 +43,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording}) => {
 							: 'bg-red-500 animate-pulse'
 							}`}></span>
 						<span className="text-gray-200 text-sm font-medium">
-							{elapsedTime.hours === 0 && elapsedTime.minutes === 0 && elapsedTime.seconds === 0
-								? 'Initializing'
-								: 'Recording'
-							}
+							Recording
 						</span>
 					</div>
 
