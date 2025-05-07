@@ -1,4 +1,5 @@
 import { useUploads } from '../Context/UploadContext';
+import type { UploadProgress } from '../Context/UploadContext';
 
 interface UploadCardProps {
   fileName: string;
@@ -6,7 +7,7 @@ interface UploadCardProps {
 
 export default function UploadCard({ fileName }: UploadCardProps) {
   const { uploads } = useUploads();
-  const upload = uploads[fileName];
+  const upload: UploadProgress = uploads[fileName];
 
   if (!upload) return null;
 
@@ -35,7 +36,9 @@ export default function UploadCard({ fileName }: UploadCardProps) {
           {/* Upload Details */}
           <div className="min-w-0 flex-1">
             <div className="text-gray-200 text-sm font-medium truncate">{getStatusText()}</div>
-            <div className="text-gray-400 text-xs truncate">{fileName}</div>
+            <div className="text-gray-400 text-xs truncate">
+              {upload.title}
+            </div>
           </div>
         </div>
       </div>
