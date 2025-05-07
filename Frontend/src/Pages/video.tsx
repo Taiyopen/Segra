@@ -592,6 +592,11 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     // Handle video upload operation
     const handleUpload = () => {
+        // Ensure video is paused before opening upload modal
+        if (videoRef.current && !videoRef.current.paused) {
+            videoRef.current.pause();
+        }
+        
         openModal(
             <UploadModal
                 video={video}

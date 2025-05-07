@@ -232,6 +232,7 @@ namespace Segra.Backend.Utils
             {
                 string filePath = message.GetProperty("FilePath").GetString();
                 string fileName = Path.GetFileName(filePath);
+                string title = message.GetProperty("Title").GetString();
 
                 byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
                 using var httpClient = new HttpClient();
@@ -242,6 +243,7 @@ namespace Segra.Backend.Utils
                     int progress = (int)((sent / (double)total) * 100);
                     _ = SendFrontendMessage("UploadProgress", new
                     {
+                        title,
                         fileName,
                         progress,
                         status = "uploading",
@@ -258,6 +260,7 @@ namespace Segra.Backend.Utils
 
                 await SendFrontendMessage("UploadProgress", new
                 {
+                    title,
                     fileName,
                     progress = 0,
                     status = "uploading",
@@ -275,6 +278,7 @@ namespace Segra.Backend.Utils
 
                 await SendFrontendMessage("UploadProgress", new
                 {
+                    title,
                     fileName,
                     progress = 100,
                     status = "done",
@@ -286,9 +290,13 @@ namespace Segra.Backend.Utils
             catch (Exception ex)
             {
                 Log.Error($"Upload failed: {ex.Message}");
+                string errorFileName = message.GetProperty("FilePath").GetString();
+                string errorTitle = message.GetProperty("Title").GetString();
+
                 await SendFrontendMessage("UploadProgress", new
                 {
-                    fileName = message.GetProperty("filePath").GetString(),
+                    title = errorTitle,
+                    fileName = Path.GetFileName(errorFileName),
                     progress = 0,
                     status = "error",
                     message = ex.Message

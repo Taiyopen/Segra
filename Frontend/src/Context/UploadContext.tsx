@@ -1,6 +1,7 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 
-interface UploadProgress {
+export interface UploadProgress {
+  title: string;
   fileName: string;
   progress: number;
   status: 'uploading' | 'processing' | 'done' | 'error';
@@ -22,10 +23,10 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       const data = event.detail;
       
       if (data.method === 'UploadProgress') {
-        const { fileName, progress, status, message } = data.content;
+        const { title, fileName, progress, status, message } = data.content;
         setUploads(prev => ({
           ...prev,
-          [fileName]: { fileName, progress, status, message }
+          [fileName]: { title, fileName, progress, status, message }
         }));
 
         if (status === 'done' || status === 'error') {
