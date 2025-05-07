@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Content } from '../Models/types';
 import { useSettings } from '../Context/SettingsContext';
 import { useAuth } from '../Hooks/useAuth.tsx';
+import { MdOutlineFileUpload } from 'react-icons/md';
 
 interface UploadModalProps {
   video: Content;
@@ -90,18 +91,22 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
             className="select select-bordered w-full"
             value={visibility}
             onChange={(e) => setVisibility(e.target.value as 'Public' | 'Unlisted')}
+            disabled={true}
           >
+            <option value="Public">Coming soon</option>
             <option value="Public">Public</option>
             <option value="Unlisted">Unlisted</option>
           </select>
         </div>
+
       </div>
       <div className="modal-action mt-6">
         <button 
-          className="btn btn-secondary hover:bg-base-200 bg-base-100 w-full"
+          className="btn bg-base-100 h-10 text-gray-400 hover:text-accent hover:bg-base-100 hover:border-base-100 flex items-center gap-1 w-full"
           onClick={handleUpload}
           disabled={session === null}
         >
+          <MdOutlineFileUpload className="w-5 h-5" />
           {session === null ? 'Login to upload' : 'Upload'}
         </button>
       </div>
