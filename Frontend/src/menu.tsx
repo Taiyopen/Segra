@@ -4,6 +4,7 @@ import {sendMessageToBackend} from './Utils/MessageUtils';
 import {useUploads} from './Context/UploadContext';
 import {useClipping} from './Context/ClippingContext';
 import {useUpdate} from './Context/UpdateContext';
+import {useAiHighlights} from './Context/AiHighlightsContext';
 import UploadCard from './Components/UploadCard';
 import ClippingCard from './Components/ClippingCard';
 import UpdateCard from './Components/UpdateCard';
@@ -21,7 +22,11 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 	const {hasLoadedObs, recording} = settings.state;
 	const {uploads} = useUploads();
 	const {updateInfo} = useUpdate();
+	const {aiProgress} = useAiHighlights();
 	const uploadFiles = Object.keys(uploads);
+	
+	// Check if there are any active AI highlight generations
+	const hasActiveAiHighlights = Object.values(aiProgress).length > 0;
 	
 	const hasUnavailableDevices = () => {
 		const unavailableInput = settings.inputDevices.some(
@@ -69,8 +74,13 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 						className={selectedMenu === 'Highlights' ? 'py-3 focus' : 'py-3 link-base-content'}
 						onMouseDown={() => onSelectMenu('Highlights')}
 					>
-						<HiOutlineSparkles className="w-6 h-6" />
-						Highlights
+						<div className="relative w-6 h-6 flex items-center justify-center">
+							{/* Single icon with transition for color and pulsing animation */}
+							<HiOutlineSparkles 
+								className={`w-6 h-6 ${hasActiveAiHighlights ? 'text-purple-400 animate-pulse' : ''}`} 
+							/>
+						</div>
+						<span className={hasActiveAiHighlights ? 'text-purple-400 animate-pulse' : ''}>Highlights</span>
 					</a>
 				</li>
 				<li>
