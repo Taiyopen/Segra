@@ -11,7 +11,7 @@ import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun, FaTrashCan } from "react-icons/fa6";
-import { MdAddBox, MdBookmark, MdBookmarkAdd, MdCleaningServices, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload, MdVolumeUp, MdVolumeOff, MdVolumeMute, MdVolumeDown } from "react-icons/md";
+import { MdAddBox, MdBookmark, MdBookmarkAdd, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload, MdVolumeUp, MdVolumeOff, MdVolumeMute, MdVolumeDown } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 
