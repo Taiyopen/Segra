@@ -10,7 +10,7 @@ import { useUploads } from "../Context/UploadContext";
 import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
-import { FaGun } from "react-icons/fa6";
+import { FaGun, FaTrashCan } from "react-icons/fa6";
 import { MdAddBox, MdBookmark, MdBookmarkAdd, MdCleaningServices, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload, MdVolumeUp, MdVolumeOff, MdVolumeMute, MdVolumeDown } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
@@ -1115,13 +1115,14 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 />
                             ))}
                         </div>
-                        <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 my-2 mr-3 tooltip" data-tip="Remove All">
+                        <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 my-2 mr-3 tooltip">
                             <button
                                 className="btn btn-sm btn-neutral h-10 text-gray-400 hover:text-accent w-full py-0"
                                 onClick={clearAllSelections}
                                 disabled={selections.length === 0}
                             >
-                                <MdCleaningServices className="w-6 h-6" />
+                                <FaTrashCan className="w-5 h-5" />
+                                <span>Remove</span>
                             </button>
                         </div>
                     </div>
