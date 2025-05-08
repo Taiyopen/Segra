@@ -378,7 +378,7 @@ export default function Settings() {
 			{/* Segra AI Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Segra AI</h2>
-				<div className="bg-base-100 p-4 rounded-lg border border-custom">
+				<div className="bg-base-100 p-4 rounded-lg border border-custom space-y-4">
 					{!session && (
 						<div className="flex items-center gap-2 mb-3 text-sm text-warning">
 							<MdLock className="w-4 h-4" />
@@ -396,6 +396,19 @@ export default function Settings() {
 							onChange={(e) => updateSettings({enableAi: e.target.checked})}
 							className="toggle toggle-primary"
 							disabled={!session}
+						/>
+					</div>
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<span className="font-medium">Auto-generate Highlights</span>
+						</div>
+						<input
+							type="checkbox"
+							name="autoGenerateHighlights"
+							checked={settings.autoGenerateHighlights}
+							onChange={(e) => updateSettings({autoGenerateHighlights: e.target.checked})}
+							className="toggle toggle-primary"
+							disabled={!session || !settings.enableAi}
 						/>
 					</div>
 				</div>

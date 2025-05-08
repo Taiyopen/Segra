@@ -92,6 +92,7 @@ export interface Settings {
 	outputDevices: DeviceSetting[];
 	enableDisplayRecording: boolean;
 	enableAi: boolean;
+	autoGenerateHighlights: boolean;
 	runOnStartup: boolean;
 	receiveBetaUpdates: boolean;
 	recordingMode: RecordingMode;
@@ -128,6 +129,7 @@ export const initialSettings: Settings = {
 	outputDevices: [],
 	enableDisplayRecording: false,
 	enableAi: true,
+	autoGenerateHighlights: true,
 	runOnStartup: false,
 	receiveBetaUpdates: false,
 	recordingMode: 'Session',

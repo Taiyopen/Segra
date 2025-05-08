@@ -27,6 +27,7 @@ namespace Segra.Backend.Models
         private List<DeviceSetting> _outputDevices = new List<DeviceSetting>();
         private bool _enableDisplayRecording = false;
         private bool _enableAi = true;
+        private bool _autoGenerateHighlights = true;
         private bool _runOnStartup = false;
         private bool _receiveBetaUpdates = false;
         private RecordingMode _recordingMode = RecordingMode.Session;
@@ -279,6 +280,20 @@ namespace Segra.Backend.Models
                 if (_enableAi != value)
                 {
                     _enableAi = value;
+                    SendToFrontend();
+                }
+            }
+        }
+
+        [JsonPropertyName("autoGenerateHighlights")]
+        public bool AutoGenerateHighlights
+        {
+            get => _autoGenerateHighlights;
+            set
+            {
+                if (_autoGenerateHighlights != value)
+                {
+                    _autoGenerateHighlights = value;
                     SendToFrontend();
                 }
             }

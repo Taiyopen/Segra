@@ -365,6 +365,14 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update AutoGenerateHighlights
+            if (settings.AutoGenerateHighlights != updatedSettings.AutoGenerateHighlights)
+            {
+                Log.Information($"AutoGenerateHighlights changed from '{settings.AutoGenerateHighlights}' to '{updatedSettings.AutoGenerateHighlights}'");
+                settings.AutoGenerateHighlights = updatedSettings.AutoGenerateHighlights;
+                hasChanges = true;
+            }
+
             // Update ReceiveBetaUpdates
             if (settings.ReceiveBetaUpdates != updatedSettings.ReceiveBetaUpdates)
             {

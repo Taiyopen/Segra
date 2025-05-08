@@ -672,7 +672,7 @@ namespace Segra.Backend.Utils
 
             Settings.Instance.State.Recording = null;
             hookedExecutableFileName = null;
-            if (Settings.Instance.EnableAi && AuthService.IsAuthenticated())
+            if (Settings.Instance.EnableAi && AuthService.IsAuthenticated() && Settings.Instance.AutoGenerateHighlights)
             {
                 Task.Run(() => AiService.AnalyzeVideo(fileName));
             }
