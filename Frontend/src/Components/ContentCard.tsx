@@ -18,7 +18,7 @@ interface VideoCardProps {
 }
 
 export default function ContentCard({content, type, onClick, isLoading}: VideoCardProps) {
-  const {contentFolder} = useSettings();
+  const {contentFolder, enableAi} = useSettings();
   const {session} = useAuth();
   const {openModal, closeModal} = useModal();
   const { aiProgress } = useAiHighlights();
@@ -181,7 +181,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                 </a>
               </li>
             )}
-            {(type === "Session" || type === "Buffer") && (
+            {(type === "Session" || type === "Buffer") && enableAi && (
               <li>
                 {(() => {
                   // Get authentication status
