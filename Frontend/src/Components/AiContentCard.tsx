@@ -7,11 +7,20 @@ interface AiContentCardProps {
 }
 
 const AiContentCard: React.FC<AiContentCardProps> = ({ progress }) => {
-  const [animatedProgress, setAnimatedProgress] = useState(0);
-  const [displayedPercentage, setDisplayedPercentage] = useState(0);
+  const [animatedProgress, setAnimatedProgress] = useState(progress.progress);
+  const [displayedPercentage, setDisplayedPercentage] = useState(progress.progress);
   const animationFrameRef = useRef<number | null>(null);
+  const isFirstRender = useRef(true);
   
   useEffect(() => {
+    // Skip animation on first render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      setAnimatedProgress(progress.progress);
+      setDisplayedPercentage(progress.progress);
+      return;
+    }
+
     const timer = setTimeout(() => {
       setAnimatedProgress(progress.progress);
       
