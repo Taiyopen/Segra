@@ -9,8 +9,10 @@ import UploadCard from './Components/UploadCard';
 import ClippingCard from './Components/ClippingCard';
 import UpdateCard from './Components/UpdateCard';
 import UnavailableDeviceCard from './Components/UnavailableDeviceCard';
+import AnimatedCard from './Components/AnimatedCard';
 import {MdOutlineContentCut, MdOutlinePlayCircleOutline, MdOutlineSettings, MdReplay30} from 'react-icons/md';
 import {HiOutlineSparkles} from 'react-icons/hi';
+import { AnimatePresence } from 'framer-motion';
 
 interface MenuProps {
 	selectedMenu: string;
@@ -99,16 +101,46 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 
 			{/* Status Cards */}
 			<div className="mt-auto p-2 space-y-2">
-				{updateInfo && <UpdateCard />}
-				{uploadFiles.map((fileName) => (
-					<UploadCard key={fileName} fileName={fileName} />
-				))}
+				<AnimatePresence>
+					{updateInfo && (
+						<AnimatedCard key="update-card">
+							<UpdateCard />
+						</AnimatedCard>
+					)}
+				</AnimatePresence>
+
+				<AnimatePresence>
+					{uploadFiles.map((fileName) => (
+						<AnimatedCard key={fileName}>
+							<UploadCard fileName={fileName} />
+						</AnimatedCard>
+					))}
+				</AnimatePresence>
+
 				{/* Show warning if there are unavailable audio devices */}
-				{hasUnavailableDevices() && <UnavailableDeviceCard />}
-				{recording && recording.endTime == null && <RecordingCard recording={recording} />}
-				{Object.values(useClipping().clippingProgress).map((clipping) => (
-					<ClippingCard key={clipping.id} clipping={clipping} />
-				))}
+				<AnimatePresence>
+					{hasUnavailableDevices() && (
+						<AnimatedCard key="unavailable-device-card">
+							<UnavailableDeviceCard />
+						</AnimatedCard>
+					)}
+				</AnimatePresence>
+
+				<AnimatePresence>
+					{recording && recording.endTime == null && (
+						<AnimatedCard key="recording-card">
+							<RecordingCard recording={recording} />
+						</AnimatedCard>
+					)}
+				</AnimatePresence>
+
+				<AnimatePresence>
+					{Object.values(useClipping().clippingProgress).map((clipping) => (
+						<AnimatedCard key={clipping.id}>
+							<ClippingCard clipping={clipping} />
+						</AnimatedCard>
+					))}
+				</AnimatePresence>
 			</div>
 
 			{/* OBS Loading Section */}
