@@ -465,11 +465,11 @@ export default function Settings() {
 				<AnimatePresence>
 					{settings.recordingMode === 'Buffer' && (
 						<motion.div 
-							className="bg-base-100 p-3 rounded-lg mb-4 border border-custom"
+							className="bg-base-100 rounded-lg border border-custom"
 							initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
 							animate={{ 
 								opacity: 1, 
-								height: 'auto',
+								height: 'fit-content',
 								transition: { 
 									duration: 0.3,
 									height: { type: 'spring', stiffness: 300, damping: 30 }
@@ -482,58 +482,64 @@ export default function Settings() {
 									duration: 0.2
 								}
 							}}
-							layout
+							//layout
 						>
-							<motion.h3 
-								className="text-md font-medium mb-3"
-								initial={{ opacity: 0 }}
-								animate={{ opacity: 1, transition: { delay: 0.1 } }}
-							>
-								Replay Buffer Settings
-							</motion.h3>
-							<motion.div 
-								className="grid grid-cols-2 gap-4"
-								initial={{ opacity: 0 }}
-								animate={{ opacity: 1, transition: { delay: 0.2 } }}
-							>
-								{/* Buffer Duration */}
-								<div className="form-control">
-									<label className="label">
-										<span className="label-text">Buffer Duration (seconds)</span>
-									</label>
-									<input
-										type="number"
-										name="replayBufferDuration"
-										value={localReplayBufferDuration}
-										onChange={(e) => setLocalReplayBufferDuration(Number(e.target.value))}
-										onBlur={() => updateSettings({ replayBufferDuration: localReplayBufferDuration })}
-										min="5"
-										max="600"
-										disabled={settings.state.recording != null}
-										className={`input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80`}
-									/>
-									<span className="text-xs text-base-content text-opacity-60 mt-1">How many seconds of gameplay to keep in memory</span>
-								</div>
+							<div className="content-wrapper mb-4 p-3 pb-0">
+								<motion.h3 
+									className="text-md font-medium mb-3"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1, transition: { delay: 0.1 } }}
+								>
+									Replay Buffer Settings
+								</motion.h3>
+								<motion.div 
+									className="grid grid-cols-2 gap-4"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1, transition: { delay: 0.2 } }}
+								>
+									{/* Buffer Duration */}
+									<div className="form-control">
+										<label className="label">
+											<span className="label-text">Buffer Duration (seconds)</span>
+										</label>
+										<input
+											type="number"
+											name="replayBufferDuration"
+											value={localReplayBufferDuration}
+											onChange={(e) => setLocalReplayBufferDuration(Number(e.target.value))}
+											onBlur={() => updateSettings({ replayBufferDuration: localReplayBufferDuration })}
+											min="5"
+											max="600"
+											disabled={settings.state.recording != null}
+											className={`input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80`}
+										/>
+										<div className="help-text-container">
+											<span className="text-xs text-base-content text-opacity-60 mt-1">How many seconds of gameplay to keep in memory</span>
+										</div>
+									</div>
 
-								{/* Buffer Max Size */}
-								<div className="form-control">
-									<label className="label">
-										<span className="label-text">Maximum Size (MB)</span>
-									</label>
-									<input
-										type="number"
-										name="replayBufferMaxSize"
-										value={localReplayBufferMaxSize}
-										onChange={(e) => setLocalReplayBufferMaxSize(Number(e.target.value))}
-										onBlur={() => updateSettings({ replayBufferMaxSize: localReplayBufferMaxSize })}
-										min="100"
-										max="5000"
-										disabled={settings.state.recording != null}
-										className="input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80"
-									/>
-									<span className="text-xs text-base-content text-opacity-60 mt-1">Maximum buffer size in megabytes</span>
-								</div>
-							</motion.div>
+									{/* Buffer Max Size */}
+									<div className="form-control">
+										<label className="label">
+											<span className="label-text">Maximum Size (MB)</span>
+										</label>
+										<input
+											type="number"
+											name="replayBufferMaxSize"
+											value={localReplayBufferMaxSize}
+											onChange={(e) => setLocalReplayBufferMaxSize(Number(e.target.value))}
+											onBlur={() => updateSettings({ replayBufferMaxSize: localReplayBufferMaxSize })}
+											min="100"
+											max="5000"
+											disabled={settings.state.recording != null}
+											className="input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80"
+										/>
+										<div className="help-text-container">
+											<span className="text-xs text-base-content text-opacity-60 mt-1">Maximum buffer size in megabytes</span>
+										</div>
+									</div>
+								</motion.div>
+							</div>
 						</motion.div>
 					)}
 				</AnimatePresence>
