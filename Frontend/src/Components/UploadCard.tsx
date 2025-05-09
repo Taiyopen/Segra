@@ -1,15 +1,10 @@
-import { useUploads } from '../Context/UploadContext';
 import type { UploadProgress } from '../Context/UploadContext';
 
 interface UploadCardProps {
-  fileName: string;
+  upload: UploadProgress;
 }
 
-export default function UploadCard({ fileName }: UploadCardProps) {
-  const { uploads } = useUploads();
-  const upload: UploadProgress = uploads[fileName];
-
-  if (!upload) return null;
+export default function UploadCard({ upload }: UploadCardProps) {
 
   const getStatusText = () => {
     switch (upload.status) {

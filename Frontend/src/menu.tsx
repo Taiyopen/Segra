@@ -22,10 +22,8 @@ interface MenuProps {
 export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 	const settings = useSettings();
 	const {hasLoadedObs, recording} = settings.state;
-	const {uploads} = useUploads();
 	const {updateInfo} = useUpdate();
 	const {aiProgress} = useAiHighlights();
-	const uploadFiles = Object.keys(uploads);
 	
 	// Check if there are any active AI highlight generations
 	const hasActiveAiHighlights = Object.values(aiProgress).length > 0;
@@ -110,9 +108,9 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				</AnimatePresence>
 
 				<AnimatePresence>
-					{uploadFiles.map((fileName) => (
-						<AnimatedCard key={fileName}>
-							<UploadCard fileName={fileName} />
+					{Object.values(useUploads().uploads).map((file) => (
+						<AnimatedCard key={file.fileName}>
+							<UploadCard upload={file} />
 						</AnimatedCard>
 					))}
 				</AnimatePresence>
