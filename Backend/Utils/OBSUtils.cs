@@ -5,6 +5,7 @@ using Segra.Backend.Services;
 using Serilog;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Windows.Forms.Design;
 using static LibObs.Obs;
 using size_t = System.UIntPtr;
 
@@ -293,10 +294,12 @@ namespace Segra.Backend.Utils
             return obs_reset_video(ref videoInfo) == 0; // Returns true if successful
         }
 
-        public static bool StartRecording(string name = "Unknown", string fileName = "Unknown")
+        public static bool StartRecording(string name = "Unknown", string exePath = "Unknown")
         {
             isInitializingRecording = true;
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
+
+            string fileName = Path.GetFileName(exePath);
 
             if ((isReplayBufferMode && bufferOutput != IntPtr.Zero) || (!isReplayBufferMode && output != IntPtr.Zero))
             {
@@ -540,14 +543,16 @@ namespace Segra.Backend.Utils
                 }
             }
 
-            // The recording has actually started, set actual start time
+            string? gameImage = GameIconUtils.ExtractIconAsBase64(exePath);
+
             Settings.Instance.State.Recording = new Recording()
             {
                 StartTime = DateTime.Now,
+                Game = name,
                 FilePath = videoOutputPath,
                 FileName = fileName,
-                Game = name,
-                IsUsingGameHook = hooked
+                IsUsingGameHook = hooked,
+                GameImage = gameImage
             };
             isInitializingRecording = false;
             MessageUtils.SendSettingsToFrontend();

@@ -57,6 +57,7 @@ export interface Recording {
 	endTime: Date;
 	game: string;
 	isUsingGameHook: boolean;
+	gameImage?: string; // Base64 encoded image of the game executable icon
 }
 
 export interface AudioDevice {

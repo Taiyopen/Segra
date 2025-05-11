@@ -193,7 +193,7 @@ namespace Segra.Backend.Services
             }
 
             Log.Information($"[StartGameRecording] Starting recording for game: PID {pid}, Path: {exePath}");
-            OBSUtils.StartRecording(ExtractGameName(exePath), Path.GetFileName(exePath));
+            OBSUtils.StartRecording(ExtractGameName(exePath), exePath);
         }
 
         [DllImport("user32.dll")]

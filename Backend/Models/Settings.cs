@@ -764,6 +764,9 @@ namespace Segra.Backend.Models
         [JsonPropertyName("isUsingGameHook")]
         public bool IsUsingGameHook { get; set; }
 
+        [JsonPropertyName("gameImage")]
+        public string? GameImage { get; set; }
+
         [JsonPropertyName("bookmarks")]
         public List<Bookmark> Bookmarks { get; set; } = new List<Bookmark>();
 
