@@ -1099,7 +1099,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                         </div>
                     </div>
                 </div>
-                {video.type === "Session" || video.type === "Buffer" && (
+                {(video.type === "Session" || video.type === "Buffer") && (
                     <div className="bg-base-300 text-neutral-content w-52 2xl:w-72 flex flex-col h-full pl-4 pr-1 pt-4">
                         <div className="overflow-y-scroll flex-1  mt-1 p-1">
                             {selections.map((sel, index) => (
