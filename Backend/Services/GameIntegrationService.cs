@@ -1,4 +1,5 @@
 using RePlays.Integrations;
+using Segra.Backend.GameIntegration;
 using Serilog;
 
 namespace Segra.Backend.Services
@@ -6,6 +7,7 @@ namespace Segra.Backend.Services
     public static class GameIntegrationService
     {
         private const string PUBG = "PUBG: BATTLEGROUNDS";
+        private const string LOL = "League of Legends";
         private static Integration? _gameIntegration;
         public static Integration? GameIntegration => _gameIntegration;
 
@@ -20,6 +22,7 @@ namespace Segra.Backend.Services
             _gameIntegration = gameName switch
             {
                 PUBG => new PubgIntegration(),
+                LOL => new LeagueOfLegendsIntegration(),
                 _ => null,
             };
 
