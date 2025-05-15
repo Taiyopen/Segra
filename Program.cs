@@ -322,24 +322,7 @@ namespace Segra
         // Check if the application was launched from startup
         private static bool IsLaunchedFromStartup()
         {
-            try
-            {
-                // Get the process that started this process
-                using (var current = Process.GetCurrentProcess())
-                {
-                    var startTime = current.StartTime;
-                    // If the process was started within 30 seconds of system boot, it's likely from startup
-                    var bootTime = DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount);
-                    var timeSinceBoot = startTime - bootTime;
-
-                    return timeSinceBoot.TotalSeconds < 30;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Warning($"Failed to determine if launched from startup: {ex.Message}");
-                return false;
-            }
+            return Environment.GetCommandLineArgs().Contains("--from-startup");
         }
         
         private static void AddNotifyIcon()
