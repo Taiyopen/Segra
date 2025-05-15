@@ -19,6 +19,7 @@ import {ClippingProvider} from './Context/ClippingContext';
 import {AiHighlightsProvider} from './Context/AiHighlightsContext';
 import {UpdateProvider} from './Context/UpdateContext';
 import { ReleaseNote } from './Models/WebSocketMessages';
+import { ScrollProvider } from './Context/ScrollContext';
 
 // Create a context for release notes that can be accessed globally
 export const ReleaseNotesContext = createContext<{
@@ -84,25 +85,27 @@ export default function AppWrapper() {
   
   return (
     <WebSocketProvider>
-      <SettingsProvider>
-        <ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
-          <ModalProvider>
-            <SelectionsProvider>
-              <DndProvider backend={HTML5Backend}>
-                <UploadProvider>
-                  <ClippingProvider>
-                    <AiHighlightsProvider>
-                      <UpdateProvider>
-                        <App />
-                      </UpdateProvider>
-                    </AiHighlightsProvider>
-                  </ClippingProvider>
-                </UploadProvider>
-              </DndProvider>
-            </SelectionsProvider>
-          </ModalProvider>
-        </ReleaseNotesContext.Provider>
-      </SettingsProvider>
+      <ScrollProvider>
+		<SettingsProvider>
+			<ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
+			<ModalProvider>
+				<SelectionsProvider>
+				<DndProvider backend={HTML5Backend}>
+					<UploadProvider>
+					<ClippingProvider>
+						<AiHighlightsProvider>
+						<UpdateProvider>
+							<App />
+						</UpdateProvider>
+						</AiHighlightsProvider>
+					</ClippingProvider>
+					</UploadProvider>
+				</DndProvider>
+				</SelectionsProvider>
+			</ModalProvider>
+			</ReleaseNotesContext.Provider>
+		</SettingsProvider>
+      </ScrollProvider>
     </WebSocketProvider>
   );
 }

@@ -1,21 +1,45 @@
-import {useSettings} from '../Context/SettingsContext';
+import { useSettings } from '../Context/SettingsContext';
 import ContentCard from '../Components/ContentCard';
 import { useSelectedVideo } from "../Context/SelectedVideoContext";
-import {Content} from "../Models/types";
+import { Content } from "../Models/types";
+import { useScroll } from '../Context/ScrollContext';
+import { useEffect, useRef } from 'react';
 import { MdOutlineContentCut } from 'react-icons/md';
 import { useClipping } from '../Context/ClippingContext';
 
 export default function Clips() {
-  const {state} = useSettings();
-  const {setSelectedVideo} = useSelectedVideo();
+  const { state } = useSettings();
+  const { setSelectedVideo } = useSelectedVideo();
+  const { scrollPositions, setScrollPosition } = useScroll();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isSettingScroll = useRef(false);
   const {clippingProgress} = useClipping();
 
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
   };
 
+  useEffect(() => {
+    if (containerRef.current && scrollPositions.clips > 0) {
+      isSettingScroll.current = true;
+      containerRef.current.scrollTop = scrollPositions.clips;
+      setTimeout(() => {
+        isSettingScroll.current = false;
+      }, 100);
+    }
+  }, []); // Only run on mount
+
+  const handleScroll = () => {
+    if (containerRef.current && !isSettingScroll.current) {
+      setScrollPosition('clips', containerRef.current.scrollTop);
+    }
+  };
+
   return (
-    <div className="p-5 space-y-6 rounded-lg">
+    <div 
+      ref={containerRef} 
+      className="p-5 space-y-6 rounded-lg overflow-y-auto h-full"
+      onScroll={handleScroll}>
       <h1 className="text-3xl font-bold mb-4">Clips</h1>
       {(state.content.filter((video) => video.type === 'Clip').length > 0 || Object.keys(clippingProgress).length > 0) ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
