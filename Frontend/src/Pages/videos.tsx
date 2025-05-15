@@ -29,9 +29,22 @@ export default function Videos() {
     }
   }, []); // Only run on mount
 
+  const scrollTimeout = useRef<NodeJS.Timeout>();
+
   const handleScroll = () => {
     if (containerRef.current && !isSettingScroll.current) {
-      setScrollPosition('videos', containerRef.current.scrollTop);
+      // Clear any existing timeout
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+
+      // Set new timeout
+      scrollTimeout.current = setTimeout(() => {
+        const currentPos = containerRef.current?.scrollTop;
+        if (currentPos !== undefined && currentPos !== scrollPositions.videos) {
+          setScrollPosition('videos', currentPos);
+        }
+      }, 500);
     }
   };
 

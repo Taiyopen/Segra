@@ -27,9 +27,20 @@ export default function ReplayBuffer() {
     }
   }, []); // Only run on mount
 
+  const scrollTimeout = useRef<NodeJS.Timeout>();
+
   const handleScroll = () => {
     if (containerRef.current && !isSettingScroll.current) {
-      setScrollPosition('replayBuffer', containerRef.current.scrollTop);
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+
+      scrollTimeout.current = setTimeout(() => {
+        const currentPos = containerRef.current?.scrollTop;
+        if (currentPos !== undefined && currentPos !== scrollPositions.replayBuffer) {
+          setScrollPosition('replayBuffer', currentPos);
+        }
+      }, 500);
     }
   };
 

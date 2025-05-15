@@ -35,9 +35,20 @@ export default function Highlights() {
     }
   }, []); // Only run on mount
 
+  const scrollTimeout = useRef<NodeJS.Timeout>();
+
   const handleScroll = () => {
     if (containerRef.current && !isSettingScroll.current) {
-      setScrollPosition('highlights', containerRef.current.scrollTop);
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+
+      scrollTimeout.current = setTimeout(() => {
+        const currentPos = containerRef.current?.scrollTop;
+        if (currentPos !== undefined && currentPos !== scrollPositions.highlights) {
+          setScrollPosition('highlights', currentPos);
+        }
+      }, 500);
     }
   };
 

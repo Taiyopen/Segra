@@ -29,9 +29,20 @@ export default function Clips() {
     }
   }, []); // Only run on mount
 
+  const scrollTimeout = useRef<NodeJS.Timeout>();
+
   const handleScroll = () => {
     if (containerRef.current && !isSettingScroll.current) {
-      setScrollPosition('clips', containerRef.current.scrollTop);
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+
+      scrollTimeout.current = setTimeout(() => {
+        const currentPos = containerRef.current?.scrollTop;
+        if (currentPos !== undefined && currentPos !== scrollPositions.clips) {
+          setScrollPosition('clips', currentPos);
+        }
+      }, 500);
     }
   };
 
