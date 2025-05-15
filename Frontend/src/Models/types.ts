@@ -107,7 +107,7 @@ export interface Settings {
 
 export const initialState: State = {
 	recording: undefined,
-	hasLoadedObs: true,
+	hasLoadedObs: false,
 	content: [],
 	inputDevices: [],
 	outputDevices: [],

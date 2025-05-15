@@ -160,14 +160,14 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				<div className="flex flex-col items-center space-y-2">
 					<button
 						className="btn btn-neutral w-full"
-						disabled={settings.state.recording != null}
+						disabled={settings.state.recording != null || !settings.state.hasLoadedObs}
 						onClick={() => sendMessageToBackend('StartRecording')}
 					>
 						Start
 					</button>
 					<button
 						className="btn btn-neutral w-full"
-						disabled={!settings.state.recording}
+						disabled={!settings.state.recording || !settings.state.hasLoadedObs}
 						onClick={() => sendMessageToBackend('StopRecording')}
 					>
 						Stop
