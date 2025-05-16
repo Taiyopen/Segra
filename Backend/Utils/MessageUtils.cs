@@ -65,6 +65,13 @@ namespace Segra.Backend.Utils
                         case "Logout":
                             await AuthService.Logout();
                             break;
+                        case "CancelClip":
+                            if (root.TryGetProperty("Parameters", out var cancelClipParams) &&
+                                cancelClipParams.TryGetProperty("id", out var clipId))
+                            {
+                                ClipUtils.CancelClip(clipId.GetInt32());
+                            }
+                            break;
                         case "CreateClip":
                             root.TryGetProperty("Parameters", out JsonElement clipParameterElement);
                             await HandleCreateClip(clipParameterElement);

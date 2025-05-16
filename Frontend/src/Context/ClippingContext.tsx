@@ -1,16 +1,18 @@
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { sendMessageToBackend } from '../Utils/MessageUtils';
 
-interface ClippingProgress {
+export interface ClippingProgress {
     id: number;
     progress: number;
 }
 
-interface ClippingContextType {
+export interface ClippingContextType {
     clippingProgress: Record<number, ClippingProgress>;
     removeClipping: (id: number) => void;
+    cancelClip: (id: number) => void;
 }
 
-const ClippingContext = createContext<ClippingContextType | undefined>(undefined);
+export const ClippingContext = createContext<ClippingContextType | undefined>(undefined);
 
 export function ClippingProvider({ children }: { children: ReactNode }) {
     const [clippingProgress, setClippingProgress] = useState<Record<number, ClippingProgress>>({});
@@ -48,8 +50,12 @@ export function ClippingProvider({ children }: { children: ReactNode }) {
         });
     };
 
+    const cancelClip = (id: number) => {
+        sendMessageToBackend('CancelClip', { id });
+    };
+
     return (
-        <ClippingContext.Provider value={{ clippingProgress, removeClipping }}>
+        <ClippingContext.Provider value={{ clippingProgress, removeClipping, cancelClip }}>
             {children}
         </ClippingContext.Provider>
     );

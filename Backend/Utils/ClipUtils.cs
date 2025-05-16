@@ -8,6 +8,11 @@ namespace Segra.Backend.Utils
 {
     public static class ClipUtils
     {
+        // Dictionary to store active FFmpeg processes
+        private static readonly Dictionary<int, List<Process>> ActiveFFmpegProcesses = new Dictionary<int, List<Process>>();
+        // Lock for thread safety
+        private static readonly object ProcessLock = new object();
+
         public static async Task CreateAiClipFromBookmarks(List<Bookmark> bookmarks, AiProgressMessage aiProgressMessage)
         {
             // Convert bookmarks to initial selections with buffer times
@@ -36,40 +41,6 @@ namespace Segra.Backend.Utils
             Log.Information($"Merged {initialSelections.Count} bookmarks into {mergedSelections.Count} clip sections");
 
             await CreateClips(mergedSelections, false, aiProgressMessage);
-        }
-
-        private static List<Selection> MergeOverlappingSelections(List<Selection> selections)
-        {
-            // Sort selections by start time
-            var sortedSelections = selections.OrderBy(s => s.StartTime).ToList();
-            List<Selection> mergedSelections = new List<Selection>();
-            
-            // Start with the first selection
-            Selection current = sortedSelections[0];
-            
-            // Iterate through the sorted selections
-            for (int i = 1; i < sortedSelections.Count; i++)
-            {
-                var next = sortedSelections[i];
-                
-                // Check if the current selection overlaps with the next one
-                if (current.EndTime >= next.StartTime)
-                {
-                    // Merge by extending the end time if needed
-                    current.EndTime = Math.Max(current.EndTime, next.EndTime);
-                }
-                else
-                {
-                    // No overlap, add current to result and move to next
-                    mergedSelections.Add(current);
-                    current = next;
-                }
-            }
-            
-            // Add the last merged selection
-            mergedSelections.Add(current);
-            
-            return mergedSelections;
         }
 
         public static async Task CreateClips(List<Selection> selections, bool updateFrontend = true, AiProgressMessage? aiProgressMessage = null)
@@ -119,7 +90,7 @@ namespace Segra.Backend.Utils
                 string tempFileName = Path.Combine(Path.GetTempPath(), $"clip{Guid.NewGuid()}.mp4");
                 double clipDuration = selection.EndTime - selection.StartTime;
 
-                await ExtractClip(inputFilePath, tempFileName, selection.StartTime, selection.EndTime, ffmpegPath, progress =>
+                await ExtractClip(id, inputFilePath, tempFileName, selection.StartTime, selection.EndTime, ffmpegPath, progress =>
                 {
                     double currentProgress = (processedDuration + (progress * clipDuration)) / totalDuration * 100;
                     if (updateFrontend)
@@ -168,7 +139,7 @@ namespace Segra.Backend.Utils
                 MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
             }
 
-            await RunFFmpegProcess(ffmpegPath,
+            await RunFFmpegProcess(id, ffmpegPath,
                 $"-y -f concat -safe 0 -i \"{concatFilePath}\" -c copy -movflags +faststart \"{outputFilePath}\"",
                 totalDuration,
                 progress =>
@@ -178,7 +149,7 @@ namespace Segra.Backend.Utils
                         MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100 });
                     }
                 }
-                );
+            );
 
             // Cleanup
             tempClipFiles.ForEach(f => SafeDelete(f));
@@ -266,17 +237,52 @@ namespace Segra.Backend.Utils
             return outputFilePath;
         }
 
-        private static async Task ExtractClip(string inputFilePath, string outputFilePath, double startTime, double endTime,
+        private static List<Selection> MergeOverlappingSelections(List<Selection> selections)
+        {
+            // Sort selections by start time
+            var sortedSelections = selections.OrderBy(s => s.StartTime).ToList();
+            List<Selection> mergedSelections = new List<Selection>();
+            
+            // Start with the first selection
+            Selection current = sortedSelections[0];
+            
+            // Iterate through the sorted selections
+            for (int i = 1; i < sortedSelections.Count; i++)
+            {
+                var next = sortedSelections[i];
+                
+                // Check if the current selection overlaps with the next one
+                if (current.EndTime >= next.StartTime)
+                {
+                    // Merge by extending the end time if needed
+                    current.EndTime = Math.Max(current.EndTime, next.EndTime);
+                }
+                else
+                {
+                    // No overlap, add current to result and move to next
+                    mergedSelections.Add(current);
+                    current = next;
+                }
+            }
+            
+            // Add the last merged selection
+            mergedSelections.Add(current);
+            
+            return mergedSelections;
+        }
+
+
+        private static async Task ExtractClip(int clipId, string inputFilePath, string outputFilePath, double startTime, double endTime,
                                             string ffmpegPath, Action<double> progressCallback)
         {
             double duration = endTime - startTime;
             string arguments = $"-y -ss {startTime.ToString(CultureInfo.InvariantCulture)} -t {duration.ToString(CultureInfo.InvariantCulture)} " +
                              $"-i \"{inputFilePath}\" -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 192k -movflags +faststart \"{outputFilePath}\"";
 
-            await RunFFmpegProcess(ffmpegPath, arguments, duration, progressCallback);
+            await RunFFmpegProcess(clipId, ffmpegPath, arguments, duration, progressCallback);
         }
 
-        private static async Task RunFFmpegProcess(string ffmpegPath, string arguments, double? totalDuration, Action<double> progressCallback)
+        private static async Task RunFFmpegProcess(int clipId, string ffmpegPath, string arguments, double? totalDuration, Action<double> progressCallback)
         {
             var processStartInfo = new ProcessStartInfo
             {
@@ -314,13 +320,46 @@ namespace Segra.Backend.Utils
 
                 try
                 {
+                    lock (ProcessLock)
+                    {
+                        if (!ActiveFFmpegProcesses.ContainsKey(clipId))
+                        {
+                            ActiveFFmpegProcesses[clipId] = new List<Process>();
+                        }
+                        ActiveFFmpegProcesses[clipId].Add(process);
+                    }
+
                     process.Start();
                     process.BeginErrorReadLine();
                     await process.WaitForExitAsync();
+
+                    lock (ProcessLock)
+                    {
+                        if (ActiveFFmpegProcesses.ContainsKey(clipId))
+                        {
+                            ActiveFFmpegProcesses[clipId].Remove(process);
+                            if (ActiveFFmpegProcesses[clipId].Count == 0)
+                            {
+                                ActiveFFmpegProcesses.Remove(clipId);
+                            }
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
                     Log.Error($"Error in FFmpeg process: {ex.Message}");
+
+                    lock (ProcessLock)
+                    {
+                        if (ActiveFFmpegProcesses.ContainsKey(clipId))
+                        {
+                            ActiveFFmpegProcesses[clipId].Remove(process);
+                            if (ActiveFFmpegProcesses[clipId].Count == 0)
+                            {
+                                ActiveFFmpegProcesses.Remove(clipId);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -386,6 +425,31 @@ namespace Segra.Backend.Utils
                 catch (Exception ex)
                 {
                     Log.Error($"Error in FFmpeg process: {ex.Message}");
+                }
+            }
+        }
+
+        public static void CancelClip(int clipId)
+        {
+            lock (ProcessLock)
+            {
+                if (ActiveFFmpegProcesses.TryGetValue(clipId, out var processes))
+                {
+                    foreach (var process in processes.ToList())
+                    {
+                        try
+                        {
+                            if (!process.HasExited)
+                            {
+                                process.Kill(true); // Force kill the process
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error($"Error killing FFmpeg process: {ex.Message}");
+                        }
+                    }
+                    ActiveFFmpegProcesses.Remove(clipId);
                 }
             }
         }

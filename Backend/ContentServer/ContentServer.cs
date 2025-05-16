@@ -67,7 +67,6 @@ namespace Segra.Backend.ContentServer
 
             try
             {
-                Log.Information("HandleThumbnailRequest started: input={Input}, time={TimeParam}", input, timeParam);
                 response.AddHeader("Access-Control-Allow-Origin", "*");
 
                 if (!File.Exists(input))
@@ -83,7 +82,6 @@ namespace Segra.Backend.ContentServer
 
                 if (string.IsNullOrEmpty(timeParam))
                 {
-                    Log.Information("No time param provided; serving existing thumbnail from disk: {Input}", input);
                     byte[] buffer = File.ReadAllBytes(input);
                     response.ContentType = "image/jpeg";
                     response.AddHeader("Cache-Control", "public, max-age=86400");
@@ -92,11 +90,9 @@ namespace Segra.Backend.ContentServer
                     response.AddHeader("Last-Modified", lastModified.ToString("R"));
                     response.ContentLength64 = buffer.Length;
                     response.OutputStream.Write(buffer, 0, buffer.Length);
-                    Log.Information("Served existing thumbnail: {Input} (length={Length} bytes)", input, buffer.Length);
                 }
                 else
                 {
-                    Log.Information("Time param is {TimeParam}; generating on-the-fly thumbnail from {Input}", timeParam, input);
                     if (!double.TryParse(timeParam, System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out double timeSeconds))
                     {
                         Log.Warning("Could not parse timeParam={TimeParam} as double, using 0.0 fallback", timeParam);
@@ -117,7 +113,6 @@ namespace Segra.Backend.ContentServer
 
                     string timeString = timeSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     string ffmpegArgs = $"-y -ss {timeString} -i \"{input}\" -frames:v 1 -vf scale=320:-1 -f image2pipe -vcodec mjpeg -q:v 20 pipe:1";
-                    Log.Information("Running FFmpeg: {FfmpegPath} {FfmpegArgs}", ffmpegPath, ffmpegArgs);
 
                     var processInfo = new ProcessStartInfo
                     {
@@ -154,10 +149,6 @@ namespace Segra.Backend.ContentServer
                             }
                             return;
                         }
-                        else
-                        {
-                            Log.Information("FFmpeg completed successfully. (Stderr={StdErr})", ffmpegStdErr);
-                        }
                     }
 
                     // Serve the image directly from memory
@@ -169,7 +160,6 @@ namespace Segra.Backend.ContentServer
                         response.AddHeader("Expires", "0");
                         response.ContentLength64 = jpegBytes.Length;
                         response.OutputStream.Write(jpegBytes, 0, jpegBytes.Length);
-                        Log.Information("Served on-the-fly thumbnail (length={Length} bytes) at time={TimeSeconds}", jpegBytes.Length, timeSeconds);
                     }
                     else
                     {
