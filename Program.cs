@@ -177,7 +177,7 @@ namespace Segra
 
 
                 // Try to login with stored credentials
-                Task.Run(async () => await AuthService.TryAutoLogin());
+                Task.Run(AuthService.TryAutoLogin);
 
                 // Start WebSocket and Load Settings
                 Task.Run(MessageUtils.StartWebsocket);
@@ -208,12 +208,26 @@ namespace Segra
                 // If started from startup, minimize the window and show in system tray
                 if (startMinimized)
                 {
-                    window.Minimized = true;
                     // Add a small delay to ensure the window is created before hiding it
                     Task.Run(async () =>
                     {
-                        await Task.Delay(500);
-                        HideApplicationWindow();
+                        IntPtr hWnd = IntPtr.Zero;
+                        int tries = 0;
+
+                        // Wait up to 30 seconds for the window handle to become valid
+                        while ((hWnd = Process.GetCurrentProcess().MainWindowHandle) == IntPtr.Zero && tries++ < 300)
+                        {
+                            await Task.Delay(100);
+                        }
+
+                        if (hWnd != IntPtr.Zero)
+                        {
+                            HideApplicationWindow();
+                        }
+                        else
+                        {
+                            Log.Warning("Failed to hide window: window handle was not available in time.");
+                        }
                     });
                 }
 
@@ -251,7 +265,7 @@ namespace Segra
 
             if (window != null)
             {
-                window.Minimized = false;
+                window.SetMinimized(false);
 
                 window.SetTopMost(true);
                 await Task.Delay(200);
@@ -263,9 +277,7 @@ namespace Segra
 
         private static void HideApplicationWindow()
         {
-            if (window != null)
-                window.Minimized = true; // Minimize first
-
+            window?.SetMinimized(true);
 
             if (notifyIcon != null)
                 notifyIcon.Visible = true;
@@ -310,7 +322,7 @@ namespace Segra
                             Console.WriteLine($"Error in named pipe server: {ex.Message}");
                         }
 
-						Thread.Sleep(1000);
+                        Thread.Sleep(1000);
                     }
                 }
             });
@@ -324,7 +336,7 @@ namespace Segra
         {
             return Environment.GetCommandLineArgs().Contains("--from-startup");
         }
-        
+
         private static void AddNotifyIcon()
         {
             notifyIcon = new NotifyIcon
