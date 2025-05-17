@@ -15,13 +15,13 @@ namespace Segra.Backend.Utils
         public static GithubSource Source = new GithubSource("https://github.com/Segergren/Segra", null, false);
         public static GithubSource BetaSource = new GithubSource("https://github.com/Segergren/Segra", null, true);
         public static UpdateManager UpdateManager { get; private set; } = new UpdateManager(Source);
-        
+
         public static async Task<bool> UpdateAppIfNecessary()
         {
             try
             {
                 Models.Settings.Instance.State.IsCheckingForUpdates = true;
-                
+
                 bool useBetaChannel = Models.Settings.Instance.ReceiveBetaUpdates;
                 if (useBetaChannel)
                 {
@@ -181,7 +181,7 @@ namespace Segra.Backend.Utils
                 // Process releases
                 foreach (var release in releases)
                 {
-                    if(!includeBeta && release.Prerelease)
+                    if (!includeBeta && release.Prerelease)
                     {
                         continue;
                     }
@@ -232,10 +232,7 @@ namespace Segra.Backend.Utils
                 }
 
                 // Send release notes to frontend
-                await MessageUtils.SendFrontendMessage("ReleaseNotes", new
-                {
-                    releaseNotesList
-                });
+                MessageUtils.SendFrontendMessage("ReleaseNotes", releaseNotesList);
 
                 Log.Information($"Sent {releaseNotesList.Count} release notes to frontend");
             }

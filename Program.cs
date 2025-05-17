@@ -19,9 +19,8 @@ namespace Segra
     {
         [DllImport("user32.dll")]
         static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
         const int SW_HIDE = 0;
-
+        private static readonly ManualResetEvent ExitEvent = new ManualResetEvent(false);
         public static bool hasLoadedInitialSettings = false;
         public static PhotinoWindow window { get; private set; }
         private static readonly string LogFilePath =
@@ -30,6 +29,7 @@ namespace Segra
         private const string PipeName = "Segra_SingleInstance";
         private static Mutex singleInstanceMutex;
         private static Thread pipeServerThread;
+        private static string appUrl;
 
         [STAThread]
         static void Main(string[] args)
@@ -128,7 +128,7 @@ namespace Segra
                     .RunAsync();
 
                 bool IsDebugMode = Debugger.IsAttached;
-                string appUrl = IsDebugMode ? "http://localhost:2882" : $"{baseUrl}/index.html";
+                appUrl = IsDebugMode ? "http://localhost:2882" : $"{baseUrl}/index.html";
 
                 if (IsDebugMode)
                 {
@@ -183,61 +183,22 @@ namespace Segra
                 Task.Run(MessageUtils.StartWebsocket);
                 Task.Run(StorageUtils.EnsureStorageBelowLimit);
 
-                // Initialize the PhotinoWindow
-                window = new PhotinoWindow()
-                    .SetNotificationsEnabled(false) // Disabled due to it creating a second start menu entry with incorrect start path. See https://github.com/tryphotino/photino.NET/issues/85
-                    .SetUseOsDefaultSize(false)
-                    .SetIconFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico"))
-                    .SetSize(new Size(1280, 720))
-                    .Center()
-                    .SetResizable(true)
-                    .RegisterWebMessageReceivedHandler((sender, message) =>
-                    {
-                        window = (PhotinoWindow)sender;
-                        MessageUtils.HandleMessage(message);
-                    })
-                    .Load(appUrl);
-
-                AddNotifyIcon();
-                GameDetectionService.ForegroundHook.Start();
-
                 // Check if application was launched from startup
                 bool startMinimized = IsLaunchedFromStartup();
                 Log.Information($"Starting application{(startMinimized ? " minimized from startup" : "")}");
 
-                // If started from startup, minimize the window and show in system tray
-                if (startMinimized)
-                {
-                    // Add a small delay to ensure the window is created before hiding it
-                    Task.Run(async () =>
-                    {
-                        IntPtr hWnd = IntPtr.Zero;
-                        int tries = 0;
+                AddNotifyIcon();
 
-                        // Wait up to 30 seconds for the window handle to become valid
-                        while ((hWnd = Process.GetCurrentProcess().MainWindowHandle) == IntPtr.Zero && tries++ < 300)
-                        {
-                            await Task.Delay(100);
-                        }
-
-                        if (hWnd != IntPtr.Zero)
-                        {
-                            HideApplicationWindow();
-                        }
-                        else
-                        {
-                            Log.Warning("Failed to hide window: window handle was not available in time.");
-                        }
-                    });
-                }
-
-                // intentional space after name because of https://github.com/tryphotino/photino.NET/issues/106
-                window.SetTitle("Segra ");
+                GameDetectionService.ForegroundHook.Start();
 
                 // Run the OBS Initializer in a separate thread and application to make sure someting on the main thread doesn't block
                 Task.Run(() => Application.Run(new OBSWindow()));
 
-                window.WaitForClose();
+                if (!startMinimized)
+                {
+                    LoadFrontend();
+                }
+                ExitEvent.WaitOne();
                 GameDetectionService.ForegroundHook.Stop();
             }
             catch (Exception ex)
@@ -263,6 +224,11 @@ namespace Segra
             if (notifyIcon != null)
                 notifyIcon.Visible = false;
 
+            if (window == null)
+            {
+                LoadFrontend();
+            }
+
             if (window != null)
             {
                 window.SetMinimized(false);
@@ -286,6 +252,35 @@ namespace Segra
             ShowWindow(hWnd, SW_HIDE); // Hides the window from the taskbar
 
             Log.Information("Application window hidden");
+        }
+
+        private static void LoadFrontend()
+        {
+            // Initialize the PhotinoWindow
+            window = new PhotinoWindow()
+                .SetNotificationsEnabled(false) // Disabled due to it creating a second start menu entry with incorrect start path. See https://github.com/tryphotino/photino.NET/issues/85
+                .SetUseOsDefaultSize(false)
+                .SetIconFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico"))
+                .SetSize(new Size(1280, 720))
+                .Center()
+                .SetResizable(true)
+                .RegisterWebMessageReceivedHandler((sender, message) =>
+                {
+                    window = (PhotinoWindow)sender;
+                    MessageUtils.HandleMessage(message);
+                })
+                .Load(appUrl);
+
+            // intentional space after name because of https://github.com/tryphotino/photino.NET/issues/106
+            window.SetTitle("Segra ");
+
+            window.RegisterWindowClosingHandler((sender, eventArgs) =>
+            {
+                HideApplicationWindow();
+                return true;
+            });
+
+            window.WaitForClose();
         }
 
         private static void StartNamedPipeServer()
@@ -355,6 +350,7 @@ namespace Segra
             contextMenu.Items.Add("Exit", null, (sender, e) =>
             {
                 notifyIcon.Visible = false;
+                ExitEvent.Set();
                 Environment.Exit(0);
             });
 
@@ -367,12 +363,6 @@ namespace Segra
                     await ShowApplicationWindow();
                 }
             };
-
-            window.RegisterWindowClosingHandler((sender, eventArgs) =>
-            {
-                HideApplicationWindow();
-                return true;
-            });
         }
 
         private static string GetSolutionPath()
