@@ -20,12 +20,11 @@ namespace Segra
         [DllImport("user32.dll")]
         static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         const int SW_HIDE = 0;
-        private static readonly ManualResetEvent ExitEvent = new ManualResetEvent(false);
+        private static readonly AutoResetEvent ShowWindowEvent = new AutoResetEvent(false);
         public static bool hasLoadedInitialSettings = false;
         public static PhotinoWindow window { get; private set; }
         private static readonly string LogFilePath =
           Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra", "logs.log");
-        private static NotifyIcon notifyIcon;
         private const string PipeName = "Segra_SingleInstance";
         private static Mutex singleInstanceMutex;
         private static Thread pipeServerThread;
@@ -175,7 +174,6 @@ namespace Segra
                     SettingsUtils.LoadContentFromFolderIntoState(true);
                 }
 
-
                 // Try to login with stored credentials
                 Task.Run(AuthService.TryAutoLogin);
 
@@ -198,8 +196,19 @@ namespace Segra
                 {
                     LoadFrontend();
                 }
-                ExitEvent.WaitOne();
-                GameDetectionService.ForegroundHook.Stop();
+                
+                // Wait for show window events
+                while (true)
+                {
+                    int signalIndex = WaitHandle.WaitAny([ShowWindowEvent]);
+                    Log.Information($"Signal received: {signalIndex}");
+                    if (signalIndex == 0) 
+                    {
+                        Log.Information("Show window event triggered");
+                        ShowApplicationWindow().GetAwaiter().GetResult();
+                        Log.Information("Show window event completed");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -221,22 +230,33 @@ namespace Segra
 
         private static async Task ShowApplicationWindow()
         {
-            if (notifyIcon != null)
-                notifyIcon.Visible = false;
-
+            Log.Information("Showing application window. Window is " + (window == null ? "null" : "not null"));
             if (window == null)
             {
+                // Schedule the foreground operations with a delay before calling LoadFrontend
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(200);
+                    Log.Information("Bringing application window to foreground from scheduled task");
+                    if (window != null)
+                    {
+                        window.SetMinimized(false);
+                        window.SetTopMost(true);
+                        await Task.Delay(200);
+                        window.SetTopMost(false);
+                        Log.Information("Application window brought to foreground");
+                    }
+                });
+                
                 LoadFrontend();
             }
-
-            if (window != null)
+            else
             {
+                Log.Information("Bringing application window to foreground. Window is not null");
                 window.SetMinimized(false);
-
                 window.SetTopMost(true);
                 await Task.Delay(200);
                 window.SetTopMost(false);
-
                 Log.Information("Application window brought to foreground");
             }
         }
@@ -244,9 +264,6 @@ namespace Segra
         private static void HideApplicationWindow()
         {
             window?.SetMinimized(true);
-
-            if (notifyIcon != null)
-                notifyIcon.Visible = true;
 
             IntPtr hWnd = Process.GetCurrentProcess().MainWindowHandle;
             ShowWindow(hWnd, SW_HIDE); // Hides the window from the taskbar
@@ -256,6 +273,7 @@ namespace Segra
 
         private static void LoadFrontend()
         {
+            Log.Information("Loading frontend, app url is " + appUrl);
             // Initialize the PhotinoWindow
             window = new PhotinoWindow()
                 .SetNotificationsEnabled(false) // Disabled due to it creating a second start menu entry with incorrect start path. See https://github.com/tryphotino/photino.NET/issues/85
@@ -271,6 +289,8 @@ namespace Segra
                 })
                 .Load(appUrl);
 
+            Log.Information("Window variable has been set");
+
             // intentional space after name because of https://github.com/tryphotino/photino.NET/issues/106
             window.SetTitle("Segra ");
 
@@ -279,7 +299,7 @@ namespace Segra
                 HideApplicationWindow();
                 return true;
             });
-
+            
             window.WaitForClose();
         }
 
@@ -300,8 +320,20 @@ namespace Segra
                                 string message = reader.ReadLine();
                                 if (message == "SHOW_WINDOW")
                                 {
-                                    Log.Information("Received message to show application window from another instance.");
-                                    Task.Run(async () => await ShowApplicationWindow()).Wait();
+                                    if (window != null)
+                                    {
+                                        window.SetMinimized(false);
+                                        window.SetTopMost(true);
+                                        Thread.Sleep(200);
+                                        window.SetTopMost(false);
+                                        Log.Information("Window brought to foreground directly from pipe server");
+                                    }
+                                    else
+                                    {
+                                        // Only signal the main thread to create the window if it doesn't exist
+                                        ShowWindowEvent.Set();
+                                        Log.Information("ShowWindowEvent set");
+                                    }
                                 }
                             }
                         }
@@ -334,35 +366,34 @@ namespace Segra
 
         private static void AddNotifyIcon()
         {
-            notifyIcon = new NotifyIcon
+            var trayThread = new Thread(() =>
             {
-                Icon = new Icon(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico")),
-                Visible = true,
-                Text = "Segra"
-            };
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
 
-            var contextMenu = new ContextMenuStrip();
-            contextMenu.Items.Add("Open", null, async (sender, e) =>
-            {
-                await ShowApplicationWindow();
-            });
-
-            contextMenu.Items.Add("Exit", null, (sender, e) =>
-            {
-                notifyIcon.Visible = false;
-                ExitEvent.Set();
-                Environment.Exit(0);
-            });
-
-            notifyIcon.ContextMenuStrip = contextMenu;
-
-            notifyIcon.MouseDoubleClick += async (sender, e) =>
-            {
-                if (e.Button == MouseButtons.Left)
+                using (var icon = new NotifyIcon())
                 {
-                    await ShowApplicationWindow();
+                    icon.Icon = new Icon(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico"));
+                    icon.Text = "Segra";
+                    icon.Visible = true;
+
+                    var menu = new ContextMenuStrip();
+                    menu.Items.Add("Open", null, async (s,e) => await ShowApplicationWindow());
+                    menu.Items.Add("Exit", null, (s,e) => Environment.Exit(0));
+                    icon.ContextMenuStrip = menu;
+
+                    icon.MouseDoubleClick += async (s,e) =>
+                    {
+                        if (e.Button == MouseButtons.Left)
+                            await ShowApplicationWindow();
+                    };
+
+                    Application.Run();
                 }
-            };
+            });
+            trayThread.SetApartmentState(ApartmentState.STA);
+            trayThread.IsBackground = true;
+            trayThread.Start();
         }
 
         private static string GetSolutionPath()
