@@ -948,18 +948,18 @@ namespace Segra.Backend.Utils
         private static readonly List<string> internalGpuIdentifiers = new List<string>
         {
             // Intel integrated GPUs
-            "Intel HD Graphics",         // Broadwell (5xxx), Skylake (510–530), Kaby Lake (610/620), Comet Lake, etc.
-            "Intel Iris Graphics",       // Skylake Iris 540/550
-            "Intel Iris Pro Graphics",   // Broadwell Iris Pro 6200
-            "Intel Iris Plus Graphics",  // Kaby Lake / Whiskey Lake
-            "Intel UHD Graphics",        // Coffee Lake and newer
-            "Intel Iris Xe Graphics",    // Tiger Lake and newer
+            "HD Graphics",         // Broadwell (5xxx), Skylake (510–530), Kaby Lake (610/620), Comet Lake, etc.
+            "Iris Graphics",       // Skylake Iris 540/550
+            "Iris Pro Graphics",   // Broadwell Iris Pro 6200
+            "Iris Plus Graphics",  // Kaby Lake / Whiskey Lake
+            "UHD Graphics",        // Coffee Lake and newer
+            "Iris Xe Graphics",    // Tiger Lake and newer
 
             // AMD integrated GPUs
-            "AMD Radeon R7 Graphics",    // Kaveri / Carrizo APU series
-            "AMD Radeon R5 Graphics",    // Kaveri / Carrizo APU series
-            "AMD Radeon Vega",           // Raven Ridge / Picasso / Renoir APUs (e.g. Vega 8, Vega 11)
-            "AMD Radeon Graphics"        // Zen+ / Zen2 APUs (generic naming on 4000/5000G “Graphics”)
+            "Radeon R7 Graphics",    // Kaveri / Carrizo APU series
+            "Radeon R5 Graphics",    // Kaveri / Carrizo APU series
+            "Radeon Vega",           // Raven Ridge / Picasso / Renoir APUs (e.g. Vega 8, Vega 11)
+            "Radeon Graphics"        // Zen+ / Zen2 APUs (generic naming on 4000/5000G “Graphics”)
         };
 
         private static void DetectGpuVendor()
