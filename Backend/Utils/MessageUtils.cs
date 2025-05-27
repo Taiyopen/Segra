@@ -7,11 +7,12 @@ using System.Net.Http.Headers;
 using System.Diagnostics;
 using Segra.Backend.Services;
 using Segra.Backend.Models;
+using System.Text.RegularExpressions;
 
 namespace Segra.Backend.Utils
 {
     public class Selection
-    {   
+    {
         // TODO (os): make this of type ContentType
         public required string Type { get; set; }
         public double StartTime { get; set; }
@@ -27,13 +28,6 @@ namespace Segra.Backend.Utils
         private static readonly JsonSerializerOptions jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
-        private static readonly string[] SensitiveProperties = new string[] 
-        { 
-            "accessToken", 
-            "refreshToken",
-            "JWT"
         };
 
         public static async Task HandleMessage(string message)
@@ -737,7 +731,7 @@ namespace Segra.Backend.Utils
                     {
                         var comparer = new GameEqualityComparer();
                         bool exists = Settings.Instance.Whitelist.Any(g => comparer.Equals(g, game));
-                        
+
                         if (!exists)
                         {
                             var whitelist = new List<Game>(Settings.Instance.Whitelist);
@@ -770,7 +764,7 @@ namespace Segra.Backend.Utils
                     {
                         var comparer = new GameEqualityComparer();
                         var existingGame = Settings.Instance.Whitelist.FirstOrDefault(g => comparer.Equals(g, game));
-                        
+
                         if (existingGame != null)
                         {
                             var whitelist = new List<Game>(Settings.Instance.Whitelist);
@@ -803,7 +797,7 @@ namespace Segra.Backend.Utils
                     {
                         var comparer = new GameEqualityComparer();
                         bool exists = Settings.Instance.Blacklist.Any(g => comparer.Equals(g, game));
-                        
+
                         if (!exists)
                         {
                             var blacklist = new List<Game>(Settings.Instance.Blacklist);
@@ -836,7 +830,7 @@ namespace Segra.Backend.Utils
                     {
                         var comparer = new GameEqualityComparer();
                         var existingGame = Settings.Instance.Blacklist.FirstOrDefault(g => comparer.Equals(g, game));
-                        
+
                         if (existingGame != null)
                         {
                             var blacklist = new List<Game>(Settings.Instance.Blacklist);
@@ -895,6 +889,13 @@ namespace Segra.Backend.Utils
             }
         }
 
+        private static readonly string[] SensitiveProperties =
+        [
+            "accesstoken",
+            "refreshtoken",
+            "jwt"
+        ];
+
         private static string RedactSensitiveInfo(string message)
         {
             if (string.IsNullOrEmpty(message))
@@ -903,7 +904,7 @@ namespace Segra.Backend.Utils
             foreach (var prop in SensitiveProperties)
             {
                 var pattern = $"\"{prop}\":\"([^\"]+)\"";
-                message = System.Text.RegularExpressions.Regex.Replace(message, pattern, $"\"{prop}\":\"-REDACTED-\""); 
+                message = Regex.Replace(message, pattern, $"\"{prop}\":\"-REDACTED-\"", RegexOptions.IgnoreCase);
             }
 
             return message;
