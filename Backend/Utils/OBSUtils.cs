@@ -945,38 +945,98 @@ namespace Segra.Backend.Utils
             }
         }
 
+        private static readonly List<string> internalGpuIdentifiers = new List<string>
+        {
+            // Intel integrated GPUs
+            "Intel HD Graphics",         // Broadwell (5xxx), Skylake (510–530), Kaby Lake (610/620), Comet Lake, etc.
+            "Intel Iris Graphics",       // Skylake Iris 540/550
+            "Intel Iris Pro Graphics",   // Broadwell Iris Pro 6200
+            "Intel Iris Plus Graphics",  // Kaby Lake / Whiskey Lake
+            "Intel UHD Graphics",        // Coffee Lake and newer
+            "Intel Iris Xe Graphics",    // Tiger Lake and newer
+
+            // AMD integrated GPUs
+            "AMD Radeon R7 Graphics",    // Kaveri / Carrizo APU series
+            "AMD Radeon R5 Graphics",    // Kaveri / Carrizo APU series
+            "AMD Radeon Vega",           // Raven Ridge / Picasso / Renoir APUs (e.g. Vega 8, Vega 11)
+            "AMD Radeon Graphics"        // Zen+ / Zen2 APUs (generic naming on 4000/5000G “Graphics”)
+        };
+
         private static void DetectGpuVendor()
         {
             try
             {
-                // Get GPU information using Windows Management Instrumentation (WMI)
-                using (var searcher = new System.Management.ManagementObjectSearcher("SELECT * FROM Win32_VideoController"))
+                // First try to find active displays - these are GPUs actually connected to monitors
+                using (var searcher = new System.Management.ManagementObjectSearcher(
+                    "SELECT * FROM Win32_VideoController WHERE CurrentHorizontalResolution > 0 AND CurrentVerticalResolution > 0"))
                 {
-                    foreach (var obj in searcher.Get())
+                    List<System.Management.ManagementObject> gpus = searcher.Get().Cast<System.Management.ManagementObject>().ToList();
+                    
+                    // Sort GPUs - external GPUs first, then internal ones
+                    gpus.Sort((a, b) => {
+                        string nameA = a["Name"]?.ToString() ?? string.Empty;
+                        string nameB = b["Name"]?.ToString() ?? string.Empty;
+                        
+                        bool isAInternal = internalGpuIdentifiers.Any(id => nameA.Contains(id, StringComparison.OrdinalIgnoreCase));
+                        bool isBInternal = internalGpuIdentifiers.Any(id => nameB.Contains(id, StringComparison.OrdinalIgnoreCase));
+                        
+                        // External GPUs come first (false before true)
+                        return isAInternal.CompareTo(isBInternal);
+                    });
+                    
+                    foreach (var gpu in gpus)
                     {
-                        string name = obj["Name"]?.ToString()?.ToLower() ?? string.Empty;
-
+                        string name = gpu["Name"]?.ToString()?.ToLower() ?? string.Empty;
+                        
                         if (name.Contains("nvidia"))
                         {
                             DetectedGpuVendor = GpuVendor.Nvidia;
-                            Log.Information($"Detected NVIDIA GPU: {obj["Name"]}");
+                            Log.Information($"Detected NVIDIA GPU: {gpu["Name"]}");
                             return;
                         }
                         else if (name.Contains("amd") || name.Contains("radeon") || name.Contains("ati"))
                         {
                             DetectedGpuVendor = GpuVendor.AMD;
-                            Log.Information($"Detected AMD GPU: {obj["Name"]}");
+                            Log.Information($"Detected AMD GPU: {gpu["Name"]}");
                             return;
                         }
                         else if (name.Contains("intel"))
                         {
                             DetectedGpuVendor = GpuVendor.Intel;
-                            Log.Information($"Detected Intel GPU: {obj["Name"]}");
+                            Log.Information($"Detected Intel GPU: {gpu["Name"]}");
                             return;
                         }
                     }
                 }
-
+                
+                // Fallback: check all video controllers if the above didn't find any active ones
+                using (var searcher = new System.Management.ManagementObjectSearcher("SELECT * FROM Win32_VideoController"))
+                {
+                    foreach (System.Management.ManagementObject gpu in searcher.Get().Cast<System.Management.ManagementObject>())
+                    {
+                        string name = gpu["Name"]?.ToString()?.ToLower() ?? string.Empty;
+                        
+                        if (name.Contains("nvidia"))
+                        {
+                            DetectedGpuVendor = GpuVendor.Nvidia;
+                            Log.Information($"Detected NVIDIA GPU: {gpu["Name"]}");
+                            return;
+                        }
+                        else if (name.Contains("amd") || name.Contains("radeon") || name.Contains("ati"))
+                        {
+                            DetectedGpuVendor = GpuVendor.AMD;
+                            Log.Information($"Detected AMD GPU: {gpu["Name"]}");
+                            return;
+                        }
+                        else if (name.Contains("intel"))
+                        {
+                            DetectedGpuVendor = GpuVendor.Intel;
+                            Log.Information($"Detected Intel GPU: {gpu["Name"]}");
+                            return;
+                        }
+                    }
+                }
+                
                 Log.Warning("Could not identify GPU vendor, will default to CPU encoding if GPU encoding is selected");
             }
             catch (Exception ex)
@@ -985,7 +1045,7 @@ namespace Segra.Backend.Utils
                 DetectedGpuVendor = GpuVendor.Unknown;
             }
         }
-
+        
         private static void PlayStartSound()
         {
             using (var unmanagedStream = Properties.Resources.start)
