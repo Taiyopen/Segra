@@ -663,6 +663,7 @@ namespace Segra.Backend.Utils
                 DisposeOutput();
                 DisposeSources();
                 DisposeEncoders();
+                isInitializingRecording = false;
             }
 
             Task.Run(StorageUtils.EnsureStorageBelowLimit);
