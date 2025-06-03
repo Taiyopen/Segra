@@ -15,6 +15,7 @@
 		<ApplicationIcon>icon.ico</ApplicationIcon>
 		<AssemblyName>Segra</AssemblyName>
 		<RootNamespace>Segra</RootNamespace>
+		<EnableWindowsTargeting>true</EnableWindowsTargeting>
 	</PropertyGroup>
 
 	<ItemGroup>
