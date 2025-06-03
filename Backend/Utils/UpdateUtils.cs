@@ -74,19 +74,14 @@ namespace Segra.Backend.Utils
                     message = $"Update to version {targetVersion} is ready to install"
                 });
 
+                Models.Settings.Instance.State.IsCheckingForUpdates = false;
                 return true;
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Error during update check/installation");
-                return false;
-            }
-            finally
-            {
-                // Ensure we wait at least 1 second before setting isCheckingForUpdates to false
-                // so the user can see the loading indicator
-                await Task.Delay(1000);
                 Models.Settings.Instance.State.IsCheckingForUpdates = false;
+                return false;
             }
         }
 
@@ -232,7 +227,10 @@ namespace Segra.Backend.Utils
                 }
 
                 // Send release notes to frontend
-                MessageUtils.SendFrontendMessage("ReleaseNotes", releaseNotesList);
+                _ = MessageUtils.SendFrontendMessage("ReleaseNotes", new
+                {
+                    releaseNotesList
+                });
 
                 Log.Information($"Sent {releaseNotesList.Count} release notes to frontend");
             }
