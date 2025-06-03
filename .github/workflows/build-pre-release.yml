@@ -1,4 +1,4 @@
-﻿name: Build and Create Pre-Release
+name: Build and Create Pre-Release
 
 on:
   workflow_dispatch:
@@ -143,20 +143,40 @@ jobs:
             $latestTag = "0.0.0"
           }
           $latestTag = [string]$latestTag
-          $versionParts = $latestTag.Split('.')
+          
+          # Check if the latest tag is a release candidate
+          $isReleaseCandidate = $latestTag -match '(.+)-rc\.(.+)'
+          $baseVersion = $latestTag
+          $rcNumber = 0
+          
+          if ($isReleaseCandidate) {
+            # Extract base version and RC number
+            $baseVersion = $Matches[1]
+            $rcNumber = [int]$Matches[2]
+          }
+          
+          $versionParts = $baseVersion.Split('.')
           $major = [int]$versionParts[0]
           $minor = [int]$versionParts[1]
           $patch = [int]$versionParts[2]
 
           $releaseType = "${{ github.event.inputs.release_type }}"
-          switch ($releaseType) {
-            "major" { $major++; $minor=0; $patch=0 }
-            "minor" { $minor++; $patch=0 }
-            "patch" { $patch++ }
-            default { $patch++ } 
+          
+          # If it's the same base version, increment RC number
+          # Otherwise, increment version according to release type
+          if ($isReleaseCandidate) {
+            $rcNumber++
+            $newVersion = "$baseVersion-rc.$rcNumber"
+          } else {
+            switch ($releaseType) {
+              "major" { $major++; $minor=0; $patch=0 }
+              "minor" { $minor++; $patch=0 }
+              "patch" { $patch++ }
+              default { $patch++ } 
+            }
+            $newVersion = "$major.$minor.$patch-rc.1"
           }
 
-          $newVersion = "$major.$minor.$patch"
           echo "new_version=$newVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
           echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
 
@@ -237,7 +257,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ needs.build.outputs.new_version }}
-          release_name: "Release v${{ needs.build.outputs.new_version }} (Pre-Release)"
+          release_name: "Release v${{ needs.build.outputs.new_version }}"
           body: ${{ needs.build.outputs.release_notes }}
           draft: false
           prerelease: true

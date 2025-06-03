@@ -1,35 +1,92 @@
-name: Release
+name: Finalize Release
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to finalize (e.g. 1.2.3)'
+      tag:
+        description: 'The release candidate tag to finalize (e.g., v0.1.0-rc.1)'
         required: true
+        type: string
 
 jobs:
-  finalize-release:
+  finalize:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Needed to create tags and update releases
     steps:
-      - name: Convert Pre-Release to Final
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          RELEASE_ID=$(curl -s \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/releases/tags/v$VERSION \
-            | jq -r '.id')
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for all tags and branches
 
-          if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
-            echo "No release found for version $VERSION"
+      - name: Get RC Tag
+        id: get_rc_tag
+        run: echo "rc_tag_name=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+
+      - name: Validate RC Tag Format
+        id: validate_rc_tag
+        run: |
+          rc_tag="${{ steps.get_rc_tag.outputs.rc_tag_name }}"
+          if [[ ! "$rc_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            echo "::error::Invalid RC tag format: $rc_tag. Expected format: vX.Y.Z-rc.N"
             exit 1
           fi
+          echo "RC tag $rc_tag is valid."
 
-          curl -s \
-            -X PATCH \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID \
-            -d '{"prerelease": false, "name": "Release v'"$VERSION"'", "make_latest": true}'
+      - name: Extract Base Version from RC Tag
+        id: extract_base_version
+        run: |
+          rc_tag="${{ steps.get_rc_tag.outputs.rc_tag_name }}"
+          # Remove 'v' prefix and '-rc.X' suffix
+          base_version_with_v=$(echo "$rc_tag" | sed -E 's/-rc\.[0-9]+$//')
+          base_version=$(echo "$base_version_with_v" | sed 's/^v//')
+          echo "base_version=$base_version" >> $GITHUB_OUTPUT
+          echo "base_version_with_v=$base_version_with_v" >> $GITHUB_OUTPUT
+          echo "Extracted base version: $base_version"
+
+      - name: Check if RC Release Exists
+        id: check_rc_release
+        uses: octokit/request-action@v2.x
+        with:
+          route: GET /repos/{owner}/{repo}/releases/tags/${{ steps.get_rc_tag.outputs.rc_tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true # Allow script to handle if release doesn't exist
+
+      - name: Verify RC Release
+        id: verify_rc_release # Added id for this step
+        run: |
+          if [[ "${{ steps.check_rc_release.outputs.status }}" == "404" ]]; then
+            echo "::error::Release for RC tag ${{ steps.get_rc_tag.outputs.rc_tag_name }} not found."
+            exit 1
+          fi
+          echo "Release for RC tag ${{ steps.get_rc_tag.outputs.rc_tag_name }} found."
+          release_id=$(echo '${{ steps.check_rc_release.outputs.data }}' | jq -r '.id')
+          echo "release_id=$release_id" >> $GITHUB_OUTPUT
+
+      - name: Update Release to Final
+        uses: octokit/request-action@v2.x
+        with:
+          route: PATCH /repos/{owner}/{repo}/releases/${{ steps.verify_rc_release.outputs.release_id }}
+          name: Release ${{ steps.extract_base_version.outputs.base_version_with_v }}
+          tag_name: ${{ steps.extract_base_version.outputs.base_version_with_v }}
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Final Git Tag
+        run: |
+          final_tag_name="${{ steps.extract_base_version.outputs.base_version_with_v }}"
+          rc_tag_name="${{ steps.get_rc_tag.outputs.rc_tag_name }}"
+          echo "Creating final tag $final_tag_name pointing to the same commit as $rc_tag_name"
+          git tag "$final_tag_name" "$rc_tag_name^{commit}" # Create new tag pointing to the commit of the RC tag
+          git push origin "$final_tag_name"
+          echo "Final release tag $final_tag_name created and pushed."
+
+      - name: (Optional) Delete RC Tag from Remote
+        if: false # Set to true to delete the RC tag after finalizing
+        run: |
+          rc_tag_name="${{ steps.get_rc_tag.outputs.rc_tag_name }}"
+          echo "Deleting RC tag $rc_tag_name from remote..."
+          git push --delete origin "$rc_tag_name"
+          echo "RC tag $rc_tag_name deleted from remote."

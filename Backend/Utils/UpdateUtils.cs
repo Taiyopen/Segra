@@ -131,15 +131,15 @@ namespace Segra.Backend.Utils
                 Log.Information("Getting release notes from GitHub API");
 
                 // Get current version
-                Version currentVersion;
+                NuGet.Versioning.SemanticVersion currentVersion;
                 if (UpdateManager.CurrentVersion != null)
                 {
-                    currentVersion = Version.Parse(UpdateManager.CurrentVersion.ToString());
+                    currentVersion = NuGet.Versioning.SemanticVersion.Parse(UpdateManager.CurrentVersion.ToString());
                 }
                 else
                 {
                     // Running in local development, uncomment the line bellow and comment out the return to test
-                    currentVersion = Version.Parse("0.6.6");
+                    currentVersion = NuGet.Versioning.SemanticVersion.Parse("0.6.6");
                     //Log.Error("Could not get current version");
                     //return; 
                 }
@@ -169,7 +169,7 @@ namespace Segra.Backend.Utils
 
                 // Filter and process releases
                 var releaseNotesList = new List<object>();
-                Version targetVersion = null;
+                NuGet.Versioning.SemanticVersion? targetVersion = null;
 
                 // Check if beta releases should be included
                 bool includeBeta = Models.Settings.Instance.ReceiveBetaUpdates;
@@ -189,7 +189,21 @@ namespace Segra.Backend.Utils
                         versionString = versionString.Substring(1);
                     }
 
-                    if (!Version.TryParse(versionString, out var releaseVersion))
+                    // Handle release candidate versions
+                    string displayVersion = versionString;
+                    NuGet.Versioning.SemanticVersion releaseVersion;
+
+                    if (versionString.Contains("-rc."))
+                    {
+                        // Extract base version without RC suffix for comparison
+                        string baseVersionStr = versionString.Split('-')[0];
+                        if (!NuGet.Versioning.SemanticVersion.TryParse(baseVersionStr, out releaseVersion))
+                        {
+                            Log.Warning($"Could not parse version from tag: {release.TagName}");
+                            continue;
+                        }
+                    }
+                    else if (!NuGet.Versioning.SemanticVersion.TryParse(versionString, out releaseVersion))
                     {
                         Log.Warning($"Could not parse version from tag: {release.TagName}");
                         continue;
