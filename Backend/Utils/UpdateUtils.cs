@@ -40,6 +40,7 @@ namespace Segra.Backend.Utils
                 if (newVersion == null)
                 {
                     Log.Information("No update available");
+                    Models.Settings.Instance.State.IsCheckingForUpdates = false;
                     return false;
                 }
 
