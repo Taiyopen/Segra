@@ -20,6 +20,7 @@ jobs:
     steps:
       - name: Get RC Tag Input
         id: get_rc_tag_input
+        shell: bash
         run: echo "rc_tag_name=${{ github.event.inputs.rc_tag }}" >> $GITHUB_OUTPUT
 
       - name: Validate RC Tag Format
