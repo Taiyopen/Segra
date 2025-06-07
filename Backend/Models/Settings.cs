@@ -415,7 +415,19 @@ namespace Segra.Backend.Models
         }
 
         [JsonPropertyName("auth")]
-        public Auth Auth => _auth;
+        public Auth Auth
+        {
+            get => _auth;
+            set
+            {
+                bool hasChanged = Instance._auth.Jwt != value.Jwt || Instance._auth.RefreshToken != value.RefreshToken;
+                _auth = value;
+                if (hasChanged)
+                {
+                    SendToFrontend();
+                }
+            }
+        }
 
         [JsonPropertyName("clipEncoder")]
         public string ClipEncoder

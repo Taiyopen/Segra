@@ -148,12 +148,12 @@ export const initialSettings: Settings = {
 	recordingMode: 'Session',
 	replayBufferDuration: 30, // 30 seconds default
 	replayBufferMaxSize: 500, // 500 MB default
-	clipEncoder: 'gpu',
+	clipEncoder: 'cpu',
 	clipQualityCrf: 23,
 	clipCodec: 'h264',
 	clipFps: 0,
 	clipAudioQuality: '128k',
-	clipPreset: 'medium',
+	clipPreset: 'veryfast',
 	keybindings: [
 		{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
 		{ keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true } // 121 is F10
