@@ -1,0 +1,221 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      rc_tag:
+        description: 'The Release Candidate tag to use as a base (e.g., v0.1.0-rc.1)'
+        required: true
+        type: string
+
+jobs:
+  build_and_release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    outputs:
+      final_version_tag: ${{ steps.create_final_tag.outputs.final_version_tag }}
+      release_notes: ${{ steps.verify_rc_release.outputs.release_notes }}
+
+    steps:
+      - name: Get RC Tag Input
+        id: get_rc_tag_input
+        run: echo "rc_tag_name=${{ github.event.inputs.rc_tag }}" >> $GITHUB_OUTPUT
+
+      - name: Validate RC Tag Format
+        id: validate_rc_tag
+        shell: bash
+        run: |
+          rc_tag="${{ steps.get_rc_tag_input.outputs.rc_tag_name }}"
+          if [[ ! "$rc_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            echo "::error::Invalid RC tag format: $rc_tag. Expected format: vX.Y.Z-rc.N"
+            exit 1
+          fi
+          echo "RC tag $rc_tag is valid."
+
+      - name: Extract Final Version from RC Tag
+        id: extract_final_version
+        shell: bash
+        run: |
+          rc_tag="${{ steps.get_rc_tag_input.outputs.rc_tag_name }}"
+          final_version_tag=$(echo "$rc_tag" | sed -E 's/-rc\.[0-9]+$//')
+          final_version_number=$(echo "$final_version_tag" | sed 's/^v//')
+          echo "final_version_tag=$final_version_tag" >> $GITHUB_OUTPUT
+          echo "final_version_number=$final_version_number" >> $GITHUB_OUTPUT
+          echo "Extracted final version tag: $final_version_tag"
+          echo "Extracted final version number: $final_version_number"
+
+      - name: Checkout Code at RC Tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.get_rc_tag_input.outputs.rc_tag_name }} # Checkout the specific RC tag
+          submodules: recursive
+          fetch-depth: 0 # Fetch all history for all tags and branches
+
+      - name: Get RC Release Info (for Release Notes)
+        id: get_rc_release_info
+        uses: octokit/request-action@v2.x
+        with:
+          route: GET /repos/{owner}/{repo}/releases/tags/${{ steps.get_rc_tag_input.outputs.rc_tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Verify RC Release and Extract Notes
+        id: verify_rc_release
+        shell: bash
+        run: |
+          if [[ "${{ steps.get_rc_release_info.outputs.status }}" == "404" ]]; then
+            echo "::error::Release for RC tag ${{ steps.get_rc_tag_input.outputs.rc_tag_name }} not found. Cannot fetch release notes."
+            exit 1
+          fi
+          echo "Release for RC tag ${{ steps.get_rc_tag_input.outputs.rc_tag_name }} found."
+          release_notes=$(echo '${{ steps.get_rc_release_info.outputs.data }}' | jq -r '.body')
+          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$release_notes" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "Fetched release notes."
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Configure Git User
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        shell: pwsh
+
+      - name: Update Frontend package.json with Final Version
+        id: update_frontend_version
+        working-directory: ./Frontend
+        shell: pwsh
+        run: |
+          $finalVersion = "${{ steps.extract_final_version.outputs.final_version_number }}"
+          Write-Host "Updating Frontend package.json to version: $finalVersion"
+          $packageJson = Get-Content package.json -Raw | ConvertFrom-Json
+          $packageJson.version = $finalVersion
+          $packageJson | ConvertTo-Json -Depth 100 | Set-Content package.json -NoNewline
+          Write-Host "Updated Frontend version in package.json: $(Select-String -Path package.json -Pattern 'version')"
+
+      - name: Install Frontend dependencies
+        working-directory: ./Frontend
+        run: bun install --frozen-lockfile
+
+      - name: Build Frontend
+        working-directory: ./Frontend
+        run: bun run build
+
+      - name: Move Frontend Build to Resources/wwwroot
+        run: |
+          $source = "./Frontend/dist"
+          $destination = "./Resources/wwwroot"
+          if (-Not (Test-Path -Path $destination)) { New-Item -ItemType Directory -Path $destination -Force }
+          Remove-Item -Path "$destination\*" -Recurse -Force
+          Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
+        shell: pwsh
+
+      - name: Install vpk as .NET Global Tool
+        run: |
+          dotnet tool install -g vpk
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+        shell: pwsh
+
+      - name: Publish the App
+        run: dotnet publish -c Release --self-contained -r win-x64 -o publish
+        shell: pwsh
+
+      - name: Package with vpk for Final Release
+        run: vpk pack -u Segra -v ${{ steps.extract_final_version.outputs.final_version_number }} -p ./publish -e Segra.exe -o ./output --packTitle "Segra" --noPortable
+        shell: pwsh
+
+      - name: Create Final Git Tag
+        id: create_final_tag
+        shell: pwsh
+        run: |
+          $final_tag = "${{ steps.extract_final_version.outputs.final_version_tag }}"
+          Write-Host "Creating final Git tag: $final_tag"
+          git tag $final_tag
+          git push origin $final_tag
+          echo "final_version_tag=$final_tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Final Git tag $final_tag created and pushed."
+
+      - name: Upload Final Release Artifact (for release job)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Segra-Final-Build
+          path: ./output
+          retention-days: 1
+
+  create_github_release:
+    needs: build_and_release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create a release
+    steps:
+      - name: Download Final Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Segra-Final-Build
+
+      - name: Create Final GitHub Release
+        id: create_final_gh_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.build_and_release.outputs.final_version_tag }}
+          release_name: "Release ${{ needs.build_and_release.outputs.final_version_tag }}"
+          body: ${{ needs.build_and_release.outputs.release_notes }}
+          draft: false
+          prerelease: false # This is a final release
+
+      - name: Upload Setup File to Final Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_final_gh_release.outputs.upload_url }}
+          asset_path: ./Segra-win-Setup.exe
+          asset_name: Segra-win-Setup.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload RELEASES File to Final Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_final_gh_release.outputs.upload_url }}
+          asset_path: ./RELEASES
+          asset_name: RELEASES
+          asset_content_type: text/plain
+
+      - name: Upload releases.win.json to Final Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_final_gh_release.outputs.upload_url }}
+          asset_path: ./releases.win.json
+          asset_name: releases.win.json
+          asset_content_type: application/json
+
+      - name: Upload assets.win.json to Final Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_final_gh_release.outputs.upload_url }}
+          asset_path: ./assets.win.json
+          asset_name: assets.win.json
+          asset_content_type: application/json
+
+      - name: Upload nupkg to Final Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_final_gh_release.outputs.upload_url }}
+          asset_path: ./Segra-${{ needs.build_and_release.outputs.final_version_tag }}-full.nupkg
+          asset_name: Segra-${{ needs.build_and_release.outputs.final_version_tag }}-full.nupkg
+          asset_content_type: application/octet-stream

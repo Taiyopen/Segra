@@ -1,4 +1,4 @@
-name: Build and Create Pre-Release
+name: Create Release Candidate
 
 on:
   workflow_dispatch:
@@ -197,8 +197,9 @@ jobs:
         shell: pwsh
         run: |
           $content = Get-Content package.json -Raw
-          $content = $content -replace '"version": "Developer Preview",', ('"version": "{0}",' -f $env:new_version)
-          Set-Content package.json $content
+          $packageJson = Get-Content package.json -Raw | ConvertFrom-Json
+          $packageJson.version = $env:new_version
+          $packageJson | ConvertTo-Json -Depth 100 | Set-Content package.json -NoNewline
           Write-Host "Updated version: $(Select-String -Path package.json -Pattern 'version')"
 
       - name: Install Frontend dependencies
