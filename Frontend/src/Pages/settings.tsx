@@ -109,7 +109,7 @@ export default function Settings() {
 
 	const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
 		const {name, value} = event.target;
-		const numericalFields = ['frameRate', 'bitrate', 'storageLimit', 'keyframeInterval', 'crfValue', 'cqLevel'];
+		const numericalFields = ['frameRate', 'bitrate', 'storageLimit', 'keyframeInterval', 'crfValue', 'cqLevel', 'clipQualityCrf', 'clipFps'];
 		updateSettings({
 			[name]: numericalFields.includes(name) ? Number(value) : value,
 		});
@@ -729,6 +729,132 @@ export default function Settings() {
 							min="1"
 							className="input input-bordered"
 						/>
+					</div>
+				</div>
+			</div>
+
+			{/* Clip Settings */}
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
+				<h2 className="text-xl font-semibold mb-4">Clip Settings</h2>
+				<div className="grid grid-cols-2 gap-4">
+					{/* Encoder */}
+					<div className="form-control">
+						<label className="label">
+							<span className="label-text">Encoder</span>
+						</label>
+						<select
+							name="clipEncoder"
+							value={settings.clipEncoder}
+							onChange={handleChange}
+							className="select select-bordered"
+						>
+							<option value="cpu">CPU</option>
+							<option value="gpu">GPU</option>
+						</select>
+					</div>
+
+					{/* Quality (CRF) - New Dropdown */}
+					<div className="form-control">
+						<label className="label">
+							<span className="label-text">Quality (CRF)</span>
+						</label>
+						<select
+							name="clipQualityCrf"
+							value={settings.clipQualityCrf}
+							onChange={handleChange}
+							className="select select-bordered"
+						>
+							<option value="17">17 (Highest Quality)</option>
+							<option value="18">18</option>
+							<option value="19">19</option>
+							<option value="20">20 (High Quality)</option>
+							<option value="21">21</option>
+							<option value="22">22</option>
+							<option value="23">23 (Normal Quality)</option>
+							<option value="24">24</option>
+							<option value="25">25</option>
+							<option value="26">26 (Low Quality)</option>
+							<option value="27">27</option>
+							<option value="28">28 (Lowest Quality)</option>
+						</select>
+					</div>
+
+					{/* Codec */}
+					<div className="form-control">
+						<label className="label">
+							<span className="label-text">Codec</span>
+						</label>
+						<select
+							name="clipCodec"
+							value={settings.clipCodec}
+							onChange={handleChange}
+							className="select select-bordered"
+						>
+							<option value="h264">H.264</option>
+							<option value="h265">H.265</option>
+						</select>
+					</div>
+
+					{/* FPS */}
+					<div className="form-control">
+						<label className="label">
+							<span className="label-text">FPS</span>
+						</label>
+						<select
+							name="clipFps"
+							value={settings.clipFps}
+							onChange={handleChange}
+							className="select select-bordered"
+						>
+							<option value="0">Original FPS</option>
+							<option value="24">24 FPS</option>
+							<option value="30">30 FPS</option>
+							<option value="60">60 FPS</option>
+							<option value="120">120 FPS</option>
+							<option value="144">144 FPS</option>
+						</select>
+					</div>
+
+					{/* Audio Quality */}
+					<div className="form-control">
+						<label className="label">
+							<span className="label-text">Audio Quality</span>
+						</label>
+						<select
+							name="clipAudioQuality"
+							value={settings.clipAudioQuality}
+							onChange={handleChange}
+							className="select select-bordered"
+						>
+							<option value="96k">96 kbps (Low)</option>
+							<option value="128k">128 kbps (Medium)</option>
+							<option value="192k">192 kbps (High)</option>
+							<option value="256k">256 kbps (Very High)</option>
+							<option value="320k">320 kbps (Insane)</option>
+						</select>
+					</div>
+
+					{/* Preset */}
+					<div className="form-control">
+						<label className="label">
+							<span className="label-text">Preset</span>
+						</label>
+						<select
+							name="clipPreset"
+							value={settings.clipPreset}
+							onChange={handleChange}
+							className="select select-bordered"
+						>
+							<option value="ultrafast">Ultrafast</option>
+							<option value="superfast">Superfast</option>
+							<option value="veryfast">Veryfast</option>
+							<option value="faster">Faster</option>
+							<option value="fast">Fast</option>
+							<option value="medium">Medium</option>
+							<option value="slow">Slow</option>
+							<option value="slower">Slower</option>
+							<option value="veryslow">Veryslow</option>
+						</select>
 					</div>
 				</div>
 			</div>

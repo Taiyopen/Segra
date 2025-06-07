@@ -38,6 +38,12 @@ namespace Segra.Backend.Models
         private List<Game> _blacklist = new List<Game>();
         private State _state = new State();
         private Auth _auth = new Auth();
+        private string _clipEncoder = "cpu";
+        private int _clipQualityCrf = 23;
+        private string _clipCodec = "h264";
+        private int _clipFps = 0; // 0 for 'Original'
+        private string _clipAudioQuality = "128k";
+        private string _clipPreset = "veryfast";
 
         // Returns the default keybindings
         private static List<Keybind> GetDefaultKeybindings()
@@ -419,6 +425,96 @@ namespace Segra.Backend.Models
                 if (hasChanged)
                 {
                     SendToFrontend();
+                }
+            }
+        }
+
+        [JsonPropertyName("clipEncoder")]
+        public string ClipEncoder
+        {
+            get => _clipEncoder;
+            set
+            {
+                if (_clipEncoder != value)
+                {
+                    _clipEncoder = value;
+                    SendToFrontend();
+                    SettingsUtils.SaveSettings();
+                }
+            }
+        }
+
+        [JsonPropertyName("clipQualityCrf")]
+        public int ClipQualityCrf
+        {
+            get => _clipQualityCrf;
+            set
+            {
+                if (_clipQualityCrf != value)
+                {
+                    _clipQualityCrf = value;
+                    SendToFrontend();
+                    SettingsUtils.SaveSettings();
+                }
+            }
+        }
+
+        [JsonPropertyName("clipCodec")]
+        public string ClipCodec
+        {
+            get => _clipCodec;
+            set
+            {
+                if (_clipCodec != value)
+                {
+                    _clipCodec = value;
+                    SendToFrontend();
+                    SettingsUtils.SaveSettings();
+                }
+            }
+        }
+
+        [JsonPropertyName("clipFps")]
+        public int ClipFps
+        {
+            get => _clipFps;
+            set
+            {
+                if (_clipFps != value)
+                {
+                    _clipFps = value;
+                    SendToFrontend();
+                    SettingsUtils.SaveSettings();
+                }
+            }
+        }
+
+        [JsonPropertyName("clipAudioQuality")]
+        public string ClipAudioQuality
+        {
+            get => _clipAudioQuality;
+            set
+            {
+                if (_clipAudioQuality != value)
+                {
+                    _clipAudioQuality = value;
+                    SendToFrontend();
+                    SettingsUtils.SaveSettings();
+                }
+            }
+        }
+
+        [JsonPropertyName("clipPreset")]
+        public string ClipPreset
+        {
+            get => _clipPreset;
+            set
+            {
+                if (_clipPreset != value)
+                {
+                    _clipPreset = value;
+                    SendToFrontend();
+                    SettingsUtils.SaveSettings();
                 }
             }
         }

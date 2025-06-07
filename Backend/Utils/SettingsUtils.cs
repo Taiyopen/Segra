@@ -221,6 +221,54 @@ namespace Segra.Backend.Utils
             // Begin bulk update to suppress multiple state updates
             settings.BeginBulkUpdate();
 
+            // Update ClipEncoder
+            if (settings.ClipEncoder != updatedSettings.ClipEncoder)
+            {
+                Log.Information($"ClipEncoder changed from '{settings.ClipEncoder}' to '{updatedSettings.ClipEncoder}'");
+                settings.ClipEncoder = updatedSettings.ClipEncoder;
+                hasChanges = true;
+            }
+
+            // Update ClipQualityCrf
+            if (settings.ClipQualityCrf != updatedSettings.ClipQualityCrf)
+            {
+                Log.Information($"ClipQualityCrf changed from '{settings.ClipQualityCrf}' to '{updatedSettings.ClipQualityCrf}'");
+                settings.ClipQualityCrf = updatedSettings.ClipQualityCrf;
+                hasChanges = true;
+            }
+
+            // Update ClipCodec
+            if (settings.ClipCodec != updatedSettings.ClipCodec)
+            {
+                Log.Information($"ClipCodec changed from '{settings.ClipCodec}' to '{updatedSettings.ClipCodec}'");
+                settings.ClipCodec = updatedSettings.ClipCodec;
+                hasChanges = true;
+            }
+
+            // Update ClipFps
+            if (settings.ClipFps != updatedSettings.ClipFps)
+            {
+                Log.Information($"ClipFps changed from '{settings.ClipFps}' to '{updatedSettings.ClipFps}'");
+                settings.ClipFps = updatedSettings.ClipFps;
+                hasChanges = true;
+            }
+
+            // Update ClipAudioQuality
+            if (settings.ClipAudioQuality != updatedSettings.ClipAudioQuality)
+            {
+                Log.Information($"ClipAudioQuality changed from '{settings.ClipAudioQuality}' to '{updatedSettings.ClipAudioQuality}'");
+                settings.ClipAudioQuality = updatedSettings.ClipAudioQuality;
+                hasChanges = true;
+            }
+
+            // Update ClipPreset
+            if (settings.ClipPreset != updatedSettings.ClipPreset)
+            {
+                Log.Information($"ClipPreset changed from '{settings.ClipPreset}' to '{updatedSettings.ClipPreset}'");
+                settings.ClipPreset = updatedSettings.ClipPreset;
+                hasChanges = true;
+            }
+
             // Update Theme
             if (settings.Theme != updatedSettings.Theme)
             {

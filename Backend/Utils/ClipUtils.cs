@@ -216,10 +216,23 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"Temp file is larger than 1GB ({fileInfo.Length} bytes). Re-encoding...");
 
-                // Now re-encode from the temp file to the final output path
+                var currentSettings = Settings.Instance;
+                string videoCodecAi;
+                if (currentSettings.ClipEncoder.Equals("gpu", StringComparison.OrdinalIgnoreCase))
+                {
+                    videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_nvenc" : "h264_nvenc";
+                }
+                else
+                {
+                    videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "libx265" : "libx264";
+                }
+
+                string fpsArgAi = currentSettings.ClipFps > 0 ? $"-r {currentSettings.ClipFps}" : "";
+
                 string reencodeArguments =
                     $"-y -i \"{tempFilePath}\" " +
-                    $"-c:v libx264 -preset ultrafast -crf 23 -c:a aac -b:a 192k -movflags +faststart \"{outputFilePath}\"";
+                    $"-c:v {videoCodecAi} -preset {currentSettings.ClipPreset} -crf {currentSettings.ClipQualityCrf} {fpsArgAi} " +
+                    $"-c:a aac -b:a {currentSettings.ClipAudioQuality} -movflags +faststart \"{outputFilePath}\"";
 
                 await RunFFmpegProcessSimple(ffmpegPath, reencodeArguments);
 
@@ -273,11 +286,26 @@ namespace Segra.Backend.Utils
 
 
         private static async Task ExtractClip(int clipId, string inputFilePath, string outputFilePath, double startTime, double endTime,
-                                            string ffmpegPath, Action<double> progressCallback)
+                                    string ffmpegPath, Action<double> progressCallback)
         {
             double duration = endTime - startTime;
+            var settings = Settings.Instance;
+
+            string videoCodec;
+            if (settings.ClipEncoder.Equals("gpu", StringComparison.OrdinalIgnoreCase))
+            {
+                videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_nvenc" : "h264_nvenc";
+            }
+            else
+            {
+                videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "libx265" : "libx264";
+            }
+
+            string fpsArg = settings.ClipFps > 0 ? $"-r {settings.ClipFps}" : "";
+
             string arguments = $"-y -ss {startTime.ToString(CultureInfo.InvariantCulture)} -t {duration.ToString(CultureInfo.InvariantCulture)} " +
-                             $"-i \"{inputFilePath}\" -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 192k -movflags +faststart \"{outputFilePath}\"";
+                             $"-i \"{inputFilePath}\" -c:v {videoCodec} -preset {settings.ClipPreset} -crf {settings.ClipQualityCrf} {fpsArg} " +
+                             $"-c:a aac -b:a {settings.ClipAudioQuality} -movflags +faststart \"{outputFilePath}\"";
 
             await RunFFmpegProcess(clipId, ffmpegPath, arguments, duration, progressCallback);
         }
