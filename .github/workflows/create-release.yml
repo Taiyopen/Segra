@@ -15,7 +15,7 @@ jobs:
       contents: write
     outputs:
       final_version_tag: ${{ steps.create_final_tag.outputs.final_version_tag }}
-      release_notes: ${{ steps.verify_rc_release.outputs.release_notes }}
+      release_notes: ${{ steps.generate_final_release_notes.outputs.final_notes }}
 
     steps:
       - name: Get RC Tag Input
@@ -86,7 +86,7 @@ jobs:
 
           if [ -z "$ALL_RC_TAGS_FOR_BASE" ]; then
             echo "::warning::No RC tags found for base version $BASE_VERSION (pattern: $RC_TAG_PATTERN)."
-            DELIMITER_EMPTY=$(uuidgen)
+            DELIMITER_EMPTY=$(openssl rand -hex 16)
             {
               echo "full_release_notes<<$DELIMITER_EMPTY"
               echo "No release candidate tags found for version $BASE_VERSION to aggregate notes from."
@@ -127,12 +127,110 @@ jobs:
           echo "Aggregated release notes successfully."
           
           # Output the combined notes using a delimiter for multiline support
-          DELIMITER=$(uuidgen)
+          DELIMITER=$(openssl rand -hex 16)
           {
             echo "full_release_notes<<$DELIMITER"
             echo -e "$COMBINED_NOTES_CONTENT" # -e interprets backslashes for newlines
             echo "$DELIMITER"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Generate Final Release Notes with AI
+        id: generate_final_release_notes
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Pass the aggregated notes from the previous step
+          AGGREGATED_RC_NOTES: ${{ steps.aggregate_all_rc_notes.outputs.full_release_notes }}
+        run: |
+          echo "ℹ️ Preparing to generate final release notes using AI..."
+          echo "Input (Aggregated RC Notes - first 500 chars):"
+          echo "${AGGREGATED_RC_NOTES:0:500}..."
+          echo ""
+
+          # Ensure jq is available (GitHub Actions runners usually have it)
+          if ! command -v jq &> /dev/null
+          then
+              echo "::error::jq command could not be found. Please ensure jq is installed on the runner."
+              # Fallback: Use aggregated notes directly
+              echo "⚠️ AI summarization failed (jq not found). Using raw aggregated notes as fallback."
+              DELIMITER_JQ_FALLBACK=$(openssl rand -hex 16)
+              echo "final_notes<<$DELIMITER_JQ_FALLBACK" >> $GITHUB_OUTPUT
+              printf "%s" "$AGGREGATED_RC_NOTES" >> $GITHUB_OUTPUT
+              echo "" >> $GITHUB_OUTPUT # Ensure a newline if AGGREGATED_RC_NOTES doesn't end with one
+              echo "$DELIMITER_JQ_FALLBACK" >> $GITHUB_OUTPUT
+              exit 0 # Exit successfully with fallback
+          fi
+          echo "ℹ️ Using jq from path: $(which jq)"
+          echo "ℹ️ jq version: $(jq --version)"
+          echo ""
+
+          # Define system prompt for summarizing combined RC notes
+          SYSTEM_PROMPT="You are a helpful assistant who creates user-friendly release notes for open-source applications like games and clip recorders. Your task is to transform a collection of release notes from several release candidates (RCs) for the same version into a single, cohesive, and easy-to-understand final release note. Merge similar changes, prioritize user-facing updates, and maintain a casual, direct tone. Avoid overly technical jargon and details not relevant to the end-user. Do not include items like 'chore' or 'refactor' if they don't offer direct user value. The final output should be the release note itself, without any introductory phrases like 'Release Notes:' or concluding remarks like 'Thanks.'. Ensure the output is clean and ready for direct use."
+
+          echo "🔧 Escaping content..."
+          # Use printf for system prompt to handle potential special characters better before piping to jq
+          ESCAPED_SYSTEM=$(printf "%s" "$SYSTEM_PROMPT" | jq -Rs .)
+          ESCAPED_INPUT_NOTES=$(printf "%s" "$AGGREGATED_RC_NOTES" | jq -Rs .)
+
+
+          echo "🔒 Escaped System Prompt (first 100 chars): ${ESCAPED_SYSTEM:0:100}..."
+          echo "🔒 Escaped Input Notes (first 100 chars): ${ESCAPED_INPUT_NOTES:0:100}..."
+          echo ""
+
+          # Build JSON payload
+          JSON_PAYLOAD=$(jq -n \
+            --arg model "gpt-4o" \
+            --argjson system_prompt_content "$ESCAPED_SYSTEM" \
+            --argjson user_content "$ESCAPED_INPUT_NOTES" \
+            '{
+              "model": $model,
+              "messages": [
+                {"role": "system", "content": $system_prompt_content},
+                {"role": "user", "content": $user_content}
+              ]
+            }')
+
+          echo "📦 JSON Payload (first 300 chars):"
+          echo "${JSON_PAYLOAD:0:300}..."
+          echo ""
+
+          echo "📡 Making API request to OpenAI..."
+          RESPONSE=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -d "$JSON_PAYLOAD")
+
+          echo "📨 Raw API Response (first 300 chars):"
+          echo "${RESPONSE:0:300}..."
+          echo ""
+
+          # Extract release notes, check for errors or empty response
+          AI_GENERATED_NOTES=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // ""') # Fallback to empty string if path is null
+
+          if [ -z "$AI_GENERATED_NOTES" ] || [ "$AI_GENERATED_NOTES" == "null" ] || echo "$RESPONSE" | jq -e '.error' > /dev/null; then
+            echo "::warning::AI summarization failed or returned empty/error response."
+            if echo "$RESPONSE" | jq -e '.error' > /dev/null; then
+              echo "API Error details: $(echo "$RESPONSE" | jq -c '.error')"
+            fi
+            echo "Using raw aggregated notes as fallback."
+            FINAL_NOTES_CONTENT="$AGGREGATED_RC_NOTES"
+          else
+            echo "🎉 Successfully generated release notes with AI."
+            FINAL_NOTES_CONTENT="$AI_GENERATED_NOTES"
+          fi
+
+          echo "📝 Final Release Notes (first 300 chars):"
+          echo "${FINAL_NOTES_CONTENT:0:300}..."
+          echo ""
+
+          # Set output using a heredoc for multiline content
+          # Using printf to avoid issues with echo and special characters in FINAL_NOTES_CONTENT
+          DELIMITER_FINAL=$(openssl rand -hex 16)
+          echo "final_notes<<$DELIMITER_FINAL" >> $GITHUB_OUTPUT
+          printf "%s" "$FINAL_NOTES_CONTENT" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT # Ensure a newline if FINAL_NOTES_CONTENT doesn't end with one
+          echo "$DELIMITER_FINAL" >> $GITHUB_OUTPUT
+          echo "✅ Final release notes output set."
 
       - uses: oven-sh/setup-bun@v2
         with:
