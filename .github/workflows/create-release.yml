@@ -53,29 +53,86 @@ jobs:
           submodules: recursive
           fetch-depth: 0 # Fetch all history for all tags and branches
 
-      - name: Get RC Release Info (for Release Notes)
-        id: get_rc_release_info
-        uses: octokit/request-action@v2.x
-        with:
-          route: GET /repos/{owner}/{repo}/releases/tags/${{ steps.get_rc_tag_input.outputs.rc_tag_name }}
+      - name: Aggregate All RC Release Notes for this Version
+        id: aggregate_all_rc_notes # New ID, update downstream references if needed
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-
-      - name: Verify RC Release and Extract Notes
-        id: verify_rc_release
+          GH_REPO: ${{ github.repository }} # Required for gh release view
         shell: bash
         run: |
-          if [[ "${{ steps.get_rc_release_info.outputs.status }}" == "404" ]]; then
-            echo "::error::Release for RC tag ${{ steps.get_rc_tag_input.outputs.rc_tag_name }} not found. Cannot fetch release notes."
+          echo "Ensuring all tags are available locally..."
+          # It's highly recommended to use fetch-depth: 0 in your main actions/checkout step.
+          # This fetch is a safeguard.
+          git fetch --tags --force --quiet
+
+          EFFECTIVE_RC_TAG_FOR_BASE_DERIVATION="${{ steps.get_rc_tag_input.outputs.rc_tag_name }}"
+          echo "Effective RC Tag (used to derive base version): $EFFECTIVE_RC_TAG_FOR_BASE_DERIVATION"
+
+          # Extract base version (e.g., v1.2.3 from v1.2.3-rc.4)
+          if [[ "$EFFECTIVE_RC_TAG_FOR_BASE_DERIVATION" =~ ^(v[0-9]+\.[0-9]+\.[0-9]+)(-rc\.[0-9]+)?$ ]]; then
+            BASE_VERSION="${BASH_REMATCH[1]}"
+          else
+            echo "::error::Could not determine base version from EFFECTIVE_RC_TAG_FOR_BASE_DERIVATION: '$EFFECTIVE_RC_TAG_FOR_BASE_DERIVATION'. Expected format like vX.Y.Z-rc.N or vX.Y.Z."
             exit 1
           fi
-          echo "Release for RC tag ${{ steps.get_rc_tag_input.outputs.rc_tag_name }} found."
-          release_notes=$(echo '${{ steps.get_rc_release_info.outputs.data }}' | jq -r '.body')
-          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$release_notes" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "Fetched release notes."
+          echo "Base version determined: $BASE_VERSION"
+
+          RC_TAG_PATTERN="${BASE_VERSION}-rc.*"
+          echo "Searching for RC tags matching pattern: $RC_TAG_PATTERN"
+          
+          # List all RC tags for this base version, sorted by version number.
+          # grep ensures we only get tags like vX.Y.Z-rc.NUM and not vX.Y.Z-rc.somethingelse
+          ALL_RC_TAGS_FOR_BASE=$(git tag --list "$RC_TAG_PATTERN" | grep -E "^${BASE_VERSION}-rc\.[0-9]+$" | sort -V)
+
+          if [ -z "$ALL_RC_TAGS_FOR_BASE" ]; then
+            echo "::warning::No RC tags found for base version $BASE_VERSION (pattern: $RC_TAG_PATTERN)."
+            DELIMITER_EMPTY=$(uuidgen)
+            {
+              echo "full_release_notes<<$DELIMITER_EMPTY"
+              echo "No release candidate tags found for version $BASE_VERSION to aggregate notes from."
+              echo "$DELIMITER_EMPTY"
+            } >> "$GITHUB_OUTPUT"
+            exit 0 # Exit successfully with a message, rather than failing the workflow.
+          fi
+
+          echo "Found the following RC tags for base version $BASE_VERSION to aggregate notes from:"
+          echo "$ALL_RC_TAGS_FOR_BASE"
+
+          COMBINED_NOTES_CONTENT="This release includes updates from the following release candidates for version $BASE_VERSION:\n"
+          
+          # Append a markdown list of RC tags to the header
+          while IFS= read -r rc_tag_item; do
+            COMBINED_NOTES_CONTENT+="\n- **${rc_tag_item}**"
+          done <<< "$ALL_RC_TAGS_FOR_BASE"
+          COMBINED_NOTES_CONTENT+="\n\n---\n" # Separator before detailed notes
+
+          RC_NOTES_CONTENT_ACCUMULATED=""
+          while IFS= read -r rc_tag_item; do
+            echo "Fetching release notes for $rc_tag_item..."
+            # Attempt to fetch release body. If 'gh release view' fails or body is empty, notes_for_tag will be empty.
+            # Errors from 'gh' are sent to /dev/null to prevent them from breaking the JSON parsing if notes are missing.
+            notes_for_tag=$(gh release view "$rc_tag_item" --json body --jq '.body' 2>/dev/null || true)
+            
+            if [ -n "$notes_for_tag" ]; then
+              RC_NOTES_CONTENT_ACCUMULATED+="## Notes from ${rc_tag_item}\n\n${notes_for_tag}\n\n---\n"
+              echo "Successfully fetched and appended notes for $rc_tag_item."
+            else
+              echo "::warning::No release notes body found or release does not exist for tag $rc_tag_item. Including a placeholder."
+              RC_NOTES_CONTENT_ACCUMULATED+="## Notes from ${rc_tag_item}\n\n_No release notes body found for this tag._\n\n---\n"
+            fi
+          done <<< "$ALL_RC_TAGS_FOR_BASE"
+
+          COMBINED_NOTES_CONTENT+="$RC_NOTES_CONTENT_ACCUMULATED"
+
+          echo "Aggregated release notes successfully."
+          
+          # Output the combined notes using a delimiter for multiline support
+          DELIMITER=$(uuidgen)
+          {
+            echo "full_release_notes<<$DELIMITER"
+            echo -e "$COMBINED_NOTES_CONTENT" # -e interprets backslashes for newlines
+            echo "$DELIMITER"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: oven-sh/setup-bun@v2
         with:
