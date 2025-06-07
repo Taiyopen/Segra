@@ -15,12 +15,20 @@ export interface Content {
 }
 
 export interface State {
+	gpuVendor: GpuVendor;
 	recording?: Recording;
 	hasLoadedObs: boolean;
 	content: Content[];
 	inputDevices: AudioDevice[];
 	outputDevices: AudioDevice[];
 	isCheckingForUpdates: boolean;
+}
+
+export enum GpuVendor {
+	Unknown = 'Unknown',
+	Nvidia = 'Nvidia',
+	AMD = 'AMD',
+	Intel = 'Intel'
 }
 
 export enum BookmarkType {
@@ -81,7 +89,9 @@ export type ClipEncoder = 'gpu' | 'cpu';
 export type ClipCodec = 'h264' | 'h265';
 export type ClipFPS = 0 | 24 | 30 | 60 | 120 | 144;
 export type ClipAudioQuality = '96k' | '128k' | '192k' | '256k' | '320k';
-export type ClipPreset = 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow';
+export type CpuClipPreset = 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow';
+export type GpuClipPreset = 'slow' | 'medium' | 'fast' | 'hp' | 'hq' | 'bd' | 'll' | 'llhq' | 'llhp' | 'lossless' | 'losslesshp';
+export type ClipPreset = CpuClipPreset | GpuClipPreset;
 
 export interface Settings {
 	theme: 'segra' | 'rich' | 'dark' | 'night' | 'dracula' | 'black' | 'luxury' | 'forest' | 'halloween' | 'coffee' | 'dim' | 'sunset';
@@ -118,6 +128,7 @@ export interface Settings {
 }
 
 export const initialState: State = {
+	gpuVendor: GpuVendor.Unknown,
 	recording: undefined,
 	hasLoadedObs: false,
 	content: [],

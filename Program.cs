@@ -108,7 +108,6 @@ namespace Segra
                 .WithFirstRun((v) =>
                 {
                     Log.Information($"First run of Segra {v}");
-                    StartupUtils.SetStartupStatus(true);
                 })
                 .Run();
 
@@ -172,6 +171,7 @@ namespace Segra
                 if (firstRun)
                 {
                     SettingsUtils.LoadContentFromFolderIntoState(true);
+                    StartupUtils.SetStartupStatus(true);
                 }
 
                 // Try to login with stored credentials

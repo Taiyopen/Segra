@@ -1,9 +1,5 @@
 using Segra.Backend.Models;
 using Serilog;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -176,7 +172,8 @@ namespace Segra.Backend.Utils
                 }
                 
                 Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
-                
+                Settings.Instance.State.GpuVendor = GeneralUtils.DetectGpuVendor();
+
                 Log.Information("Settings loaded from {0}", SettingsFilePath);
                 
                 Settings.Instance.EndBulkUpdateAndSaveSettings();

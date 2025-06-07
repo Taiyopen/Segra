@@ -3,6 +3,7 @@ using Serilog;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Segra.Backend.Models;
+using static Segra.Backend.Utils.GeneralUtils;
 
 namespace Segra.Backend.Utils
 {
@@ -220,7 +221,25 @@ namespace Segra.Backend.Utils
                 string videoCodecAi;
                 if (currentSettings.ClipEncoder.Equals("gpu", StringComparison.OrdinalIgnoreCase))
                 {
-                    videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_nvenc" : "h264_nvenc";
+                    GpuVendor gpuVendor = DetectGpuVendor();
+                    
+                    switch (gpuVendor)
+                    {
+                        case GpuVendor.Nvidia:
+                            videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_nvenc" : "h264_nvenc";
+                            break;
+                        case GpuVendor.AMD:
+                            videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_amf" : "h264_amf";
+                            break;
+                        case GpuVendor.Intel:
+                            videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_qsv" : "h264_qsv";
+                            break;
+                        default:
+                            // Fall back to CPU encoding if GPU vendor is unknown
+                            Log.Warning("Unknown GPU vendor detected for AI clip, falling back to CPU encoding");
+                            videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "libx265" : "libx264";
+                            break;
+                    }
                 }
                 else
                 {
@@ -286,7 +305,7 @@ namespace Segra.Backend.Utils
 
 
         private static async Task ExtractClip(int clipId, string inputFilePath, string outputFilePath, double startTime, double endTime,
-                                    string ffmpegPath, Action<double> progressCallback)
+                            string ffmpegPath, Action<double> progressCallback)
         {
             double duration = endTime - startTime;
             var settings = Settings.Instance;
@@ -294,10 +313,30 @@ namespace Segra.Backend.Utils
             string videoCodec;
             if (settings.ClipEncoder.Equals("gpu", StringComparison.OrdinalIgnoreCase))
             {
-                videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_nvenc" : "h264_nvenc";
+                // GPU encoder uses hardware-accelerated codecs based on GPU vendor
+                GpuVendor gpuVendor = DetectGpuVendor();
+                
+                switch (gpuVendor)
+                {
+                    case GpuVendor.Nvidia:
+                        videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_nvenc" : "h264_nvenc";
+                        break;
+                    case GpuVendor.AMD:
+                        videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_amf" : "h264_amf";
+                        break;
+                    case GpuVendor.Intel:
+                        videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_qsv" : "h264_qsv";
+                        break;
+                    default:
+                        // Fall back to CPU encoding if GPU vendor is unknown
+                        Log.Warning("Unknown GPU vendor detected, falling back to CPU encoding");
+                        videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "libx265" : "libx264";
+                        break;
+                }
             }
             else
             {
+                // CPU encoder uses software codecs
                 videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "libx265" : "libx264";
             }
 

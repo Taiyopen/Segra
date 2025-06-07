@@ -2,7 +2,7 @@ import React, {useEffect, useState, useRef} from 'react';
 import {useSettings, useSettingsUpdater} from '../Context/SettingsContext';
 import {sendMessageToBackend} from '../Utils/MessageUtils';
 import {themeChange} from 'theme-change';
-import {AudioDevice, KeybindAction} from '../Models/types';
+import {AudioDevice, GpuVendor, KeybindAction, Settings as SettingsType} from '../Models/types';
 import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth.tsx';
@@ -110,13 +110,93 @@ export default function Settings() {
 	const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
 		const {name, value} = event.target;
 		const numericalFields = ['frameRate', 'bitrate', 'storageLimit', 'keyframeInterval', 'crfValue', 'cqLevel', 'clipQualityCrf', 'clipFps'];
-		updateSettings({
-			[name]: numericalFields.includes(name) ? Number(value) : value,
-		});
+		
+		if (name === 'clipEncoder') {
+			const newSettings: any = {
+				[name]: value,
+			};
+			
+			if (value === 'cpu' && settings.clipEncoder !== 'cpu') {
+				newSettings.clipPreset = 'veryfast';
+			} else if (value === 'gpu' && settings.clipEncoder !== 'gpu') {
+				newSettings.clipPreset = 'medium';
+			}
+			
+			updateSettings(newSettings);
+		} else {
+			updateSettings({
+				[name]: numericalFields.includes(name) ? Number(value) : value,
+			});
+		}
 	};
 
 	const handleBrowseClick = () => {
 		sendMessageToBackend('SetVideoLocation');
+	};
+
+	// Render preset options based on encoder type and GPU vendor
+	const renderPresetOptions = (settings: SettingsType) => {
+		console.log(settings.state.gpuVendor);
+		if (settings.clipEncoder === 'cpu') {
+			// CPU encoder presets are the same regardless of GPU vendor
+			return (
+				<>
+					<option value="ultrafast">Ultrafast</option>
+					<option value="superfast">Superfast</option>
+					<option value="veryfast">Veryfast</option>
+					<option value="faster">Faster</option>
+					<option value="fast">Fast</option>
+					<option value="medium">Medium</option>
+					<option value="slow">Slow</option>
+					<option value="slower">Slower</option>
+					<option value="veryslow">Veryslow</option>
+				</>
+			);
+		} else {
+			// GPU encoder presets can vary based on GPU vendor
+			switch (settings.state.gpuVendor) {
+				case GpuVendor.Nvidia:
+					return (
+						<>
+							<option value="slow">Slow</option>
+							<option value="medium">Medium</option>
+							<option value="fast">Fast</option>
+							<option value="hp">High Performance</option>
+							<option value="hq">High Quality</option>
+							<option value="bd">Blu-ray Disk</option>
+							<option value="ll">Low Latency</option>
+							<option value="llhq">Low Latency High Quality</option>
+							<option value="llhp">Low Latency High Performance</option>
+							<option value="lossless">Lossless</option>
+							<option value="losslesshp">Lossless High Performance</option>
+						</>
+					);
+				case GpuVendor.AMD:
+					// AMD GPU presets
+					return (
+						<>
+							<option value="slow">Slow</option>
+							<option value="medium">Medium</option>
+							<option value="fast">Fast</option>
+							<option value="hp">High Performance</option>
+							<option value="hq">High Quality</option>
+						</>
+					);
+				case GpuVendor.Intel:
+					// Intel GPU presets
+					return (
+						<>
+							<option value="fast">Fast</option>
+							<option value="medium">Medium</option>
+							<option value="slow">Slow</option>
+						</>
+					);
+				default:
+					return (
+						<></>
+					);
+			}
+		}
 	};
 
 	useEffect(() => {
@@ -749,7 +829,7 @@ export default function Settings() {
 							className="select select-bordered"
 						>
 							<option value="cpu">CPU</option>
-							<option value="gpu">GPU</option>
+							{settings.state.gpuVendor !== GpuVendor.Unknown && <option value="gpu">GPU</option>}
 						</select>
 					</div>
 
@@ -845,15 +925,7 @@ export default function Settings() {
 							onChange={handleChange}
 							className="select select-bordered"
 						>
-							<option value="ultrafast">Ultrafast</option>
-							<option value="superfast">Superfast</option>
-							<option value="veryfast">Veryfast</option>
-							<option value="faster">Faster</option>
-							<option value="fast">Fast</option>
-							<option value="medium">Medium</option>
-							<option value="slow">Slow</option>
-							<option value="slower">Slower</option>
-							<option value="veryslow">Veryslow</option>
+							{renderPresetOptions(settings)}
 						</select>
 					</div>
 				</div>

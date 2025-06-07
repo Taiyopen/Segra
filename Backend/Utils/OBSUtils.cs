@@ -5,8 +5,8 @@ using Segra.Backend.Services;
 using Serilog;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
-using System.Windows.Forms.Design;
 using static LibObs.Obs;
+using static Segra.Backend.Utils.GeneralUtils;
 using size_t = System.UIntPtr;
 
 namespace Segra.Backend.Utils
@@ -14,17 +14,8 @@ namespace Segra.Backend.Utils
     public static class OBSUtils
     {
         public static bool isInitializingRecording = false;
-        // Enum for GPU vendor types
-        public enum GpuVendor
-        {
-            Unknown,
-            Nvidia,
-            AMD,
-            Intel
-        }
-
         public static bool IsInitialized { get; private set; }
-        public static GpuVendor DetectedGpuVendor { get; private set; } = GpuVendor.Unknown;
+        public static GpuVendor DetectedGpuVendor { get; private set; } = DetectGpuVendor();
         static bool signalOutputStop = false;
         static IntPtr output = IntPtr.Zero;
         static IntPtr bufferOutput = IntPtr.Zero;
@@ -525,7 +516,7 @@ namespace Segra.Backend.Utils
                 {
                     Log.Error($"Failed to start replay buffer: {obs_output_get_last_error(bufferOutput)}");
                     Settings.Instance.State.Recording = null;
-                    MessageUtils.SendSettingsToFrontend();
+                    MessageUtils.SendSettingsToFrontend("Failed to start replay buffer");
                     return false;
                 }
 
@@ -555,7 +546,7 @@ namespace Segra.Backend.Utils
                 GameImage = gameImage
             };
             isInitializingRecording = false;
-            MessageUtils.SendSettingsToFrontend();
+            MessageUtils.SendSettingsToFrontend("OBS Start recording");
 
             Log.Information("Recording started: " + videoOutputPath);
             if (!isReplayBufferMode)
@@ -943,107 +934,6 @@ namespace Segra.Backend.Utils
                     // Fall back to CPU encoding if no supported GPU is detected
                     Log.Warning("No supported GPU detected, falling back to CPU encoder (x264)");
                     return CPU_ENCODER;
-            }
-        }
-
-        private static readonly List<string> internalGpuIdentifiers = new List<string>
-        {
-            // Intel integrated GPUs
-            "HD Graphics",         // Broadwell (5xxx), Skylake (510–530), Kaby Lake (610/620), Comet Lake, etc.
-            "Iris Graphics",       // Skylake Iris 540/550
-            "Iris Pro Graphics",   // Broadwell Iris Pro 6200
-            "Iris Plus Graphics",  // Kaby Lake / Whiskey Lake
-            "UHD Graphics",        // Coffee Lake and newer
-            "Iris Xe Graphics",    // Tiger Lake and newer
-
-            // AMD integrated GPUs
-            "Radeon R7 Graphics",    // Kaveri / Carrizo APU series
-            "Radeon R5 Graphics",    // Kaveri / Carrizo APU series
-            "Radeon Vega",           // Raven Ridge / Picasso / Renoir APUs (e.g. Vega 8, Vega 11)
-            "Radeon Graphics"        // Zen+ / Zen2 APUs (generic naming on 4000/5000G “Graphics”)
-        };
-
-        private static void DetectGpuVendor()
-        {
-            try
-            {
-                // First try to find active displays - these are GPUs actually connected to monitors
-                using (var searcher = new System.Management.ManagementObjectSearcher(
-                    "SELECT * FROM Win32_VideoController WHERE CurrentHorizontalResolution > 0 AND CurrentVerticalResolution > 0"))
-                {
-                    List<System.Management.ManagementObject> gpus = searcher.Get().Cast<System.Management.ManagementObject>().ToList();
-                    
-                    // Sort GPUs - external GPUs first, then internal ones
-                    gpus.Sort((a, b) => {
-                        string nameA = a["Name"]?.ToString() ?? string.Empty;
-                        string nameB = b["Name"]?.ToString() ?? string.Empty;
-                        
-                        bool isAInternal = internalGpuIdentifiers.Any(id => nameA.Contains(id, StringComparison.OrdinalIgnoreCase));
-                        bool isBInternal = internalGpuIdentifiers.Any(id => nameB.Contains(id, StringComparison.OrdinalIgnoreCase));
-                        
-                        // External GPUs come first (false before true)
-                        return isAInternal.CompareTo(isBInternal);
-                    });
-                    
-                    foreach (var gpu in gpus)
-                    {
-                        string name = gpu["Name"]?.ToString()?.ToLower() ?? string.Empty;
-                        
-                        if (name.Contains("nvidia"))
-                        {
-                            DetectedGpuVendor = GpuVendor.Nvidia;
-                            Log.Information($"Detected NVIDIA GPU: {gpu["Name"]}");
-                            return;
-                        }
-                        else if (name.Contains("amd") || name.Contains("radeon") || name.Contains("ati"))
-                        {
-                            DetectedGpuVendor = GpuVendor.AMD;
-                            Log.Information($"Detected AMD GPU: {gpu["Name"]}");
-                            return;
-                        }
-                        else if (name.Contains("intel"))
-                        {
-                            DetectedGpuVendor = GpuVendor.Intel;
-                            Log.Information($"Detected Intel GPU: {gpu["Name"]}");
-                            return;
-                        }
-                    }
-                }
-                
-                // Fallback: check all video controllers if the above didn't find any active ones
-                using (var searcher = new System.Management.ManagementObjectSearcher("SELECT * FROM Win32_VideoController"))
-                {
-                    foreach (System.Management.ManagementObject gpu in searcher.Get().Cast<System.Management.ManagementObject>())
-                    {
-                        string name = gpu["Name"]?.ToString()?.ToLower() ?? string.Empty;
-                        
-                        if (name.Contains("nvidia"))
-                        {
-                            DetectedGpuVendor = GpuVendor.Nvidia;
-                            Log.Information($"Detected NVIDIA GPU: {gpu["Name"]}");
-                            return;
-                        }
-                        else if (name.Contains("amd") || name.Contains("radeon") || name.Contains("ati"))
-                        {
-                            DetectedGpuVendor = GpuVendor.AMD;
-                            Log.Information($"Detected AMD GPU: {gpu["Name"]}");
-                            return;
-                        }
-                        else if (name.Contains("intel"))
-                        {
-                            DetectedGpuVendor = GpuVendor.Intel;
-                            Log.Information($"Detected Intel GPU: {gpu["Name"]}");
-                            return;
-                        }
-                    }
-                }
-                
-                Log.Warning("Could not identify GPU vendor, will default to CPU encoding if GPU encoding is selected");
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Error detecting GPU vendor: {ex.Message}");
-                DetectedGpuVendor = GpuVendor.Unknown;
             }
         }
         

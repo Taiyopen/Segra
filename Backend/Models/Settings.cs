@@ -3,6 +3,7 @@ using Segra.Backend.Utils;
 using Serilog;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
+using static Segra.Backend.Utils.GeneralUtils;
 
 namespace Segra.Backend.Models
 {
@@ -71,15 +72,15 @@ namespace Segra.Backend.Models
         {
             _isBulkUpdating = false;
             Log.Information("End bulk update");
-            SendToFrontend();
+            SendToFrontend("End bulk update");
             SettingsUtils.SaveSettings();
         }
 
-        private void SendToFrontend()
+        private void SendToFrontend(string cause)
         {
             if (!_isBulkUpdating)
             {
-                MessageUtils.SendSettingsToFrontend();
+                MessageUtils.SendSettingsToFrontend(cause);
             }
         }
 
@@ -121,7 +122,7 @@ namespace Segra.Backend.Models
 
                 if (hasChanged || Instance.State.Content.Count == 0)
                 {
-                    SendToFrontend();
+                    SendToFrontend("Content folder changed");
                     SettingsUtils.LoadContentFromFolderIntoState();
                     if (Instance != null && !Instance._isBulkUpdating)
                     {
@@ -237,13 +238,7 @@ namespace Segra.Backend.Models
             get => _inputDevices;
             set
             {
-                bool hasChanged = !_inputDevices.SequenceEqual(value);
                 _inputDevices = value;
-
-                if (Instance != null && hasChanged && !Instance._isBulkUpdating)
-                {
-                    SendToFrontend();
-                }
             }
         }
 
@@ -253,13 +248,7 @@ namespace Segra.Backend.Models
             get => _outputDevices;
             set
             {
-                bool hasChanged = !_outputDevices.SequenceEqual(value, new DeviceSettingEqualityComparer());
                 _outputDevices = value;
-
-                if (Instance != null && hasChanged && !Instance._isBulkUpdating)
-                {
-                    SendToFrontend();
-                }
             }
         }
 
@@ -272,7 +261,7 @@ namespace Segra.Backend.Models
                 if (_enableDisplayRecording != value)
                 {
                     _enableDisplayRecording = value;
-                    SendToFrontend();
+                    SendToFrontend("Enable display recording changed");
                 }
             }
         }
@@ -286,7 +275,7 @@ namespace Segra.Backend.Models
                 if (_enableAi != value)
                 {
                     _enableAi = value;
-                    SendToFrontend();
+                    SendToFrontend("Enable AI changed");
                 }
             }
         }
@@ -300,7 +289,7 @@ namespace Segra.Backend.Models
                 if (_autoGenerateHighlights != value)
                 {
                     _autoGenerateHighlights = value;
-                    SendToFrontend();
+                    SendToFrontend("Auto generate highlights changed");
                 }
             }
         }
@@ -315,7 +304,6 @@ namespace Segra.Backend.Models
                 {
                     _runOnStartup = value;
                     StartupUtils.SetStartupStatus(value);
-                    SendToFrontend();
                 }
             }
         }
@@ -329,7 +317,6 @@ namespace Segra.Backend.Models
                 if (_receiveBetaUpdates != value)
                 {
                     _receiveBetaUpdates = value;
-                    SendToFrontend();
                 }
             }
         }
@@ -343,7 +330,7 @@ namespace Segra.Backend.Models
                 if (_recordingMode != value)
                 {
                     _recordingMode = value;
-                    SendToFrontend();
+                    SendToFrontend("Recording mode changed");
                 }
             }
         }
@@ -358,7 +345,7 @@ namespace Segra.Backend.Models
                 _whitelist = value;
                 if (hasChanged && !_isBulkUpdating)
                 {
-                    SendToFrontend();
+                    SendToFrontend("Whitelist changed");
                     SettingsUtils.SaveSettings();
                 }
             }
@@ -374,7 +361,7 @@ namespace Segra.Backend.Models
                 _blacklist = value;
                 if (hasChanged && !_isBulkUpdating)
                 {
-                    SendToFrontend();
+                    SendToFrontend("Blacklist changed");
                     SettingsUtils.SaveSettings();
                 }
             }
@@ -389,7 +376,7 @@ namespace Segra.Backend.Models
                 if (_replayBufferDuration != value)
                 {
                     _replayBufferDuration = value;
-                    SendToFrontend();
+                    SendToFrontend("Replay buffer duration changed");
                 }
             }
         }
@@ -403,7 +390,7 @@ namespace Segra.Backend.Models
                 if (_replayBufferMaxSize != value)
                 {
                     _replayBufferMaxSize = value;
-                    SendToFrontend();
+                    SendToFrontend("Replay buffer max size changed");
                 }
             }
         }
@@ -424,7 +411,7 @@ namespace Segra.Backend.Models
                 _auth = value;
                 if (hasChanged)
                 {
-                    SendToFrontend();
+                    SendToFrontend("Auth changed");
                 }
             }
         }
@@ -438,8 +425,6 @@ namespace Segra.Backend.Models
                 if (_clipEncoder != value)
                 {
                     _clipEncoder = value;
-                    SendToFrontend();
-                    SettingsUtils.SaveSettings();
                 }
             }
         }
@@ -453,8 +438,6 @@ namespace Segra.Backend.Models
                 if (_clipQualityCrf != value)
                 {
                     _clipQualityCrf = value;
-                    SendToFrontend();
-                    SettingsUtils.SaveSettings();
                 }
             }
         }
@@ -468,8 +451,6 @@ namespace Segra.Backend.Models
                 if (_clipCodec != value)
                 {
                     _clipCodec = value;
-                    SendToFrontend();
-                    SettingsUtils.SaveSettings();
                 }
             }
         }
@@ -483,8 +464,6 @@ namespace Segra.Backend.Models
                 if (_clipFps != value)
                 {
                     _clipFps = value;
-                    SendToFrontend();
-                    SettingsUtils.SaveSettings();
                 }
             }
         }
@@ -498,8 +477,6 @@ namespace Segra.Backend.Models
                 if (_clipAudioQuality != value)
                 {
                     _clipAudioQuality = value;
-                    SendToFrontend();
-                    SettingsUtils.SaveSettings();
                 }
             }
         }
@@ -513,8 +490,6 @@ namespace Segra.Backend.Models
                 if (_clipPreset != value)
                 {
                     _clipPreset = value;
-                    SendToFrontend();
-                    SettingsUtils.SaveSettings();
                 }
             }
         }
@@ -537,7 +512,6 @@ namespace Segra.Backend.Models
                             Log.Information($"Added missing keybind for action {defaultKeybind.Action}");
                         }
                     }
-                    SendToFrontend();
                 }
             }
         }
@@ -627,6 +601,7 @@ namespace Segra.Backend.Models
     // State class
     internal class State : IDisposable
     {
+        private GpuVendor _gpuVendor = GpuVendor.Unknown;
         private Recording _recording = null;
         private bool _hasLoadedObs = false;
         private List<Content> _content = new List<Content>();
@@ -652,11 +627,24 @@ namespace Segra.Backend.Models
             }
         }
 
-        private void SendToFrontend()
+        private void SendToFrontend(string cause)
         {
             if (Settings.Instance != null && !Settings.Instance._isBulkUpdating)
             {
-                MessageUtils.SendSettingsToFrontend();
+                MessageUtils.SendSettingsToFrontend(cause);
+            }
+        }
+        [JsonPropertyName("gpuVendor")]
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public GpuVendor GpuVendor
+        {
+            get => _gpuVendor;
+            set
+            {
+                if (_gpuVendor != value)
+                {
+                    _gpuVendor = value;
+                }
             }
         }
 
@@ -669,7 +657,7 @@ namespace Segra.Backend.Models
                 if (_recording != value)
                 {
                     _recording = value;
-                    SendToFrontend();
+                    SendToFrontend("State update: Recording");
                 }
             }
         }
@@ -683,7 +671,7 @@ namespace Segra.Backend.Models
                 if (_hasLoadedObs != value)
                 {
                     _hasLoadedObs = value;
-                    SendToFrontend();
+                    SendToFrontend("State update: HasLoadedObs");
                 }
             }
         }
@@ -697,7 +685,7 @@ namespace Segra.Backend.Models
                 if (_content != value)
                 {
                     _content = value;
-                    SendToFrontend();
+                    SendToFrontend("State update: Content");
                 }
             }
         }
@@ -711,7 +699,7 @@ namespace Segra.Backend.Models
                 if (_inputDevices != value)
                 {
                     _inputDevices = value;
-                    SendToFrontend();
+                    SendToFrontend("State update: InputDevices");
                 }
             }
         }
@@ -725,7 +713,7 @@ namespace Segra.Backend.Models
                 if (_outputDevices != value)
                 {
                     _outputDevices = value;
-                    SendToFrontend();
+                    SendToFrontend("State update: OutputDevices");
                 }
             }
         }
@@ -739,7 +727,7 @@ namespace Segra.Backend.Models
                 if (_isCheckingForUpdates != value)
                 {
                     _isCheckingForUpdates = value;
-                    SendToFrontend();
+                    SendToFrontend("State update: IsCheckingForUpdates");
                 }
             }
         }
@@ -772,7 +760,7 @@ namespace Segra.Backend.Models
                 Log.Information($"Output device: {device.Name} {device.Id}");
             }
             Log.Information("-------------");
-            MessageUtils.SendSettingsToFrontend();
+            MessageUtils.SendSettingsToFrontend("Updated audio devices");
         }
 
         private void SelectDefaultDevices()
@@ -811,19 +799,16 @@ namespace Segra.Backend.Models
             if (_recording != null)
             {
                 _recording.EndTime = endTime;
-                SendToFrontend();
+                SendToFrontend("State update: Recording end time");
             }
         }
 
         public void SetContent(List<Content> contents, bool sendToFrontend)
         {
-
-
-
             _content = contents;
             if (sendToFrontend)
             {
-                SendToFrontend();
+                SendToFrontend("State update: Content");
             }
 
         }

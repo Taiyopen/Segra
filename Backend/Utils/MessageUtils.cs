@@ -125,7 +125,7 @@ namespace Segra.Backend.Utils
                             break;
                         case "NewConnection":
                             Log.Information("NewConnection command received.");
-                            await SendSettingsToFrontend();
+                            await SendSettingsToFrontend("New connection");
 
                             // Get current version
                             if (UpdateUtils.UpdateManager.CurrentVersion != null)
@@ -434,7 +434,7 @@ namespace Segra.Backend.Utils
 
                     contentItem.Bookmarks.Add(bookmark);
 
-                    await SendSettingsToFrontend();
+                    await SendSettingsToFrontend("Added bookmark");
                     Log.Information($"Added bookmark of type {bookmarkType} at {timeString} to {metadataFilePath}");
                 }
                 else
@@ -520,7 +520,7 @@ namespace Segra.Backend.Utils
                         contentItem.Bookmarks = contentItem.Bookmarks.Where(b => b.Id != bookmarkId).ToList();
                     }
 
-                    await SendSettingsToFrontend();
+                    await SendSettingsToFrontend("Deleted bookmark");
                     Log.Information($"Deleted bookmark with id {bookmarkId} from {metadataFilePath}");
                 }
                 else
@@ -711,12 +711,12 @@ namespace Segra.Backend.Utils
             Log.Information($"Sent modal to frontend: {title} ({type})");
         }
 
-        public static async Task SendSettingsToFrontend()
+        public static async Task SendSettingsToFrontend(string cause)
         {
             if (!Program.hasLoadedInitialSettings || Settings.Instance._isBulkUpdating)
                 return;
 
-            Log.Information("Sending settings to frontend");
+            Log.Information("Sending settings to frontend ({Cause})", cause);
             await SendFrontendMessage("Settings", Settings.Instance);
         }
 

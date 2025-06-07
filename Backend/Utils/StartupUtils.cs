@@ -12,7 +12,7 @@ namespace Segra.Backend.Utils
                 string exePath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".exe");
                 string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
                 string linkPath = Path.Combine(startupFolder, "Segra.lnk");
-                if (enable)
+                if (enable && !File.Exists(linkPath))
                 {
                     Type shellType = Type.GetTypeFromProgID("WScript.Shell");
                     object shell = Activator.CreateInstance(shellType);
@@ -23,9 +23,9 @@ namespace Segra.Backend.Utils
                     shortcut.GetType().InvokeMember("Save", BindingFlags.InvokeMethod, null, shortcut, null);
                     Log.Information("Added Segra to startup");
                 }
-                else
+                else if(!enable && File.Exists(linkPath))
                 {
-                    if (File.Exists(linkPath)) File.Delete(linkPath);
+                    File.Delete(linkPath);
                     Log.Information("Removed Segra from startup");
                 }
             }
