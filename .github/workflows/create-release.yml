@@ -13,7 +13,6 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
-      workflows: write
     outputs:
       final_version_tag: ${{ steps.create_final_tag.outputs.final_version_tag }}
       release_notes: ${{ steps.generate_final_release_notes.outputs.final_notes }}
