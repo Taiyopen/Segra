@@ -50,6 +50,7 @@ jobs:
       - name: Checkout Code at RC Tag
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.PAT_TOKEN }}
           ref: ${{ steps.get_rc_tag_input.outputs.rc_tag_name }} # Checkout the specific RC tag
           submodules: recursive
           fetch-depth: 0 # Fetch all history for all tags and branches
@@ -294,13 +295,13 @@ jobs:
         run: |
           $final_tag = "${{ steps.extract_final_version.outputs.final_version_tag }}"
           Write-Host "Creating final Git tag: $final_tag"
-      
+          
           # Override the default remote to use the PAT
           git remote set-url origin https://x-access-token:${env:GH_PAT}@github.com/${{ github.repository }}.git
-      
+          
           git tag $final_tag
           git push origin $final_tag
-      
+          
           echo "final_version_tag=$final_tag" >> $env:GITHUB_OUTPUT
           Write-Host "Final Git tag $final_tag created and pushed."
 
