@@ -289,15 +289,20 @@ jobs:
       - name: Create Final Git Tag
         id: create_final_tag
         shell: pwsh
+        env:
+          GH_PAT: ${{ secrets.PAT_TOKEN }}
         run: |
           $final_tag = "${{ steps.extract_final_version.outputs.final_version_tag }}"
           Write-Host "Creating final Git tag: $final_tag"
+      
+          # Override the default remote to use the PAT
+          git remote set-url origin https://x-access-token:${env:GH_PAT}@github.com/${{ github.repository }}.git
+      
           git tag $final_tag
           git push origin $final_tag
+      
           echo "final_version_tag=$final_tag" >> $env:GITHUB_OUTPUT
           Write-Host "Final Git tag $final_tag created and pushed."
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Upload Final Release Artifact (for release job)
         uses: actions/upload-artifact@v4
