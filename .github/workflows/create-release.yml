@@ -15,6 +15,7 @@ jobs:
       contents: write
     outputs:
       final_version_tag: ${{ steps.create_final_tag.outputs.final_version_tag }}
+      final_version_number: ${{ steps.extract_final_version.outputs.final_version_number }}
       release_notes: ${{ steps.generate_final_release_notes.outputs.final_notes }}
 
     steps:
@@ -372,6 +373,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_final_gh_release.outputs.upload_url }}
-          asset_path: ./Segra-${{ needs.build_and_release.outputs.final_version_tag }}-full.nupkg
-          asset_name: Segra-${{ needs.build_and_release.outputs.final_version_tag }}-full.nupkg
+          asset_path: ./Segra-${{ needs.build_and_release.outputs.final_version_number }}-full.nupkg
+          asset_name: Segra-${{ needs.build_and_release.outputs.final_version_number }}-full.nupkg
           asset_content_type: application/octet-stream
