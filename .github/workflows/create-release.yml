@@ -296,6 +296,8 @@ jobs:
           git push origin $final_tag
           echo "final_version_tag=$final_tag" >> $env:GITHUB_OUTPUT
           Write-Host "Final Git tag $final_tag created and pushed."
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Upload Final Release Artifact (for release job)
         uses: actions/upload-artifact@v4
