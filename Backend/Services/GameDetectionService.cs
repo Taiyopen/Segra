@@ -14,6 +14,7 @@ namespace Segra.Backend.Services
 {
     public static class GameDetectionService
     {
+        public static bool PreventRetryRecording { get; set; } = false;
         private static ManagementEventWatcher processStartWatcher;
         private static ManagementEventWatcher processStopWatcher;
         private static readonly Dictionary<string, string> deviceToDrive = new();
@@ -186,7 +187,7 @@ namespace Segra.Backend.Services
 
         private static void StartGameRecording(int pid, string exePath)
         {
-            if (Settings.Instance.State.Recording != null || OBSUtils.isInitializingRecording)
+            if (Settings.Instance.State.Recording != null || Settings.Instance.State.PreRecording != null)
             {
                 Log.Information("[StartGameRecording] Recording already in progress. Skipping...");
                 return;
@@ -217,7 +218,7 @@ namespace Segra.Backend.Services
 
         private static bool ShouldRecordGame(string exePath)
         {
-            if (string.IsNullOrEmpty(exePath) || Settings.Instance.State.Recording != null || OBSUtils.isInitializingRecording) return false;
+            if (string.IsNullOrEmpty(exePath) || Settings.Instance.State.Recording != null || Settings.Instance.State.PreRecording != null) return false;
             
             // 1. Check if the game is in the whitelist - if so, always record
             var whitelist = Settings.Instance.Whitelist;
@@ -308,7 +309,7 @@ namespace Segra.Backend.Services
         private static void CheckForGames()
         {
             // Skip if already recording
-            if (Settings.Instance.State.Recording != null) return;
+            if (Settings.Instance.State.Recording != null || PreventRetryRecording) return;
             
             try
             {
@@ -538,6 +539,9 @@ namespace Segra.Backend.Services
                 if (eventType == EVENT_SYSTEM_FOREGROUND)
                 {
                     Log.Information($"Foreground window changed. New hwnd: 0x{hwnd.ToInt64():X}");
+
+                    // Reset retry recording flag to allow retrying recording if the user has changed foreground window
+                    PreventRetryRecording = false;
 
                     if (Settings.Instance.State.Recording != null) return;
 

@@ -21,7 +21,7 @@ interface MenuProps {
 
 export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 	const settings = useSettings();
-	const {hasLoadedObs, recording} = settings.state;
+	const {hasLoadedObs, recording, preRecording} = settings.state;
 	const {updateInfo} = useUpdate();
 	const {aiProgress} = useAiHighlights();
 	
@@ -125,9 +125,9 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				</AnimatePresence>
 
 				<AnimatePresence>
-					{recording && recording.endTime == null && (
+					{ (preRecording || (recording && recording.endTime == null)) && (
 						<AnimatedCard key="recording-card">
-							<RecordingCard recording={recording} />
+							<RecordingCard recording={recording} preRecording={preRecording} />
 						</AnimatedCard>
 					)}
 				</AnimatePresence>
@@ -160,7 +160,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				<div className="flex flex-col items-center space-y-2">
 					<button
 						className="btn btn-neutral w-full"
-						disabled={settings.state.recording != null || !settings.state.hasLoadedObs}
+						disabled={settings.state.recording != null || !settings.state.hasLoadedObs || settings.state.preRecording != null}
 						onClick={() => sendMessageToBackend('StartRecording')}
 					>
 						Start

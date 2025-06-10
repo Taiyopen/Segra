@@ -13,7 +13,6 @@ namespace Segra.Backend.Utils
 {
     public static class OBSUtils
     {
-        public static bool isInitializingRecording = false;
         public static bool IsInitialized { get; private set; }
         public static GpuVendor DetectedGpuVendor { get; private set; } = DetectGpuVendor();
         static bool signalOutputStop = false;
@@ -179,6 +178,15 @@ namespace Segra.Backend.Utils
                     if (formattedMessage.Contains("capture stopped"))
                         _isGameCaptureHooked = false;
 
+                    if (formattedMessage.Contains("attempting to hook fullscreen process"))
+                    {
+                        if (Settings.Instance.State.PreRecording != null)
+                        {
+                            Settings.Instance.State.PreRecording.Status = "Waiting for game hook";
+                            MessageUtils.SendSettingsToFrontend("Waiting for game hook");
+                        }
+                    }
+
                     // Check if this is a replay buffer save message
                     if (formattedMessage.Contains("Wrote replay buffer to"))
                     {
@@ -286,8 +294,8 @@ namespace Segra.Backend.Utils
         }
 
         public static bool StartRecording(string name = "Unknown", string exePath = "Unknown")
-        {
-            isInitializingRecording = true;
+        {   
+            Settings.Instance.State.PreRecording = new PreRecording { Game = name, Status = "Waiting to start" };
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
 
             string fileName = Path.GetFileName(exePath);
@@ -295,6 +303,7 @@ namespace Segra.Backend.Utils
             if ((isReplayBufferMode && bufferOutput != IntPtr.Zero) || (!isReplayBufferMode && output != IntPtr.Zero))
             {
                 Log.Information($"{(isReplayBufferMode ? "Replay buffer" : "Recording")} is already in progress.");
+                Settings.Instance.State.PreRecording = null;
                 return false;
             }
 
@@ -334,13 +343,16 @@ namespace Segra.Backend.Utils
 
             if (!hooked)
             {
-                Log.Error("Game Capture did not hook within 40 seconds.");
                 DisposeSources();
 
                 if (!Settings.Instance.EnableDisplayRecording)
                 {
+                    // Prevent retrying recording if display recording is disabled (to avoid infinite loop)
+                    GameDetectionService.PreventRetryRecording = true;
+
                     Log.Information("Display recording is disabled, stopping recording.");
                     StopRecording();
+                    Settings.Instance.State.PreRecording = null;
                     return false;
                 }
 
@@ -379,6 +391,7 @@ namespace Segra.Backend.Utils
                     break;
 
                 default:
+                    Settings.Instance.State.PreRecording = null;
                     throw new Exception("Unsupported Rate Control method.");
             }
 
@@ -516,7 +529,9 @@ namespace Segra.Backend.Utils
                 {
                     Log.Error($"Failed to start replay buffer: {obs_output_get_last_error(bufferOutput)}");
                     Settings.Instance.State.Recording = null;
+                    Settings.Instance.State.PreRecording = null;
                     MessageUtils.SendSettingsToFrontend("Failed to start replay buffer");
+                    StopRecording();
                     return false;
                 }
 
@@ -530,6 +545,8 @@ namespace Segra.Backend.Utils
                 {
                     Log.Error($"Failed to start recording: {obs_output_get_last_error(output)}");
                     Settings.Instance.State.Recording = null;
+                    Settings.Instance.State.PreRecording = null;
+                    StopRecording();
                     return false;
                 }
             }
@@ -545,7 +562,7 @@ namespace Segra.Backend.Utils
                 IsUsingGameHook = hooked,
                 GameImage = gameImage
             };
-            isInitializingRecording = false;
+            Settings.Instance.State.PreRecording = null;
             MessageUtils.SendSettingsToFrontend("OBS Start recording");
 
             Log.Information("Recording started: " + videoOutputPath);
@@ -654,7 +671,7 @@ namespace Segra.Backend.Utils
                 DisposeOutput();
                 DisposeSources();
                 DisposeEncoders();
-                isInitializingRecording = false;
+                Settings.Instance.State.PreRecording = null;
             }
 
             Task.Run(StorageUtils.EnsureStorageBelowLimit);
@@ -728,7 +745,10 @@ namespace Segra.Backend.Utils
                 Thread.Sleep(step);
                 elapsed += step;
                 if (elapsed >= timeoutMs)
+                {
+                    Log.Error("Game Capture did not hook within {Seconds} seconds.", timeoutMs / 1000);
                     return false;
+                }
             }
 
             return true;

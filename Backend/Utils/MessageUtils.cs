@@ -118,6 +118,12 @@ namespace Segra.Backend.Utils
                             await HandleSelectGameExecutable();
                             break;
                         case "StartRecording":
+                            if (Settings.Instance.State.Recording != null || Settings.Instance.State.PreRecording != null)
+                            {
+                                Log.Information("Recording already in progress. Skipping...");
+                                return;
+                            }
+                            
                             await Task.Run(() => OBSUtils.StartRecording());
                             break;
                         case "StopRecording":

@@ -602,7 +602,8 @@ namespace Segra.Backend.Models
     internal class State : IDisposable
     {
         private GpuVendor _gpuVendor = GpuVendor.Unknown;
-        private Recording _recording = null;
+        private PreRecording? _preRecording = null;
+        private Recording? _recording = null;
         private bool _hasLoadedObs = false;
         private List<Content> _content = new List<Content>();
 
@@ -648,8 +649,22 @@ namespace Segra.Backend.Models
             }
         }
 
+        [JsonPropertyName("preRecording")]
+        public PreRecording? PreRecording
+        {
+            get => _preRecording;
+            set
+            {
+                if (_preRecording != value)
+                {
+                    _preRecording = value;
+                    SendToFrontend("State update: PreRecording");
+                }
+            }
+        }
+
         [JsonPropertyName("recording")]
-        public Recording Recording
+        public Recording? Recording
         {
             get => _recording;
             set
@@ -822,6 +837,15 @@ namespace Segra.Backend.Models
                 _deviceWatcher = null;
             }
         }
+    }
+
+    internal class PreRecording
+    {
+        [JsonPropertyName("game")]
+        public required string Game { get; set; }
+
+        [JsonPropertyName("status")]
+        public required string Status { get; set; }
     }
 
     // Recording class

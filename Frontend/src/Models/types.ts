@@ -16,6 +16,7 @@ export interface Content {
 
 export interface State {
 	gpuVendor: GpuVendor;
+	preRecording?: PreRecording;
 	recording?: Recording;
 	hasLoadedObs: boolean;
 	content: Content[];
@@ -66,6 +67,11 @@ export interface Recording {
 	game: string;
 	isUsingGameHook: boolean;
 	gameImage?: string; // Base64 encoded image of the game executable icon
+}
+
+export interface PreRecording {
+	game: string;
+	status: string;
 }
 
 export interface AudioDevice {

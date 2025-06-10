@@ -499,8 +499,8 @@ export default function Settings() {
 				<h2 className="text-xl font-semibold mb-4">Capture Mode</h2>
 				<div className="grid grid-cols-2 gap-6">
 					<div 
-						className={`bg-base-100 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primary' : 'border-custom'} ${settings.state.recording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
-						onClick={() => !settings.state.recording && updateSettings({ recordingMode: 'Session' })}
+						className={`bg-base-100 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primary' : 'border-custom'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Session' })}
 					>
 						<div className="text-lg font-semibold mb-3">Session Recording</div>
 						<div className="text-sm text-left text-base-content">
@@ -516,8 +516,8 @@ export default function Settings() {
 						</div>
 					</div>
 					<div 
-						className={`bg-base-100 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primary' : 'border-custom'} ${settings.state.recording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
-						onClick={() => !settings.state.recording && updateSettings({ recordingMode: 'Buffer'})}
+						className={`bg-base-100 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primary' : 'border-custom'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Buffer'})}
 					>
 						<div className="flex items-center gap-2 mb-3">
 							<div className="text-lg font-semibold text-center">Replay Buffer</div>
@@ -590,7 +590,7 @@ export default function Settings() {
 											onBlur={() => updateSettings({ replayBufferDuration: localReplayBufferDuration })}
 											min="5"
 											max="600"
-											disabled={settings.state.recording != null}
+											disabled={settings.state.recording != null || settings.state.preRecording != null}
 											className={`input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80`}
 										/>
 										<div className="help-text-container">
@@ -611,7 +611,7 @@ export default function Settings() {
 											onBlur={() => updateSettings({ replayBufferMaxSize: localReplayBufferMaxSize })}
 											min="100"
 											max="5000"
-											disabled={settings.state.recording != null}
+											disabled={settings.state.recording != null || settings.state.preRecording != null}
 											className="input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80"
 										/>
 										<div className="help-text-container">
