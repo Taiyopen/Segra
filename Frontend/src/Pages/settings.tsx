@@ -136,7 +136,6 @@ export default function Settings() {
 
 	// Render preset options based on encoder type and GPU vendor
 	const renderPresetOptions = (settings: SettingsType) => {
-		console.log(settings.state.gpuVendor);
 		if (settings.clipEncoder === 'cpu') {
 			// CPU encoder presets are the same regardless of GPU vendor
 			return (
@@ -928,6 +927,18 @@ export default function Settings() {
 							{renderPresetOptions(settings)}
 						</select>
 					</div>
+				</div>
+				<div className="flex items-center justify-between mt-4">
+					<div className="flex items-center gap-2">
+						<span className="font-medium">Auto-Clear Selections After Creating Clip</span>
+					</div>
+					<input
+						type="checkbox"
+						name="clipClearSelectionsAfterCreatingClip"
+						checked={settings.clipClearSelectionsAfterCreatingClip}
+						onChange={(e) => updateSettings({clipClearSelectionsAfterCreatingClip: e.target.checked})}
+						className="toggle toggle-primary"
+					/>
 				</div>
 			</div>
 

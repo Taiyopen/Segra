@@ -88,21 +88,21 @@ export default function AppWrapper() {
       <ScrollProvider>
 		<SettingsProvider>
 			<ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
-			<ModalProvider>
-				<SelectionsProvider>
-				<DndProvider backend={HTML5Backend}>
-					<UploadProvider>
-					<ClippingProvider>
-						<AiHighlightsProvider>
-						<UpdateProvider>
-							<App />
-						</UpdateProvider>
-						</AiHighlightsProvider>
-					</ClippingProvider>
-					</UploadProvider>
-				</DndProvider>
-				</SelectionsProvider>
-			</ModalProvider>
+				<ModalProvider>
+					<SelectionsProvider>
+						<DndProvider backend={HTML5Backend}>
+							<UploadProvider>
+								<ClippingProvider>
+									<AiHighlightsProvider>
+										<UpdateProvider>
+											<App />
+										</UpdateProvider>
+									</AiHighlightsProvider>
+								</ClippingProvider>
+							</UploadProvider>
+						</DndProvider>
+					</SelectionsProvider>
+				</ModalProvider>
 			</ReleaseNotesContext.Provider>
 		</SettingsProvider>
       </ScrollProvider>

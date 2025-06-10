@@ -13,6 +13,7 @@ namespace Segra.Backend.Utils
 {
     public class Selection
     {
+        public long Id { get; set; }
         // TODO (os): make this of type ContentType
         public required string Type { get; set; }
         public double StartTime { get; set; }
@@ -197,11 +198,13 @@ namespace Segra.Backend.Utils
                 var selections = new List<Selection>();
                 foreach (var selectionElement in selectionsElement.EnumerateArray())
                 {
-                    if (selectionElement.TryGetProperty("startTime", out JsonElement startTimeElement) &&
+                    if (selectionElement.TryGetProperty("id", out JsonElement idElement) &&
+                        selectionElement.TryGetProperty("startTime", out JsonElement startTimeElement) &&
                         selectionElement.TryGetProperty("endTime", out JsonElement endTimeElement) &&
                         selectionElement.TryGetProperty("fileName", out JsonElement fileNameElement) &&
                         selectionElement.TryGetProperty("type", out JsonElement videoTypeElement))
                     {
+                        long id = idElement.GetInt64();
                         double startTime = startTimeElement.GetDouble();
                         double endTime = endTimeElement.GetDouble();
                         string fileName = fileNameElement.GetString();
@@ -216,6 +219,7 @@ namespace Segra.Backend.Utils
                         // Create a new Selection instance with all required properties.
                         selections.Add(new Selection
                         {
+                            Id = id,
                             Type = type,
                             StartTime = startTime,
                             EndTime = endTime,

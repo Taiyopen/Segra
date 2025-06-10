@@ -218,6 +218,14 @@ namespace Segra.Backend.Utils
             // Begin bulk update to suppress multiple state updates
             settings.BeginBulkUpdate();
 
+            // Update ClipClearSelectionsAfterCreatingClip
+            if (settings.ClipClearSelectionsAfterCreatingClip != updatedSettings.ClipClearSelectionsAfterCreatingClip)
+            {
+                Log.Information($"ClipClearSelectionsAfterCreatingClip changed from '{settings.ClipClearSelectionsAfterCreatingClip}' to '{updatedSettings.ClipClearSelectionsAfterCreatingClip}'");
+                settings.ClipClearSelectionsAfterCreatingClip = updatedSettings.ClipClearSelectionsAfterCreatingClip;
+                hasChanges = true;
+            }
+
             // Update ClipEncoder
             if (settings.ClipEncoder != updatedSettings.ClipEncoder)
             {

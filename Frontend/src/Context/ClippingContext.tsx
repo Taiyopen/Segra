@@ -1,9 +1,13 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
+import { useSelections } from './SelectionsContext';
+import { useSettings } from './SettingsContext';
+import { Selection } from '../Models/types';
 
 export interface ClippingProgress {
     id: number;
     progress: number;
+    selections: Selection[];
 }
 
 export interface ClippingContextType {
@@ -16,6 +20,8 @@ export const ClippingContext = createContext<ClippingContextType | undefined>(un
 
 export function ClippingProvider({ children }: { children: ReactNode }) {
     const [clippingProgress, setClippingProgress] = useState<Record<number, ClippingProgress>>({});
+    const { removeSelection } = useSelections();
+    const settings = useSettings();
 
     useEffect(() => {
         const handleWebSocketMessage = (event: CustomEvent<{ method: string; content: any }>) => {
@@ -29,10 +35,18 @@ export function ClippingProvider({ children }: { children: ReactNode }) {
                 }));
 
                 if (progress.progress === 100) {
-                   setClippingProgress(prev => {
-                       const { [progress.id]: _, ...rest } = prev;
-                       return rest;
-                   });
+                    // If setting is enabled, remove all selections that were in the clip
+                    if (settings.clipClearSelectionsAfterCreatingClip && progress.selections && progress.selections.length > 0) {
+                        // Remove each selection that was included in the clip
+                        progress.selections.forEach(selection => {
+                            removeSelection(selection.id);
+                        });
+                    }
+
+                    setClippingProgress(prev => {
+                        const { [progress.id]: _, ...rest } = prev;
+                        return rest;
+                    });
                 }
             }
         };
@@ -41,7 +55,7 @@ export function ClippingProvider({ children }: { children: ReactNode }) {
         return () => {
             window.removeEventListener('websocket-message', handleWebSocketMessage as EventListener);
         };
-    }, []);
+    }, [settings.clipClearSelectionsAfterCreatingClip, removeSelection]);
 
     const removeClipping = (id: number) => {
         setClippingProgress(prev => {

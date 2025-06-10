@@ -121,6 +121,7 @@ export interface Settings {
 	recordingMode: RecordingMode;
 	replayBufferDuration: number; // in seconds
 	replayBufferMaxSize: number; // in MB
+	clipClearSelectionsAfterCreatingClip: boolean;
 	clipEncoder: ClipEncoder;
 	clipQualityCrf: number; // 17 (High) to 28 (Low)
 	clipCodec: ClipCodec;
@@ -165,6 +166,7 @@ export const initialSettings: Settings = {
 	recordingMode: 'Session',
 	replayBufferDuration: 30, // 30 seconds default
 	replayBufferMaxSize: 500, // 500 MB default
+	clipClearSelectionsAfterCreatingClip: false,
 	clipEncoder: 'cpu',
 	clipQualityCrf: 23,
 	clipCodec: 'h264',

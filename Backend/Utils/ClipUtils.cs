@@ -49,20 +49,20 @@ namespace Segra.Backend.Utils
             int id = Guid.NewGuid().GetHashCode();
             if (updateFrontend)
             {
-                await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 0 });
+                await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 0, selections });
             }
             string videoFolder = Settings.Instance.ContentFolder;
 
             if (selections == null || !selections.Any())
             {
-                Log.Information("No selections provided.");
+                Log.Error("No selections provided.");
                 return;
             }
 
             double totalDuration = selections.Sum(s => s.EndTime - s.StartTime);
             if (totalDuration <= 0)
             {
-                Log.Information("Total clip duration is zero or negative.");
+                Log.Error("Total clip duration is zero or negative.");
                 return;
             }
 
@@ -74,7 +74,7 @@ namespace Segra.Backend.Utils
 
             if (!File.Exists(ffmpegPath))
             {
-                Log.Information($"FFmpeg executable not found at path: {ffmpegPath}");
+                Log.Error($"FFmpeg executable not found at path: {ffmpegPath}");
                 return;
             }
 
@@ -96,7 +96,7 @@ namespace Segra.Backend.Utils
                     double currentProgress = (processedDuration + (progress * clipDuration)) / totalDuration * 100;
                     if (updateFrontend)
                     {
-                        MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = currentProgress });
+                        MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = currentProgress, selections });
                     }
 
                     if (aiProgressMessage != null && !string.IsNullOrEmpty(aiProgressMessage.Id))
@@ -116,7 +116,7 @@ namespace Segra.Backend.Utils
                 tempClipFiles.Add(tempFileName);
                 if (updateFrontend)
                 {
-                    await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = (processedDuration / totalDuration) * 100 });
+                    await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = (processedDuration / totalDuration) * 100, selections });
                 }
             }
 
@@ -147,7 +147,7 @@ namespace Segra.Backend.Utils
                 {
                     if (updateFrontend)
                     {
-                        MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100 });
+                        MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100, selections });
                     }
                 }
             );
@@ -162,7 +162,7 @@ namespace Segra.Backend.Utils
             SettingsUtils.LoadContentFromFolderIntoState();
             if (updateFrontend)
             {
-                await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100 });
+                await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100, selections });
             }
         }
 

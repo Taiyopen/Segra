@@ -39,6 +39,7 @@ namespace Segra.Backend.Models
         private List<Game> _blacklist = new List<Game>();
         private State _state = new State();
         private Auth _auth = new Auth();
+        private bool _clipClearSelectionsAfterCreatingClip = false;
         private string _clipEncoder = "cpu";
         private int _clipQualityCrf = 23;
         private string _clipCodec = "h264";
@@ -412,6 +413,19 @@ namespace Segra.Backend.Models
                 if (hasChanged)
                 {
                     SendToFrontend("Auth changed");
+                }
+            }
+        }
+
+        [JsonPropertyName("clipClearSelectionsAfterCreatingClip")]
+        public bool ClipClearSelectionsAfterCreatingClip
+        {
+            get => _clipClearSelectionsAfterCreatingClip;
+            set
+            {
+                if (_clipClearSelectionsAfterCreatingClip != value)
+                {
+                    _clipClearSelectionsAfterCreatingClip = value;
                 }
             }
         }

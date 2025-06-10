@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import { Content, BookmarkType, Selection, Bookmark } from "../Models/types";
 import { sendMessageToBackend } from "../Utils/MessageUtils";
-import { useSettings } from "../Context/SettingsContext";
+import { useSettings, useSettingsUpdater } from "../Context/SettingsContext";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { useAuth } from "../Hooks/useAuth.tsx";
@@ -37,7 +37,9 @@ const fetchThumbnailAtTime = async (videoPath: string, timeInSeconds: number): P
 
 export default function VideoComponent({ video }: { video: Content }) {
     // Context hooks
-    const { contentFolder } = useSettings();
+    const settings = useSettings();
+    const updateSettings = useSettingsUpdater();
+    const { contentFolder } = settings;
     const { session } = useAuth();
     const { uploads } = useUploads();
     const { openModal, closeModal } = useModal();
@@ -460,6 +462,7 @@ export default function VideoComponent({ video }: { video: Content }) {
 
         const params = {
             Selections: selections.map((s) => ({
+                id: s.id,
                 type: s.type,
                 fileName: s.fileName,
                 game: s.game,
@@ -1115,7 +1118,19 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 />
                             ))}
                         </div>
-                        <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 my-2 mr-3 tooltip">
+                        <div className="flex items-center justify-between my-3 mr-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs">Auto-Clear Selections</span>
+                            </div>
+                            <input
+                                type="checkbox"
+                                name="clipClearSelectionsAfterCreatingClip"
+                                checked={settings.clipClearSelectionsAfterCreatingClip}
+                                onChange={(e) => updateSettings({clipClearSelectionsAfterCreatingClip: e.target.checked})}
+                                className="toggle toggle-primary"
+                            />
+                        </div>
+                        <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 mb-2 mr-3 tooltip">
                             <button
                                 className="btn btn-sm btn-neutral h-10 text-gray-400 hover:text-accent w-full py-0"
                                 onClick={clearAllSelections}
