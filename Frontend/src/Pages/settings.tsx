@@ -520,7 +520,6 @@ export default function Settings() {
 					>
 						<div className="flex items-center gap-2 mb-3">
 							<div className="text-lg font-semibold text-center">Replay Buffer</div>
-							<div className="badge badge-warning badge-sm">Beta</div>
 						</div>
 						<div className="text-sm text-left text-base-content">
 							<p className="mb-2">
