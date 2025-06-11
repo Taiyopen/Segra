@@ -63,7 +63,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 
 				{/* Recording Details */}
 				<div className="flex items-center text-gray-400 text-sm relative z-10">
-					<div className="flex items-center">
+					<div className="flex items-center max-w-[105%]">
 						<span className="countdown">
 							{elapsedTime.hours > 0 && (
 								<>
@@ -73,7 +73,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 							<span style={{"--value": elapsedTime.minutes} as React.CSSProperties}></span>:
 							<span style={{"--value": elapsedTime.seconds} as React.CSSProperties}></span>
 						</span>
-						<p className="truncate mx-2">{preRecording ? preRecording.game : recording?.game}</p>
+						<p className="truncate ml-2">{preRecording ? preRecording.game : recording?.game}</p>
 					</div>
 				</div>
 
