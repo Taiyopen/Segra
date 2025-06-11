@@ -118,8 +118,16 @@ namespace Segra.Backend.Utils
                             Process.Start("explorer.exe", $"/select,\"{filePathElement.ToString().Replace("/", "\\")}\"");
                             break;
                         case "OpenLogsLocation":
-                            string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra", "logs.log");
-                            Process.Start("explorer.exe", $"/select,\"{logFilePath}\"");
+                            string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra");
+                            string? logFilePath = Directory.GetFiles(logDir, "*.log").FirstOrDefault();
+                            if (!string.IsNullOrEmpty(logFilePath))
+                            {
+                                Process.Start("explorer.exe", $"/select,\"{logFilePath}\"");
+                            }
+                            else
+                            {
+                                Log.Warning("No log files found in the Segra directory");
+                            }
                             break;
                         case "SelectGameExecutable":
                             await HandleSelectGameExecutable();

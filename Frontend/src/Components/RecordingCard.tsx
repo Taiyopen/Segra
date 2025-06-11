@@ -11,6 +11,11 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 	const [elapsedTime, setElapsedTime] = useState({hours: 0, minutes: 0, seconds: 0});
 
 	useEffect(() => {
+		if(preRecording) {
+			setElapsedTime({hours: 0, minutes: 0, seconds: 0});
+			return;
+		}
+
 		if (!recording?.startTime) return;
 
 		const startTime = new Date(recording.startTime).getTime(); // Get the timestamp in milliseconds
@@ -31,7 +36,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 
 		// Clean up the interval when the component unmounts
 		return () => clearInterval(intervalId);
-	}, [recording?.startTime]);
+	}, [recording?.startTime, preRecording]);
 
 	return (
 		<div className="mb-4 px-2">
@@ -47,6 +52,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 						WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,1), rgba(0,0,0,0))"
 					}}></div>
 				</div>
+
 				{/* Recording Indicator */}
 				<div className="flex items-center mb-1 relative z-10">
 					<span className={`w-3 h-3 rounded-full mr-2 ${preRecording ? 'bg-orange-500' : 'bg-red-500 animate-pulse'}`}></span>
@@ -57,7 +63,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 
 				{/* Recording Details */}
 				<div className="flex items-center text-gray-400 text-sm relative z-10">
-					<div className="flex items-center">
+					<div className="flex items-center max-w-[105%]">
 						<span className="countdown">
 							{elapsedTime.hours > 0 && (
 								<>
@@ -67,7 +73,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 							<span style={{"--value": elapsedTime.minutes} as React.CSSProperties}></span>:
 							<span style={{"--value": elapsedTime.seconds} as React.CSSProperties}></span>
 						</span>
-						<p className="truncate mx-2">{preRecording ? preRecording.game : recording?.game}</p>
+						<p className="truncate ml-2">{preRecording ? preRecording.game : recording?.game}</p>
 					</div>
 				</div>
 
