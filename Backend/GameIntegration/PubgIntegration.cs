@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 
 namespace Segra.Backend.GameIntegration
 {
-    internal class PubgIntegration : Integration
+    internal partial class PubgIntegration : Integration
     {
         private readonly System.Timers.Timer checkTimer;
         private readonly string pubgReplayFolder =
@@ -115,17 +115,25 @@ namespace Segra.Backend.GameIntegration
                 var instigator = dataList?[1]?.ToString();
                 var victim = dataList?[3]?.ToString();
 
-                if (instigator == matchInfo.RecordUserNickName && victim != null && victim != matchInfo.RecordUserNickName)
+                if (instigator != null && matchInfo.RecordUserNickName != null && victim != null)
                 {
-                    var downTime = MatchTimestampToLocal(matchInfo.Timestamp, details.Time);
-                    trackedVictims.Add(victim);
-
-                    var bookmark = new Bookmark
+                    string cleanInstigator = RemoveClanTag(instigator);
+                    string cleanVictim = RemoveClanTag(victim);
+                    string cleanRecordName = RemoveClanTag(matchInfo.RecordUserNickName);
+                    
+                    if (string.Equals(cleanInstigator, cleanRecordName, StringComparison.OrdinalIgnoreCase) && 
+                        !string.Equals(cleanVictim, cleanRecordName, StringComparison.OrdinalIgnoreCase))
                     {
-                        Type = BookmarkType.Kill,
-                        Time = downTime - Settings.Instance.State.Recording?.StartTime ?? TimeSpan.Zero
-                    };
-                    Settings.Instance.State.Recording?.Bookmarks.Add(bookmark);
+                        var downTime = MatchTimestampToLocal(matchInfo.Timestamp, details.Time);
+                        trackedVictims.Add(victim);
+
+                        var bookmark = new Bookmark
+                        {
+                            Type = BookmarkType.Kill,
+                            Time = downTime - Settings.Instance.State.Recording?.StartTime ?? TimeSpan.Zero
+                        };
+                        Settings.Instance.State.Recording?.Bookmarks.Add(bookmark);
+                    }
                 }
             }
         }
@@ -158,18 +166,26 @@ namespace Segra.Backend.GameIntegration
                 var killer = dataList[1]?.ToString();
                 var victim = dataList[3]?.ToString();
 
-                if (killer == matchInfo.RecordUserNickName && victim != null && victim != matchInfo.RecordUserNickName)
+                if (killer != null && matchInfo.RecordUserNickName != null && victim != null)
                 {
-                    var killTime = MatchTimestampToLocal(matchInfo.Timestamp, details.Time);
-                    bool wasInstantKill = trackedVictims.Add(victim);
-                    if (wasInstantKill)
+                    string cleanKiller = RemoveClanTag(killer);
+                    string cleanVictim = RemoveClanTag(victim);
+                    string cleanRecordName = RemoveClanTag(matchInfo.RecordUserNickName);
+                    
+                    if (string.Equals(cleanKiller, cleanRecordName, StringComparison.OrdinalIgnoreCase) && 
+                        !string.Equals(cleanVictim, cleanRecordName, StringComparison.OrdinalIgnoreCase))
                     {
-                        var bookmark = new Bookmark
+                        var killTime = MatchTimestampToLocal(matchInfo.Timestamp, details.Time);
+                        bool wasInstantKill = trackedVictims.Add(victim);
+                        if (wasInstantKill)
                         {
-                            Type = BookmarkType.Kill,
-                            Time = killTime - Settings.Instance.State.Recording?.StartTime ?? TimeSpan.Zero
-                        };
-                        Settings.Instance.State.Recording?.Bookmarks.Add(bookmark);
+                            var bookmark = new Bookmark
+                            {
+                                Type = BookmarkType.Kill,
+                                Time = killTime - Settings.Instance.State.Recording?.StartTime ?? TimeSpan.Zero
+                            };
+                            Settings.Instance.State.Recording?.Bookmarks.Add(bookmark);
+                        }
                     }
                 }
             }
@@ -201,15 +217,22 @@ namespace Segra.Backend.GameIntegration
                 var dataList = dataDict.Values.ToList();
                 var victim = dataList[3]?.ToString();
 
-                if (victim == matchInfo.RecordUserNickName)
+                // Handle clan tags by removing text within brackets before comparing
+                if (victim != null && matchInfo.RecordUserNickName != null)
                 {
-                    var deathTime = MatchTimestampToLocal(matchInfo.Timestamp, details.Time);
-                    var bookmark = new Bookmark
+                    string cleanVictim = RemoveClanTag(victim);
+                    string cleanRecordName = RemoveClanTag(matchInfo.RecordUserNickName);
+                    
+                    if (string.Equals(cleanVictim, cleanRecordName, StringComparison.OrdinalIgnoreCase))
                     {
-                        Type = BookmarkType.Death,
-                        Time = deathTime - Settings.Instance.State.Recording?.StartTime ?? TimeSpan.Zero
-                    };
-                    Settings.Instance.State.Recording?.Bookmarks.Add(bookmark);
+                        var deathTime = MatchTimestampToLocal(matchInfo.Timestamp, details.Time);
+                        var bookmark = new Bookmark
+                        {
+                            Type = BookmarkType.Death,
+                            Time = deathTime - Settings.Instance.State.Recording?.StartTime ?? TimeSpan.Zero
+                        };
+                        Settings.Instance.State.Recording?.Bookmarks.Add(bookmark);
+                    }
                 }
             }
         }
@@ -224,10 +247,19 @@ namespace Segra.Backend.GameIntegration
 
         private static string DecodeBase64(string base64) => Encoding.UTF8.GetString(Convert.FromBase64String(base64));
 
+        private static string RemoveClanTag(string playerName)
+        {
+            string result = ClanRegex().Replace(playerName, "").Trim();
+            return result;
+        }
+
         private static DateTime MatchTimestampToLocal(long matchStart, int offsetMs)
         {
             var utcTime = DateTimeOffset.FromUnixTimeMilliseconds(matchStart + offsetMs).DateTime;
             return TimeZoneInfo.ConvertTimeFromUtc(utcTime, TimeZoneInfo.Local);
         }
+
+        [System.Text.RegularExpressions.GeneratedRegex(@"\[.*?\]")]
+        private static partial System.Text.RegularExpressions.Regex ClanRegex();
     }
 }
