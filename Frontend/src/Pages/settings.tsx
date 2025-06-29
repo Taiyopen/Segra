@@ -465,30 +465,30 @@ export default function Settings() {
 						</div>
 					)}
 					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
-							<span className="font-medium">Enable Segra AI</span>
-						</div>
-						<input
-							type="checkbox"
-							name="enableAI"
-							checked={settings.enableAi}
-							onChange={(e) => updateSettings({enableAi: e.target.checked})}
-							className="toggle toggle-primary"
-							disabled={!session}
-						/>
+						<label className="cursor-pointer flex items-center">
+							<input
+								type="checkbox"
+								name="enableAI"
+								checked={settings.enableAi}
+								onChange={(e) => updateSettings({enableAi: e.target.checked})}
+								className="checkbox checkbox-primary"
+								disabled={!session}
+							/>
+							<span className="text-sm ml-2">Enable Segra AI</span>
+						</label>
 					</div>
 					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
-							<span className="font-medium">Auto-generate Highlights</span>
-						</div>
-						<input
-							type="checkbox"
-							name="autoGenerateHighlights"
-							checked={settings.autoGenerateHighlights}
-							onChange={(e) => updateSettings({autoGenerateHighlights: e.target.checked})}
-							className="toggle toggle-primary"
-							disabled={!session || !settings.enableAi}
-						/>
+						<label className="cursor-pointer flex items-center">
+							<input
+								type="checkbox"
+								name="autoGenerateHighlights"
+								checked={settings.autoGenerateHighlights}
+								onChange={(e) => updateSettings({autoGenerateHighlights: e.target.checked})}
+								className="checkbox checkbox-primary"
+								disabled={!session || !settings.enableAi}
+							/>
+							<span className="text-sm ml-2">Auto-generate Highlights</span>
+						</label>
 					</div>
 				</div>
 			</div>
@@ -927,17 +927,17 @@ export default function Settings() {
 						</select>
 					</div>
 				</div>
-				<div className="flex items-center justify-between mt-4">
-					<div className="flex items-center gap-2">
-						<span className="font-medium">Auto-Clear Selections After Creating Clip</span>
-					</div>
-					<input
-						type="checkbox"
-						name="clipClearSelectionsAfterCreatingClip"
-						checked={settings.clipClearSelectionsAfterCreatingClip}
-						onChange={(e) => updateSettings({clipClearSelectionsAfterCreatingClip: e.target.checked})}
-						className="toggle toggle-primary"
-					/>
+				<div className="flex justify-start mt-4">
+					<label className="cursor-pointer flex items-center">
+						<input
+							type="checkbox"
+							name="clipClearSelectionsAfterCreatingClip"
+							checked={settings.clipClearSelectionsAfterCreatingClip}
+							onChange={(e) => updateSettings({clipClearSelectionsAfterCreatingClip: e.target.checked})}
+							className="checkbox checkbox-sm checkbox-accent"
+						/>
+						<span className="font-medium ml-2">Auto-Clear Selections After Creating Clip</span>
+					</label>
 				</div>
 			</div>
 
@@ -1126,6 +1126,21 @@ export default function Settings() {
 					{settings.keybindings.map((keybind, index) => (
 						<div key={index} className="flex items-center justify-between gap-0 p-2">
 							<div className="flex items-center gap-1">
+								<div className="flex items-center gap-2 mr-2">
+									<input
+										type="checkbox"
+										checked={keybind.enabled}
+										onChange={(e) => {
+											const updatedKeybindings = [...settings.keybindings];
+											updatedKeybindings[index] = {
+												...updatedKeybindings[index],
+												enabled: e.target.checked
+											};
+											updateSettings({ keybindings: updatedKeybindings });
+										}}
+										className="checkbox checkbox-primary"
+									/>
+								</div>
 								<span className="font-medium w-36">{keybind.action == KeybindAction.CreateBookmark ? 'Create Bookmark' : 'Save Replay Buffer'}</span>
 								<div className="flex items-center gap-3">
 									<button 
@@ -1205,21 +1220,6 @@ export default function Settings() {
 									<span className="text-xs text-gray-500">(Click to change key combination)</span>
 								</div>
 							</div>
-							<div className="flex items-center gap-2">
-								<input
-									type="checkbox"
-									checked={keybind.enabled}
-									onChange={(e) => {
-										const updatedKeybindings = [...settings.keybindings];
-										updatedKeybindings[index] = {
-											...updatedKeybindings[index],
-											enabled: e.target.checked
-										};
-										updateSettings({ keybindings: updatedKeybindings });
-									}}
-									className="toggle toggle-primary"
-								/>
-							</div>
 						</div>
 					))}
 				</div>
@@ -1270,42 +1270,65 @@ export default function Settings() {
 						</div>
 					</div>
 
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
+					<div className="flex items-center">
+						<label className="flex items-center gap-2">
+							<input
+								type="checkbox"
+								name="runOnStartup"
+								checked={settings.runOnStartup}
+								onChange={(e) => updateSettings({runOnStartup: e.target.checked})}
+								className="checkbox checkbox-primary"
+							/>
 							<span className="font-medium">Run on Startup</span>
-						</div>
-						<input
-							type="checkbox"
-							name="runOnStartup"
-							checked={settings.runOnStartup}
-							onChange={(e) => updateSettings({runOnStartup: e.target.checked})}
-							className="toggle toggle-primary"
-						/>
+						</label>
 					</div>
 
 					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
+						<label className="flex items-center gap-2">
+							<input
+								type="checkbox"
+								name="enableDisplayRecording"
+								checked={settings.enableDisplayRecording}
+								onChange={(e) => updateSettings({enableDisplayRecording: e.target.checked})}
+								className="checkbox checkbox-primary"
+							/>
 							<span className="font-medium">Enable Display Recording</span>
-							<div className="badge badge-warning badge-sm">Alpha</div>
-						</div>
-						<input
-							type="checkbox"
-							name="enableDisplayRecording"
-							checked={settings.enableDisplayRecording}
-							onChange={(e) => updateSettings({enableDisplayRecording: e.target.checked})}
-							className="toggle toggle-primary"
-						/>
+							<span className="badge badge-warning badge-sm">Alpha</span>
+						</label>
 					</div>
-					{settings.enableDisplayRecording && (
-						<div className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 py-2 text-amber-400 text-sm flex items-center">
-							<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
-							<span>
-								This feature enables recording of games that do not support game hook.
-								<strong className="text-amber-300"> WARNING: This WILL cause lag</strong> during gameplay as it uses display capture instead of game capture.
-								For more details, see <a href="https://github.com/Segergren/Segra/issues/1" target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 underline">GitHub Issue #1</a>.
-							</span>
-						</div>
-					)}
+					<AnimatePresence>
+						{settings.enableDisplayRecording && (
+							<motion.div 
+							initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+							animate={{ 
+								opacity: 1, 
+								height: 'fit-content',
+								transition: { 
+									duration: 0.3,
+									height: { type: 'spring', stiffness: 300, damping: 30 }
+								}
+							}}
+							exit={{ 
+								opacity: 0,
+								height: 0,
+								transition: { 
+									duration: 0.2
+								}
+							}}
+								className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 text-amber-400 text-sm flex items-center"
+								key="display-recording-warning"
+							>
+								<div className="py-2 flex items-center w-full">
+									<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
+									<motion.span>
+										This feature enables recording of games that do not support game hook.
+										<strong className="text-amber-300"> WARNING: This WILL cause lag</strong> during gameplay as it uses display capture instead of game capture.
+										For more details, see <a href="https://github.com/Segergren/Segra/issues/1" target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 underline">GitHub Issue #1</a>.
+									</motion.span>
+								</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
 				</div>
 			</div>
 

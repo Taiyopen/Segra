@@ -1119,16 +1119,16 @@ export default function VideoComponent({ video }: { video: Content }) {
                             ))}
                         </div>
                         <div className="flex items-center justify-between my-3 mr-3">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs">Auto-Clear Selections</span>
-                            </div>
-                            <input
-                                type="checkbox"
-                                name="clipClearSelectionsAfterCreatingClip"
-                                checked={settings.clipClearSelectionsAfterCreatingClip}
-                                onChange={(e) => updateSettings({clipClearSelectionsAfterCreatingClip: e.target.checked})}
-                                className="toggle toggle-primary"
-                            />
+                            <label className="cursor-pointer flex items-center">
+                                <input
+                                    type="checkbox"
+                                    name="clipClearSelectionsAfterCreatingClip"
+                                    checked={settings.clipClearSelectionsAfterCreatingClip}
+                                    onChange={(e) => updateSettings({clipClearSelectionsAfterCreatingClip: e.target.checked})}
+                                    className="checkbox checkbox-sm checkbox-accent"
+                                />
+                                <span className="text-sm ml-2">Auto-Clear Selections</span>
+                            </label>
                         </div>
                         <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 mb-2 mr-3 tooltip">
                             <button

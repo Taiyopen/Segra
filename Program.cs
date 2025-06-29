@@ -121,10 +121,8 @@ namespace Segra
                 })
                 .Run();
 
-            Task.Run(() =>
-            {
-                _ = UpdateUtils.UpdateAppIfNecessary();
-            });
+            _ = Task.Run(UpdateUtils.GetReleaseNotes);
+            _ = Task.Run(UpdateUtils.UpdateAppIfNecessary);
 
             try
             {
