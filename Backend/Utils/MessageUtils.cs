@@ -314,6 +314,13 @@ namespace Segra.Backend.Utils
                 string errorFileName = message.GetProperty("FilePath").GetString()!;
                 string errorTitle = message.GetProperty("Title").GetString()!;
 
+                await ShowModal(
+                    "Upload Error",
+                    "The upload failed.\n" + ex.Message,
+                    "error",
+                    "Could not upload clip"
+                );
+
                 await SendFrontendMessage("UploadProgress", new
                 {
                     title = errorTitle,
