@@ -1,4 +1,5 @@
 using Segra.Backend.Models;
+using Segra.Backend.Utils;
 using Serilog;
 using System.Net;
 using System.Text;
@@ -257,13 +258,15 @@ namespace Segra.Backend.GameIntegration
                 {
                     string existingContent = File.ReadAllText(cfgPath);
                     string expectedContent = GenerateCfg();
-                    if (existingContent.Equals(expectedContent, StringComparison.Ordinal))
+                    if (existingContent.Equals(expectedContent, StringComparison.Ordinal)){
                         return;
+                    }
                 }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(cfgPath)!);
                 File.WriteAllText(cfgPath, GenerateCfg());
                 Log.Information($"Created CS2 gamestate integration config at {cfgPath}");
+                _ = MessageUtils.ShowModal("Game integration", $"There has been an update to the CS2 integration. Please restart the game to apply the changes.", "warning");
             }
             catch (Exception ex)
             {
