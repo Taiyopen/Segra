@@ -275,6 +275,19 @@ namespace Segra.Backend.Utils
             uint outputWidth = customOutputWidth ?? baseWidth;
             uint outputHeight = customOutputHeight ?? baseHeight;
 
+            // Check if the input aspect ratio is close to 4:3 (1.33)
+            double aspectRatio = (double)baseWidth / baseHeight;
+            bool is4by3 = Math.Abs(aspectRatio - 4.0 / 3.0) < 0.1; // Allow some tolerance
+
+            // TODO: Implement a setting to disable this behavior
+            // If the content is 4:3, stretch it to 16:9 while preserving height
+            if (is4by3 && customOutputWidth == null)
+            {
+                // Calculate 16:9 width based on the current height
+                outputWidth = (uint)(outputHeight * (16.0 / 9.0));
+                Log.Information($"Stretching 4:3 content ({baseWidth}x{baseHeight}) to 16:9 ({outputWidth}x{outputHeight})");
+            }
+
             obs_video_info videoInfo = new obs_video_info()
             {
                 adapter = 0,
@@ -359,7 +372,11 @@ namespace Segra.Backend.Utils
                 }
 
                 Log.Information("Using display capture instead");
-
+                
+                // Reset the video settings in case the screen resolution has changed
+                if (!ResetVideoSettings())
+                    throw new Exception("Failed to initialize video settings.");
+                
                 IntPtr displayCaptureSettings = obs_data_create();
                 displaySource = obs_source_create("monitor_capture", "display", displayCaptureSettings, IntPtr.Zero);
                 obs_data_release(displayCaptureSettings);
@@ -737,7 +754,7 @@ namespace Segra.Backend.Utils
             Log.Information("Game unhooked.");
         }
 
-        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 80000)
+        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 5000)
         {
             int elapsed = 0;
             const int step = 100;

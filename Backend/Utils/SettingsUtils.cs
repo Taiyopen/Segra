@@ -536,18 +536,18 @@ namespace Segra.Backend.Utils
             Settings.Instance.State.SetContent(content, sendToFrontend);
         }
 
-        public static void GetPrimaryMonitorResolution(out uint width, out uint height)
+        public static void GetPrimaryMonitorResolution(out uint boundsWidth, out uint boundsHeight)
         {
             if (Screen.PrimaryScreen == null)
             {
-                width = 1920;
-                height = 1080;
+                boundsWidth = 1920;
+                boundsHeight = 1080;
                 Log.Warning("Primary screen not found, defaulting to 1920x1080");
                 return;
             }
 
-            width = (uint)Screen.PrimaryScreen.Bounds.Width;
-            height = (uint)Screen.PrimaryScreen.Bounds.Height;
+            boundsWidth = (uint)Screen.PrimaryScreen.Bounds.Width;
+            boundsHeight = (uint)Screen.PrimaryScreen.Bounds.Height;
         }
 
         public static void GetResolution(string resolution, out uint width, out uint height)
