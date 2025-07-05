@@ -754,7 +754,7 @@ namespace Segra.Backend.Utils
             Log.Information("Game unhooked.");
         }
 
-        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 5000)
+        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 80000)
         {
             int elapsed = 0;
             const int step = 100;
