@@ -180,22 +180,23 @@ namespace Segra.Backend.GameIntegration
         {
             try
             {
-                // Check if match is live and player is valid
-                if (HasMatchStarted(newState))
+                if (!IsValidState(newState))
                 {
-                    // Track kills
-                    if (newState.Player?.MatchStats?.Kills > _oldState?.Player?.MatchStats?.Kills)
-                    {
-                        AddBookmark(BookmarkType.Kill);
-                    }
-                    
-                    // Track deaths
-                    if (newState.Player?.MatchStats?.Deaths > _oldState?.Player?.MatchStats?.Deaths)
-                    {
-                        AddBookmark(BookmarkType.Death);
-                    }
+                    return;
                 }
-
+                
+                // Track kills
+                if (newState.Player?.MatchStats?.Kills > _oldState?.Player?.MatchStats?.Kills)
+                {
+                    AddBookmark(BookmarkType.Kill);
+                }
+                    
+                // Track deaths
+                if (newState.Player?.MatchStats?.Deaths > _oldState?.Player?.MatchStats?.Deaths)
+                {
+                    AddBookmark(BookmarkType.Death);
+                }
+                
                 // Check for phase changes to reset stats
                 if (HasPhaseChanged(newState))
                 {
@@ -211,10 +212,11 @@ namespace Segra.Backend.GameIntegration
             }
         }
 
-        private bool HasMatchStarted(GameState newState)
+        private static bool IsValidState(GameState newState)
         {
             return newState?.Player?.MatchStats != null &&
-                   newState.Map?.Phase == "live";
+                   newState.Player?.SteamId == newState.Provider?.SteamId &&
+                   (newState.Map?.Phase == "live" || newState.Map?.Phase == "gameover");
         }
 
         private bool HasPhaseChanged(GameState newState)
@@ -252,7 +254,12 @@ namespace Segra.Backend.GameIntegration
                     "gamestate_integration_segra.cfg");
 
                 if (File.Exists(cfgPath))
-                    return;
+                {
+                    string existingContent = File.ReadAllText(cfgPath);
+                    string expectedContent = GenerateCfg();
+                    if (existingContent.Equals(expectedContent, StringComparison.Ordinal))
+                        return;
+                }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(cfgPath)!);
                 File.WriteAllText(cfgPath, GenerateCfg());
@@ -273,6 +280,7 @@ namespace Segra.Backend.GameIntegration
                 "    \"throttle\" \"0.1\"\n" +
                 "    \"heartbeat\" \"60.0\"\n" +
                 "    \"data\" {\n" +
+                "        \"player_id\" \"1\"\n" +
                 "        \"provider\" \"1\"\n" +
                 "        \"map\" \"1\"\n" +
                 "        \"player_state\" \"1\"\n" +
