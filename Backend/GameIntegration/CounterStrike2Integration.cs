@@ -11,7 +11,6 @@ namespace Segra.Backend.GameIntegration
     {
         private readonly HttpListener _listener = new();
         private readonly SemaphoreSlim _semaphore = new(1, 1);
-        private GameState? _oldState;
         private const string Prefix = "http://127.0.0.1:1340/";
         
         // Game state classes to deserialize the CS2 JSON payload
@@ -25,6 +24,9 @@ namespace Segra.Backend.GameIntegration
             
             [System.Text.Json.Serialization.JsonPropertyName("map")]
             public Map? Map { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("previously")]
+            public Previously? Previously { get; set; }
         }
 
         private class Player
@@ -34,6 +36,9 @@ namespace Segra.Backend.GameIntegration
             
             [System.Text.Json.Serialization.JsonPropertyName("match_stats")]
             public MatchStats? MatchStats { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("state")]
+            public PlayerState? State { get; set; }
         }
 
         private class Provider
@@ -54,10 +59,34 @@ namespace Segra.Backend.GameIntegration
         private class MatchStats
         {
             [System.Text.Json.Serialization.JsonPropertyName("kills")]
-            public int Kills { get; set; }
+            public int? Kills { get; set; }
             
             [System.Text.Json.Serialization.JsonPropertyName("deaths")]
-            public int Deaths { get; set; }
+            public int? Deaths { get; set; }
+        }
+
+        private class PlayerState
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("health")]
+            public int Health { get; set; }
+        }
+
+        private class Previously
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("player")]
+            public PreviousPlayer? Player { get; set; }
+        }
+
+        private class PreviousPlayer
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("steamid")]
+            public string? SteamId { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("match_stats")]
+            public MatchStats? MatchStats { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("state")]
+            public PlayerState? State { get; set; }
         }
 
         public override async Task Start()
@@ -119,7 +148,6 @@ namespace Segra.Backend.GameIntegration
 
         private void InitializeListener()
         {
-            _oldState = new GameState();
             _listener.Prefixes.Add(Prefix);
             _listener.Start();
         }
@@ -133,8 +161,8 @@ namespace Segra.Backend.GameIntegration
                     string body = await ReadRequestBodyAsync(context.Request);
                     Log.Debug($"CS2 integration received payload: {body}");
                     
-                    GameState newState = DeserializeState(body);
-                    ProcessGameState(newState);
+                    GameState gameState = DeserializeState(body);
+                    ProcessGameState(gameState);
                 }
             }
             catch (Exception ex)
@@ -168,44 +196,30 @@ namespace Segra.Backend.GameIntegration
         {
             try
             {
-                return JsonSerializer.Deserialize<GameState>(body);
+                return JsonSerializer.Deserialize<GameState>(body, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new GameState();
             }
-            catch
+            catch (Exception ex)
             {
-                Log.Error("Failed to deserialize CS2 state\n{Body}", body);
+                Log.Error(ex, "Failed to deserialize CS2 state\n{Body}", body);
                 return new GameState();
             }
         }
 
-        private void ProcessGameState(GameState newState)
+        private void ProcessGameState(GameState gameState)
         {
             try
             {
-                if (!IsValidState(newState))
+                if (!IsValidState(gameState))
                 {
+                    Log.Debug($"Skipping invalid state - Phase: {gameState.Map?.Phase}, SteamId match: {gameState.Player?.SteamId == gameState.Provider?.SteamId}");
                     return;
                 }
-                
-                // Track kills
-                if (newState.Player?.MatchStats?.Kills > _oldState?.Player?.MatchStats?.Kills)
-                {
-                    AddBookmark(BookmarkType.Kill);
-                }
-                    
-                // Track deaths
-                if (newState.Player?.MatchStats?.Deaths > _oldState?.Player?.MatchStats?.Deaths)
-                {
-                    AddBookmark(BookmarkType.Death);
-                }
-                
-                // Check for phase changes to reset stats
-                if (HasPhaseChanged(newState))
-                {
-                    Log.Information($"Game phase changed, resetting stats");
-                }
 
-                // Update old state
-                _oldState = newState;
+                // Process changes using the "previously" block
+                ProcessStatChanges(gameState);
             }
             catch (Exception ex)
             {
@@ -213,22 +227,101 @@ namespace Segra.Backend.GameIntegration
             }
         }
 
-        private static bool IsValidState(GameState newState)
+        private void ProcessStatChanges(GameState gameState)
         {
-            return newState?.Player?.MatchStats != null &&
-                   newState.Player?.SteamId == newState.Provider?.SteamId &&
-                   (newState.Map?.Phase == "live" || newState.Map?.Phase == "gameover");
+            if (gameState.Previously?.Player == null)
+            {
+                Log.Debug("No previous state data, skipping stat tracking");
+                return;
+            }
+
+            var previousStats = gameState.Previously.Player.MatchStats;
+
+            if (previousStats == null)
+            {
+                Log.Debug("No previous stats included in state, skipping stat tracking");
+                return;
+            }
+
+            // Check for kill - if kills field exists in previously, it means kills changed
+            if (previousStats.Kills.HasValue)
+            {
+                var currentKills = gameState.Player?.MatchStats?.Kills ?? 0;
+                int killsGained = currentKills - previousStats.Kills.Value;
+                Log.Information($"Kill detected: {previousStats.Kills.Value} -> {currentKills} (+{killsGained})");
+                
+                if(killsGained > 1)
+                {
+                    Log.Debug($"Warning: More than one kill detected: {killsGained}. Bug?");
+                }
+
+                // Add bookmarks for each kill gained
+                for (int i = 0; i < killsGained; i++)
+                {
+                    AddBookmark(BookmarkType.Kill);
+                }
+            }
+
+            // Check for death - if deaths field exists in previously, it means deaths changed
+            if (previousStats.Deaths.HasValue)
+            {
+                var currentDeaths = gameState.Player?.MatchStats?.Deaths ?? 0;
+                int deathsGained = currentDeaths - previousStats.Deaths.Value;
+                Log.Information($"Death detected: {previousStats.Deaths.Value} -> {currentDeaths} (+{deathsGained})");
+                
+                if(deathsGained > 1)
+                {
+                    Log.Debug($"Warning: More than one death detected: {deathsGained}. Bug?");
+                }
+                
+                // Add bookmarks for each death gained
+                for (int i = 0; i < deathsGained; i++)
+                {
+                    AddBookmark(BookmarkType.Death);
+                }
+            }
         }
 
-        private bool HasPhaseChanged(GameState newState)
+        private static bool IsValidState(GameState gameState)
         {
-            return newState?.Map?.Phase != _oldState?.Map?.Phase;
+            // Only process stats during live gameplay
+            if (gameState.Map?.Phase != "live" && gameState.Map?.Phase != "gameover")
+            {
+                Log.Debug($"Skipping invalid state - Phase: {gameState.Map?.Phase}");
+                return false;
+            }
+
+            // Ensure we have valid player data
+            if (gameState.Player?.MatchStats == null)
+            {
+                Log.Debug($"Skipping invalid state - No player match stats");
+                return false;
+            }
+
+            // Ensure the player data matches the provider (same Steam ID)
+            if (gameState.Player.SteamId != gameState.Provider?.SteamId)
+            {
+                Log.Debug($"Skipping invalid state - Player Steam ID: {gameState.Player.SteamId}, Provider Steam ID: {gameState.Provider?.SteamId}");
+                return false;
+            }
+
+            // Ensure the player data matches the previously player (same Steam ID), eg if the player takes over a bot
+            if (gameState.Previously?.Player?.SteamId != null && gameState.Previously?.Player?.SteamId != gameState.Provider?.SteamId)
+            {
+                Log.Debug($"Skipping invalid state - Previously player Steam ID: {gameState.Previously?.Player?.SteamId}, Provider Steam ID: {gameState.Provider?.SteamId}");
+                return false;
+            }
+
+            return true;
         }
 
         private static void AddBookmark(BookmarkType type)
         {
             if (Settings.Instance.State.Recording == null)
+            {
+                Log.Debug($"No recording active, skipping {type} bookmark");
                 return;
+            }
 
             var bookmark = new Bookmark
             {
@@ -258,7 +351,8 @@ namespace Segra.Backend.GameIntegration
                 {
                     string existingContent = File.ReadAllText(cfgPath);
                     string expectedContent = GenerateCfg();
-                    if (existingContent.Equals(expectedContent, StringComparison.Ordinal)){
+                    if (existingContent.Equals(expectedContent, StringComparison.Ordinal))
+                    {
                         return;
                     }
                 }
@@ -291,7 +385,5 @@ namespace Segra.Backend.GameIntegration
                 "    }\n" +
                 "}";
         }
-
-
     }
 }
