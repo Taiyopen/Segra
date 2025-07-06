@@ -369,7 +369,7 @@ namespace Segra.Backend.Utils
             // Reset video settings to set correct output width for games with custom resolution
             Task.Delay(500).Wait();
             ResetVideoSettings();
-            Task.Delay(500).Wait();
+            Task.Delay(1000).Wait();
 
             if (Settings.Instance.EnableDisplayRecording && !_isGameCaptureHooked) {
                 IntPtr displayCaptureSettings = obs_data_create();

@@ -5,7 +5,7 @@ const UnavailableDeviceCard: React.FC = () => {
 
   return (
     <div className="mb-4 px-2">
-      <div className="bg-error bg-opacity-20 border border-secondary border-opacity-75 rounded-md px-3 py-3 cursor-default">
+      <div className="bg-error bg-opacity-20 border border-custom border-opacity-75 rounded-md px-3 py-3 cursor-default">
         <div className="flex items-center gap-2">
           <MdError className="text-error w-5 h-5 flex-shrink-0" />
           <div>

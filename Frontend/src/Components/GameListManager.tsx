@@ -106,7 +106,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
                   placeholder="Enter game executable path"
                 />
                 <button 
-                  className="btn btn-neutral"
+                  className="btn btn-neutral border-custom border-opacity-75 hover:border-custom hover:bg-base-200"
                   onClick={handleSelectExecutable}
                   disabled={isSelectingFile}
                 >

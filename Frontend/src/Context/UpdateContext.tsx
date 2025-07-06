@@ -29,6 +29,30 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([]);
   const { openModal, closeModal } = useModal();
 
+  // Mocked update info for testing purposes
+  // Uncomment the following useEffect to use mocked data
+  /*
+  // Downloading
+  useEffect(() => {
+    setUpdateInfo({
+      version: '1.2.3',
+      progress: 75,
+      status: 'downloading',
+      message: 'Downloading update...',
+    });
+  }, []);
+
+  // Ready to install
+  useEffect(() => {
+    setUpdateInfo({
+      version: '1.2.3',
+      progress: 100,
+      status: 'ready',
+      message: 'Update ready to install',
+    });
+  }, []);
+  */
+
   // Access the global release notes context
   const globalReleaseNotes = useContext(ReleaseNotesContext);
 

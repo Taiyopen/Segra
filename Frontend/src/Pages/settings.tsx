@@ -786,7 +786,7 @@ export default function Settings() {
 								placeholder="Enter or select folder path"
 								className="input input-bordered flex-1"
 							/>
-							<button onClick={handleBrowseClick} className="btn btn-neutral font-semibold">
+							<button onClick={handleBrowseClick} className="btn btn-neutral border-custom border-opacity-75 hover:border-custom hover:bg-base-200 font-semibold">
 								Browse
 							</button>
 						</div>
@@ -1122,103 +1122,102 @@ export default function Settings() {
 			{/* Keybindings Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Keybindings</h2>
-				<div className="bg-base-100 p-4 rounded-lg space-y-4 border border-custom">
+				<div className="space-y-2">
 					{settings.keybindings.map((keybind, index) => (
-						<div key={index} className="flex items-center justify-between gap-0 p-2">
-							<div className="flex items-center gap-1">
-								<div className="flex items-center gap-2 mr-2">
-									<input
-										type="checkbox"
-										checked={keybind.enabled}
-										onChange={(e) => {
-											const updatedKeybindings = [...settings.keybindings];
-											updatedKeybindings[index] = {
-												...updatedKeybindings[index],
-												enabled: e.target.checked
-											};
-											updateSettings({ keybindings: updatedKeybindings });
-										}}
-										className="checkbox checkbox-primary"
-									/>
-								</div>
-								<span className="font-medium w-36">{keybind.action == KeybindAction.CreateBookmark ? 'Create Bookmark' : 'Save Replay Buffer'}</span>
-								<div className="flex items-center gap-3">
-									<button 
-										className={`kbd kbd-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
-										style={{ minWidth: '150px', display: 'flex', justifyContent: 'center' }}
-										onClick={() => {
-											activeKeysRef.current = [];
-											setIsCapturingKey(index);
+						<div key={index} className="flex items-center justify-between">
+							<div className="flex items-center justify-between bg-base-100 rounded-lg p-2 px-3 border border-custom min-w-[50%]">
+								<label className="flex items-center gap-2 cursor-pointer">
+									<div className="flex items-center gap-2 mr-2">
+										<input
+											type="checkbox"
+											checked={keybind.enabled}
+											onChange={(e) => {
+												const updatedKeybindings = [...settings.keybindings];
+												updatedKeybindings[index] = {
+													...updatedKeybindings[index],
+													enabled: e.target.checked
+												};
+												updateSettings({ keybindings: updatedKeybindings });
+											}}
+											className="checkbox checkbox-primary"
+										/>
+									</div>
+									<span className="font-medium">{keybind.action == KeybindAction.CreateBookmark ? 'Create Bookmark' : 'Save Replay Buffer'}</span>
+								</label>
+								<button 
+									className={`kbd kbd-md min-w-[25%] text-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
+									style={{ display: 'flex', justifyContent: 'center' }}
+									onClick={() => {
+										activeKeysRef.current = [];
+										setIsCapturingKey(index);
+										
+										const handleKeyDown = (e: KeyboardEvent) => {
+											e.preventDefault();
 											
-											const handleKeyDown = (e: KeyboardEvent) => {
-												e.preventDefault();
-												
-												const newActiveKeys = [...activeKeysRef.current];
-												
-												if (e.ctrlKey && !newActiveKeys.includes(17)) newActiveKeys.push(17);
-												if (e.altKey && !newActiveKeys.includes(18)) newActiveKeys.push(18);
-												if (e.shiftKey && !newActiveKeys.includes(16)) newActiveKeys.push(16);
-												
-												if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && !newActiveKeys.includes(e.keyCode)) {
-													newActiveKeys.push(e.keyCode);
-												}
-												
-												activeKeysRef.current = newActiveKeys;
-											};
+											const newActiveKeys = [...activeKeysRef.current];
 											
-											const handleKeyUp = (e: KeyboardEvent) => {
-												// Cancel if Escape key is pressed
-												if (e.keyCode === 27) {
-													window.removeEventListener('keydown', handleKeyDown);
-													window.removeEventListener('keyup', handleKeyUp);
-													setIsCapturingKey(null);
-													activeKeysRef.current = [];
-													return;
-												}
-												
-												if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && activeKeysRef.current.length > 0) {
-													const updatedKeybindings = [...settings.keybindings];
-													updatedKeybindings[index] = {
-														...updatedKeybindings[index],
-														keys: [...activeKeysRef.current]
-													};
-													updateSettings({ keybindings: updatedKeybindings });
-													
-													window.removeEventListener('keydown', handleKeyDown);
-													window.removeEventListener('keyup', handleKeyUp);
-													setIsCapturingKey(null);
-													activeKeysRef.current = [];
-												}
-											};
+											if (e.ctrlKey && !newActiveKeys.includes(17)) newActiveKeys.push(17);
+											if (e.altKey && !newActiveKeys.includes(18)) newActiveKeys.push(18);
+											if (e.shiftKey && !newActiveKeys.includes(16)) newActiveKeys.push(16);
 											
-											window.addEventListener('keydown', handleKeyDown);
-											window.addEventListener('keyup', handleKeyUp);
-										}}
-									>
-										{isCapturingKey === index ? 'Press a key combination...' : (
-											<span>
-												{keybind.keys.map((key, keyIndex) => {
-													// Format special keys
-													const isLastKey = keyIndex === keybind.keys.length - 1;
-													
-													// Check if this is a modifier key
-													let keyName = '';
-													if (key === 17) keyName = 'CTRL';
-													else if (key === 18) keyName = 'ALT';
-													else if (key === 16) keyName = 'SHIFT';
-													else keyName = getKeyDisplayName(key);
-													
-													return (
-														<span key={keyIndex} className="font-bold">
-															{keyName}{!isLastKey && ' + '}
-														</span>
-													);
-												})}
-											</span>
-										)}
-									</button>
-									<span className="text-xs text-gray-500">(Click to change key combination)</span>
-								</div>
+											if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && !newActiveKeys.includes(e.keyCode)) {
+												newActiveKeys.push(e.keyCode);
+											}
+											
+											activeKeysRef.current = newActiveKeys;
+										};
+										
+										const handleKeyUp = (e: KeyboardEvent) => {
+											// Cancel if Escape key is pressed
+											if (e.keyCode === 27) {
+												window.removeEventListener('keydown', handleKeyDown);
+												window.removeEventListener('keyup', handleKeyUp);
+												setIsCapturingKey(null);
+												activeKeysRef.current = [];
+												return;
+											}
+											
+											if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && activeKeysRef.current.length > 0) {
+												const updatedKeybindings = [...settings.keybindings];
+												updatedKeybindings[index] = {
+													...updatedKeybindings[index],
+													keys: [...activeKeysRef.current]
+												};
+												updateSettings({ keybindings: updatedKeybindings });
+												
+												window.removeEventListener('keydown', handleKeyDown);
+												window.removeEventListener('keyup', handleKeyUp);
+												setIsCapturingKey(null);
+												activeKeysRef.current = [];
+											}
+										};
+										
+										window.addEventListener('keydown', handleKeyDown);
+										window.addEventListener('keyup', handleKeyUp);
+									}}
+								>
+									{isCapturingKey === index ? 'Press a key combination...' : (
+										<span>
+											{keybind.keys.map((key, keyIndex) => {
+												// Format special keys
+												const isLastKey = keyIndex === keybind.keys.length - 1;
+												
+												// Check if this is a modifier key
+												let keyName = '';
+												if (key === 17) keyName = 'CTRL';
+												else if (key === 18) keyName = 'ALT';
+												else if (key === 16) keyName = 'SHIFT';
+												else keyName = getKeyDisplayName(key);
+												
+												return (
+													<span key={keyIndex} className="font-bold">
+														{keyName}{!isLastKey && ' + '}
+													</span>
+												);
+											})}
+										</span>
+									)}
+								</button>
 							</div>
 						</div>
 					))}
@@ -1279,7 +1278,7 @@ export default function Settings() {
 								onChange={(e) => updateSettings({runOnStartup: e.target.checked})}
 								className="checkbox checkbox-primary"
 							/>
-							<span className="font-medium">Run on Startup</span>
+							<span className="font-medium cursor-pointer">Run on Startup</span>
 						</label>
 					</div>
 
@@ -1292,8 +1291,8 @@ export default function Settings() {
 								onChange={(e) => updateSettings({enableDisplayRecording: e.target.checked})}
 								className="checkbox checkbox-primary"
 							/>
-							<span className="font-medium">Enable Display Recording</span>
-							<span className="badge badge-warning badge-sm">Alpha</span>
+							<span className="font-medium cursor-pointer">Enable Display Recording</span>
+							<span className="badge badge-warning badge-sm">Beta</span>
 						</label>
 					</div>
 					<AnimatePresence>
@@ -1322,7 +1321,7 @@ export default function Settings() {
 									<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
 									<motion.span>
 										This feature enables recording of games that do not support game hook.
-										<strong className="text-amber-300"> WARNING: This WILL cause lag</strong> during gameplay as it uses display capture instead of game capture.
+										This could cause lag during gameplay as it uses display capture instead of game capture.
 										For more details, see <a href="https://github.com/Segergren/Segra/issues/1" target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 underline">GitHub Issue #1</a>.
 									</motion.span>
 								</div>
