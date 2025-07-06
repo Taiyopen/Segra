@@ -26,6 +26,7 @@ namespace Segra.Backend.Utils
         static IntPtr videoEncoder = IntPtr.Zero;
         static IntPtr audioEncoder = IntPtr.Zero;
         private static string? hookedExecutableFileName;
+        private static System.Threading.Timer? gameCaptureHookTimeoutTimer = null;
 
         // Available encoder IDs for different hardware
         private const string NVIDIA_ENCODER = "jim_nvenc";
@@ -171,9 +172,6 @@ namespace Segra.Backend.Utils
                 try
                 {
                     string formattedMessage = MarshalUtils.GetLogMessage(msg, args);
-
-                    if (formattedMessage.Contains("Starting capture"))
-                        _isGameCaptureHooked = true;
 
                     if (formattedMessage.Contains("capture stopped"))
                         _isGameCaptureHooked = false;
@@ -347,6 +345,12 @@ namespace Segra.Backend.Utils
             gameCaptureSource = obs_source_create("game_capture", "gameplay", videoSourceSettings, IntPtr.Zero);
             obs_data_release(videoSourceSettings);
             obs_set_output_source(0, gameCaptureSource);
+            
+            // If display capture is enabled, start a timer to check if game capture hooks within 90 seconds
+            if (Settings.Instance.EnableDisplayRecording)
+            {
+                StartGameCaptureHookTimeoutTimer();
+            }
 
             // Connect to 'hooked' and 'unhooked' signals for game capture
             IntPtr signalHandler = obs_source_get_signal_handler(gameCaptureSource);
@@ -729,6 +733,7 @@ namespace Segra.Backend.Utils
                 calldata_get_string(cdPtr, "executable", out IntPtr executable);
 
                 _isGameCaptureHooked = true;
+                StopGameCaptureHookTimeoutTimer();
                 DisposeDisplaySource();
                 Log.Information($"Game hooked: Title='{Marshal.PtrToStringAnsi(title)}', Class='{Marshal.PtrToStringAnsi(windowClass)}', Executable='{Marshal.PtrToStringAnsi(executable)}'");
                 
@@ -836,6 +841,50 @@ namespace Segra.Backend.Utils
                 obs_set_output_source(0, IntPtr.Zero);
                 obs_source_release(gameCaptureSource);
                 gameCaptureSource = IntPtr.Zero;
+            }
+            // Dispose the timer if it exists
+            StopGameCaptureHookTimeoutTimer();
+        }
+
+        private static void StartGameCaptureHookTimeoutTimer()
+        {
+            // Dispose any existing timer first
+            StopGameCaptureHookTimeoutTimer();
+            
+            // Create a new timer that checks after 90 seconds
+            gameCaptureHookTimeoutTimer = new System.Threading.Timer(
+                CheckGameCaptureHookStatus,
+                null,
+                90000, // 90 seconds delay
+                Timeout.Infinite // Don't repeat
+            );
+            
+            Log.Information("Started game capture hook timer (90 seconds)");
+        }
+
+        private static void StopGameCaptureHookTimeoutTimer()
+        {
+            if (gameCaptureHookTimeoutTimer != null)
+            {
+                gameCaptureHookTimeoutTimer.Dispose();
+                gameCaptureHookTimeoutTimer = null;
+                Log.Information("Stopped game capture hook timer");
+            }
+        }
+
+        private static void CheckGameCaptureHookStatus(object? state)
+        {
+            // Check if game capture has hooked
+            if (!_isGameCaptureHooked && Settings.Instance.EnableDisplayRecording)
+            {
+                Log.Warning("Game capture did not hook within 90 seconds. Removing game capture source.");
+                DisposeGameCaptureSource();
+            }
+            else
+            {
+                Log.Information("Game capture hook check completed. Hook status: {0}", _isGameCaptureHooked ? "Hooked" : "Not hooked");
+                // Just stop the timer without disposing the game capture source if it's hooked
+                StopGameCaptureHookTimeoutTimer();
             }
         }
 
