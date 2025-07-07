@@ -445,7 +445,7 @@ namespace Segra.Backend.Utils
 
             if (Settings.Instance.OutputDevices != null && Settings.Instance.OutputDevices.Count > 0)
             {
-                int desktopSourceIndex = micSources.Count + 1;
+                int desktopSourceIndex = micSources.Count + 2;
 
                 foreach (var deviceSetting in Settings.Instance.OutputDevices)
                 {
