@@ -10,10 +10,10 @@ namespace Segra.Backend.GameIntegration
     internal class CounterStrike2Integration : Integration
     {
         private readonly HttpListener _listener = new();
-        private readonly SemaphoreSlim _semaphore = new(1, 1);
         private const string Prefix = "http://127.0.0.1:1340/";
+        private int _lastValidKills = 0;
+        private int _lastValidDeaths = 0;
         
-        // Game state classes to deserialize the CS2 JSON payload
         private class GameState
         {
             [System.Text.Json.Serialization.JsonPropertyName("player")]
@@ -24,9 +24,6 @@ namespace Segra.Backend.GameIntegration
             
             [System.Text.Json.Serialization.JsonPropertyName("map")]
             public Map? Map { get; set; }
-            
-            [System.Text.Json.Serialization.JsonPropertyName("previously")]
-            public Previously? Previously { get; set; }
         }
 
         private class Player
@@ -36,9 +33,6 @@ namespace Segra.Backend.GameIntegration
             
             [System.Text.Json.Serialization.JsonPropertyName("match_stats")]
             public MatchStats? MatchStats { get; set; }
-            
-            [System.Text.Json.Serialization.JsonPropertyName("state")]
-            public PlayerState? State { get; set; }
         }
 
         private class Provider
@@ -65,30 +59,6 @@ namespace Segra.Backend.GameIntegration
             public int? Deaths { get; set; }
         }
 
-        private class PlayerState
-        {
-            [System.Text.Json.Serialization.JsonPropertyName("health")]
-            public int Health { get; set; }
-        }
-
-        private class Previously
-        {
-            [System.Text.Json.Serialization.JsonPropertyName("player")]
-            public PreviousPlayer? Player { get; set; }
-        }
-
-        private class PreviousPlayer
-        {
-            [System.Text.Json.Serialization.JsonPropertyName("steamid")]
-            public string? SteamId { get; set; }
-            
-            [System.Text.Json.Serialization.JsonPropertyName("match_stats")]
-            public MatchStats? MatchStats { get; set; }
-            
-            [System.Text.Json.Serialization.JsonPropertyName("state")]
-            public PlayerState? State { get; set; }
-        }
-
         public override async Task Start()
         {
             try
@@ -102,17 +72,17 @@ namespace Segra.Backend.GameIntegration
                     {
                         HttpListenerContext context = await _listener.GetContextAsync();
                     
-                        // Use semaphore to ensure only one request is processed at a time
-                        await _semaphore.WaitAsync();
-                        
-                        try
+                        _ = Task.Run(async () =>
                         {
-                            await HandleRequest(context);
-                        }
-                        finally
-                        {
-                            _semaphore.Release();
-                        }
+                            try
+                            {
+                                await HandleRequest(context);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Warning($"Error handling CS2 request: {ex.Message}");
+                            }
+                        });
                     }
                     catch (Exception ex) when (ex is ObjectDisposedException or HttpListenerException)
                     {
@@ -218,7 +188,6 @@ namespace Segra.Backend.GameIntegration
                     return;
                 }
 
-                // Process changes using the "previously" block
                 ProcessStatChanges(gameState);
             }
             catch (Exception ex)
@@ -229,86 +198,60 @@ namespace Segra.Backend.GameIntegration
 
         private void ProcessStatChanges(GameState gameState)
         {
-            if (gameState.Previously?.Player == null)
+            var currentKills = gameState.Player?.MatchStats?.Kills ?? 0;
+            var currentDeaths = gameState.Player?.MatchStats?.Deaths ?? 0;
+
+            if (currentDeaths < _lastValidDeaths)
             {
-                Log.Debug("No previous state data, skipping stat tracking");
+                Log.Information("New game detected, resetting stats");
+                _lastValidKills = currentKills;
+                _lastValidDeaths = currentDeaths;
                 return;
             }
 
-            var previousStats = gameState.Previously.Player.MatchStats;
-
-            if (previousStats == null)
+            if (currentKills > _lastValidKills)
             {
-                Log.Debug("No previous stats included in state, skipping stat tracking");
-                return;
-            }
-
-            // Check for kill - if kills field exists in previously, it means kills changed
-            if (previousStats.Kills.HasValue)
-            {
-                var currentKills = gameState.Player?.MatchStats?.Kills ?? 0;
-                int killsGained = currentKills - previousStats.Kills.Value;
-                Log.Information($"Kill detected: {previousStats.Kills.Value} -> {currentKills} (+{killsGained})");
+                int killsGained = currentKills - _lastValidKills;
+                Log.Information($"Kill detected: {_lastValidKills} -> {currentKills} (+{killsGained})");
                 
-                if(killsGained > 1)
-                {
-                    Log.Debug($"Warning: More than one kill detected: {killsGained}. Bug?");
-                }
-
-                // Add bookmarks for each kill gained
                 for (int i = 0; i < killsGained; i++)
                 {
                     AddBookmark(BookmarkType.Kill);
                 }
             }
 
-            // Check for death - if deaths field exists in previously, it means deaths changed
-            if (previousStats.Deaths.HasValue)
+            if (currentDeaths > _lastValidDeaths)
             {
-                var currentDeaths = gameState.Player?.MatchStats?.Deaths ?? 0;
-                int deathsGained = currentDeaths - previousStats.Deaths.Value;
-                Log.Information($"Death detected: {previousStats.Deaths.Value} -> {currentDeaths} (+{deathsGained})");
+                int deathsGained = currentDeaths - _lastValidDeaths;
+                Log.Information($"Death detected: {_lastValidDeaths} -> {currentDeaths} (+{deathsGained})");
                 
-                if(deathsGained > 1)
-                {
-                    Log.Debug($"Warning: More than one death detected: {deathsGained}. Bug?");
-                }
-                
-                // Add bookmarks for each death gained
                 for (int i = 0; i < deathsGained; i++)
                 {
                     AddBookmark(BookmarkType.Death);
                 }
             }
+
+            _lastValidKills = currentKills;
+            _lastValidDeaths = currentDeaths;
         }
 
         private static bool IsValidState(GameState gameState)
         {
-            // Only process stats during live gameplay
             if (gameState.Map?.Phase != "live" && gameState.Map?.Phase != "gameover")
             {
                 Log.Debug($"Skipping invalid state - Phase: {gameState.Map?.Phase}");
                 return false;
             }
 
-            // Ensure we have valid player data
             if (gameState.Player?.MatchStats == null)
             {
                 Log.Debug($"Skipping invalid state - No player match stats");
                 return false;
             }
 
-            // Ensure the player data matches the provider (same Steam ID)
             if (gameState.Player.SteamId != gameState.Provider?.SteamId)
             {
                 Log.Debug($"Skipping invalid state - Player Steam ID: {gameState.Player.SteamId}, Provider Steam ID: {gameState.Provider?.SteamId}");
-                return false;
-            }
-
-            // Ensure the player data matches the previously player (same Steam ID), eg if the player takes over a bot
-            if (gameState.Previously?.Player?.SteamId != null && gameState.Previously?.Player?.SteamId != gameState.Provider?.SteamId)
-            {
-                Log.Debug($"Skipping invalid state - Previously player Steam ID: {gameState.Previously?.Player?.SteamId}, Provider Steam ID: {gameState.Provider?.SteamId}");
                 return false;
             }
 
@@ -374,13 +317,12 @@ namespace Segra.Backend.GameIntegration
                 "    \"uri\" \"http://localhost:1340/\"\n" +
                 "    \"timeout\" \"5.0\"\n" +
                 "    \"buffer\" \"0.1\"\n" +
-                "    \"throttle\" \"0.1\"\n" +
-                "    \"heartbeat\" \"60.0\"\n" +
+                "    \"throttle\" \"0.2\"\n" +
+                "    \"heartbeat\" \"2.0\"\n" +
                 "    \"data\" {\n" +
                 "        \"player_id\" \"1\"\n" +
                 "        \"provider\" \"1\"\n" +
                 "        \"map\" \"1\"\n" +
-                "        \"player_state\" \"1\"\n" +
                 "        \"player_match_stats\" \"1\"\n" +
                 "    }\n" +
                 "}";
