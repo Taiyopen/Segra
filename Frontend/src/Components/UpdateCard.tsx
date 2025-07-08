@@ -31,7 +31,7 @@ export default function UpdateCard() {
   // Compact version for the sidebar
   return (
     <div className="w-full px-2 py-1">
-      <div className="bg-neutral border border-custom border-opacity-75 shadow-lg rounded-md p-2">
+      <div className="bg-neutral border border-custom border-opacity-75 shadow-lg rounded-lg p-2">
         {/* Header with status and version */}
         <div className="flex items-center justify-between mb-2 p-1">
           <div className="flex items-center gap-2">
