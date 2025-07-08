@@ -4,7 +4,14 @@ export default {
   theme: {
     extend: {
       borderColor: {
-        custom: 'var(--fallback-bc, oklch(var(--bc)/0.2))',
+        custom: '#2e3640',
+        primary: '#49515b',
+        primaryYellow: '#fecb00',
+      },
+      outlineColor: {
+        custom: '#2e3640',
+        primary: '#49515b',
+        primaryYellow: '#fecb00',
       },
     },
   },

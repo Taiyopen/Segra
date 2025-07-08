@@ -23,7 +23,7 @@ export default function UploadCard({ upload }: UploadCardProps) {
 
   return (
     <div className="w-full px-2">
-      <div className="bg-neutral border border-secondary border-opacity-75 rounded-md p-3">
+      <div className="bg-base-300 border border-primary border-opacity-75 rounded-lg p-3">
         <div className="flex items-center gap-3 w-full">
           {/* Progress */}
           <span className="loading loading-spinner text-primary"></span>

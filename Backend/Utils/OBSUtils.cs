@@ -19,12 +19,14 @@ namespace Segra.Backend.Utils
         static IntPtr output = IntPtr.Zero;
         static IntPtr bufferOutput = IntPtr.Zero;
         static bool replaySaved = false;
+        static IntPtr gameCaptureSource = IntPtr.Zero;
         static IntPtr displaySource = IntPtr.Zero;
         static List<IntPtr> micSources = new List<IntPtr>();
         static List<IntPtr> desktopSources = new List<IntPtr>();
         static IntPtr videoEncoder = IntPtr.Zero;
         static IntPtr audioEncoder = IntPtr.Zero;
         private static string? hookedExecutableFileName;
+        private static System.Threading.Timer? gameCaptureHookTimeoutTimer = null;
 
         // Available encoder IDs for different hardware
         private const string NVIDIA_ENCODER = "jim_nvenc";
@@ -171,9 +173,6 @@ namespace Segra.Backend.Utils
                 {
                     string formattedMessage = MarshalUtils.GetLogMessage(msg, args);
 
-                    if (formattedMessage.Contains("Starting capture"))
-                        _isGameCaptureHooked = true;
-
                     if (formattedMessage.Contains("capture stopped"))
                         _isGameCaptureHooked = false;
 
@@ -308,8 +307,8 @@ namespace Segra.Backend.Utils
             return obs_reset_video(ref videoInfo) == 0; // Returns true if successful
         }
 
-        public static bool StartRecording(string name = "Unknown", string exePath = "Unknown")
-        {   
+        public static bool StartRecording(string name = "Manual Recording", string exePath = "Unknown", bool startManually = false)
+        {
             Settings.Instance.State.PreRecording = new PreRecording { Game = name, Status = "Waiting to start" };
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
 
@@ -343,44 +342,46 @@ namespace Segra.Backend.Utils
 
             IntPtr videoSourceSettings = obs_data_create();
             obs_data_set_string(videoSourceSettings, "capture_mode", "any_fullscreen");
-            displaySource = obs_source_create("game_capture", "gameplay", videoSourceSettings, IntPtr.Zero);
+            gameCaptureSource = obs_source_create("game_capture", "gameplay", videoSourceSettings, IntPtr.Zero);
             obs_data_release(videoSourceSettings);
-            obs_set_output_source(0, displaySource);
+            obs_set_output_source(0, gameCaptureSource);
+            
+            // If display capture is enabled, start a timer to check if game capture hooks within 90 seconds
+            if (Settings.Instance.EnableDisplayRecording)
+            {
+                StartGameCaptureHookTimeoutTimer();
+            }
 
             // Connect to 'hooked' and 'unhooked' signals for game capture
-            IntPtr signalHandler = obs_source_get_signal_handler(displaySource);
+            IntPtr signalHandler = obs_source_get_signal_handler(gameCaptureSource);
             hookedCallback = new signal_callback_t(OnGameCaptureHooked);
             unhookedCallback = new signal_callback_t(OnGameCaptureUnhooked);
             signal_handler_connect(signalHandler, "hooked", hookedCallback, IntPtr.Zero);
             signal_handler_connect(signalHandler, "unhooked", unhookedCallback, IntPtr.Zero);
 
-            bool hooked = WaitUntilGameCaptureHooks();
-
-            if (!hooked)
+            if (!startManually)
             {
-                DisposeSources();
-
-                if (!Settings.Instance.EnableDisplayRecording)
+                bool success = WaitForGameToStart();
+                if (!success)
                 {
-                    // Prevent retrying recording if display recording is disabled (to avoid infinite loop)
-                    GameDetectionService.PreventRetryRecording = true;
-
-                    Log.Information("Display recording is disabled, stopping recording.");
-                    StopRecording();
+                    Settings.Instance.State.Recording = null;
                     Settings.Instance.State.PreRecording = null;
+                    _ = MessageUtils.SendSettingsToFrontend("Game did not start within the timeout period");
+                    StopRecording();
                     return false;
                 }
+            }
 
-                Log.Information("Using display capture instead");
-                
-                // Reset the video settings in case the screen resolution has changed
-                if (!ResetVideoSettings())
-                    throw new Exception("Failed to initialize video settings.");
-                
+            // Reset video settings to set correct output width for games with custom resolution
+            Task.Delay(500).Wait();
+            ResetVideoSettings();
+            Task.Delay(1000).Wait();
+
+            if (Settings.Instance.EnableDisplayRecording && !_isGameCaptureHooked) {
                 IntPtr displayCaptureSettings = obs_data_create();
                 displaySource = obs_source_create("monitor_capture", "display", displayCaptureSettings, IntPtr.Zero);
                 obs_data_release(displayCaptureSettings);
-                obs_set_output_source(0, displaySource);
+                obs_set_output_source(1, displaySource);
             }
 
             IntPtr videoEncoderSettings = obs_data_create();
@@ -422,7 +423,7 @@ namespace Segra.Backend.Utils
 
             if (Settings.Instance.InputDevices != null && Settings.Instance.InputDevices.Count > 0)
             {
-                int audioSourceIndex = 1;
+                int audioSourceIndex = 2;
 
                 foreach (var deviceSetting in Settings.Instance.InputDevices)
                 {
@@ -450,7 +451,7 @@ namespace Segra.Backend.Utils
 
             if (Settings.Instance.OutputDevices != null && Settings.Instance.OutputDevices.Count > 0)
             {
-                int desktopSourceIndex = micSources.Count + 1;
+                int desktopSourceIndex = micSources.Count + 2;
 
                 foreach (var deviceSetting in Settings.Instance.OutputDevices)
                 {
@@ -537,6 +538,17 @@ namespace Segra.Backend.Utils
             // Overwrite the file name with the hooked executable name if using game hook
             fileName = hookedExecutableFileName ?? fileName;
             
+            if(!Settings.Instance.EnableDisplayRecording) {
+                bool hooked = WaitUntilGameCaptureHooks(startManually ? 90000 : 10000);
+                if(!hooked) {
+                    Settings.Instance.State.Recording = null;
+                    Settings.Instance.State.PreRecording = null;
+                    _ = MessageUtils.SendSettingsToFrontend("Game did not hook within the timeout period");
+                    StopRecording();
+                    return false;
+                }
+            }
+
             _ = Task.Run(PlayStartSound);
 
             bool outputStarted;
@@ -578,7 +590,7 @@ namespace Segra.Backend.Utils
                 Game = name,
                 FilePath = videoOutputPath,
                 FileName = fileName,
-                IsUsingGameHook = hooked,
+                IsUsingGameHook = _isGameCaptureHooked,
                 GameImage = gameImage
             };
             Settings.Instance.State.PreRecording = null;
@@ -690,6 +702,7 @@ namespace Segra.Backend.Utils
                 DisposeOutput();
                 DisposeSources();
                 DisposeEncoders();
+                Settings.Instance.State.Recording = null;
                 Settings.Instance.State.PreRecording = null;
             }
 
@@ -730,13 +743,20 @@ namespace Segra.Backend.Utils
                 calldata_get_string(cdPtr, "executable", out IntPtr executable);
 
                 _isGameCaptureHooked = true;
+                StopGameCaptureHookTimeoutTimer();
+                DisposeDisplaySource();
                 Log.Information($"Game hooked: Title='{Marshal.PtrToStringAnsi(title)}', Class='{Marshal.PtrToStringAnsi(windowClass)}', Executable='{Marshal.PtrToStringAnsi(executable)}'");
-
+                
                 // Overwrite the file name with the hooked one because sometimes the current tracked file name is the startup exe instead of the actual game 
                 hookedExecutableFileName = Marshal.PtrToStringAnsi(executable);
-                if (Settings.Instance.State.Recording != null && hookedExecutableFileName != null)
+                if (Settings.Instance.State.Recording != null)
                 {
-                    Settings.Instance.State.Recording.FileName = hookedExecutableFileName;
+                    if(hookedExecutableFileName != null)
+                    {
+                        Settings.Instance.State.Recording.FileName = hookedExecutableFileName;
+                    }
+                    Settings.Instance.State.Recording.IsUsingGameHook = true;
+                    _ = MessageUtils.SendSettingsToFrontend("Updated game hook");
                 }
             }
             catch (Exception ex)
@@ -754,7 +774,28 @@ namespace Segra.Backend.Utils
             Log.Information("Game unhooked.");
         }
 
-        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 80000)
+        private static bool WaitForGameToStart(int timeoutMs = 80000)
+        {
+            int elapsed = 0;
+            const int step = 100;
+            Log.Information("Waiting for trying to hook game...");
+            Log.Information("PreRecording Status: {PreRecordingStatus}", Settings.Instance.State.PreRecording?.Status);
+            while (Settings.Instance.State.PreRecording?.Status != "Waiting for game hook")
+            {
+                Thread.Sleep(step);
+                elapsed += step;
+                Log.Information("PreRecording Status: {PreRecordingStatus}", Settings.Instance.State.PreRecording?.Status);
+                if (elapsed >= timeoutMs)
+                {
+                    Log.Warning("Game Capture did not hook within {Seconds} seconds.", timeoutMs / 1000);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 10000)
         {
             int elapsed = 0;
             const int step = 100;
@@ -765,7 +806,7 @@ namespace Segra.Backend.Utils
                 elapsed += step;
                 if (elapsed >= timeoutMs)
                 {
-                    Log.Error("Game Capture did not hook within {Seconds} seconds.", timeoutMs / 1000);
+                    Log.Warning("Game Capture did not hook within {Seconds} seconds.", timeoutMs / 1000);
                     return false;
                 }
             }
@@ -775,33 +816,15 @@ namespace Segra.Backend.Utils
 
         public static void DisposeSources()
         {
-            if (displaySource != IntPtr.Zero)
-            {
-                IntPtr signalHandler = obs_source_get_signal_handler(displaySource);
-
-                if (hookedCallback != null)
-                {
-                    signal_handler_disconnect(signalHandler, "hooked", hookedCallback, IntPtr.Zero);
-                    hookedCallback = null;
-                }
-
-                if (unhookedCallback != null)
-                {
-                    signal_handler_disconnect(signalHandler, "unhooked", unhookedCallback, IntPtr.Zero);
-                    unhookedCallback = null;
-                }
-
-                obs_set_output_source(0, IntPtr.Zero);
-                obs_source_release(displaySource);
-                displaySource = IntPtr.Zero;
-            }
+            DisposeDisplaySource();
+            DisposeGameCaptureSource();
 
             int micSourcesCount = micSources.Count;
             for (int i = 0; i < micSources.Count; i++)
             {
                 if (micSources[i] != IntPtr.Zero)
                 {
-                    obs_set_output_source((uint)(i + 1), IntPtr.Zero);
+                    obs_set_output_source((uint)(i + 2), IntPtr.Zero);
                     obs_source_release(micSources[i]);
                     micSources[i] = IntPtr.Zero;
                 }
@@ -812,13 +835,77 @@ namespace Segra.Backend.Utils
             {
                 if (desktopSources[i] != IntPtr.Zero)
                 {
-                    int desktopIndex = i + micSourcesCount + 1;
+                    int desktopIndex = i + micSourcesCount + 2;
                     obs_set_output_source((uint)desktopIndex, IntPtr.Zero);
                     obs_source_release(desktopSources[i]);
                     desktopSources[i] = IntPtr.Zero;
                 }
             }
             desktopSources.Clear();
+        }
+
+        public static void DisposeGameCaptureSource()
+        {
+            if (gameCaptureSource != IntPtr.Zero)
+            {
+                obs_set_output_source(0, IntPtr.Zero);
+                obs_source_release(gameCaptureSource);
+                gameCaptureSource = IntPtr.Zero;
+            }
+            // Dispose the timer if it exists
+            StopGameCaptureHookTimeoutTimer();
+        }
+
+        private static void StartGameCaptureHookTimeoutTimer()
+        {
+            // Dispose any existing timer first
+            StopGameCaptureHookTimeoutTimer();
+            
+            // Create a new timer that checks after 90 seconds
+            gameCaptureHookTimeoutTimer = new System.Threading.Timer(
+                CheckGameCaptureHookStatus,
+                null,
+                90000, // 90 seconds delay
+                Timeout.Infinite // Don't repeat
+            );
+            
+            Log.Information("Started game capture hook timer (90 seconds)");
+        }
+
+        private static void StopGameCaptureHookTimeoutTimer()
+        {
+            if (gameCaptureHookTimeoutTimer != null)
+            {
+                gameCaptureHookTimeoutTimer.Dispose();
+                gameCaptureHookTimeoutTimer = null;
+                Log.Information("Stopped game capture hook timer");
+            }
+        }
+
+        private static void CheckGameCaptureHookStatus(object? state)
+        {
+            // Check if game capture has hooked
+            if (!_isGameCaptureHooked && Settings.Instance.EnableDisplayRecording)
+            {
+                Log.Warning("Game capture did not hook within 90 seconds. Removing game capture source.");
+                DisposeGameCaptureSource();
+            }
+            else
+            {
+                Log.Information("Game capture hook check completed. Hook status: {0}", _isGameCaptureHooked ? "Hooked" : "Not hooked");
+                // Just stop the timer without disposing the game capture source if it's hooked
+                StopGameCaptureHookTimeoutTimer();
+            }
+        }
+
+        public static void DisposeDisplaySource()
+        {
+            if (displaySource != IntPtr.Zero)
+            {
+                obs_set_output_source(1, IntPtr.Zero);
+                obs_source_release(displaySource);
+                displaySource = IntPtr.Zero;
+            }
         }
 
         public static void DisposeEncoders()

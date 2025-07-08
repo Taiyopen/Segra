@@ -55,7 +55,7 @@ export default function Highlights() {
   return (
     <div 
       ref={containerRef} 
-      className="p-5 space-y-6 rounded-lg overflow-y-auto h-full"
+      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200"
       onScroll={handleScroll}>
       <h1 className="text-3xl font-bold mb-4">Highlights</h1>
       {(state.content.filter((video) => video.type === 'Highlight').length > 0 || hasAiProgress) ? (

@@ -139,7 +139,7 @@ namespace Segra.Backend.Utils
                                 return;
                             }
                             
-                            await Task.Run(() => OBSUtils.StartRecording());
+                            await Task.Run(() => OBSUtils.StartRecording(startManually: true));
                             break;
                         case "StopRecording":
                             await Task.Run(OBSUtils.StopRecording);
@@ -306,7 +306,36 @@ namespace Segra.Backend.Utils
                     message = "Upload completed successfully"
                 });
 
-                Log.Information($"Upload success: {await response.Content.ReadAsStringAsync()}");
+                var responseContent = await response.Content.ReadAsStringAsync();
+                Log.Information($"Upload success: {responseContent}");
+                
+                // Check if showInBrowserAfterUpload is enabled and parse the URL from the response
+                if (Settings.Instance.ClipShowInBrowserAfterUpload && !string.IsNullOrEmpty(responseContent))
+                {
+                    try
+                    {
+                        var responseJson = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                        if (responseJson.TryGetProperty("success", out var successElement) && 
+                            successElement.GetBoolean() && 
+                            responseJson.TryGetProperty("url", out var urlElement))
+                        {
+                            string url = urlElement.GetString()!;
+                            if (!string.IsNullOrEmpty(url))
+                            {
+                                Log.Information($"Opening URL in browser: {url}");
+                                Process.Start(new ProcessStartInfo
+                                {
+                                    FileName = url,
+                                    UseShellExecute = true
+                                });
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"Failed to parse upload response or open browser: {ex.Message}");
+                    }
+                }
             }
             catch (Exception ex)
             {

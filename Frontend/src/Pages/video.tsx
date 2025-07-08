@@ -393,8 +393,17 @@ export default function VideoComponent({ video }: { video: Content }) {
     // Format time in seconds to "MM:SS" display format
     const formatTime = (time: number) => {
         const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60).toString().padStart(2, "0");
-        return `${minutes}:${seconds}`;
+        const seconds = Math.floor(time % 60);
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    };
+    
+    // Check if the current time marker is over any visible selection
+    const isMarkerOverSelection = () => {
+        return sortedSelections.some(sel => 
+            sel.fileName === video.fileName && // Only check visible selections
+            currentTime >= sel.startTime && 
+            currentTime <= sel.endTime
+        );
     };
 
     // Generate major and minor tick marks for the timeline based on zoom level
@@ -794,7 +803,7 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     return (
         <DndProvider backend={HTML5Backend}>
-            <div className="flex w-full h-full" ref={containerRef}>
+            <div className="flex w-full h-full bg-base-200" ref={containerRef}>
                 <div className="flex-1 p-4 w-full lg:w-3/4">
                     <div className="relative">
                         <video
@@ -934,7 +943,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                             })}
                         </div>
                         <div
-                            className="timeline-container relative h-[50px] w-full bg-[#2a2a2a] rounded-[10px] overflow-hidden cursor-pointer"
+                            className="timeline-container bg-base-300 border border-primary rounded-lg relative h-[50px] w-full overflow-hidden"
                             style={{
                                 width: `${duration * pixelsPerSecond}px`,
                                 minWidth: "100%"
@@ -949,7 +958,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 return (
                                     <div
                                         key={sel.id}
-                                        className={`absolute top-0 left-0 h-full shadow cursor-move ${hidden ? "hidden" : ""} transition-colors overflow-hidden ${isHovered && !isHoveredByTimeline ? "bg-accent" : "bg-gray-700"}`}
+                                        className={`absolute top-0 left-0 h-full shadow cursor-move ${hidden ? "hidden" : ""} transition-colors overflow-hidden bg-primary ${isHovered && !isHoveredByTimeline ? "animate-pulse" : ""}`}
                                         style={{
                                             left: `${left}px`,
                                             width: `${width}px`,
@@ -973,7 +982,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                                         element.scrollWidth <= element.clientWidth ? 'visible' : 'hidden';
                                                 }
                                             }}
-                                            className="absolute top-0 left-0 right-0 text-center text-white font-semibold text-xs select-none pt-[2px] whitespace-nowrap overflow-hidden text-ellipsis"
+                                            className="absolute top-0 left-0 right-0 text-center text-base-300 font-semibold text-xs select-none pt-[2px] whitespace-nowrap overflow-hidden text-ellipsis"
                                         >
                                             {formatTime(sel.startTime)} - {formatTime(sel.endTime)}
                                         </div>
@@ -989,7 +998,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 );
                             })}
                             <div
-                                className="marker absolute top-0 left-0 w-1 h-full bg-accent rounded-lg -translate-x-1/2 cursor-pointer"
+                                className={`marker absolute top-0 left-0 w-1 h-full rounded-sm -translate-x-1/2 cursor-pointer shadow ${isMarkerOverSelection() ? 'bg-base-300 opacity-80' : 'bg-accent'}`}
                                 style={{
                                     left: `${currentTime * pixelsPerSecond}px`,
                                 }}
@@ -999,23 +1008,23 @@ export default function VideoComponent({ video }: { video: Content }) {
                     </div>
                     <div className="flex items-center justify-between gap-4 py-1">
                         <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-0 bg-base-300 rounded-lg">
+                            <div className="flex items-center join bg-base-300 rounded-lg border border-custom">
                                 <button
                                     onClick={() => skipTime(-10)}
-                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
+                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent join-item"
                                 >
                                     <MdReplay10 className="w-6 h-6" />
                                 </button>
                                 <button
                                     onClick={handlePlayPause}
-                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
+                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent join-item"
                                     data-tip={isPlaying ? "Pause" : "Play"}
                                 >
                                     {isPlaying ? <MdPause className="w-6 h-6" /> : <MdPlayArrow className="w-6 h-6" />}
                                 </button>
                                 <button
                                     onClick={() => skipTime(10)}
-                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent"
+                                    className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent join-item"
                                     data-tip="Forward 10s"
                                 >
                                     <MdForward10 className="w-6 h-6" />
@@ -1023,7 +1032,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                             </div>
                             {(video.type === "Clip" || video.type === "Highlight") && (
                                 <button
-                                    className="btn btn-sm btn-secondary h-10 px-6 text-gray-400 hover:text-accent flex items-center"
+                                    className="btn btn-sm btn-secondary border-custom hover:border-custom h-10 px-6 text-gray-400 hover:text-accent flex items-center"
                                     onClick={handleUpload}
                                     disabled={uploads[video.fileName + ".mp4"]?.status === 'uploading' || uploads[video.fileName + ".mp4"]?.status === 'processing'}
                                 >
@@ -1034,14 +1043,14 @@ export default function VideoComponent({ video }: { video: Content }) {
                             {(video.type === "Session" || video.type === "Buffer") && (
                                 <>
                                     <button
-                                        className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent flex items-center gap-1`}
+                                        className={`btn btn-sm btn-secondary border-custom hover:border-custom h-10 text-gray-400 hover:text-accent flex items-center gap-1`}
                                         onClick={handleCreateClip}
                                     >
                                         <MdMovieCreation className="w-6 h-6" />
                                         <span>Create Clip</span>
                                     </button>
                                     <div className="indicator">
-                                        <button className={`btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent flex items-center gap-1`} onClick={handleAddSelection}>
+                                        <button className={`btn btn-sm btn-secondary border-custom hover:border-custom h-10 text-gray-400 hover:text-accent flex items-center gap-1`} onClick={handleAddSelection}>
                                             {showNoSegmentsIndicator && <span className="indicator-item badge badge-sm badge-primary animate-pulse"></span>}
                                             <MdAddBox className="w-6 h-6" />
                                             <span>Add Segment</span>
@@ -1057,17 +1066,17 @@ export default function VideoComponent({ video }: { video: Content }) {
                                     <div className="flex items-center gap-2 bg-base-300 rounded-lg">
                                         <button
                                             onClick={handleAddBookmark}
-                                            className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Add Bookmark"
+                                            className="btn btn-sm btn-secondary border-custom hover:border-custom h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Add Bookmark"
                                         >
                                             <MdBookmarkAdd className="w-6 h-6" />
                                         </button>
                                     </div>
-                                    <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10">
+                                    <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 join border border-custom">
                                         {availableBookmarkTypes.map(type => (
                                             <button
                                                 key={type}
                                                 onClick={() => toggleBookmarkType(type)}
-                                                className={`btn btn-sm btn-secondary border-none h-10 transition-colors ${selectedBookmarkTypes.has(type)
+                                                className={`btn btn-sm btn-secondary border-none transition-colors join-item ${selectedBookmarkTypes.has(type)
                                                         ? 'text-accent'
                                                         : 'text-gray-400'}`}
                                             >
@@ -1080,10 +1089,10 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 </>
                             )}
 
-                            <div className="flex items-center gap-1 bg-base-300 px-0 rounded-lg h-10">
+                            <div className="flex items-center gap-1 bg-base-300 px-0 rounded-lg h-10 border border-custom">
                                 <button
                                     onClick={() => handleZoomChange(false)}
-                                    className="btn btn-sm btn-secondary h-10 disabled:opacity-100"
+                                    className="btn btn-sm btn-secondary disabled:opacity-100 disabled:bg-base-300"
                                     disabled={zoom <= 1}
                                 >
                                     <IoRemove className="w-4 h-4" />
@@ -1093,7 +1102,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 </span>
                                 <button
                                     onClick={() => handleZoomChange(true)}
-                                    className="btn btn-sm btn-secondary h-10"
+                                    className="btn btn-sm btn-secondary"
                                     disabled={zoom >= 50}
                                 >
                                     <IoAdd className="w-4 h-4" />
@@ -1103,7 +1112,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     </div>
                 </div>
                 {(video.type === "Session" || video.type === "Buffer") && (
-                    <div className="bg-base-300 text-neutral-content w-52 2xl:w-72 flex flex-col h-full pl-4 pr-1 pt-4">
+                    <div className="bg-base-300 text-neutral-content w-52 2xl:w-72 flex flex-col h-full pl-4 pr-1 pt-4 border-l border-custom">
                         <div className="overflow-y-scroll flex-1  mt-1 p-1">
                             {selections.map((sel, index) => (
                                 <SelectionCard
@@ -1132,12 +1141,12 @@ export default function VideoComponent({ video }: { video: Content }) {
                         </div>
                         <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 mb-2 mr-3 tooltip">
                             <button
-                                className="btn btn-sm btn-neutral h-10 text-gray-400 hover:text-accent w-full py-0"
+                                className="btn btn-sm btn-secondary border border-custom disabled:border-custom hover:border-custom h-10 text-gray-400 hover:text-accent w-full py-0"
                                 onClick={clearAllSelections}
                                 disabled={selections.length === 0}
                             >
                                 <FaTrashCan className="w-4 h-4" />
-                                <span>Remove</span>
+                                <span>Clear</span>
                             </button>
                         </div>
                     </div>

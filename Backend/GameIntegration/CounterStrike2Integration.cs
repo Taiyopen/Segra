@@ -10,11 +10,10 @@ namespace Segra.Backend.GameIntegration
     internal class CounterStrike2Integration : Integration
     {
         private readonly HttpListener _listener = new();
-        private readonly SemaphoreSlim _semaphore = new(1, 1);
-        private GameState? _oldState;
         private const string Prefix = "http://127.0.0.1:1340/";
+        private int _lastValidKills = 0;
+        private int _lastValidDeaths = 0;
         
-        // Game state classes to deserialize the CS2 JSON payload
         private class GameState
         {
             [System.Text.Json.Serialization.JsonPropertyName("player")]
@@ -54,10 +53,10 @@ namespace Segra.Backend.GameIntegration
         private class MatchStats
         {
             [System.Text.Json.Serialization.JsonPropertyName("kills")]
-            public int Kills { get; set; }
+            public int? Kills { get; set; }
             
             [System.Text.Json.Serialization.JsonPropertyName("deaths")]
-            public int Deaths { get; set; }
+            public int? Deaths { get; set; }
         }
 
         public override async Task Start()
@@ -73,17 +72,17 @@ namespace Segra.Backend.GameIntegration
                     {
                         HttpListenerContext context = await _listener.GetContextAsync();
                     
-                        // Use semaphore to ensure only one request is processed at a time
-                        await _semaphore.WaitAsync();
-                        
-                        try
+                        _ = Task.Run(async () =>
                         {
-                            await HandleRequest(context);
-                        }
-                        finally
-                        {
-                            _semaphore.Release();
-                        }
+                            try
+                            {
+                                await HandleRequest(context);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Warning($"Error handling CS2 request: {ex.Message}");
+                            }
+                        });
                     }
                     catch (Exception ex) when (ex is ObjectDisposedException or HttpListenerException)
                     {
@@ -119,7 +118,6 @@ namespace Segra.Backend.GameIntegration
 
         private void InitializeListener()
         {
-            _oldState = new GameState();
             _listener.Prefixes.Add(Prefix);
             _listener.Start();
         }
@@ -133,8 +131,8 @@ namespace Segra.Backend.GameIntegration
                     string body = await ReadRequestBodyAsync(context.Request);
                     Log.Debug($"CS2 integration received payload: {body}");
                     
-                    GameState newState = DeserializeState(body);
-                    ProcessGameState(newState);
+                    GameState gameState = DeserializeState(body);
+                    ProcessGameState(gameState);
                 }
             }
             catch (Exception ex)
@@ -168,44 +166,29 @@ namespace Segra.Backend.GameIntegration
         {
             try
             {
-                return JsonSerializer.Deserialize<GameState>(body);
+                return JsonSerializer.Deserialize<GameState>(body, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new GameState();
             }
-            catch
+            catch (Exception ex)
             {
-                Log.Error("Failed to deserialize CS2 state\n{Body}", body);
+                Log.Error(ex, "Failed to deserialize CS2 state\n{Body}", body);
                 return new GameState();
             }
         }
 
-        private void ProcessGameState(GameState newState)
+        private void ProcessGameState(GameState gameState)
         {
             try
             {
-                if (!IsValidState(newState))
+                if (!IsValidState(gameState))
                 {
+                    Log.Debug($"Skipping invalid state - Phase: {gameState.Map?.Phase}, SteamId match: {gameState.Player?.SteamId == gameState.Provider?.SteamId}");
                     return;
                 }
-                
-                // Track kills
-                if (newState.Player?.MatchStats?.Kills > _oldState?.Player?.MatchStats?.Kills)
-                {
-                    AddBookmark(BookmarkType.Kill);
-                }
-                    
-                // Track deaths
-                if (newState.Player?.MatchStats?.Deaths > _oldState?.Player?.MatchStats?.Deaths)
-                {
-                    AddBookmark(BookmarkType.Death);
-                }
-                
-                // Check for phase changes to reset stats
-                if (HasPhaseChanged(newState))
-                {
-                    Log.Information($"Game phase changed, resetting stats");
-                }
 
-                // Update old state
-                _oldState = newState;
+                ProcessStatChanges(gameState);
             }
             catch (Exception ex)
             {
@@ -213,22 +196,75 @@ namespace Segra.Backend.GameIntegration
             }
         }
 
-        private static bool IsValidState(GameState newState)
+        private void ProcessStatChanges(GameState gameState)
         {
-            return newState?.Player?.MatchStats != null &&
-                   newState.Player?.SteamId == newState.Provider?.SteamId &&
-                   (newState.Map?.Phase == "live" || newState.Map?.Phase == "gameover");
+            var currentKills = gameState.Player?.MatchStats?.Kills ?? 0;
+            var currentDeaths = gameState.Player?.MatchStats?.Deaths ?? 0;
+
+            if (currentDeaths < _lastValidDeaths)
+            {
+                Log.Information("New game detected, resetting stats");
+                _lastValidKills = currentKills;
+                _lastValidDeaths = currentDeaths;
+                return;
+            }
+
+            if (currentKills > _lastValidKills)
+            {
+                int killsGained = currentKills - _lastValidKills;
+                Log.Information($"Kill detected: {_lastValidKills} -> {currentKills} (+{killsGained})");
+                
+                for (int i = 0; i < killsGained; i++)
+                {
+                    AddBookmark(BookmarkType.Kill);
+                }
+            }
+
+            if (currentDeaths > _lastValidDeaths)
+            {
+                int deathsGained = currentDeaths - _lastValidDeaths;
+                Log.Information($"Death detected: {_lastValidDeaths} -> {currentDeaths} (+{deathsGained})");
+                
+                for (int i = 0; i < deathsGained; i++)
+                {
+                    AddBookmark(BookmarkType.Death);
+                }
+            }
+
+            _lastValidKills = currentKills;
+            _lastValidDeaths = currentDeaths;
         }
 
-        private bool HasPhaseChanged(GameState newState)
+        private static bool IsValidState(GameState gameState)
         {
-            return newState?.Map?.Phase != _oldState?.Map?.Phase;
+            if (gameState.Map?.Phase != "live" && gameState.Map?.Phase != "gameover")
+            {
+                Log.Debug($"Skipping invalid state - Phase: {gameState.Map?.Phase}");
+                return false;
+            }
+
+            if (gameState.Player?.MatchStats == null)
+            {
+                Log.Debug($"Skipping invalid state - No player match stats");
+                return false;
+            }
+
+            if (gameState.Player.SteamId != gameState.Provider?.SteamId)
+            {
+                Log.Debug($"Skipping invalid state - Player Steam ID: {gameState.Player.SteamId}, Provider Steam ID: {gameState.Provider?.SteamId}");
+                return false;
+            }
+
+            return true;
         }
 
         private static void AddBookmark(BookmarkType type)
         {
             if (Settings.Instance.State.Recording == null)
+            {
+                Log.Debug($"No recording active, skipping {type} bookmark");
                 return;
+            }
 
             var bookmark = new Bookmark
             {
@@ -258,7 +294,8 @@ namespace Segra.Backend.GameIntegration
                 {
                     string existingContent = File.ReadAllText(cfgPath);
                     string expectedContent = GenerateCfg();
-                    if (existingContent.Equals(expectedContent, StringComparison.Ordinal)){
+                    if (existingContent.Equals(expectedContent, StringComparison.Ordinal))
+                    {
                         return;
                     }
                 }
@@ -280,18 +317,15 @@ namespace Segra.Backend.GameIntegration
                 "    \"uri\" \"http://localhost:1340/\"\n" +
                 "    \"timeout\" \"5.0\"\n" +
                 "    \"buffer\" \"0.1\"\n" +
-                "    \"throttle\" \"0.1\"\n" +
-                "    \"heartbeat\" \"60.0\"\n" +
+                "    \"throttle\" \"0.2\"\n" +
+                "    \"heartbeat\" \"2.0\"\n" +
                 "    \"data\" {\n" +
                 "        \"player_id\" \"1\"\n" +
                 "        \"provider\" \"1\"\n" +
                 "        \"map\" \"1\"\n" +
-                "        \"player_state\" \"1\"\n" +
                 "        \"player_match_stats\" \"1\"\n" +
                 "    }\n" +
                 "}";
         }
-
-
     }
 }

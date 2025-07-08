@@ -51,7 +51,7 @@ export default function Videos() {
   return (
     <div 
       ref={containerRef} 
-      className="p-5 space-y-6 rounded-lg overflow-y-auto h-full"
+      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200"
       onScroll={handleScroll}>
       <h1 className="text-3xl font-bold mb-4">Full Sessions</h1>
       {state.content.filter((video) => video.type === 'Session').length > 0 ? (

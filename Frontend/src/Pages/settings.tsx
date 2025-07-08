@@ -258,11 +258,11 @@ export default function Settings() {
 						</div>
 					)}
 					
-					<div className="bg-base-100 p-6 rounded-lg space-y-4">
+					<div className="bg-base-200 p-6 rounded-lg space-y-4">
 						<button
 							onClick={handleDiscordLogin}
 							disabled={isAuthenticating}
-							className={`btn btn-neutral w-full gap-2 font-semibold text-white ${isAuthenticating ? 'btn-loading' : ''}`}
+							className={`btn btn-secondary w-full gap-2 font-semibold text-white ${isAuthenticating ? 'btn-loading' : ''}`}
 						>
 							<FaDiscord className="w-5 h-5" />
 							{isAuthenticating ? 'Connecting...' : 'Continue with Discord'}
@@ -302,7 +302,7 @@ export default function Settings() {
 							<button
 								type="submit"
 								disabled={isAuthenticating}
-								className={`btn btn-neutral w-full font-semibold text-white ${isAuthenticating ? 'btn-loading' : ''}`}
+								className={`btn btn-secondary w-full font-semibold text-white ${isAuthenticating ? 'btn-loading' : ''}`}
 							>
 								Sign in with Email
 							</button>
@@ -316,7 +316,7 @@ export default function Settings() {
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Account</h2>
 				
-				<div className="bg-base-100 p-4 rounded-lg border border-custom">
+				<div className="bg-base-200 p-4 rounded-lg border border-custom">
 					<div className="flex items-center justify-between flex-wrap gap-4">
 						<div className="flex items-center gap-4 min-w-0">
 							{/* Avatar Container */}
@@ -448,7 +448,7 @@ export default function Settings() {
 	};
 
 	return (
-		<div className="p-5 space-y-6 rounded-lg">
+		<div className="p-5 space-y-6 bg-base-200">
 			<h1 className="text-3xl font-bold">Settings</h1>
 			
 			{/* Authentication Section */}
@@ -457,7 +457,7 @@ export default function Settings() {
 			{/* Segra AI Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Segra AI</h2>
-				<div className="bg-base-100 p-4 rounded-lg border border-custom space-y-4">
+				<div className="bg-base-200 p-4 rounded-lg border border-custom space-y-4">
 					{!session && (
 						<div className="flex items-center gap-2 mb-3 text-sm text-warning">
 							<MdLock className="w-4 h-4" />
@@ -498,7 +498,7 @@ export default function Settings() {
 				<h2 className="text-xl font-semibold mb-4">Capture Mode</h2>
 				<div className="grid grid-cols-2 gap-6">
 					<div 
-						className={`bg-base-100 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primary' : 'border-custom'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primaryYellow' : 'border-primary'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
 						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Session' })}
 					>
 						<div className="text-lg font-semibold mb-3">Session Recording</div>
@@ -515,7 +515,7 @@ export default function Settings() {
 						</div>
 					</div>
 					<div 
-						className={`bg-base-100 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primary' : 'border-custom'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primaryYellow' : 'border-primary'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
 						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Buffer'})}
 					>
 						<div className="flex items-center gap-2 mb-3">
@@ -543,7 +543,7 @@ export default function Settings() {
 				<AnimatePresence>
 					{settings.recordingMode === 'Buffer' && (
 						<motion.div 
-							className="bg-base-100 rounded-lg border border-custom"
+							className="bg-base-300 rounded-lg border border-custom"
 							initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
 							animate={{ 
 								opacity: 1, 
@@ -589,7 +589,7 @@ export default function Settings() {
 											min="5"
 											max="600"
 											disabled={settings.state.recording != null || settings.state.preRecording != null}
-											className={`input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80`}
+											className={`input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80`}
 										/>
 										<div className="help-text-container">
 											<span className="text-xs text-base-content text-opacity-60 mt-1">How many seconds of gameplay to keep in memory</span>
@@ -610,7 +610,7 @@ export default function Settings() {
 											min="100"
 											max="5000"
 											disabled={settings.state.recording != null || settings.state.preRecording != null}
-											className="input input-bordered disabled:bg-base-100 disabled:input-bordered disabled:opacity-80"
+											className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80"
 										/>
 										<div className="help-text-container">
 											<span className="text-xs text-base-content text-opacity-60 mt-1">Maximum buffer size in megabytes</span>
@@ -631,7 +631,7 @@ export default function Settings() {
 							name="resolution"
 							value={settings.resolution}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="720p">720p</option>
 							<option value="1080p">1080p</option>
@@ -649,7 +649,7 @@ export default function Settings() {
 							name="frameRate"
 							value={settings.frameRate}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="24">24</option>
 							<option value="30">30</option>
@@ -668,7 +668,7 @@ export default function Settings() {
 							name="rateControl"
 							value={settings.rateControl}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="CBR">CBR (Constant Bitrate)</option>
 							<option value="VBR">VBR (Variable Bitrate)</option>
@@ -687,7 +687,7 @@ export default function Settings() {
 								name="bitrate"
 								value={settings.bitrate}
 								onChange={handleChange}
-								className="select select-bordered"
+								className="select select-bordered bg-base-200"
 							>
 								{Array.from({length: 19}, (_, i) => (i + 2) * 5).map((value) => (
 									<option key={value} value={value}>
@@ -711,7 +711,7 @@ export default function Settings() {
 								onChange={handleChange}
 								min="0"
 								max="51"
-								className="input input-bordered"
+								className="input input-bordered bg-base-200"
 							/>
 						</div>
 					)}
@@ -729,7 +729,7 @@ export default function Settings() {
 								onChange={handleChange}
 								min="0"
 								max="30"
-								className="input input-bordered"
+								className="input input-bordered bg-base-200"
 							/>
 						</div>
 					)}
@@ -743,7 +743,7 @@ export default function Settings() {
 							name="encoder"
 							value={settings.encoder}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="gpu">GPU</option>
 							<option value="cpu">CPU</option>
@@ -759,7 +759,7 @@ export default function Settings() {
 							name="codec"
 							value={settings.codec}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="h264">H.264</option>
 							<option value="h265">H.265</option>
@@ -778,17 +778,19 @@ export default function Settings() {
 							<span className="label-text">Recording Path</span>
 						</label>
 						<div className="flex space-x-2">
-							<input
-								type="text"
-								name="contentFolder"
-								value={settings.contentFolder}
-								onChange={handleChange}
-								placeholder="Enter or select folder path"
-								className="input input-bordered flex-1"
-							/>
-							<button onClick={handleBrowseClick} className="btn btn-neutral font-semibold">
-								Browse
-							</button>
+							<div className="join w-full">
+								<input
+									type="text"
+									name="contentFolder"
+									value={settings.contentFolder}
+									onChange={handleChange}
+									placeholder="Enter or select folder path"
+									className="input input-bordered flex-1 bg-base-200 join-item"
+								/>
+								<button onClick={handleBrowseClick} className="btn btn-secondary bg-base-200 border-primary hover:border-custom font-semibold join-item">
+									Browse
+								</button>
+							</div>
 						</div>
 					</div>
 
@@ -805,7 +807,7 @@ export default function Settings() {
 							onBlur={() => updateSettings({storageLimit: localStorageLimit})}
 							placeholder="Set maximum storage in GB"
 							min="1"
-							className="input input-bordered"
+							className="input input-bordered bg-base-200"
 						/>
 					</div>
 				</div>
@@ -824,7 +826,7 @@ export default function Settings() {
 							name="clipEncoder"
 							value={settings.clipEncoder}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="cpu">CPU</option>
 							{settings.state.gpuVendor !== GpuVendor.Unknown && <option value="gpu">GPU</option>}
@@ -840,7 +842,7 @@ export default function Settings() {
 							name="clipQualityCrf"
 							value={settings.clipQualityCrf}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="17">17 (Highest Quality)</option>
 							<option value="18">18</option>
@@ -866,7 +868,7 @@ export default function Settings() {
 							name="clipCodec"
 							value={settings.clipCodec}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="h264">H.264</option>
 							<option value="h265">H.265</option>
@@ -882,7 +884,7 @@ export default function Settings() {
 							name="clipFps"
 							value={settings.clipFps}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="0">Original FPS</option>
 							<option value="24">24 FPS</option>
@@ -902,7 +904,7 @@ export default function Settings() {
 							name="clipAudioQuality"
 							value={settings.clipAudioQuality}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							<option value="96k">96 kbps (Low)</option>
 							<option value="128k">128 kbps (Medium)</option>
@@ -921,7 +923,7 @@ export default function Settings() {
 							name="clipPreset"
 							value={settings.clipPreset}
 							onChange={handleChange}
-							className="select select-bordered"
+							className="select select-bordered bg-base-200"
 						>
 							{renderPresetOptions(settings)}
 						</select>
@@ -950,7 +952,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Input Devices</span>
 						</label>
-						<div className="bg-base-100 rounded-lg p-2 max-h-48 overflow-y-auto border border-custom">
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto border border-primary">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableInputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1064,7 +1066,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Output Devices</span>
 						</label>
-						<div className="bg-base-100 rounded-lg p-2 max-h-48 overflow-y-auto border border-custom">
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto border border-primary">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableOutputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1122,103 +1124,102 @@ export default function Settings() {
 			{/* Keybindings Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Keybindings</h2>
-				<div className="bg-base-100 p-4 rounded-lg space-y-4 border border-custom">
+				<div className="space-y-2">
 					{settings.keybindings.map((keybind, index) => (
-						<div key={index} className="flex items-center justify-between gap-0 p-2">
-							<div className="flex items-center gap-1">
-								<div className="flex items-center gap-2 mr-2">
-									<input
-										type="checkbox"
-										checked={keybind.enabled}
-										onChange={(e) => {
-											const updatedKeybindings = [...settings.keybindings];
-											updatedKeybindings[index] = {
-												...updatedKeybindings[index],
-												enabled: e.target.checked
-											};
-											updateSettings({ keybindings: updatedKeybindings });
-										}}
-										className="checkbox checkbox-primary"
-									/>
-								</div>
-								<span className="font-medium w-36">{keybind.action == KeybindAction.CreateBookmark ? 'Create Bookmark' : 'Save Replay Buffer'}</span>
-								<div className="flex items-center gap-3">
-									<button 
-										className={`kbd kbd-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
-										style={{ minWidth: '150px', display: 'flex', justifyContent: 'center' }}
-										onClick={() => {
-											activeKeysRef.current = [];
-											setIsCapturingKey(index);
+						<div key={index} className="flex items-center justify-between">
+							<div className="flex items-center justify-between bg-base-200 rounded-lg p-2 px-3 border border-primary min-w-[50%]">
+								<label className="flex items-center gap-2 cursor-pointer">
+									<div className="flex items-center gap-2 mr-2">
+										<input
+											type="checkbox"
+											checked={keybind.enabled}
+											onChange={(e) => {
+												const updatedKeybindings = [...settings.keybindings];
+												updatedKeybindings[index] = {
+													...updatedKeybindings[index],
+													enabled: e.target.checked
+												};
+												updateSettings({ keybindings: updatedKeybindings });
+											}}
+											className="checkbox checkbox-primary"
+										/>
+									</div>
+									<span className="font-medium">{keybind.action == KeybindAction.CreateBookmark ? 'Create Bookmark' : 'Save Replay Buffer'}</span>
+								</label>
+								<button 
+									className={`kbd kbd-md min-w-[25%] text-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
+									style={{ display: 'flex', justifyContent: 'center' }}
+									onClick={() => {
+										activeKeysRef.current = [];
+										setIsCapturingKey(index);
+										
+										const handleKeyDown = (e: KeyboardEvent) => {
+											e.preventDefault();
 											
-											const handleKeyDown = (e: KeyboardEvent) => {
-												e.preventDefault();
-												
-												const newActiveKeys = [...activeKeysRef.current];
-												
-												if (e.ctrlKey && !newActiveKeys.includes(17)) newActiveKeys.push(17);
-												if (e.altKey && !newActiveKeys.includes(18)) newActiveKeys.push(18);
-												if (e.shiftKey && !newActiveKeys.includes(16)) newActiveKeys.push(16);
-												
-												if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && !newActiveKeys.includes(e.keyCode)) {
-													newActiveKeys.push(e.keyCode);
-												}
-												
-												activeKeysRef.current = newActiveKeys;
-											};
+											const newActiveKeys = [...activeKeysRef.current];
 											
-											const handleKeyUp = (e: KeyboardEvent) => {
-												// Cancel if Escape key is pressed
-												if (e.keyCode === 27) {
-													window.removeEventListener('keydown', handleKeyDown);
-													window.removeEventListener('keyup', handleKeyUp);
-													setIsCapturingKey(null);
-													activeKeysRef.current = [];
-													return;
-												}
-												
-												if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && activeKeysRef.current.length > 0) {
-													const updatedKeybindings = [...settings.keybindings];
-													updatedKeybindings[index] = {
-														...updatedKeybindings[index],
-														keys: [...activeKeysRef.current]
-													};
-													updateSettings({ keybindings: updatedKeybindings });
-													
-													window.removeEventListener('keydown', handleKeyDown);
-													window.removeEventListener('keyup', handleKeyUp);
-													setIsCapturingKey(null);
-													activeKeysRef.current = [];
-												}
-											};
+											if (e.ctrlKey && !newActiveKeys.includes(17)) newActiveKeys.push(17);
+											if (e.altKey && !newActiveKeys.includes(18)) newActiveKeys.push(18);
+											if (e.shiftKey && !newActiveKeys.includes(16)) newActiveKeys.push(16);
 											
-											window.addEventListener('keydown', handleKeyDown);
-											window.addEventListener('keyup', handleKeyUp);
-										}}
-									>
-										{isCapturingKey === index ? 'Press a key combination...' : (
-											<span>
-												{keybind.keys.map((key, keyIndex) => {
-													// Format special keys
-													const isLastKey = keyIndex === keybind.keys.length - 1;
-													
-													// Check if this is a modifier key
-													let keyName = '';
-													if (key === 17) keyName = 'CTRL';
-													else if (key === 18) keyName = 'ALT';
-													else if (key === 16) keyName = 'SHIFT';
-													else keyName = getKeyDisplayName(key);
-													
-													return (
-														<span key={keyIndex} className="font-bold">
-															{keyName}{!isLastKey && ' + '}
-														</span>
-													);
-												})}
-											</span>
-										)}
-									</button>
-									<span className="text-xs text-gray-500">(Click to change key combination)</span>
-								</div>
+											if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && !newActiveKeys.includes(e.keyCode)) {
+												newActiveKeys.push(e.keyCode);
+											}
+											
+											activeKeysRef.current = newActiveKeys;
+										};
+										
+										const handleKeyUp = (e: KeyboardEvent) => {
+											// Cancel if Escape key is pressed
+											if (e.keyCode === 27) {
+												window.removeEventListener('keydown', handleKeyDown);
+												window.removeEventListener('keyup', handleKeyUp);
+												setIsCapturingKey(null);
+												activeKeysRef.current = [];
+												return;
+											}
+											
+											if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && activeKeysRef.current.length > 0) {
+												const updatedKeybindings = [...settings.keybindings];
+												updatedKeybindings[index] = {
+													...updatedKeybindings[index],
+													keys: [...activeKeysRef.current]
+												};
+												updateSettings({ keybindings: updatedKeybindings });
+												
+												window.removeEventListener('keydown', handleKeyDown);
+												window.removeEventListener('keyup', handleKeyUp);
+												setIsCapturingKey(null);
+												activeKeysRef.current = [];
+											}
+										};
+										
+										window.addEventListener('keydown', handleKeyDown);
+										window.addEventListener('keyup', handleKeyUp);
+									}}
+								>
+									{isCapturingKey === index ? 'Press a key combination...' : (
+										<span>
+											{keybind.keys.map((key, keyIndex) => {
+												// Format special keys
+												const isLastKey = keyIndex === keybind.keys.length - 1;
+												
+												// Check if this is a modifier key
+												let keyName = '';
+												if (key === 17) keyName = 'CTRL';
+												else if (key === 18) keyName = 'ALT';
+												else if (key === 16) keyName = 'SHIFT';
+												else keyName = getKeyDisplayName(key);
+												
+												return (
+													<span key={keyIndex} className="font-bold">
+														{keyName}{!isLastKey && ' + '}
+													</span>
+												);
+											})}
+										</span>
+									)}
+								</button>
 							</div>
 						</div>
 					))}
@@ -1229,13 +1230,15 @@ export default function Settings() {
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
 				<h2 className="text-xl font-semibold mb-4">Game Lists</h2>
 				<GameListManager listType="whitelist" />
-				<GameListManager listType="blacklist" />
+				<div className="mt-4">
+					<GameListManager listType="blacklist" />
+				</div>
 			</div>
 
 			{/* Advanced Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
-				<div className="bg-base-100 p-4 rounded-lg space-y-4 border border-custom">
+				<div className="bg-base-200 p-4 rounded-lg space-y-4 border border-custom">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<span className="font-medium">Update Channel</span>
@@ -1243,7 +1246,7 @@ export default function Settings() {
 						<div className="flex items-center gap-2">
 						<button
 							onClick={() => openReleaseNotesModal(null)}
-							className="btn btn-sm btn-secondary text-gray-400 hover:text-gray-300 flex items-center justify-center"
+							className="btn btn-sm btn-secondary border-custom hover:border-custom text-gray-400 hover:text-gray-300 flex items-center justify-center"
 						>
 							<SiGithub className="text-lg flex-shrink-0" aria-hidden="true" />
 							<span className="inline-block">View Release Notes</span>
@@ -1262,7 +1265,7 @@ export default function Settings() {
 								name="receiveBetaUpdates"
 								value={settings.receiveBetaUpdates ? "beta" : "stable"}
 								onChange={(e) => updateSettings({receiveBetaUpdates: e.target.value === "beta"})}
-								className="select select-bordered select-sm w-32"
+								className="select select-bordered select-sm w-32 bg-base-200"
 							>
 								<option value="stable">Stable</option>
 								<option value="beta">Beta</option>
@@ -1279,7 +1282,7 @@ export default function Settings() {
 								onChange={(e) => updateSettings({runOnStartup: e.target.checked})}
 								className="checkbox checkbox-primary"
 							/>
-							<span className="font-medium">Run on Startup</span>
+							<span className="font-medium cursor-pointer">Run on Startup</span>
 						</label>
 					</div>
 
@@ -1292,8 +1295,8 @@ export default function Settings() {
 								onChange={(e) => updateSettings({enableDisplayRecording: e.target.checked})}
 								className="checkbox checkbox-primary"
 							/>
-							<span className="font-medium">Enable Display Recording</span>
-							<span className="badge badge-warning badge-sm">Alpha</span>
+							<span className="font-medium cursor-pointer">Enable Display Recording</span>
+							<span className="badge badge-warning badge-sm">Beta</span>
 						</label>
 					</div>
 					<AnimatePresence>
@@ -1322,7 +1325,7 @@ export default function Settings() {
 									<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
 									<motion.span>
 										This feature enables recording of games that do not support game hook.
-										<strong className="text-amber-300"> WARNING: This WILL cause lag</strong> during gameplay as it uses display capture instead of game capture.
+										This could cause lag during gameplay as it uses display capture instead of game capture.
 										For more details, see <a href="https://github.com/Segergren/Segra/issues/1" target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 underline">GitHub Issue #1</a>.
 									</motion.span>
 								</div>
@@ -1337,7 +1340,7 @@ export default function Settings() {
 				<div className="flex flex-col items-center gap-2">
 					<button
 						onClick={() => sendMessageToBackend('OpenLogsLocation')}
-						className="btn btn-sm btn-secondary text-gray-400 hover:text-gray-300 flex items-center justify-center"
+						className="btn btn-sm btn-secondary border-custom hover:border-custom text-gray-400 hover:text-gray-300 flex items-center justify-center"
 					>
 						<MdOutlineDescription className="text-lg flex-shrink-0" aria-hidden="true" />
 						<span className="inline-block">View Logs</span>

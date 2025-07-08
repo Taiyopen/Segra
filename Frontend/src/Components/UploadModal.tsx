@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Content } from '../Models/types';
-import { useSettings } from '../Context/SettingsContext';
+import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
 import { useAuth } from '../Hooks/useAuth.tsx';
 import { MdOutlineFileUpload } from 'react-icons/md';
 
@@ -11,10 +11,11 @@ interface UploadModalProps {
 }
 
 export default function UploadModal({ video, onUpload, onClose }: UploadModalProps) {
-  const {contentFolder} = useSettings();
+  const {contentFolder, clipShowInBrowserAfterUpload} = useSettings();
+  const updateSettings = useSettingsUpdater();
   const { session } = useAuth();
   const [title, setTitle] = useState(video.title || '');
-  const [visibility, setVisibility] = useState<'Public' | 'Unlisted'>('Public');
+  const [visibility] = useState<'Public' | 'Unlisted'>('Public');
   const [titleError, setTitleError] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,68 +48,66 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
 
   return (
     <>
-      <div className="modal-header">
-        <button className="btn btn-sm btn-circle btn-ghost absolute right-4 top-2" onClick={onClose}>✕</button>
-      </div>
-      <div className="modal-body">
-        <div className="w-full aspect-video mb-4 mt-4">
-          <video 
-            src={getVideoPath()}
-            autoPlay
-            muted
-            loop
-            className="w-full h-full object-contain bg-base-300 rounded-lg"
-          />
+      <div className="bg-base-300">
+        <div className="modal-header">
+          <button className="btn btn-sm btn-circle btn-ghost absolute right-4 top-2" onClick={onClose}>✕</button>
         </div>
-        
-        <div className="form-control w-full">
-          <label className="label">
-            <span className="label-text">Title</span>
-          </label>
-          <input 
-            ref={titleInputRef}
-            type="text" 
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              setTitleError(false);
-            }}
-            onKeyDown={handleKeyPress}
-            className={`input input-bordered w-full ${titleError ? 'input-error' : ''}`}
-          />
-          {titleError && (
+        <div className="modal-body">
+          <div className="w-full aspect-video mb-4 mt-4">
+            <video 
+              src={getVideoPath()}
+              autoPlay
+              muted
+              loop
+              className="w-full h-full object-contain bg-base-300 rounded-lg"
+            />
+          </div>
+          
+          <div className="form-control w-full">
             <label className="label">
-              <span className="label-text-alt text-error">Title is required</span>
+              <span className="label-text">Title</span>
             </label>
-          )}
-        </div>
+            <input 
+              ref={titleInputRef}
+              type="text" 
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setTitleError(false);
+              }}
+              onKeyDown={handleKeyPress}
+              className={`input input-bordered bg-base-300 w-full ${titleError ? 'input-error' : ''}`}
+            />
+            {titleError && (
+              <label className="label">
+                <span className="label-text-alt text-error">Title is required</span>
+              </label>
+            )}
+          </div>
+          
+          <div className="form-control mt-2">
+            <label className="label cursor-pointer justify-start gap-2">
+              <input 
+                type="checkbox" 
+                className="checkbox checkbox-primary"
+                checked={clipShowInBrowserAfterUpload} 
+                onChange={(e) => updateSettings({ clipShowInBrowserAfterUpload: e.target.checked })}
+              />
+              <span className="label-text">Open in browser after upload</span>
+            </label>
+          </div>
 
-        <div className="form-control w-full mt-4">
-          <label className="label">
-            <span className="label-text">Visibility</span>
-          </label>
-          <select 
-            className="select select-bordered w-full"
-            value={visibility}
-            onChange={(e) => setVisibility(e.target.value as 'Public' | 'Unlisted')}
-            disabled={true}
+        </div>
+        <div className="modal-action mt-6">
+          <button 
+            className="btn btn-secondary bg-base-300 h-10 text-gray-400 border-primary hover:text-accent hover:border-primary flex items-center gap-1 w-full"
+            onClick={handleUpload}
+            disabled={session === null}
           >
-            <option value="Public">Coming soon</option>
-            <option value="Public">Public</option>
-            <option value="Unlisted">Unlisted</option>
-          </select>
+            <MdOutlineFileUpload className="w-5 h-5" />
+            {session === null ? 'Login to upload' : 'Upload'}
+          </button>
         </div>
-
-      </div>
-      <div className="modal-action mt-6">
-        <button 
-          className="btn bg-base-100 h-10 text-gray-400 hover:text-accent hover:bg-base-100 hover:border-base-100 flex items-center gap-1 w-full"
-          onClick={handleUpload}
-          disabled={session === null}
-        >
-          <MdOutlineFileUpload className="w-5 h-5" />
-          {session === null ? 'Login to upload' : 'Upload'}
-        </button>
       </div>
     </>
   );
