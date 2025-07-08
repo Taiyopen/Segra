@@ -40,8 +40,8 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 	}, [recording?.startTime, preRecording]);
 
 	return (
-		<div className="mb-4 px-2">
-			<div className="bg-neutral border border-custom border-opacity-75 rounded-md px-3 py-3 cursor-default relative">
+		<div className="mb-2 px-2">
+			<div className="bg-base-300 border border-primary border-opacity-75 rounded-md px-3 py-3 cursor-default relative">
 				{/* Background image with fade effect */}
 				<div className="absolute top-1/2 right-0.5 w-[25%] h-[80%] -translate-y-1/2 z-0 opacity-20">
 					<div className="absolute inset-0" style={{

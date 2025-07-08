@@ -56,28 +56,28 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 					}}
 				/>
 				<button
-					className={`btn btn-secondary ${selectedMenu === 'Full Sessions' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Full Sessions' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:text-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Full Sessions')}
 				>
 					<MdOutlinePlayCircleOutline className="w-6 h-6" />
 					Full Sessions
 				</button>
 				<button
-					className={`btn btn-secondary ${selectedMenu === 'Replay Buffer' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Replay Buffer' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:text-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Replay Buffer')}
 				>
 					<MdReplay30 className="w-6 h-6" />
 					Replay Buffer
 				</button>
 				<button
-					className={`btn btn-secondary ${selectedMenu === 'Clips' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Clips' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:text-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Clips')}
 				>
 					<MdOutlineContentCut className="w-6 h-6" />
 					Clips
 				</button>
 				<button
-					className={`btn btn-secondary ${selectedMenu === 'Highlights' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Highlights' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:text-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Highlights')}
 				>
 					<div className="relative w-6 h-6 flex items-center justify-center">
@@ -88,7 +88,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 					<span className={hasActiveAiHighlights ? 'text-purple-400 animate-pulse' : ''}>Highlights</span>
 				</button>
 				<button
-					className={`btn btn-secondary ${selectedMenu === 'Settings' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Settings' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:text-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Settings')}
 				>
 					<MdOutlineSettings className="w-6 h-6" />
@@ -162,7 +162,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 				<div className="flex flex-col items-center">
 					{settings.state.recording ? (
 						<button
-							className="btn btn-secondary border-primary border-opacity-75 hover:border-primary hover:border-opacity-75 w-full"
+							className="btn btn-secondary border-primary border-opacity-75 hover:border-primary disabled:border-custom hover:text-accent hover:border-opacity-75 w-full"
 							disabled={!settings.state.hasLoadedObs || (recording && recording.endTime !== null)}
 							onClick={() => sendMessageToBackend('StopRecording')}
 						>
@@ -170,7 +170,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 						</button>
 					) : (
 						<button
-							className="btn btn-secondary border-primary border-opacity-75 hover:border-primary hover:border-opacity-75 w-full"
+							className="btn btn-secondary border-primary border-opacity-75 hover:border-primary disabled:border-custom hover:text-accent hover:border-opacity-75 w-full"
 							disabled={!settings.state.hasLoadedObs || settings.state.preRecording != null}
 							onClick={() => sendMessageToBackend('StartRecording')}
 						>
