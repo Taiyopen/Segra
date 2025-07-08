@@ -156,12 +156,12 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
                 </tr>
               ) : (
                 gameList.map((game, index) => (
-                  <tr key={index} className="hover:bg-base-200 border-b border-base-200">
+                  <tr key={index} className="border-b border-base-200">
                     <td className="font-medium">{game.name}</td>
                     <td className="text-xs text-gray-400 truncate max-w-xs">{game.path}</td>
                     <td>
                       <button 
-                        className="btn btn-sm btn-error" 
+                        className="btn btn-sm btn-secondary border-custom hover:border-custom" 
                         onClick={() => handleRemoveGame(game)}
                       >
                         Remove
