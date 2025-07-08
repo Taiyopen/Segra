@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Content } from '../Models/types';
-import { useSettings } from '../Context/SettingsContext';
+import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
 import { useAuth } from '../Hooks/useAuth.tsx';
 import { MdOutlineFileUpload } from 'react-icons/md';
 
@@ -11,7 +11,8 @@ interface UploadModalProps {
 }
 
 export default function UploadModal({ video, onUpload, onClose }: UploadModalProps) {
-  const {contentFolder} = useSettings();
+  const {contentFolder, clipShowInBrowserAfterUpload} = useSettings();
+  const updateSettings = useSettingsUpdater();
   const { session } = useAuth();
   const [title, setTitle] = useState(video.title || '');
   const [visibility] = useState<'Public' | 'Unlisted'>('Public');
@@ -82,6 +83,18 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
                 <span className="label-text-alt text-error">Title is required</span>
               </label>
             )}
+          </div>
+          
+          <div className="form-control mt-2">
+            <label className="label cursor-pointer justify-start gap-2">
+              <input 
+                type="checkbox" 
+                className="checkbox checkbox-primary"
+                checked={clipShowInBrowserAfterUpload} 
+                onChange={(e) => updateSettings({ clipShowInBrowserAfterUpload: e.target.checked })}
+              />
+              <span className="label-text">Open in browser after upload</span>
+            </label>
           </div>
 
         </div>

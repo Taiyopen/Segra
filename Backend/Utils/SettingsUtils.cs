@@ -234,6 +234,14 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update ClipShowInBrowserAfterUpload
+            if (settings.ClipShowInBrowserAfterUpload != updatedSettings.ClipShowInBrowserAfterUpload)
+            {
+                Log.Information($"ClipShowInBrowserAfterUpload changed from '{settings.ClipShowInBrowserAfterUpload}' to '{updatedSettings.ClipShowInBrowserAfterUpload}'");
+                settings.ClipShowInBrowserAfterUpload = updatedSettings.ClipShowInBrowserAfterUpload;
+                hasChanges = true;
+            }
+
             // Update ClipQualityCrf
             if (settings.ClipQualityCrf != updatedSettings.ClipQualityCrf)
             {

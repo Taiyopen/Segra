@@ -122,6 +122,7 @@ export interface Settings {
 	replayBufferDuration: number; // in seconds
 	replayBufferMaxSize: number; // in MB
 	clipClearSelectionsAfterCreatingClip: boolean;
+	clipShowInBrowserAfterUpload: boolean; // Open browser after upload
 	clipEncoder: ClipEncoder;
 	clipQualityCrf: number; // 17 (High) to 28 (Low)
 	clipCodec: ClipCodec;
@@ -167,6 +168,7 @@ export const initialSettings: Settings = {
 	replayBufferDuration: 30, // 30 seconds default
 	replayBufferMaxSize: 500, // 500 MB default
 	clipClearSelectionsAfterCreatingClip: false,
+	clipShowInBrowserAfterUpload: false, // Default to not opening browser after upload
 	clipEncoder: 'cpu',
 	clipQualityCrf: 23,
 	clipCodec: 'h264',

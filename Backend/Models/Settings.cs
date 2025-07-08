@@ -40,6 +40,7 @@ namespace Segra.Backend.Models
         private State _state = new State();
         private Auth _auth = new Auth();
         private bool _clipClearSelectionsAfterCreatingClip = false;
+        private bool _clipShowInBrowserAfterUpload = false;
         private string _clipEncoder = "cpu";
         private int _clipQualityCrf = 23;
         private string _clipCodec = "h264";
@@ -426,6 +427,19 @@ namespace Segra.Backend.Models
                 if (_clipClearSelectionsAfterCreatingClip != value)
                 {
                     _clipClearSelectionsAfterCreatingClip = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("clipShowInBrowserAfterUpload")]
+        public bool ClipShowInBrowserAfterUpload
+        {
+            get => _clipShowInBrowserAfterUpload;
+            set
+            {
+                if (_clipShowInBrowserAfterUpload != value)
+                {
+                    _clipShowInBrowserAfterUpload = value;
                 }
             }
         }
