@@ -139,7 +139,7 @@ namespace Segra.Backend.Utils
                                 return;
                             }
                             
-                            await Task.Run(() => OBSUtils.StartRecording());
+                            await Task.Run(() => OBSUtils.StartRecording(startManually: true));
                             break;
                         case "StopRecording":
                             await Task.Run(OBSUtils.StopRecording);

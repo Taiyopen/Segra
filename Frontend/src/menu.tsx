@@ -163,7 +163,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 					{settings.state.recording ? (
 						<button
 							className="btn btn-secondary border-primary border-opacity-75 hover:border-primary hover:border-opacity-75 w-full"
-							disabled={!settings.state.hasLoadedObs}
+							disabled={!settings.state.hasLoadedObs || (recording && recording.endTime !== null)}
 							onClick={() => sendMessageToBackend('StopRecording')}
 						>
 							Stop Recording
@@ -174,7 +174,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 							disabled={!settings.state.hasLoadedObs || settings.state.preRecording != null}
 							onClick={() => sendMessageToBackend('StartRecording')}
 						>
-							Start Recording
+							Start Manually
 						</button>
 					)}
 				</div>

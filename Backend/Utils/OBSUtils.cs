@@ -307,8 +307,8 @@ namespace Segra.Backend.Utils
             return obs_reset_video(ref videoInfo) == 0; // Returns true if successful
         }
 
-        public static bool StartRecording(string name = "Unknown", string exePath = "Unknown")
-        {   
+        public static bool StartRecording(string name = "Manual Recording", string exePath = "Unknown", bool startManually = false)
+        {
             Settings.Instance.State.PreRecording = new PreRecording { Game = name, Status = "Waiting to start" };
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
 
@@ -359,11 +359,14 @@ namespace Segra.Backend.Utils
             signal_handler_connect(signalHandler, "hooked", hookedCallback, IntPtr.Zero);
             signal_handler_connect(signalHandler, "unhooked", unhookedCallback, IntPtr.Zero);
 
-            bool success = WaitForGameToStart();
-            if (!success)
+            if (!startManually)
             {
-                StopRecording();
-                return false;
+                bool success = WaitForGameToStart();
+                if (!success)
+                {
+                    StopRecording();
+                    return false;
+                }
             }
 
             // Reset video settings to set correct output width for games with custom resolution
