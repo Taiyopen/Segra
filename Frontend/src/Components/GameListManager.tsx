@@ -72,7 +72,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
   };
 
   return (
-    <div className="bg-base-100 rounded-lg p-5 mb-6 shadow-md border border-custom">
+    <div>
       <div className="mb-5">
         <h2 className="text-xl font-bold">{listTitle}</h2>
       </div>
@@ -87,7 +87,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
               </label>
               <input 
                 type="text" 
-                className="input input-bordered w-full" 
+                className="input input-bordered w-full bg-base-200" 
                 value={newGameName}
                 onChange={(e) => setNewGameName(e.target.value)}
                 placeholder="Enter game name"
@@ -100,13 +100,13 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  className="input input-bordered w-full" 
+                  className="input input-bordered w-full bg-base-200" 
                   value={newGamePath}
                   onChange={(e) => setNewGamePath(e.target.value)}
                   placeholder="Enter game executable path"
                 />
                 <button 
-                  className="btn btn-neutral border-custom border-opacity-75 hover:border-custom hover:bg-base-200"
+                  className="btn btn-secondary border-custom border-opacity-75 hover:border-custom"
                   onClick={handleSelectExecutable}
                   disabled={isSelectingFile}
                 >
@@ -120,13 +120,13 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
             </div>
             <div className="flex justify-end gap-2 mt-2">
               <button 
-                className="btn btn-sm btn-ghost" 
+                className="btn btn-sm btn-secondary border-custom hover:border-custom" 
                 onClick={() => setIsAdding(false)}
               >
                 Cancel
               </button>
               <button 
-                className="btn btn-sm btn-primary" 
+                className="btn btn-sm btn-secondary border-custom hover:border-custom" 
                 onClick={handleAddGame}
                 disabled={!newGameName.trim() || !newGamePath.trim()}
               >
@@ -138,9 +138,9 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
       )}
 
       <div className="mb-4">
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <div className="overflow-x-auto rounded-lg border border-custom">
           <table className="table w-full">
-            <thead className="bg-base-300">
+            <thead className="bg-base-200">
               <tr>
                 <th className="font-bold text-base-content w-1/3">Game Name</th>
                 <th className="font-bold text-base-content w-1/2">Path</th>
@@ -178,7 +178,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
       {!isAdding && (
         <div className="flex justify-start mt-5">
           <button 
-            className="btn btn-sm btn-primary" 
+            className="btn btn-sm btn-secondary border-custom hover:border-custom" 
             onClick={handleSelectExecutable}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-1">

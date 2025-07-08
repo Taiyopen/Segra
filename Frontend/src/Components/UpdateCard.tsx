@@ -55,13 +55,13 @@ export default function UpdateCard() {
         <div className="flex flex-col gap-2">
           <button 
             disabled={updateInfo.progress !== 100}
-            className="btn btn-sm btn-neutral no-animation border-custom border-opacity-75 hover:border-custom hover:border-opacity-75 hover:bg-base-200"
+            className="btn btn-sm btn-secondary no-animation border-custom border-opacity-75 hover:border-custom hover:border-opacity-75 hover:bg-base-200"
             onClick={handleInstallClick}
           >
             <FaDownload />Install Now
           </button>
           <button
-            className="btn btn-sm btn-neutral no-animation border-custom border-opacity-75 hover:border-custom hover:border-opacity-75 hover:bg-base-200"
+            className="btn btn-sm btn-secondary no-animation border-custom border-opacity-75 hover:border-custom hover:border-opacity-75 hover:bg-base-200"
             onClick={() => openReleaseNotesModal(__APP_VERSION__)}
           >
             <SiGithub />Release Notes

@@ -39,7 +39,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 	};
 
 	return (
-		<div className="bg-base-300 w-56 h-screen flex flex-col">
+		<div className="bg-base-300 w-56 h-screen flex flex-col border-r border-custom">
 			{/* Menu Items */}
 			<div className="flex flex-col space-y-2 px-4 text-left py-2 relative">  {/* Added relative positioning */}
 				{/* Selection indicator rectangle */}
@@ -56,28 +56,28 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 					}}
 				/>
 				<button
-					className={`btn ${selectedMenu === 'Full Sessions' ? 'bg-neutral' : 'btn-neutral'} w-full justify-start border-custom hover:border-custom hover:border-opacity-75 hover:bg-base-200 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Full Sessions' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Full Sessions')}
 				>
 					<MdOutlinePlayCircleOutline className="w-6 h-6" />
 					Full Sessions
 				</button>
 				<button
-					className={`btn ${selectedMenu === 'Replay Buffer' ? 'bg-neutral' : 'btn-neutral'} w-full justify-start border-custom hover:border-custom hover:border-opacity-75 hover:bg-base-200 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Replay Buffer' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Replay Buffer')}
 				>
 					<MdReplay30 className="w-6 h-6" />
 					Replay Buffer
 				</button>
 				<button
-					className={`btn ${selectedMenu === 'Clips' ? 'bg-neutral' : 'btn-neutral'} w-full justify-start border-custom hover:border-custom hover:border-opacity-75 hover:bg-base-200 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Clips' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Clips')}
 				>
 					<MdOutlineContentCut className="w-6 h-6" />
 					Clips
 				</button>
 				<button
-					className={`btn ${selectedMenu === 'Highlights' ? 'bg-neutral' : 'btn-neutral'} w-full justify-start border-custom hover:border-custom hover:border-opacity-75 hover:bg-base-200 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Highlights' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Highlights')}
 				>
 					<div className="relative w-6 h-6 flex items-center justify-center">
@@ -88,7 +88,7 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 					<span className={hasActiveAiHighlights ? 'text-purple-400 animate-pulse' : ''}>Highlights</span>
 				</button>
 				<button
-					className={`btn ${selectedMenu === 'Settings' ? 'bg-neutral' : 'btn-neutral'} w-full justify-start border-custom hover:border-custom hover:border-opacity-75 hover:bg-base-200 py-3`}
+					className={`btn btn-secondary ${selectedMenu === 'Settings' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-primary hover:border-primary hover:border-opacity-75 py-3`}
 					onMouseDown={() => onSelectMenu('Settings')}
 				>
 					<MdOutlineSettings className="w-6 h-6" />
@@ -159,21 +159,24 @@ export default function Menu({selectedMenu, onSelectMenu}: MenuProps) {
 
 			{/* Start and Stop Buttons */}
 			<div className="mb-4 px-4">
-				<div className="flex flex-col items-center space-y-2">
-					<button
-						className="btn btn-neutral border-custom border-opacity-75 hover:border-custom hover:bg-base-200 w-full"
-						disabled={settings.state.recording != null || !settings.state.hasLoadedObs || settings.state.preRecording != null}
-						onClick={() => sendMessageToBackend('StartRecording')}
-					>
-						Start
-					</button>
-					<button
-						className="btn btn-neutral border-custom border-opacity-75 hover:border-custom hover:bg-base-200 w-full"
-						disabled={!settings.state.recording || !settings.state.hasLoadedObs}
-						onClick={() => sendMessageToBackend('StopRecording')}
-					>
-						Stop
-					</button>
+				<div className="flex flex-col items-center">
+					{settings.state.recording ? (
+						<button
+							className="btn btn-secondary border-primary border-opacity-75 hover:border-primary hover:border-opacity-75 w-full"
+							disabled={!settings.state.hasLoadedObs}
+							onClick={() => sendMessageToBackend('StopRecording')}
+						>
+							Stop Recording
+						</button>
+					) : (
+						<button
+							className="btn btn-secondary border-primary border-opacity-75 hover:border-primary hover:border-opacity-75 w-full"
+							disabled={!settings.state.hasLoadedObs || settings.state.preRecording != null}
+							onClick={() => sendMessageToBackend('StartRecording')}
+						>
+							Start Recording
+						</button>
+					)}
 				</div>
 			</div>
 		</div>
