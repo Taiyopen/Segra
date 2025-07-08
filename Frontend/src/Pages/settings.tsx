@@ -498,7 +498,7 @@ export default function Settings() {
 				<h2 className="text-xl font-semibold mb-4">Capture Mode</h2>
 				<div className="grid grid-cols-2 gap-6">
 					<div 
-						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primaryYellow' : 'border-custom'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primaryYellow' : 'border-primary'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
 						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Session' })}
 					>
 						<div className="text-lg font-semibold mb-3">Session Recording</div>
@@ -515,7 +515,7 @@ export default function Settings() {
 						</div>
 					</div>
 					<div 
-						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primaryYellow' : 'border-custom'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primaryYellow' : 'border-primary'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
 						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Buffer'})}
 					>
 						<div className="flex items-center gap-2 mb-3">
@@ -543,7 +543,7 @@ export default function Settings() {
 				<AnimatePresence>
 					{settings.recordingMode === 'Buffer' && (
 						<motion.div 
-							className="bg-base-200 rounded-lg border border-custom"
+							className="bg-base-300 rounded-lg border border-custom"
 							initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
 							animate={{ 
 								opacity: 1, 
@@ -589,7 +589,7 @@ export default function Settings() {
 											min="5"
 											max="600"
 											disabled={settings.state.recording != null || settings.state.preRecording != null}
-											className={`input input-bordered disabled:bg-base-200 disabled:input-bordered disabled:opacity-80`}
+											className={`input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80`}
 										/>
 										<div className="help-text-container">
 											<span className="text-xs text-base-content text-opacity-60 mt-1">How many seconds of gameplay to keep in memory</span>
@@ -610,7 +610,7 @@ export default function Settings() {
 											min="100"
 											max="5000"
 											disabled={settings.state.recording != null || settings.state.preRecording != null}
-											className="input input-bordered disabled:bg-base-200 disabled:input-bordered disabled:opacity-80"
+											className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80"
 										/>
 										<div className="help-text-container">
 											<span className="text-xs text-base-content text-opacity-60 mt-1">Maximum buffer size in megabytes</span>
@@ -952,7 +952,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Input Devices</span>
 						</label>
-						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto border border-custom">
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto border border-primary">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableInputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1066,7 +1066,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Output Devices</span>
 						</label>
-						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto border border-custom">
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto border border-primary">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableOutputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1127,7 +1127,7 @@ export default function Settings() {
 				<div className="space-y-2">
 					{settings.keybindings.map((keybind, index) => (
 						<div key={index} className="flex items-center justify-between">
-							<div className="flex items-center justify-between bg-base-200 rounded-lg p-2 px-3 border border-custom min-w-[50%]">
+							<div className="flex items-center justify-between bg-base-200 rounded-lg p-2 px-3 border border-primary min-w-[50%]">
 								<label className="flex items-center gap-2 cursor-pointer">
 									<div className="flex items-center gap-2 mr-2">
 										<input

@@ -364,6 +364,9 @@ namespace Segra.Backend.Utils
                 bool success = WaitForGameToStart();
                 if (!success)
                 {
+                    Settings.Instance.State.Recording = null;
+                    Settings.Instance.State.PreRecording = null;
+                    _ = MessageUtils.SendSettingsToFrontend("Game did not start within the timeout period");
                     StopRecording();
                     return false;
                 }
@@ -536,8 +539,11 @@ namespace Segra.Backend.Utils
             fileName = hookedExecutableFileName ?? fileName;
             
             if(!Settings.Instance.EnableDisplayRecording) {
-                bool hooked = WaitUntilGameCaptureHooks();
+                bool hooked = WaitUntilGameCaptureHooks(startManually ? 90000 : 10000);
                 if(!hooked) {
+                    Settings.Instance.State.Recording = null;
+                    Settings.Instance.State.PreRecording = null;
+                    _ = MessageUtils.SendSettingsToFrontend("Game did not hook within the timeout period");
                     StopRecording();
                     return false;
                 }
@@ -696,6 +702,7 @@ namespace Segra.Backend.Utils
                 DisposeOutput();
                 DisposeSources();
                 DisposeEncoders();
+                Settings.Instance.State.Recording = null;
                 Settings.Instance.State.PreRecording = null;
             }
 
@@ -780,7 +787,7 @@ namespace Segra.Backend.Utils
                 Log.Information("PreRecording Status: {PreRecordingStatus}", Settings.Instance.State.PreRecording?.Status);
                 if (elapsed >= timeoutMs)
                 {
-                    Log.Error("Game Capture did not hook within {Seconds} seconds.", timeoutMs / 1000);
+                    Log.Warning("Game Capture did not hook within {Seconds} seconds.", timeoutMs / 1000);
                     return false;
                 }
             }
@@ -799,7 +806,7 @@ namespace Segra.Backend.Utils
                 elapsed += step;
                 if (elapsed >= timeoutMs)
                 {
-                    Log.Error("Game Capture did not hook within {Seconds} seconds.", timeoutMs / 1000);
+                    Log.Warning("Game Capture did not hook within {Seconds} seconds.", timeoutMs / 1000);
                     return false;
                 }
             }

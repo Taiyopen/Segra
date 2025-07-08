@@ -138,7 +138,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
       )}
 
       <div className="mb-4">
-        <div className="overflow-x-auto rounded-lg border border-custom">
+        <div className="overflow-x-auto rounded-lg border border-primary">
           <table className="table w-full">
             <thead className="bg-base-200">
               <tr>
@@ -178,7 +178,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
       {!isAdding && (
         <div className="flex justify-start mt-5">
           <button 
-            className="btn btn-sm btn-secondary border-custom hover:border-custom" 
+            className="btn btn-sm btn-secondary border-primary hover:border-primary" 
             onClick={handleSelectExecutable}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-1">
