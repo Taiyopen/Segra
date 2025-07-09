@@ -631,6 +631,7 @@
   { "name": "Five Nights at Freddy's", "exe": "Five Nights at Freddys/FiveNightsAtFreddys.exe" },
   { "name": "Five Nights At Freddy's: Secret of the Mimic", "exe": "Five Nights at Freddys Secret of the Mimic/fnafMimic/Binaries/Win64/fnafMimic-Win64-Shipping.exe" },
   { "name": "Five Nights at Freddy's: Security Breach", "exe": "Five Nights at Freddys Security Breach/fnaf9/Binaries/Win64/fnaf9-Win64-Shipping.exe" },
+  { "name": "FiveM", "exe": "subprocess/FiveM_GTAProcess.exe" },
   { "name": "Flashback", "exe": "Flashback/Binaries/Win32/FLASHBACK.exe" },
   { "name": "Fling to the Finish", "exe": "Fling to the Finish/FlingToTheFinish.exe" },
   { "name": "Flock", "exe": "Flock/Flock.exe" },
