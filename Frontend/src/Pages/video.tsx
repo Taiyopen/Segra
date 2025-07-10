@@ -576,7 +576,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             transition: opacity 1000ms ease-in;
           }
           .timeline-container.waveform-ready ::part(canvases) {
-            opacity: 0.5;
+            opacity: 0.6;
           }
         `;
         document.head.appendChild(style);
@@ -1144,21 +1144,23 @@ export default function VideoComponent({ video }: { video: Content }) {
                                             <MdBookmarkAdd className="w-6 h-6" />
                                         </button>
                                     </div>
-                                    <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 join border border-custom">
-                                        {availableBookmarkTypes.map(type => (
-                                            <button
-                                                key={type}
-                                                onClick={() => toggleBookmarkType(type)}
-                                                className={`btn btn-sm btn-secondary border-none transition-colors join-item ${selectedBookmarkTypes.has(type)
-                                                        ? 'text-accent'
-                                                        : 'text-gray-400'}`}
-                                            >
-                                                {React.createElement(iconMapping[type] || IoSkull, {
-                                                    className: "w-6 h-6"
-                                                })}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    {availableBookmarkTypes.length > 0 && (
+                                        <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 join border border-custom">
+                                            {availableBookmarkTypes.map(type => (
+                                                <button
+                                                    key={type}
+                                                    onClick={() => toggleBookmarkType(type)}
+                                                    className={`btn btn-sm btn-secondary border-none transition-colors join-item ${selectedBookmarkTypes.has(type)
+                                                            ? 'text-accent'
+                                                            : 'text-gray-400'}`}
+                                                >
+                                                    {React.createElement(iconMapping[type] || IoSkull, {
+                                                        className: "w-6 h-6"
+                                                    })}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </>
                             )}
 
