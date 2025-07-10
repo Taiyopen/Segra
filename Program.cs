@@ -8,7 +8,6 @@ using Segra.Backend.Utils;
 using Serilog;
 using System.Diagnostics;
 using System.IO.Pipes;
-using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Velopack;
@@ -197,9 +196,6 @@ namespace Segra
                 AddNotifyIcon();
 
                 GameDetectionService.ForegroundHook.Start();
-
-                // Run migrations
-                MigrationUtils.AddAudioToContentIfMissing();
 
                 // Run the OBS Initializer in a separate thread and application to make sure someting on the main thread doesn't block
                 Task.Run(() => Application.Run(new OBSWindow()));
