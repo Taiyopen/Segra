@@ -198,6 +198,9 @@ namespace Segra
 
                 GameDetectionService.ForegroundHook.Start();
 
+                // Run migrations
+                MigrationUtils.AddAudioToContentIfMissing();
+
                 // Run the OBS Initializer in a separate thread and application to make sure someting on the main thread doesn't block
                 Task.Run(() => Application.Run(new OBSWindow()));
 

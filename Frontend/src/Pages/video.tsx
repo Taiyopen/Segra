@@ -14,6 +14,7 @@ import { FaGun, FaTrashCan } from "react-icons/fa6";
 import { MdAddBox, MdBookmark, MdBookmarkAdd, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload, MdVolumeUp, MdVolumeOff, MdVolumeMute, MdVolumeDown } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
+import WaveSurfer from 'wavesurfer.js'
 
 // Converts time string in format "HH:MM:SS.mmm" to seconds
 const timeStringToSeconds = (timeStr: string): number => {
@@ -54,6 +55,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     
     // Refs
     const videoRef = useRef<HTMLVideoElement>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const latestDraggedSelectionRef = useRef<Selection | null>(null);
@@ -541,6 +543,65 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, [dragState.id, resizingSelectionId]);
 
+    useEffect(() => {
+        if (!audioRef.current) return;
+        
+        const timelineContainer = document.getElementsByClassName('timeline-container')[0] as HTMLElement;
+        if (!timelineContainer) return;
+    
+        const ws = WaveSurfer.create({
+            container: timelineContainer,
+            waveColor: '#49515b',
+            progressColor: '#49515b',
+            cursorColor: 'transparent',
+            media: audioRef.current,
+            height: 49,
+            interact: false,
+            barHeight: 1.75,
+            barAlign: 'bottom',
+            barRadius: 2,
+        });
+
+        const style = document.createElement('style');
+        style.textContent = `
+          .timeline-container ::part(wrapper),
+          .timeline-container ::part(scroll),
+          .timeline-container ::part(canvases),
+          .timeline-container ::part(progress),
+          .timeline-container ::part(cursor) {
+            pointer-events: none !important;
+          }
+          .timeline-container ::part(canvases) {
+            opacity: 0;
+            transition: opacity 1000ms ease-in;
+          }
+          .timeline-container.waveform-ready ::part(canvases) {
+            opacity: 0.5;
+          }
+        `;
+        document.head.appendChild(style);
+    
+        ws.on('ready', () => {
+            console.log('WaveSurfer is ready');
+            
+            // Add a class to the timeline container to trigger the fade-in
+            setTimeout(() => {
+                timelineContainer.classList.add('waveform-ready');
+            }, 10);
+        });
+
+        ws.on('error', (error) => {
+            console.error('WaveSurfer error:', error);
+        });
+    
+        return () => {
+            ws.destroy();
+            if (document.head.contains(style)) {
+                document.head.removeChild(style);
+            }
+        };
+    }, []);
+
     // Handle selection resize operations
     const handleResizeStart = (
         e: React.MouseEvent<HTMLDivElement>,
@@ -599,6 +660,12 @@ export default function VideoComponent({ video }: { video: Content }) {
     // Get video source URL
     const getVideoPath = (): string => {
         const contentFileName = `${contentFolder}/${video.type.toLowerCase()}s/${video.fileName}.mp4`;
+        return `http://localhost:2222/api/content?input=${encodeURIComponent(contentFileName)}&type=${video.type.toLowerCase()}`;
+    };
+
+    // Get audio source URL
+    const getAudioPath = (): string => {
+        const contentFileName = `${contentFolder}/.audio/${video.type.toLowerCase()}s/${video.fileName}.mp3`;
         return `http://localhost:2222/api/content?input=${encodeURIComponent(contentFileName)}&type=${video.type.toLowerCase()}`;
     };
 
@@ -814,6 +881,12 @@ export default function VideoComponent({ video }: { video: Content }) {
                             onClick={togglePlayPause}
                             onMouseEnter={() => setIsVideoHovered(true)}
                             onMouseLeave={() => setIsVideoHovered(false)}
+                        />
+                        <audio
+                            className="relative rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]"
+                            src={getAudioPath()}
+                            ref={audioRef}
+                            hidden
                         />
                         
                         {/* Volume control that appears on hover */}

@@ -1,4 +1,4 @@
-﻿using Serilog;
+using Serilog;
 using System.Diagnostics;
 using System.Net;
 using System.Web;
@@ -206,7 +206,7 @@ namespace Segra.Backend.ContentServer
                 string type = query["type"] ?? "";
                 var response = context.Response;
 
-                if (File.Exists(fileName))
+                if (File.Exists(fileName) && fileName.EndsWith(".mp4"))
                 {
                     FileInfo fileInfo = new FileInfo(fileName);
                     long fileLength = fileInfo.Length;
@@ -232,6 +232,7 @@ namespace Segra.Backend.ContentServer
                     response.StatusCode = (int)HttpStatusCode.PartialContent;
                     response.Headers.Add("Accept-Ranges", "bytes");
                     response.Headers.Add("Content-Range", $"bytes {start}-{end}/{fileLength}");
+                    response.Headers.Add("Access-Control-Allow-Origin", "*");
                     response.ContentType = "video/mp4";
 
                     long contentLength = end - start + 1;
@@ -252,12 +253,24 @@ namespace Segra.Backend.ContentServer
                         }
                     }
                 }
+                else if (File.Exists(fileName) && fileName.EndsWith(".mp3"))
+                {
+                    response.StatusCode = (int)HttpStatusCode.OK;
+                    response.ContentType = "audio/mpeg";
+                    response.Headers.Add("Access-Control-Allow-Origin", "*");
+                    response.AddHeader("Content-Disposition", $"attachment; filename=\"{Path.GetFileName(fileName)}\"");
+                    
+                    // Return the file directly
+                    byte[] fileData = File.ReadAllBytes(fileName);
+                    response.ContentLength64 = fileData.Length;
+                    response.OutputStream.Write(fileData, 0, fileData.Length);
+                }
                 else
                 {
                     response.StatusCode = (int)HttpStatusCode.NotFound;
                     using (var writer = new StreamWriter(response.OutputStream))
                     {
-                        writer.Write("Video not found.");
+                        writer.Write("File not found.");
                     }
                 }
                 response.Close();

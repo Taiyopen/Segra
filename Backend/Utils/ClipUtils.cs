@@ -159,6 +159,7 @@ namespace Segra.Backend.Utils
             // Finalization
             ContentUtils.CreateMetadataFile(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip, selections.FirstOrDefault()?.Game!);
             ContentUtils.CreateThumbnail(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip);
+            _ = Task.Run(() => ContentUtils.CreateAudioFile(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip));
             SettingsUtils.LoadContentFromFolderIntoState();
             if (updateFrontend)
             {

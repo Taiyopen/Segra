@@ -127,6 +127,7 @@ namespace Segra.Backend.Utils
             // Create metadata for the buffer recording
             ContentUtils.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game);
             ContentUtils.CreateThumbnail(savedPath, Content.ContentType.Buffer);
+            Task.Run(() => ContentUtils.CreateAudioFile(savedPath, Content.ContentType.Buffer));
 
             // Reload content list to include the new buffer file
             SettingsUtils.LoadContentFromFolderIntoState(true);
@@ -684,7 +685,8 @@ namespace Segra.Backend.Utils
                 KeybindCaptureService.Stop();
 
                 ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording!.FilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
-                ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath, Content.ContentType.Session);
+                ContentUtils.CreateThumbnail(Settings.Instance.State.Recording!.FilePath, Content.ContentType.Session);
+                Task.Run(() => ContentUtils.CreateAudioFile(Settings.Instance.State.Recording!.FilePath, Content.ContentType.Session));
 
                 if (Settings.Instance.State.Recording != null)
                 {
