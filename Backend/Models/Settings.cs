@@ -27,6 +27,7 @@ namespace Segra.Backend.Models
         private List<DeviceSetting> _inputDevices = new List<DeviceSetting>();
         private List<DeviceSetting> _outputDevices = new List<DeviceSetting>();
         private bool _enableDisplayRecording = false;
+        private Display? _selectedDisplay = null;
         private bool _enableAi = true;
         private bool _autoGenerateHighlights = true;
         private bool _runOnStartup = false;
@@ -265,6 +266,16 @@ namespace Segra.Backend.Models
                     _enableDisplayRecording = value;
                     SendToFrontend("Enable display recording changed");
                 }
+            }
+        }
+
+        [JsonPropertyName("selectedDisplay")]
+        public Display? SelectedDisplay
+        {
+            get => _selectedDisplay;
+            set
+            {
+                _selectedDisplay = value;
             }
         }
 
@@ -637,6 +648,7 @@ namespace Segra.Backend.Models
 
         private List<AudioDevice> _inputDevices = [];
         private List<AudioDevice> _outputDevices = [];
+        private List<Display> _displays = [];
         private bool _isCheckingForUpdates = false;
 
         private AudioDeviceWatcher? _deviceWatcher;
@@ -647,6 +659,7 @@ namespace Segra.Backend.Models
             _deviceWatcher.DevicesChanged += UpdateAudioDevices;
 
             UpdateAudioDevices();
+            DisplayUtils.LoadAvailableMonitorsIntoState();
 
             bool hasNoSelectedAudioDevices = Settings.Instance.InputDevices.Count == 0 && Settings.Instance.OutputDevices.Count == 0;
             Log.Information($"Has no selected audio devices: {hasNoSelectedAudioDevices}");
@@ -757,6 +770,20 @@ namespace Segra.Backend.Models
                 {
                     _outputDevices = value;
                     SendToFrontend("State update: OutputDevices");
+                }
+            }
+        }
+
+        [JsonPropertyName("displays")]
+        public List<Display> Displays
+        {
+            get => _displays;
+            set
+            {
+                if (_displays != value)
+                {
+                    _displays = value;
+                    SendToFrontend("State update: Displays");
                 }
             }
         }

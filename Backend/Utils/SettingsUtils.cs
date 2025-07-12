@@ -418,6 +418,21 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update SelectedDisplay
+            if (settings.SelectedDisplay != updatedSettings.SelectedDisplay)
+            {
+                Log.Information($"SelectedDisplay changed from '{settings.SelectedDisplay}' to '{updatedSettings.SelectedDisplay}'");
+                settings.SelectedDisplay = updatedSettings.SelectedDisplay;
+
+                // Update display source if we have a recording and it is not using game hook
+                if (Settings.Instance.State.Recording != null && !Settings.Instance.State.Recording.IsUsingGameHook)
+                {
+                    OBSUtils.DisposeDisplaySource();
+                    OBSUtils.AddMonitorCapture();
+                }
+                hasChanges = true;
+            }
+
             // Update EnableAi
             if (settings.EnableAi != updatedSettings.EnableAi)
             {

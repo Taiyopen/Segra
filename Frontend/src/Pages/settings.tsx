@@ -766,6 +766,91 @@ export default function Settings() {
 						</select>
 					</div>
 				</div>
+				<div className="flex items-center justify-between mt-4">
+					<label className="flex items-center gap-2">
+						<input
+							type="checkbox"
+							name="enableDisplayRecording"
+							checked={settings.enableDisplayRecording}
+							onChange={(e) => updateSettings({enableDisplayRecording: e.target.checked})}
+							className="checkbox checkbox-primary checkbox-sm"
+						/>
+						<span className="font-medium cursor-pointer ml-2">Enable Display Recording</span>
+						<span className="badge badge-warning badge-sm">Beta</span>
+					</label>
+				</div>
+				<AnimatePresence>
+					{settings.enableDisplayRecording && (
+						<motion.div 
+						initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+						animate={{ 
+							opacity: 1, 
+							height: 'fit-content',
+							transition: { 
+								duration: 0.3,
+								height: { type: 'spring', stiffness: 300, damping: 30 }
+							}
+						}}
+						exit={{ 
+							opacity: 0,
+							height: 0,
+							transition: { 
+								duration: 0.2
+							}
+						}}
+							className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 text-amber-400 text-sm flex items-center"
+							key="display-recording-warning"
+						>
+							<div className="py-2 flex items-center w-full">
+								<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
+								<motion.span>
+									This feature enables recording of games that do not support game hook.
+									This could cause lag during gameplay as it uses display capture instead of game capture.
+									For more details, see <a href="https://github.com/Segergren/Segra/issues/1" target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 underline">GitHub Issue #1</a>.
+								</motion.span>
+							</div>
+						</motion.div>
+					)}
+				</AnimatePresence>
+				<AnimatePresence>
+					{settings.enableDisplayRecording && (
+						<motion.div 
+						initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+						animate={{ 
+							opacity: 1, 
+							height: 'fit-content',
+							transition: { 
+								duration: 0.3,
+								height: { type: 'spring', stiffness: 300, damping: 30 }
+							}
+						}}
+						exit={{ 
+							opacity: 0,
+							height: 0,
+							transition: { 
+								duration: 0.2
+							}
+						}}
+							
+							key="display-selection"
+						>
+							<div className="flex flex-col gap-1 mt-2">
+								<span className="font-medium">Monitor Selection</span>
+								<select
+									name="selectedDisplay"
+									value={settings.selectedDisplay?.deviceName || "Automatic"}
+									onChange={(e) => updateSettings({selectedDisplay: settings.state.displays.find(d => d.deviceName === e.target.value)})}
+									className="select select-bordered select-sm w-fit bg-base-200 focus:outline-none"
+								>
+									<option value={undefined}>Automatic</option>
+									{settings.state.displays.map((display) => (
+										<option key={display.deviceId} value={display.deviceName}>{display.deviceName}{display.isPrimary ? " (Primary)" : ""}</option>
+									))}
+								</select>
+							</div>
+						</motion.div>
+					)}
+				</AnimatePresence>
 			</div>
 
 			{/* Storage Settings */}
@@ -1285,53 +1370,6 @@ export default function Settings() {
 							<span className="font-medium cursor-pointer">Run on Startup</span>
 						</label>
 					</div>
-
-					<div className="flex items-center justify-between">
-						<label className="flex items-center gap-2">
-							<input
-								type="checkbox"
-								name="enableDisplayRecording"
-								checked={settings.enableDisplayRecording}
-								onChange={(e) => updateSettings({enableDisplayRecording: e.target.checked})}
-								className="checkbox checkbox-primary"
-							/>
-							<span className="font-medium cursor-pointer">Enable Display Recording</span>
-							<span className="badge badge-warning badge-sm">Beta</span>
-						</label>
-					</div>
-					<AnimatePresence>
-						{settings.enableDisplayRecording && (
-							<motion.div 
-							initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
-							animate={{ 
-								opacity: 1, 
-								height: 'fit-content',
-								transition: { 
-									duration: 0.3,
-									height: { type: 'spring', stiffness: 300, damping: 30 }
-								}
-							}}
-							exit={{ 
-								opacity: 0,
-								height: 0,
-								transition: { 
-									duration: 0.2
-								}
-							}}
-								className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 text-amber-400 text-sm flex items-center"
-								key="display-recording-warning"
-							>
-								<div className="py-2 flex items-center w-full">
-									<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
-									<motion.span>
-										This feature enables recording of games that do not support game hook.
-										This could cause lag during gameplay as it uses display capture instead of game capture.
-										For more details, see <a href="https://github.com/Segergren/Segra/issues/1" target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 underline">GitHub Issue #1</a>.
-									</motion.span>
-								</div>
-							</motion.div>
-						)}
-					</AnimatePresence>
 				</div>
 			</div>
 

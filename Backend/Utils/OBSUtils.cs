@@ -32,7 +32,7 @@ namespace Segra.Backend.Utils
         private const string NVIDIA_ENCODER = "jim_nvenc";
         private const string AMD_ENCODER = "h264_texture_amf";
         private const string INTEL_ENCODER = "qsv_h264";
-        private const string CPU_ENCODER = "x264";
+        private const string CPU_ENCODER = "obs_x264";
 
         static signal_callback_t outputStopCallback = (data, cd) =>
         {
@@ -378,12 +378,7 @@ namespace Segra.Backend.Utils
             ResetVideoSettings();
             Task.Delay(1000).Wait();
 
-            if (Settings.Instance.EnableDisplayRecording && !_isGameCaptureHooked) {
-                IntPtr displayCaptureSettings = obs_data_create();
-                displaySource = obs_source_create("monitor_capture", "display", displayCaptureSettings, IntPtr.Zero);
-                obs_data_release(displayCaptureSettings);
-                obs_set_output_source(1, displaySource);
-            }
+            AddMonitorCapture();
 
             IntPtr videoEncoderSettings = obs_data_create();
             obs_data_set_string(videoEncoderSettings, "preset", "Quality");
@@ -604,6 +599,35 @@ namespace Segra.Backend.Utils
             }
             Task.Run(KeybindCaptureService.Start);
             return true;
+        }
+
+        public static void AddMonitorCapture()
+        {
+            if (Settings.Instance.EnableDisplayRecording && !_isGameCaptureHooked)
+            {
+                IntPtr displayCaptureSettings = obs_data_create();
+                
+                if(Settings.Instance.SelectedDisplay != null)
+                {
+                    int? monitorIndex = Settings.Instance.State.Displays
+                        .Select((d, i) => new { Display = d, Index = i })
+                        .Where(x => x.Display.DeviceId == Settings.Instance.SelectedDisplay?.DeviceId)
+                        .Select(x => (int?)x.Index)
+                        .FirstOrDefault();
+
+                    if (monitorIndex.HasValue)
+                    {
+                        obs_data_set_int(displayCaptureSettings, "monitor", (uint)monitorIndex.Value);
+                    }
+                    else
+                    {
+                        _ = MessageUtils.ShowModal("Display recording", $"Could not find selected display. Defaulting to first automatically detected display.", "warning");
+                    }
+                }
+                displaySource = obs_source_create("monitor_capture", "display", displayCaptureSettings, IntPtr.Zero);
+                obs_data_release(displayCaptureSettings);
+                obs_set_output_source(1, displaySource);
+            }
         }
 
         public static void StopRecording()
