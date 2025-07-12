@@ -22,6 +22,7 @@ export interface State {
 	content: Content[];
 	inputDevices: AudioDevice[];
 	outputDevices: AudioDevice[];
+	displays: Display[];
 	isCheckingForUpdates: boolean;
 }
 
@@ -86,6 +87,12 @@ export interface DeviceSetting {
 	volume: number; // Volume from 0.0 to 1.0
 }
 
+export interface Display {
+	deviceId: string;
+	deviceName: string;
+	isPrimary: boolean;
+}
+
 export interface Game {
 	name: string;
 	path: string;
@@ -114,6 +121,7 @@ export interface Settings {
 	inputDevices: DeviceSetting[];
 	outputDevices: DeviceSetting[];
 	enableDisplayRecording: boolean;
+	selectedDisplay: Display | null;
 	enableAi: boolean;
 	autoGenerateHighlights: boolean;
 	runOnStartup: boolean;
@@ -142,6 +150,7 @@ export const initialState: State = {
 	content: [],
 	inputDevices: [],
 	outputDevices: [],
+	displays: [],
 	isCheckingForUpdates: false,
 };
 
@@ -160,6 +169,7 @@ export const initialSettings: Settings = {
 	inputDevices: [],
 	outputDevices: [],
 	enableDisplayRecording: false,
+	selectedDisplay: null, // Default to null (auto-select)
 	enableAi: true,
 	autoGenerateHighlights: true,
 	runOnStartup: false,
