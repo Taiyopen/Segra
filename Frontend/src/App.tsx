@@ -7,7 +7,6 @@ import ReplayBuffer from './Pages/replay-buffer';
 import Highlights from './Pages/highlights';
 import {SettingsProvider} from './Context/SettingsContext';
 import Video from './Pages/video';
-import {ModalProvider} from './Context/ModalContext';
 import {useSelectedVideo} from './Context/SelectedVideoContext';
 import {themeChange} from 'theme-change';
 import {HTML5Backend} from 'react-dnd-html5-backend';
@@ -88,7 +87,6 @@ export default function AppWrapper() {
       <ScrollProvider>
 		<SettingsProvider>
 			<ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
-				<ModalProvider>
 					<SelectionsProvider>
 						<DndProvider backend={HTML5Backend}>
 							<UploadProvider>
@@ -102,8 +100,7 @@ export default function AppWrapper() {
 							</UploadProvider>
 						</DndProvider>
 					</SelectionsProvider>
-				</ModalProvider>
-			</ReleaseNotesContext.Provider>
+				</ReleaseNotesContext.Provider>
 		</SettingsProvider>
       </ScrollProvider>
     </WebSocketProvider>

@@ -248,7 +248,7 @@ export default function Settings() {
 	const renderAuthSection = () => {
 		if (!session) {
 			return (
-				<div className="p-4 bg-base-300 rounded-lg shadow-md">
+				<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 					<h2 className="text-xl font-semibold mb-4">Authentication</h2>
 					
 					{error && (
@@ -258,11 +258,11 @@ export default function Settings() {
 						</div>
 					)}
 					
-					<div className="bg-base-200 p-6 rounded-lg space-y-4">
+					<div className="bg-base-200 p-6 rounded-lg space-y-4 border border-custom">
 						<button
 							onClick={handleDiscordLogin}
 							disabled={isAuthenticating}
-							className={`btn btn-secondary w-full gap-2 font-semibold text-white ${isAuthenticating ? 'btn-loading' : ''}`}
+							className={`btn btn-secondary w-full gap-2 font-semibold text-white border border-custom hover:border-custom ${isAuthenticating ? 'btn-loading' : ''}`}
 						>
 							<FaDiscord className="w-5 h-5" />
 							{isAuthenticating ? 'Connecting...' : 'Continue with Discord'}
@@ -279,7 +279,7 @@ export default function Settings() {
 									type="email"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
-									className="input input-bordered"
+									className="input input-bordered bg-base-200"
 									disabled={isAuthenticating}
 									required
 								/>
@@ -293,7 +293,7 @@ export default function Settings() {
 									type="password"
 									value={password}
 									onChange={(e) => setPassword(e.target.value)}
-									className="input input-bordered"
+									className="input input-bordered bg-base-200"
 									disabled={isAuthenticating}
 									required
 								/>
@@ -302,7 +302,7 @@ export default function Settings() {
 							<button
 								type="submit"
 								disabled={isAuthenticating}
-								className={`btn btn-secondary w-full font-semibold text-white ${isAuthenticating ? 'btn-loading' : ''}`}
+								className={`btn btn-secondary w-full font-semibold text-white border border-custom hover:border-custom ${isAuthenticating ? 'btn-loading' : ''}`}
 							>
 								Sign in with Email
 							</button>
