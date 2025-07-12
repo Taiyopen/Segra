@@ -8,7 +8,6 @@ using Segra.Backend.Utils;
 using Serilog;
 using System.Diagnostics;
 using System.IO.Pipes;
-using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Velopack;

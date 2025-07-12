@@ -140,6 +140,62 @@ namespace Segra.Backend.Utils
                 Log.Error($"Error creating thumbnail: {ex.Message}");
             }
         }
+
+        public static void CreateAudioFile(string videoFilePath, Content.ContentType type)
+        {
+            string ffmpegPath = "ffmpeg.exe";
+
+            if(!File.Exists(ffmpegPath)) {
+                Log.Error($"FFmpeg executable not found at: {ffmpegPath}");
+                return;
+            }
+                
+            if(!File.Exists(videoFilePath)) {
+                Log.Error($"Video file not found at: {videoFilePath}");
+                return;
+            }
+
+            // Get the directory and file name
+            string contentFileName = Path.GetFileNameWithoutExtension(videoFilePath);
+
+            // Ensure the .audio folder exists
+            string audioFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".audio", type.ToString().ToLower() + "s");
+            if (!Directory.Exists(audioFolderPath))
+            {
+                DirectoryInfo dir = Directory.CreateDirectory(audioFolderPath);
+                dir.Attributes |= FileAttributes.Hidden;
+            }
+
+            string audioFilePath = Path.Combine(audioFolderPath, $"{contentFileName}.mp3");
+            string ffmpegArgs = $"-i \"{videoFilePath}\" -vn -acodec libmp3lame -q:a 6 \"{audioFilePath}\"";
+
+            ProcessStartInfo processInfo = new()
+            {
+                FileName = ffmpegPath,
+                Arguments = ffmpegArgs,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using Process process = new() { StartInfo = processInfo };
+            process.Start();
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                Log.Error($"FFmpeg error: {error}");
+                Log.Error("Audio file creation failed.");
+            }
+            else
+            {
+                Log.Information($"Audio file successfully created at: {audioFilePath}");
+            }
+        }
+
         public static TimeSpan GetVideoDuration(string videoFilePath)
         {
             string ffmpegPath = "ffmpeg.exe";
@@ -239,6 +295,21 @@ namespace Segra.Backend.Utils
                 else
                 {
                     Log.Warning($"Thumbnail file not found: {thumbnailFilePath}");
+                }
+
+                // Construct the audio file path
+                string audioFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".audio", type.ToString().ToLower() + "s");
+                string audioFilePath = Path.Combine(audioFolderPath, $"{contentFileName}.mp3");
+
+                // Delete the audio file if it exists
+                if (File.Exists(audioFilePath))
+                {
+                    File.Delete(audioFilePath);
+                    Log.Information($"Audio file deleted: {audioFilePath}");
+                }
+                else
+                {
+                    Log.Warning($"Audio file not found: {audioFilePath}");
                 }
             }
             catch (UnauthorizedAccessException ex)
