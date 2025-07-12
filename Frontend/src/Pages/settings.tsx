@@ -775,7 +775,7 @@ export default function Settings() {
 							onChange={(e) => updateSettings({enableDisplayRecording: e.target.checked})}
 							className="checkbox checkbox-primary checkbox-sm"
 						/>
-						<span className="font-medium cursor-pointer ml-2">Enable Display Recording</span>
+						<span className="font-medium cursor-pointer">Enable Display Recording</span>
 						<span className="badge badge-warning badge-sm">Beta</span>
 					</label>
 				</div>
