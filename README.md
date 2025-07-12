@@ -30,7 +30,7 @@
 
 ---
 
-## 🛠 Getting Started  
+## 🛠 Installation
 1. **Download**: Get `Segra-win-Setup.exe` from [[latest release](https://github.com/Segergren/Segra/releases/latest)].  
 2. **Install**: Run the setup.  
 3. **Configure**:  
@@ -38,7 +38,11 @@
    - Assign hotkeys for clipping/uploading.  
    - Connect your Segra.tv account.  
 
----
+## 🔄 Uninstallation
+1. Open `Windows Settings`
+2. Go to `Apps` -> `Installed apps`
+3. Search for `Segra`
+4. Click `Uninstall`
 
 ## 🤝 Contributing  
 Help improve Segra by:  
@@ -51,6 +55,19 @@ Help improve Segra by:
 Segra is **GPLv2 licensed**.  
 
 ---
+
+## 🔐 Code Signing Policy
+Free code signing provided by **[SignPath.io](https://signpath.io)**, certificate by **[SignPath Foundation](https://signpath.org)**.
+
+**Team roles**
+
+| Role      | Person |
+|-----------|--------|
+| Authors   | @Segergren |
+| Reviewers | @Segergren |
+| Approvers | @Segergren |
+
+See our [Privacy Policy](https://segra.tv/privacy).
 
 ## Acknowledgments  
 - **[OBS Studio](https://obsproject.com)**: The backbone of Segra’s recording engine.  
