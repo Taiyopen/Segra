@@ -974,12 +974,14 @@ export default function Settings() {
 						</label>
 						<select
 							name="clipCodec"
+							disabled={!settings.state.hasLoadedObs}
 							value={settings.clipCodec}
 							onChange={handleChange}
 							className="select select-bordered bg-base-200"
 						>
 							<option value="h264">H.264</option>
 							<option value="h265">H.265</option>
+							{settings.state.codecs.find(c =>c.internalEncoderId.includes("av1")) && settings.clipEncoder === "gpu" && <option value="av1">AV1</option>}
 						</select>
 					</div>
 

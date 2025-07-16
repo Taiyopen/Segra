@@ -320,25 +320,46 @@ namespace Segra.Backend.Utils
                 switch (gpuVendor)
                 {
                     case GpuVendor.Nvidia:
-                        videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_nvenc" : "h264_nvenc";
+                        if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "hevc_nvenc";
+                        else if (settings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "av1_nvenc"; // NVIDIA AV1 encoder
+                        else
+                            videoCodec = "h264_nvenc";
                         break;
                     case GpuVendor.AMD:
-                        videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_amf" : "h264_amf";
+                        if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "hevc_amf";
+                        else if (settings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "av1_amf"; // AMD AV1 encoder
+                        else
+                            videoCodec = "h264_amf";
                         break;
                     case GpuVendor.Intel:
-                        videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_qsv" : "h264_qsv";
+                        if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "hevc_qsv";
+                        else if (settings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "av1_qsv"; // Intel AV1 encoder
+                        else
+                            videoCodec = "h264_qsv";
                         break;
                     default:
                         // Fall back to CPU encoding if GPU vendor is unknown
                         Log.Warning("Unknown GPU vendor detected, falling back to CPU encoding");
-                        videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "libx265" : "libx264";
+                        if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "libx265";
+                        else
+                            videoCodec = "libx264";
                         break;
                 }
             }
             else
             {
                 // CPU encoder uses software codecs
-                videoCodec = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "libx265" : "libx264";
+                if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                    videoCodec = "libx265";
+                else
+                    videoCodec = "libx264";
             }
 
             string fpsArg = settings.ClipFps > 0 ? $"-r {settings.ClipFps}" : "";

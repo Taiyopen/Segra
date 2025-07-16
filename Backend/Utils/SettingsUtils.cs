@@ -227,10 +227,16 @@ namespace Segra.Backend.Utils
             }
 
             // Update ClipEncoder
+            bool hasAutoSelectedClipCodec = false;
             if (settings.ClipEncoder != updatedSettings.ClipEncoder)
             {
                 Log.Information($"ClipEncoder changed from '{settings.ClipEncoder}' to '{updatedSettings.ClipEncoder}'");
                 settings.ClipEncoder = updatedSettings.ClipEncoder;
+
+                Log.Information($"Automatically changing ClipCodec to 'h264' due to ClipEncoder change");
+                settings.ClipCodec = "h264";
+                hasAutoSelectedClipCodec = true;
+
                 hasChanges = true;
             }
 
@@ -251,7 +257,7 @@ namespace Segra.Backend.Utils
             }
 
             // Update ClipCodec
-            if (settings.ClipCodec != updatedSettings.ClipCodec)
+            if (settings.ClipCodec != updatedSettings.ClipCodec && !hasAutoSelectedClipCodec)
             {
                 Log.Information($"ClipCodec changed from '{settings.ClipCodec}' to '{updatedSettings.ClipCodec}'");
                 settings.ClipCodec = updatedSettings.ClipCodec;

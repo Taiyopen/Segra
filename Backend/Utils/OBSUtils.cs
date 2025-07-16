@@ -236,7 +236,6 @@ namespace Segra.Backend.Utils
             obs_load_all_modules();
             obs_log_loaded_modules();
 
-
             // Step 5: Should be called before Step 4 as per documentation but this causes black screen on recordings
             // This probably causes the lag
             if (!ResetVideoSettings())
