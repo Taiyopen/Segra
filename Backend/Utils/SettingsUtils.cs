@@ -347,19 +347,37 @@ namespace Segra.Backend.Utils
             }
 
             // Update Encoder
+            bool hasAutoSelectedCodec = false;
             if (settings.Encoder != updatedSettings.Encoder)
             {
                 Log.Information($"Encoder changed from '{settings.Encoder}' to '{updatedSettings.Encoder}'");
                 settings.Encoder = updatedSettings.Encoder;
+                
+                // When encoder changes, automatically select an appropriate codec
+                var newCodec = OBSUtils.SelectDefaultCodec(settings.Encoder, settings.State.Codecs);
+                if (newCodec != null && (settings.Codec == null || !settings.Codec.Equals(newCodec)))
+                {
+                    Log.Information($"Automatically changing codec to '{newCodec.FriendlyName}' based on encoder change");
+                    settings.Codec = newCodec;
+                    hasAutoSelectedCodec = true;
+                }
+                
                 hasChanges = true;
             }
 
             // Update Codec
-            if (settings.Codec != updatedSettings.Codec)
+            if (settings.Codec != null && updatedSettings.Codec != null && !settings.Codec.Equals(updatedSettings.Codec) && !hasAutoSelectedCodec)
             {
-                Log.Information($"Codec changed from '{settings.Codec}' to '{updatedSettings.Codec}'");
-                settings.Codec = updatedSettings.Codec;
-                hasChanges = true;
+                if(!OBSUtils.IsInitialized)
+                {
+                   Log.Warning($"Codec change before OBS initialization, skipping");
+                }
+                else
+                {
+                    Log.Information($"Codec changed from '{settings.Codec.FriendlyName}' to '{updatedSettings.Codec.FriendlyName}'");
+                    settings.Codec = updatedSettings.Codec;
+                    hasChanges = true;
+                }
             }
 
             // Update StorageLimit
@@ -419,7 +437,9 @@ namespace Segra.Backend.Utils
             }
 
             // Update SelectedDisplay
-            if (settings.SelectedDisplay != updatedSettings.SelectedDisplay)
+            if ((settings.SelectedDisplay == null && updatedSettings.SelectedDisplay != null) || 
+                (settings.SelectedDisplay != null && updatedSettings.SelectedDisplay == null) || 
+                (settings.SelectedDisplay != null && updatedSettings.SelectedDisplay != null && !settings.SelectedDisplay.Equals(updatedSettings.SelectedDisplay)))
             {
                 Log.Information($"SelectedDisplay changed from '{settings.SelectedDisplay}' to '{updatedSettings.SelectedDisplay}'");
                 settings.SelectedDisplay = updatedSettings.SelectedDisplay;
@@ -605,42 +625,6 @@ namespace Segra.Backend.Utils
         {
             // Check if the file is a metadata file
             return Path.GetExtension(filePath).Equals(".json", StringComparison.OrdinalIgnoreCase);
-        }
-        private static void CopyProperties(object source, object destination, HashSet<string>? excludedProperties = null)
-        {
-            if (source == null || destination == null)
-                return;
-
-            var properties = destination.GetType().GetProperties(
-                System.Reflection.BindingFlags.Public | 
-                System.Reflection.BindingFlags.Instance);
-
-            foreach (var property in properties)
-            {
-                if (excludedProperties != null && excludedProperties.Contains(property.Name))
-                    continue;
-
-                if (!property.CanRead || !property.CanWrite)
-                    continue;
-
-                try
-                {
-                    var sourceProperty = source.GetType().GetProperty(property.Name);
-                    if (sourceProperty == null)
-                        continue;
-
-                    var value = sourceProperty.GetValue(source);
-                    
-                    if (value != null)
-                    {
-                        property.SetValue(destination, value);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"Failed to copy property {property.Name}: {ex.Message}");
-                }
-            }
         }
     }
 }

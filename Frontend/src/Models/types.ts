@@ -23,6 +23,7 @@ export interface State {
 	inputDevices: AudioDevice[];
 	outputDevices: AudioDevice[];
 	displays: Display[];
+	codecs: Codec[];
 	isCheckingForUpdates: boolean;
 }
 
@@ -93,6 +94,12 @@ export interface Display {
 	isPrimary: boolean;
 }
 
+export interface Codec {
+	friendlyName: string;
+	internalEncoderId: string;
+	isHardwareEncoder: boolean;
+}
+
 export interface Game {
 	name: string;
 	path: string;
@@ -115,7 +122,7 @@ export interface Settings {
 	cqLevel: number;
 	bitrate: number;
 	encoder: 'gpu' | 'cpu';
-	codec: 'h264' | 'h265';
+	codec: Codec | null;
 	storageLimit: number;
 	contentFolder: string;
 	inputDevices: DeviceSetting[];
@@ -151,6 +158,7 @@ export const initialState: State = {
 	inputDevices: [],
 	outputDevices: [],
 	displays: [],
+	codecs: [],
 	isCheckingForUpdates: false,
 };
 
@@ -163,7 +171,7 @@ export const initialSettings: Settings = {
 	cqLevel: 20,
 	bitrate: 10,
 	encoder: 'gpu',
-	codec: 'h264',
+	codec: null,
 	storageLimit: 100,
 	contentFolder: '',
 	inputDevices: [],

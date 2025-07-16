@@ -757,12 +757,35 @@ export default function Settings() {
 						</label>
 						<select
 							name="codec"
-							value={settings.codec}
-							onChange={handleChange}
+							disabled={settings.state.codecs.length === 0}
+							value={settings.state.codecs.find((codec) => codec.internalEncoderId === settings.codec?.internalEncoderId)?.internalEncoderId}
+							onChange={(e) => updateSettings({codec: settings.state.codecs.find((codec) => codec.internalEncoderId === e.target.value)})}
 							className="select select-bordered bg-base-200"
 						>
-							<option value="h264">H.264</option>
-							<option value="h265">H.265</option>
+							{settings.state.codecs
+								.filter(codec => (settings.encoder === 'gpu' ? codec.isHardwareEncoder : !codec.isHardwareEncoder))
+								.sort((a, b) => {
+									// Priority order: jim_nvenc, h264_texture_amf, obs_x264, original order by OBS
+									const priorityOrder = ['jim_nvenc', 'h264_texture_amf', 'obs_x264'];
+									const aIndex = priorityOrder.indexOf(a.internalEncoderId);
+									const bIndex = priorityOrder.indexOf(b.internalEncoderId);
+									
+									if (aIndex !== -1 && bIndex !== -1) {
+										return aIndex - bIndex;
+									}
+									if (aIndex !== -1) {
+										return -1;
+									}
+									if (bIndex !== -1) {
+										return 1;
+									}
+									return 0;
+								})
+								.map((codec) => (
+									<option key={codec.internalEncoderId} value={codec.internalEncoderId}>
+										{codec.friendlyName}
+									</option>
+								))}
 						</select>
 					</div>
 				</div>

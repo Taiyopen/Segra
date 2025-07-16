@@ -182,6 +182,12 @@ namespace Segra
                     StartupUtils.SetStartupStatus(true);
                 }
 
+                // Ensure content folder exists
+                if(!Directory.Exists(Settings.Instance.ContentFolder))
+                {
+                    Directory.CreateDirectory(Settings.Instance.ContentFolder);
+                }
+
                 // Try to login with stored credentials
                 Task.Run(AuthService.TryAutoLogin);
 

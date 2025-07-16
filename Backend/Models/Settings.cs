@@ -22,7 +22,7 @@ namespace Segra.Backend.Models
         private int _crfValue = 23;
         private int _cqLevel = 20;
         private string _encoder = "gpu";
-        private string _codec = "h264";
+        private Codec? _codec = null; // Set in SelectDefaultCodec()
         private int _storageLimit = 100;
         private List<DeviceSetting> _inputDevices = new List<DeviceSetting>();
         private List<DeviceSetting> _outputDevices = new List<DeviceSetting>();
@@ -216,7 +216,7 @@ namespace Segra.Backend.Models
         }
 
         [JsonPropertyName("codec")]
-        public string Codec
+        public Codec? Codec
         {
             get => _codec;
             set
@@ -649,6 +649,7 @@ namespace Segra.Backend.Models
         private List<AudioDevice> _inputDevices = [];
         private List<AudioDevice> _outputDevices = [];
         private List<Display> _displays = [];
+        private List<Codec> _codecs = [];
         private bool _isCheckingForUpdates = false;
 
         private AudioDeviceWatcher? _deviceWatcher;
@@ -784,6 +785,20 @@ namespace Segra.Backend.Models
                 {
                     _displays = value;
                     SendToFrontend("State update: Displays");
+                }
+            }
+        }
+
+        [JsonPropertyName("codecs")]
+        public List<Codec> Codecs
+        {
+            get => _codecs;
+            set
+            {
+                if (_codecs != value)
+                {
+                    _codecs = value;
+                    SendToFrontend("State update: Codecs");
                 }
             }
         }

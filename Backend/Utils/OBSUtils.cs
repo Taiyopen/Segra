@@ -245,8 +245,8 @@ namespace Segra.Backend.Utils
             // Step 6: Post-load modules
             obs_post_load_modules();
 
-            // Step 7: Log available encoders
-            LogAvailableEncoders();
+            // Step 7: Set available encoders in state
+            SetAvailableEncodersInState();
 
             IsInitialized = true;
             Settings.Instance.State.HasLoadedObs = true;
@@ -412,7 +412,8 @@ namespace Segra.Backend.Utils
             }
 
             // Select the appropriate encoder based on settings and available hardware
-            string encoderId = GetEncoderIdBasedOnSettings();
+            Log.Information($"Using encoder: {Settings.Instance.Codec!.FriendlyName} ({Settings.Instance.Codec.InternalEncoderId})");
+            string encoderId = Settings.Instance.Codec!.InternalEncoderId;
             videoEncoder = obs_video_encoder_create(encoderId, "Segra Recorder", videoEncoderSettings, IntPtr.Zero);
             obs_data_release(videoEncoderSettings);
             obs_encoder_set_video(videoEncoder, obs_get_video());
@@ -1113,7 +1114,33 @@ namespace Segra.Backend.Utils
                 }
             }
         }
-        private static void LogAvailableEncoders()
+
+        private static readonly Dictionary<string, string> EncoderFriendlyNames =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                // ── NVIDIA NVENC ────────────────────────────────────
+                ["jim_nvenc"]          = "NVIDIA NVENC H.264",
+                ["jim_hevc_nvenc"]     = "NVIDIA NVENC H.265",
+                ["jim_av1_nvenc"]      = "NVIDIA NVENC AV1",
+
+                // ── AMD AMF ────────────────────────────────────────
+                ["h264_texture_amf"]   = "AMD AMF H.264",
+                ["h265_texture_amf"]   = "AMD AMF H.265",
+                ["av1_texture_amf"]    = "AMD AMF AV1",
+
+                // ── Intel Quick Sync ───────────────────────────────
+                ["obs_qsv11_v2"]       = "Intel QSV H.264",
+                ["obs_qsv11_hevc"]     = "Intel QSV H.265",
+                ["obs_qsv11_av1"]      = "Intel QSV AV1",
+
+                // ── CPU / software paths ───────────────────────────
+                ["obs_x264"]           = "Software x264",
+                ["ffmpeg_svt_av1"]     = "Software SVT-AV1",
+                ["ffmpeg_aom_av1"]     = "Software AOM AV1",
+                ["ffmpeg_openh264"]    = "Software OpenH264",
+            };
+
+        private static void SetAvailableEncodersInState()
         {
             Log.Information("Available encoders:");
 
@@ -1123,11 +1150,92 @@ namespace Segra.Backend.Utils
 
             while (obs_enum_encoder_types(idx, ref encoderId))
             {
-                Log.Information($"  - Encoder: {encoderId}");
+                EncoderFriendlyNames.TryGetValue(encoderId, out var name);
+                string friendlyName = name ?? encoderId;
+                bool isHardware = encoderId.Contains("nvenc", StringComparison.OrdinalIgnoreCase) ||
+                                  encoderId.Contains("amf", StringComparison.OrdinalIgnoreCase) ||
+                                  encoderId.Contains("qsv", StringComparison.OrdinalIgnoreCase);
+
+                Log.Information($"{idx} - {friendlyName} | {encoderId} | {(isHardware ? "Hardware" : "Software")}");
+                if(name != null)
+                {
+                    Settings.Instance.State.Codecs.Add(new Codec { InternalEncoderId = encoderId, FriendlyName = friendlyName, IsHardwareEncoder = isHardware });
+                }
                 idx++;
             }
 
             Log.Information($"Total encoders found: {idx}");
+
+            if(Settings.Instance.Codec == null)
+            {
+                Settings.Instance.Codec = SelectDefaultCodec(Settings.Instance.Encoder, Settings.Instance.State.Codecs);
+            }
+        }
+
+        public static Codec? SelectDefaultCodec(string encoderType, List<Codec> availableCodecs)
+        {
+            if (availableCodecs == null || availableCodecs.Count == 0)
+            {
+                return null;
+            }
+
+            Codec? selectedCodec = null;
+
+            if (encoderType == "cpu")
+            {
+                // Prefer obs_x264 if available
+                selectedCodec = availableCodecs.FirstOrDefault(
+                    c => c.InternalEncoderId.Equals(
+                        "obs_x264",
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                );
+
+                // If not found, fallback to first software (CPU) encoder
+                if (selectedCodec == null)
+                {
+                    selectedCodec = availableCodecs.FirstOrDefault(
+                        c => !c.IsHardwareEncoder
+                    );
+                }
+            }
+            else if (encoderType == "gpu")
+            {
+                // Prefer NVIDIA NVENC (jim_nvenc)
+                selectedCodec = availableCodecs.FirstOrDefault(
+                    c => c.InternalEncoderId.Equals(
+                        "jim_nvenc",
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                );
+
+                // If not found, try AMD AMF H.264
+                if (selectedCodec == null)
+                {
+                    selectedCodec = availableCodecs.FirstOrDefault(
+                        c => c.InternalEncoderId.Equals(
+                            "h264_texture_amf",
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                    );
+                }
+
+                // If still not found, fallback to first hardware encoder
+                if (selectedCodec == null)
+                {
+                    selectedCodec = availableCodecs.FirstOrDefault(
+                        c => c.IsHardwareEncoder
+                    );
+                }
+            }
+
+            // Ultimate fallback: First available encoder if no match or no selection
+            if (selectedCodec == null)
+            {
+                selectedCodec = availableCodecs.FirstOrDefault();
+            }
+
+            return selectedCodec;
         }
     }
 }
