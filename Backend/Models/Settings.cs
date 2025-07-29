@@ -26,7 +26,7 @@ namespace Segra.Backend.Models
         private int _storageLimit = 100;
         private List<DeviceSetting> _inputDevices = new List<DeviceSetting>();
         private List<DeviceSetting> _outputDevices = new List<DeviceSetting>();
-        private bool _enableDisplayRecording = false;
+        private bool _enableDisplayRecording = true;
         private Display? _selectedDisplay = null;
         private bool _enableAi = true;
         private bool _autoGenerateHighlights = true;

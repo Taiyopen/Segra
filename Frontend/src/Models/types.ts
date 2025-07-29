@@ -176,7 +176,7 @@ export const initialSettings: Settings = {
 	contentFolder: '',
 	inputDevices: [],
 	outputDevices: [],
-	enableDisplayRecording: false,
+	enableDisplayRecording: true,
 	selectedDisplay: null, // Default to null (auto-select)
 	enableAi: true,
 	autoGenerateHighlights: true,
