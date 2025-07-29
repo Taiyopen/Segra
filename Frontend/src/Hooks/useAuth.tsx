@@ -2,8 +2,6 @@ import {useState, useEffect, createContext, useContext, ReactNode} from 'react';
 import {Session, User} from '@supabase/supabase-js';
 import {supabase} from '../lib/supabase/client';
 import {sendMessageToBackend} from '../Utils/MessageUtils';
-import {useModal} from '../Context/ModalContext';
-import GenericModal from '../Components/GenericModal';
 
 // Create a context to store authentication state
 interface AuthContextType {
@@ -24,7 +22,6 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
-  const {openModal, closeModal} = useModal();
 
   // Custom signOut function that ensures UI is updated
   const handleSignOut = async () => {
@@ -69,17 +66,8 @@ export function AuthProvider({children}: {children: ReactNode}) {
   
         if (profileError && profileError.code === 'PGRST116') {
           console.error("Profile error, user may not have a profile:", profileError);
-          openModal(
-            <GenericModal
-              title="Registration Required"
-              subtitle=""
-              description="Please register at Segra.tv before logging into the app."
-              type="warning"
-              onClose={closeModal}
-            />  
-          );
           handleSignOut();
-          setAuthError(null);
+          setAuthError('Please register at Segra.tv before logging into the app.');
         }
 
         // Clean URL after successful login

@@ -56,16 +56,16 @@ namespace Segra.Backend.Services
                     if (Session != null)
                     {
                         Log.Debug($"Saving tokens to settings. AccessToken length: {Session.AccessToken?.Length ?? 0}, RefreshToken length: {Session.RefreshToken?.Length ?? 0}");
-                        Models.Settings.Instance.Auth.Jwt = Session.AccessToken ?? string.Empty;
-                        Models.Settings.Instance.Auth.RefreshToken = Session.RefreshToken ?? string.Empty;
+                        Models.Settings.Instance.Auth.Jwt = Session?.AccessToken ?? string.Empty;
+                        Models.Settings.Instance.Auth.RefreshToken = Session?.RefreshToken ?? string.Empty;
                         
                         if (isAutoLogin)
                         {
-                            Log.Information($"Auto login successful for user {Session.User?.Id}");
+                            Log.Information($"Auto login successful for user {Session?.User?.Id}");
                         }
                         else
                         {
-                            Log.Information($"Manual login successful for user {Session.User?.Id}");
+                            Log.Information($"Manual login successful for user {Session?.User?.Id}");
                         }
                     }
                     else

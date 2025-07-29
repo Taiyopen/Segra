@@ -6,7 +6,6 @@ import './globals.css';
 import App from './App.tsx';
 import {SelectedVideoProvider} from './Context/SelectedVideoContext.tsx';
 import {AuthProvider} from './Hooks/useAuth.tsx';
-import { ModalProvider } from './Context/ModalContext.tsx';
 
 // Create a React Query client
 const queryClient = new QueryClient({
@@ -28,13 +27,11 @@ supabase.auth.onAuthStateChange((event) => {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ModalProvider>
-        <AuthProvider>
-          <SelectedVideoProvider>
-            <App />
-          </SelectedVideoProvider>
-        </AuthProvider>
-      </ModalProvider>
+      <AuthProvider>
+        <SelectedVideoProvider>
+          <App />
+        </SelectedVideoProvider>
+      </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

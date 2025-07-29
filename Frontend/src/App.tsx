@@ -19,6 +19,7 @@ import {AiHighlightsProvider} from './Context/AiHighlightsContext';
 import {UpdateProvider} from './Context/UpdateContext';
 import { ReleaseNote } from './Models/WebSocketMessages';
 import { ScrollProvider } from './Context/ScrollContext';
+import { ModalProvider } from './Context/ModalContext';
 
 // Create a context for release notes that can be accessed globally
 export const ReleaseNotesContext = createContext<{
@@ -87,6 +88,7 @@ export default function AppWrapper() {
       <ScrollProvider>
 		<SettingsProvider>
 			<ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
+				<ModalProvider>
 					<SelectionsProvider>
 						<DndProvider backend={HTML5Backend}>
 							<UploadProvider>
@@ -100,7 +102,8 @@ export default function AppWrapper() {
 							</UploadProvider>
 						</DndProvider>
 					</SelectionsProvider>
-				</ReleaseNotesContext.Provider>
+				</ModalProvider>
+			</ReleaseNotesContext.Provider>
 		</SettingsProvider>
       </ScrollProvider>
     </WebSocketProvider>
