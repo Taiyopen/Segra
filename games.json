@@ -1293,7 +1293,7 @@
   { "name": "Railway Empire", "exe": "Railway Empire/RailwayEmpire.exe" },
   { "name": "Rain World", "exe": "Rain World/RainWorld.exe" },
   { "name": "Rainbow Six Extraction", "exe": "Rainbow Six Extraction/R6Extraction.exe" },
-  { "name": "Rainbow Six Siege", "exe": "Tom Clancys Rainbow Six Siege/RainbowSix.exe" },
+  { "name": "Rainbow Six Siege", "exe": "RainbowSix.exe" },
   { "name": "Rainbow Six Vegas", "exe": "Tom Clancys Rainbow Six Vegas/Binaries/R6Vegas_Game.exe" },
   { "name": "Rainbow Six Vegas 2", "exe": "Tom Clancys Rainbow Six Vegas 2/Binaries/Win32/R6Vegas2_Game.exe" },
   { "name": "Raji: An Ancient Epic", "exe": "Raji An Ancient Epic/Raji-Win64-Shipping.exe" },
