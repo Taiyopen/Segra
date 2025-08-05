@@ -69,6 +69,16 @@ Free code signing provided by **[SignPath.io](https://signpath.io)**, certificat
 
 See our [Privacy Policy](https://segra.tv/privacy).
 
+## Star History
+
+<a href="https://www.star-history.com/#Segergren/Segra&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Segergren/Segra&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Segergren/Segra&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Segergren/Segra&type=Date" />
+ </picture>
+</a>
+
 ## Acknowledgments  
 - **[OBS Studio](https://obsproject.com)**: The backbone of Segra’s recording engine.  
 - [**Lulzsun**](https://github.com/lulzsun): Creator of **[libobs-sharp](https://github.com/lulzsun/libobs-sharp)**, the critical C#/OBS bridge that powers Segra’s core functionality. 
