@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 
 type ScrollPositions = {
-  videos: number;
+  sessions: number;
   clips: number;
   highlights: number;
   replayBuffer: number;
@@ -16,7 +16,7 @@ const ScrollContext = createContext<ScrollContextType | undefined>(undefined);
 
 export function ScrollProvider({ children }: { children: React.ReactNode }) {
   const [scrollPositions, setScrollPositions] = useState<ScrollPositions>({
-    videos: 0,
+    sessions: 0,
     clips: 0,
     highlights: 0,
     replayBuffer: 0,

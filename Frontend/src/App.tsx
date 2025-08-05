@@ -1,7 +1,7 @@
 import {useEffect, useState, createContext} from 'react';
 import Settings from "./Pages/settings";
 import Menu from "./menu";
-import Videos from './Pages/videos';
+import Sessions from './Pages/sessions';
 import Clips from './Pages/clips';
 import ReplayBuffer from './Pages/replay-buffer';
 import Highlights from './Pages/highlights';
@@ -54,7 +54,7 @@ function App() {
 
 		switch (selectedMenu) {
 			case 'Full Sessions':
-				return <Videos />;
+				return <Sessions />;
 			case 'Replay Buffer':
 				return <ReplayBuffer />;
 			case 'Clips':
@@ -64,7 +64,7 @@ function App() {
 			case 'Settings':
 				return <Settings />;
 			default:
-				return <Videos />;
+				return <Sessions />;
 		}
 	};
 

@@ -6,7 +6,7 @@ import { MdOutlinePlayCircleOutline } from 'react-icons/md';
 import { useScroll } from '../Context/ScrollContext';
 import { useEffect, useRef } from 'react';
 
-export default function Videos() {
+export default function Sessions() {
   const {state} = useSettings();
   const {recording} = state;
   const {setSelectedVideo} = useSelectedVideo();
@@ -19,9 +19,9 @@ export default function Videos() {
   };
 
   useEffect(() => {
-    if (containerRef.current && scrollPositions.videos > 0) {
+    if (containerRef.current && scrollPositions.sessions > 0) {
       isSettingScroll.current = true;
-      containerRef.current.scrollTop = scrollPositions.videos;
+      containerRef.current.scrollTop = scrollPositions.sessions;
       // Reset flag after scroll is complete
       setTimeout(() => {
         isSettingScroll.current = false;
@@ -41,8 +41,8 @@ export default function Videos() {
       // Set new timeout
       scrollTimeout.current = setTimeout(() => {
         const currentPos = containerRef.current?.scrollTop;
-        if (currentPos !== undefined && currentPos !== scrollPositions.videos) {
-          setScrollPosition('videos', currentPos);
+        if (currentPos !== undefined && currentPos !== scrollPositions.sessions) {
+          setScrollPosition('sessions', currentPos);
         }
       }, 500);
     }
