@@ -229,21 +229,25 @@ namespace Segra.Backend.Services
                 Log.Information("Cannot check analysis status: missing analysis_id");
             }
 
-            if (highRatedBookmarks.Any())
+            List<Bookmark> highRatedKillsBookmarks = highRatedBookmarks
+                .Where(b => b.Type == BookmarkType.Kill)
+                .ToList();
+
+            if (highRatedKillsBookmarks.Any())
             {
-                Log.Information($"Creating clips for {highRatedBookmarks.Count} high-rated bookmarks");
+                Log.Information($"Creating clips for {highRatedKillsBookmarks.Count} high-rated kills bookmarks");
                 try
                 {
-                    await ClipUtils.CreateAiClipFromBookmarks(highRatedBookmarks, aiProgressMessage);
+                    await ClipUtils.CreateAiClipFromBookmarks(highRatedKillsBookmarks, aiProgressMessage);
                 }
                 catch (Exception ex)
                 {
-                    Log.Error(ex, "Failed to create final AI clips from high-rated bookmarks.");
+                    Log.Error(ex, "Failed to create final AI clips from high-rated kills bookmarks.");
                 }
             }
             else
             {
-                Log.Information("No high-rated bookmarks found, no clips will be created");
+                Log.Information("No high-rated kills bookmarks found, no clips will be created");
             }
 
 
@@ -375,7 +379,7 @@ namespace Segra.Backend.Services
                                 var bookmark = content.Bookmarks.FirstOrDefault(b => b.Id.ToString() == bookmarkId);
                                 if (bookmark != null)
                                 {
-                                    if (rating > 6)
+                                    if (rating >= 6)
                                     {
                                         Log.Information($"Adding bookmark {bookmark.Id} to high-rated list with rating {rating}");
                                         highRatedBookmarks.Add(bookmark);
