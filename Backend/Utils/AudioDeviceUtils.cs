@@ -1,3 +1,4 @@
+using Serilog;
 using NAudio.CoreAudioApi;
 using Segra.Backend.Models;
 using System.Text.RegularExpressions;
@@ -9,18 +10,22 @@ namespace Segra.Backend.Utils
         private static string GetCleanDeviceName(string friendlyName)
         {
 
-            // If it's Voicemeeter, return the original name
-            if (friendlyName.Contains("Voicemeeter"))
+            // If it's Voicemeeter or Elgato, return the original name
+            if (friendlyName.Contains("Voicemeeter") || friendlyName.Contains("Elgato"))
             {
                 return friendlyName;
             }
 
-            // Looks for patterns like "Microphone (2- Shure MV7)" or "Speakers (Sound BlasterX AE-5 Plus)"
-            var match = Regex.Match(friendlyName, @"\((?:\d+\-\s*)?([^\)]+)\)");
+            // Looks for patterns like "Microphone (2- Shure MV7)" or "Speakers (Sound BlasterX AE-5 Plus)" or "Stereo Mix (Realtek(R) Audio)"
+            // Extract the main part of the device name, handling cases with nested parentheses
+            var mainPattern = @"^([^(]+)\((.+)\)$";
+            var match = Regex.Match(friendlyName, mainPattern);
             
-            if (match.Success && match.Groups.Count > 1)
+            if (match.Success && match.Groups.Count > 2)
             {
-                return match.Groups[1].Value.Trim();
+                // Group 2 contains everything inside the main parentheses
+                var deviceName = match.Groups[2].Value.Trim();
+                return deviceName;
             }
             
             // Fallback to original name if pattern doesn't match
