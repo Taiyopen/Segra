@@ -197,6 +197,12 @@ namespace Segra.Backend.Services
 
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+        
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+        
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
         private static void InitializeDriveMappings()
         {
@@ -217,7 +223,7 @@ namespace Segra.Backend.Services
         private static bool ShouldRecordGame(string exePath)
         {
             if (string.IsNullOrEmpty(exePath) || Settings.Instance.State.Recording != null || Settings.Instance.State.PreRecording != null) return false;
-            
+
             // 1. Check if the game is in the whitelist - if so, always record
             var whitelist = Settings.Instance.Whitelist;
             foreach (var game in whitelist)
@@ -228,7 +234,7 @@ namespace Segra.Backend.Services
                     return true;
                 }
             }
-            
+
             // 2. Check if the game is in the blacklist - if so, never record
             var blacklist = Settings.Instance.Blacklist;
             foreach (var game in blacklist)
@@ -239,7 +245,7 @@ namespace Segra.Backend.Services
                     return false;
                 }
             }
-            
+
             // 3. Check if the game is in the games.json list
             bool isKnownGame = GameUtils.IsGameExePath(exePath);
             if (isKnownGame)
@@ -248,7 +254,14 @@ namespace Segra.Backend.Services
                 Log.Information($"Detected known game {gameName} at {exePath}, will record");
                 return true;
             }
-            
+
+            // Check for anticheat in file description and log window information
+            if (IsAntiCheatClient(exePath)) 
+            {
+                Log.Information($"Detected anticheat client for this executable, will not record");
+                return false;
+            }
+
             // 4. If not in any list, use the default Steam detection
             bool isSteamGame = exePath.Replace("\\", "/").Contains("/steamapps/common/", StringComparison.OrdinalIgnoreCase);
             if (isSteamGame)
@@ -257,6 +270,74 @@ namespace Segra.Backend.Services
             }
 
             return isSteamGame;
+        }
+
+        private static bool IsAntiCheatClient(string exePath)
+        {
+            try
+            {
+                string fileDescription = string.Empty;
+                string windowTitle = string.Empty;
+                string windowClass = string.Empty;
+
+                // Array of blacklisted words in file descriptions
+                string[] blacklistedWords = ["anticheat", "loader", "launcher"];
+                
+                if (File.Exists(exePath))
+                {
+                    FileVersionInfo fileInfo = FileVersionInfo.GetVersionInfo(exePath);
+                    fileDescription = fileInfo.FileDescription ?? string.Empty;
+                    Log.Information($"File description: '{fileDescription}' for {exePath}");
+                    
+                    // Check for blacklisted words in file description
+                    if (!string.IsNullOrEmpty(fileDescription))
+                    {
+                        string? matchedWord = blacklistedWords.FirstOrDefault(word => 
+                            fileDescription.Contains(word, StringComparison.OrdinalIgnoreCase));
+                            
+                        if (matchedWord != null)
+                        {
+                            Log.Information($"Detected blacklisted word '{matchedWord}' in file description: '{fileDescription}' for {exePath}, will not record");
+                            return true;
+                        }
+                    }
+                }
+
+                // Log window information etc for improved detection in the future
+                try
+                {
+                    Process[] processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(exePath));
+                    if (processes.Length > 0)
+                    {
+                        IntPtr mainWindowHandle = processes[0].MainWindowHandle;
+                        if (mainWindowHandle != IntPtr.Zero)
+                        {
+                            StringBuilder titleBuilder = new StringBuilder(256);
+                            if (GetWindowText(mainWindowHandle, titleBuilder, titleBuilder.Capacity) > 0)
+                            {
+                                windowTitle = titleBuilder.ToString();
+                            }
+
+                            StringBuilder classBuilder = new StringBuilder(256);
+                            if (GetClassName(mainWindowHandle, classBuilder, classBuilder.Capacity) > 0)
+                            {
+                                windowClass = classBuilder.ToString();
+                            }
+                            Log.Information($"Window info for {Path.GetFileName(exePath)}: Title='{windowTitle}', Class='{windowClass}', FileDescription='{fileDescription}'");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"Failed to get window information: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Failed to check file description or window info: {ex.Message}");
+            }
+
+            return false;
         }
 
         private static string ResolveProcessPath(int pid)
