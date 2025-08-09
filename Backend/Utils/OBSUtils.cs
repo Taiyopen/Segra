@@ -850,7 +850,8 @@ namespace Segra.Backend.Utils
                 elapsed += step;
                 if (elapsed >= timeoutMs)
                 {
-                    Log.Warning("Game Capture did not hook within {Seconds} seconds.", timeoutMs / 1000);
+                    Log.Warning("Game Capture did not hook within {Seconds} seconds. Preventing retry until foreground window changes", timeoutMs / 1000);
+                    GameDetectionService.PreventRetryRecording = true;
                     return false;
                 }
             }
