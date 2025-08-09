@@ -928,7 +928,7 @@ namespace Segra.Backend.Models
         public DateTime? EndTime { get; set; } // Nullable in case recording is ongoing
 
         [JsonPropertyName("filePath")]
-        public required string FilePath { get; set; }
+        public string? FilePath { get; set; } // Nullable in case recording is buffer
 
         [JsonPropertyName("game")]
         public required string Game { get; set; }

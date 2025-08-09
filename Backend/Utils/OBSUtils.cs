@@ -182,7 +182,12 @@ namespace Segra.Backend.Utils
                         if (Settings.Instance.State.PreRecording != null)
                         {
                             Settings.Instance.State.PreRecording.Status = "Waiting for game hook";
-                            _ = MessageUtils.SendSettingsToFrontend("Waiting for game hook");
+
+                            // If display recording is enabled, we don't need to show the "Waiting for game hook" message since it will start immediately.
+                            if(Settings.Instance.EnableDisplayRecording == false)
+                            {
+                                _ = MessageUtils.SendSettingsToFrontend("Waiting for game hook");
+                            }
                         }
                     }
 
@@ -377,7 +382,23 @@ namespace Segra.Backend.Utils
             ResetVideoSettings();
             Task.Delay(1000).Wait();
 
-            AddMonitorCapture();
+            // If display recording is disabled, wait for game capture to hook
+            if(!Settings.Instance.EnableDisplayRecording) {
+                bool hooked = WaitUntilGameCaptureHooks(startManually ? 90000 : 10000);
+                if(!hooked) {
+                    Settings.Instance.State.Recording = null;
+                    Settings.Instance.State.PreRecording = null;
+                    _ = MessageUtils.SendSettingsToFrontend("Game did not hook within the timeout period");
+                    StopRecording();
+                    return false;
+                }
+            }
+
+            // Add monitor capture if enabled and game capture has not hooked yet
+            if (Settings.Instance.EnableDisplayRecording && !_isGameCaptureHooked)
+            {
+                AddMonitorCapture();
+            }
 
             IntPtr videoEncoderSettings = obs_data_create();
             obs_data_set_string(videoEncoderSettings, "preset", "Quality");
@@ -488,7 +509,8 @@ namespace Segra.Backend.Utils
             if (!Directory.Exists(videoPath))
                 Directory.CreateDirectory(videoPath);
 
-            string videoOutputPath = $"{Settings.Instance.ContentFolder}/{contentType.ToString().ToLower()}s/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
+            // Might be null if recording mode is Buffer
+            string? videoOutputPath = null;
 
             if (isReplayBufferMode)
             {
@@ -515,6 +537,8 @@ namespace Segra.Backend.Utils
             }
             else
             {
+                videoOutputPath = $"{Settings.Instance.ContentFolder}/{contentType.ToString().ToLower()}s/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
+
                 // Set up standard recording output
                 IntPtr outputSettings = obs_data_create();
                 obs_data_set_string(outputSettings, "path", videoOutputPath);
@@ -533,17 +557,6 @@ namespace Segra.Backend.Utils
 
             // Overwrite the file name with the hooked executable name if using game hook
             fileName = hookedExecutableFileName ?? fileName;
-            
-            if(!Settings.Instance.EnableDisplayRecording) {
-                bool hooked = WaitUntilGameCaptureHooks(startManually ? 90000 : 10000);
-                if(!hooked) {
-                    Settings.Instance.State.Recording = null;
-                    Settings.Instance.State.PreRecording = null;
-                    _ = MessageUtils.SendSettingsToFrontend("Game did not hook within the timeout period");
-                    StopRecording();
-                    return false;
-                }
-            }
 
             _ = Task.Run(PlayStartSound);
 
@@ -603,31 +616,28 @@ namespace Segra.Backend.Utils
 
         public static void AddMonitorCapture()
         {
-            if (Settings.Instance.EnableDisplayRecording && !_isGameCaptureHooked)
+            IntPtr displayCaptureSettings = obs_data_create();
+            
+            if(Settings.Instance.SelectedDisplay != null)
             {
-                IntPtr displayCaptureSettings = obs_data_create();
-                
-                if(Settings.Instance.SelectedDisplay != null)
-                {
-                    int? monitorIndex = Settings.Instance.State.Displays
-                        .Select((d, i) => new { Display = d, Index = i })
-                        .Where(x => x.Display.DeviceId == Settings.Instance.SelectedDisplay?.DeviceId)
-                        .Select(x => (int?)x.Index)
-                        .FirstOrDefault();
+                int? monitorIndex = Settings.Instance.State.Displays
+                    .Select((d, i) => new { Display = d, Index = i })
+                    .Where(x => x.Display.DeviceId == Settings.Instance.SelectedDisplay?.DeviceId)
+                    .Select(x => (int?)x.Index)
+                    .FirstOrDefault();
 
-                    if (monitorIndex.HasValue)
-                    {
-                        obs_data_set_int(displayCaptureSettings, "monitor", (uint)monitorIndex.Value);
-                    }
-                    else
-                    {
-                        _ = MessageUtils.ShowModal("Display recording", $"Could not find selected display. Defaulting to first automatically detected display.", "warning");
-                    }
+                if (monitorIndex.HasValue)
+                {
+                    obs_data_set_int(displayCaptureSettings, "monitor", (uint)monitorIndex.Value);
                 }
-                displaySource = obs_source_create("monitor_capture", "display", displayCaptureSettings, IntPtr.Zero);
-                obs_data_release(displayCaptureSettings);
-                obs_set_output_source(1, displaySource);
+                else
+                {
+                    _ = MessageUtils.ShowModal("Display recording", $"Could not find selected display. Defaulting to first automatically detected display.", "warning");
+                }
             }
+            displaySource = obs_source_create("monitor_capture", "display", displayCaptureSettings, IntPtr.Zero);
+            obs_data_release(displayCaptureSettings);
+            obs_set_output_source(1, displaySource);
         }
 
         public static void StopRecording()
@@ -708,9 +718,9 @@ namespace Segra.Backend.Utils
                 _ = GameIntegrationService.Shutdown();
                 KeybindCaptureService.Stop();
 
-                ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording!.FilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
-                ContentUtils.CreateThumbnail(Settings.Instance.State.Recording!.FilePath, Content.ContentType.Session);
-                Task.Run(() => ContentUtils.CreateAudioFile(Settings.Instance.State.Recording!.FilePath, Content.ContentType.Session));
+                ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording!.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
+                ContentUtils.CreateThumbnail(Settings.Instance.State.Recording!.FilePath!, Content.ContentType.Session);
+                Task.Run(() => ContentUtils.CreateAudioFile(Settings.Instance.State.Recording!.FilePath!, Content.ContentType.Session));
 
                 if (Settings.Instance.State.Recording != null)
                 {
@@ -734,18 +744,26 @@ namespace Segra.Backend.Utils
 
             Task.Run(StorageUtils.EnsureStorageBelowLimit);
 
+            // Reset hooked executable file name
+            hookedExecutableFileName = null;
+
             // If the recording ends before it started, don't do anything
-            if (Settings.Instance.State.Recording == null || Settings.Instance.State.Recording.FilePath == null)
+            if (Settings.Instance.State.Recording == null || (!isReplayBufferMode && Settings.Instance.State.Recording.FilePath == null))
             {
                 return;
             }
 
-            string fileName = Path.GetFileNameWithoutExtension(Settings.Instance.State.Recording.FilePath);
+            // Get the file path before nullifying the recording (FilePath is not null at this point because of the previous check)
+            string filePath = Settings.Instance.State.Recording.FilePath!;
 
+            // Reset the recording and pre-recording
             Settings.Instance.State.Recording = null;
-            hookedExecutableFileName = null;
-            if (Settings.Instance.EnableAi && AuthService.IsAuthenticated() && Settings.Instance.AutoGenerateHighlights)
+            Settings.Instance.State.PreRecording = null;
+
+            // If the recording is not a replay buffer recording, AI is enabled, user is authenticated, and auto generate highlights is enabled -> analyze the video!
+            if (Settings.Instance.EnableAi && AuthService.IsAuthenticated() && Settings.Instance.AutoGenerateHighlights && !isReplayBufferMode)
             {
+                string fileName = Path.GetFileNameWithoutExtension(filePath);
                 Task.Run(() => AiService.AnalyzeVideo(fileName));
             }
         }
