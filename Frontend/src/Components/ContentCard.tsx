@@ -181,7 +181,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                 </a>
               </li>
             )}
-            {(type === "Session" || type === "Buffer") && enableAi && (
+            {(type === "Session") && enableAi && (
               <li>
                 {(() => {
                   // Get authentication status
@@ -216,7 +216,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                           ? 'Generating AI Clip...' 
                           : (!isLoggedIn 
                               ? 'Log In to Create AI Clip'
-                              : (hasBookmarks ? 'Create AI Clip' : 'No Highlights')
+                              : (hasBookmarks ? 'Create AI Highlight' : 'No Highlights')
                             )
                         }
                       </span>
