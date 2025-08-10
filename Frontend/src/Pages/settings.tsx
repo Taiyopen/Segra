@@ -7,7 +7,7 @@ import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth.tsx';
 import {useProfile} from '../Hooks/useUserProfile';
-import {MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription, MdInfo} from 'react-icons/md';
+import {MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription} from 'react-icons/md';
 import {useUpdate} from '../Context/UpdateContext';
 import GameListManager from '../Components/GameListManager';
 import { SiGithub } from 'react-icons/si';
@@ -401,8 +401,6 @@ export default function Settings() {
 	const hasUnavailableOutputDevices = settings.outputDevices.some(
 		deviceSetting => !isDeviceAvailable(deviceSetting.id, settings.state.outputDevices)
 	);
-
-	const isMaximumAudioSourcesSelected = settings.inputDevices.length + settings.outputDevices.length >= 4;
 
 	// Function to toggle input device selection
 	const toggleInputDevice = (deviceId: string) => {
@@ -1080,7 +1078,6 @@ export default function Settings() {
 											type="checkbox"
 											className="checkbox checkbox-sm checkbox-accent"
 											checked={settings.inputDevices.some(d => d.id === device.id)}
-											disabled={!settings.inputDevices.some(d => d.id === device.id) && isMaximumAudioSourcesSelected}
 											onChange={() => toggleInputDevice(device.id)}
 										/>
 										<span className="label-text flex-1 mr-2">{device.name}</span>
@@ -1195,7 +1192,6 @@ export default function Settings() {
 											type="checkbox"
 											className="checkbox checkbox-sm checkbox-accent"
 											checked={settings.outputDevices.some(d => d.id === device.id)}
-											disabled={!settings.outputDevices.some(d => d.id === device.id) && isMaximumAudioSourcesSelected}
 											onChange={() => toggleOutputDevice(device.id)}
 										/>
 										<span className="label-text">{device.name}</span>
@@ -1233,37 +1229,6 @@ export default function Settings() {
 						</div>
 					</div>
 				</div>
-				<AnimatePresence>
-					{isMaximumAudioSourcesSelected && (
-						<motion.div 
-						initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
-						animate={{ 
-							opacity: 1, 
-							height: 'fit-content',
-							transition: { 
-								duration: 0.3,
-								height: { type: 'spring', stiffness: 300, damping: 30 }
-							}
-						}}
-						exit={{ 
-							opacity: 0,
-							height: 0,
-							transition: { 
-								duration: 0.2
-							}
-						}}
-							className="mt-3 bg-base-200 border border-primary rounded px-3 text-sm flex items-center"
-							key="max-audio-sources-warning"
-						>
-							<div className="py-2 flex items-center w-full text-white">
-								<MdInfo className="h-5 w-5 mr-2 flex-shrink-0" />
-								<motion.span>
-									You have selected the maximum amount of audio sources.
-								</motion.span>
-							</div>
-						</motion.div>
-					)}
-				</AnimatePresence>
 			</div>
 
 			{/* Keybindings Settings */}
