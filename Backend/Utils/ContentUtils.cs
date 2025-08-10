@@ -166,8 +166,10 @@ namespace Segra.Backend.Utils
                 dir.Attributes |= FileAttributes.Hidden;
             }
 
+            // Create a temporary audio file to prevent Segra from trying to play it while it's being created
+            string tempAudioFilePath = Path.Combine(audioFolderPath, $"{contentFileName}.temp.mp3");
             string audioFilePath = Path.Combine(audioFolderPath, $"{contentFileName}.mp3");
-            string ffmpegArgs = $"-i \"{videoFilePath}\" -vn -acodec libmp3lame -q:a 6 \"{audioFilePath}\"";
+            string ffmpegArgs = $"-i \"{videoFilePath}\" -vn -acodec libmp3lame -q:a 6 \"{tempAudioFilePath}\"";
 
             ProcessStartInfo processInfo = new()
             {
@@ -192,6 +194,7 @@ namespace Segra.Backend.Utils
             }
             else
             {
+                File.Move(tempAudioFilePath, audioFilePath);
                 Log.Information($"Audio file successfully created at: {audioFilePath}");
             }
         }
