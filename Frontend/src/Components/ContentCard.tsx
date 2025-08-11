@@ -90,6 +90,33 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
   const thumbnailPath = getThumbnailPath();
   const formattedDuration = formatDuration(content!.duration);
 
+  // Check if content was created within the last hour and hasn't been viewed yet
+  const isRecent = (): boolean => {
+    if (!content) return false;
+    
+    // Check if this content has been viewed already
+    const viewedContent = localStorage.getItem('viewed-content') || '{}';
+    const viewedContentObj = JSON.parse(viewedContent);
+    if (viewedContentObj[content.fileName]) {
+      return false;
+    }
+    
+    const createdAt = new Date(content.createdAt);
+    const now = new Date();
+    const diffInHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+    return diffInHours <= 1; // Content is considered recent if created within the last hour
+  };
+  
+  // Mark content as viewed when clicked
+  const markAsViewed = () => {
+    if (!content) return;
+    
+    const viewedContent = localStorage.getItem('viewed-content') || '{}';
+    const viewedContentObj = JSON.parse(viewedContent);
+    viewedContentObj[content.fileName] = true;
+    localStorage.setItem('viewed-content', JSON.stringify(viewedContentObj));
+  };
+
   const handleUpload = () => {
     openModal(
       <UploadModal
@@ -139,7 +166,10 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
   return (
     <div
       className="card card-compact bg-base-300 text-gray-300 w-full cursor-pointer border border-[#49515b]"
-      onClick={() => onClick?.(content!)}
+      onClick={() => {
+        markAsViewed();
+        onClick?.(content!);
+      }}
     >
       <figure className="relative aspect-ratio[16/9]">
         <img
@@ -153,6 +183,11 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
         <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
           {formattedDuration}
         </span>
+        {isRecent() && (type === 'Session' || type === 'Buffer') && (
+          <span className="absolute top-2 left-2 badge badge-primary badge-sm">
+            NEW
+          </span>
+        )}
       </figure>
 
       <div className="card-body">
