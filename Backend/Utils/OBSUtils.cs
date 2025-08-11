@@ -1108,7 +1108,7 @@ namespace Segra.Backend.Utils
             }
         }
         
-        private static void PlayStartSound()
+        public static void PlayStartSound()
         {
             using (var unmanagedStream = Properties.Resources.start)
             using (var memoryStream = new MemoryStream())
@@ -1121,7 +1121,7 @@ namespace Segra.Backend.Utils
                 {
                     var volumeStream = new VolumeWaveProvider16(audioReader)
                     {
-                        Volume = 0.5f
+                        Volume = Settings.Instance.SoundEffectsVolume
                     };
 
                     waveOut.Init(volumeStream);

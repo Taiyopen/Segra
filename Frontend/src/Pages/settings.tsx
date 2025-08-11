@@ -29,6 +29,7 @@ export default function Settings() {
 	const [isCapturingKey, setIsCapturingKey] = useState<number | null>(null);
 	const activeKeysRef = useRef<number[]>([]);
 	const [draggingVolume, setDraggingVolume] = useState<{ deviceId: string | null; volume: number | null }>({ deviceId: null, volume: null });
+	const [draggingSoundVolume, setDraggingSoundVolume] = useState<number | null>(null);
 
 	// Helper function to get a display name for a key code
 	const getKeyDisplayName = (keyCode: number): string => {
@@ -1342,6 +1343,40 @@ export default function Settings() {
 				<GameListManager listType="whitelist" />
 				<div className="mt-4">
 					<GameListManager listType="blacklist" />
+				</div>
+			</div>
+
+			{/* UI Settings */}
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
+				<h2 className="text-xl font-semibold mb-2">UI</h2>
+				<div className="form-control">
+					<label className="label px-0">
+						<span className="label-text">Sound Effects Volume</span>
+					</label>
+					<div className="flex items-center gap-2">
+						<input
+							type="range"
+							name="soundEffectsVolume"
+							min="0"
+							max="1"
+							step="0.01"
+							value={draggingSoundVolume ?? settings.soundEffectsVolume}
+							onChange={(e) => {
+								setDraggingSoundVolume(parseFloat(e.target.value));
+							}}
+							onMouseDown={(e) => setDraggingSoundVolume(parseFloat(e.currentTarget.value))}
+							onMouseUp={(e) => {
+								updateSettings({ soundEffectsVolume: parseFloat(e.currentTarget.value) });
+								setDraggingSoundVolume(null); // Reset dragging state
+							}}
+							onTouchEnd={() => {
+								updateSettings({ soundEffectsVolume: draggingSoundVolume ?? settings.soundEffectsVolume });
+								setDraggingSoundVolume(null); // Reset dragging state
+							}}
+							className="range range-sm range-primary w-48"
+						/>
+						<span className="w-12 text-center">{Math.round((draggingSoundVolume ?? settings.soundEffectsVolume) * 100)}%</span>
+					</div>
 				</div>
 			</div>
 

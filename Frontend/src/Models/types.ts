@@ -148,6 +148,7 @@ export interface Settings {
 	keybindings: Keybind[];
 	whitelist: Game[];
 	blacklist: Game[];
+	soundEffectsVolume: number; // Volume for UI sound effects (0.0 to 1.0)
 	state: State;
 }
 
@@ -200,6 +201,7 @@ export const initialSettings: Settings = {
 	],
 	whitelist: [],
 	blacklist: [],
+	soundEffectsVolume: 1,
 	state: initialState,
 };
 

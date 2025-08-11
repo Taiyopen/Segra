@@ -287,6 +287,16 @@ namespace Segra.Backend.Utils
                 settings.ClipPreset = updatedSettings.ClipPreset;
                 hasChanges = true;
             }
+            
+            // Update SoundEffectsVolume
+            if (settings.SoundEffectsVolume != updatedSettings.SoundEffectsVolume)
+            {
+                Log.Information($"SoundEffectsVolume changed from '{settings.SoundEffectsVolume}' to '{updatedSettings.SoundEffectsVolume}'");
+                settings.SoundEffectsVolume = updatedSettings.SoundEffectsVolume;
+                // Play the sound with the new volume to provide immediate feedback
+                Task.Run(() => OBSUtils.PlayStartSound());
+                hasChanges = true;
+            }
 
             // Update Theme
             if (settings.Theme != updatedSettings.Theme)

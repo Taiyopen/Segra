@@ -48,6 +48,7 @@ namespace Segra.Backend.Models
         private int _clipFps = 0; // 0 for 'Original'
         private string _clipAudioQuality = "128k";
         private string _clipPreset = "veryfast";
+        private float _soundEffectsVolume = 0.5f;
 
         // Returns the default keybindings
         private static List<Keybind> GetDefaultKeybindings()
@@ -529,6 +530,20 @@ namespace Segra.Backend.Models
                 if (_clipPreset != value)
                 {
                     _clipPreset = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("soundEffectsVolume")]
+        public float SoundEffectsVolume
+        {
+            get => _soundEffectsVolume;
+            set
+            {
+                if (_soundEffectsVolume != value)
+                {
+                    _soundEffectsVolume = value;
+                    SendToFrontend("Sound effects volume changed");
                 }
             }
         }
