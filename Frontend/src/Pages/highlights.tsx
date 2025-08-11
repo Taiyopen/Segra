@@ -2,11 +2,12 @@ import {useSettings} from '../Context/SettingsContext';
 import ContentCard from '../Components/ContentCard';
 import { useSelectedVideo } from "../Context/SelectedVideoContext";
 import { useScroll } from '../Context/ScrollContext';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {Content} from "../Models/types";
 import { HiOutlineSparkles } from 'react-icons/hi';
 import { useAiHighlights } from '../Context/AiHighlightsContext';
 import AiContentCard from '../Components/AiContentCard';
+import ContentFilters from '../Components/ContentFilters';
 
 export default function Highlights() {
   const {state} = useSettings();
@@ -18,12 +19,14 @@ export default function Highlights() {
 
   const aiProgressValues = Object.values(aiProgress);
   const hasAiProgress = aiProgressValues.length > 0;
+  
+  // State for filtered items
+  const highlightItems = state.content.filter((video) => video.type === 'Highlight');
+  const [filteredItems, setFilteredItems] = useState<Content[]>(highlightItems);
 
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
   };
-
-  console.log(aiProgressValues);
 
   useEffect(() => {
     if (containerRef.current && scrollPositions.highlights > 0) {
@@ -55,17 +58,24 @@ export default function Highlights() {
   return (
     <div 
       ref={containerRef} 
-      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200"
+      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200 overflow-x-hidden"
       onScroll={handleScroll}>
-      <h1 className="text-3xl font-bold mb-4">Highlights</h1>
-      {(state.content.filter((video) => video.type === 'Highlight').length > 0 || hasAiProgress) ? (
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-3xl font-bold">Highlights</h1>
+        <ContentFilters 
+          items={highlightItems} 
+          onFilteredItemsChange={setFilteredItems} 
+          sectionId="highlights" 
+        />
+      </div>
+      
+
+      {(highlightItems.length > 0 || hasAiProgress) ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {aiProgressValues.map((progress) => (
             <AiContentCard key={progress.id} progress={progress} />
           ))}
-          {state.content
-            .filter((video) => video.type === 'Highlight')
-            .map((video, index) => (
+          {filteredItems.map((video, index) => (
             <ContentCard
               key={index}
               content={video}

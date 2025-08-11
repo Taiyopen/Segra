@@ -3,9 +3,10 @@ import ContentCard from '../Components/ContentCard';
 import { useSelectedVideo } from "../Context/SelectedVideoContext";
 import { Content } from "../Models/types";
 import { useScroll } from '../Context/ScrollContext';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MdOutlineContentCut } from 'react-icons/md';
 import { useClipping } from '../Context/ClippingContext';
+import ContentFilters from '../Components/ContentFilters';
 
 export default function Clips() {
   const { state } = useSettings();
@@ -14,6 +15,10 @@ export default function Clips() {
   const containerRef = useRef<HTMLDivElement>(null);
   const isSettingScroll = useRef(false);
   const {clippingProgress} = useClipping();
+  
+  // State for filtered items
+  const clipItems = state.content.filter((video) => video.type === 'Clip');
+  const [filteredItems, setFilteredItems] = useState<Content[]>(clipItems);
 
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
@@ -49,17 +54,24 @@ export default function Clips() {
   return (
     <div 
       ref={containerRef} 
-      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200"
+      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200 overflow-x-hidden"
       onScroll={handleScroll}>
-      <h1 className="text-3xl font-bold mb-4">Clips</h1>
-      {(state.content.filter((video) => video.type === 'Clip').length > 0 || Object.keys(clippingProgress).length > 0) ? (
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-3xl font-bold">Clips</h1>
+        <ContentFilters 
+          items={clipItems} 
+          onFilteredItemsChange={setFilteredItems} 
+          sectionId="clips" 
+        />
+      </div>
+      
+
+      {(clipItems.length > 0 || Object.keys(clippingProgress).length > 0) ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {Object.values(clippingProgress).map((progress) => (
             <ContentCard key={progress.id} type="Clip" isLoading />
           ))}
-          {state.content
-            .filter((video) => video.type === 'Clip')
-            .map((video, index) => (
+          {filteredItems.map((video, index) => (
             <ContentCard
               key={index}
               content={video}

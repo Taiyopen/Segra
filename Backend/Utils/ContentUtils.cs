@@ -33,6 +33,7 @@ namespace Segra.Backend.Utils
 
                 // Create the metadata file
                 string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
+                var (displaySize, sizeKb) = GetFileSize(filePath);
                 var metadataContent = new Content
                 {
                     Type = type,
@@ -41,7 +42,8 @@ namespace Segra.Backend.Utils
                     Bookmarks = bookmarks,
                     FileName = contentFileName,
                     FilePath = filePath,
-                    FileSize = GetFileSize(filePath),
+                    FileSize = displaySize,
+                    FileSizeKb = sizeKb,
                     CreatedAt = DateTime.Now,
                     Duration = GetVideoDuration(filePath)
                 };
@@ -333,6 +335,31 @@ namespace Segra.Backend.Utils
             }
         }
 
+        public static (string displaySize, long sizeKb) GetFileSize(string filePath)
+        {
+            try
+            {
+                var fileInfo = new FileInfo(filePath);
+                long fileSizeInKb = fileInfo.Length / 1024;
+                double fileSizeInMb = fileInfo.Length / (1024.0 * 1024.0);
+
+                if (fileSizeInMb > 1000)
+                {
+                    double fileSizeInGb = fileSizeInMb / 1024.0;
+                    return ($"{fileSizeInGb:F2} GB", fileSizeInKb);
+                }
+                else
+                {
+                    return ($"{fileSizeInMb:F2} MB", fileSizeInKb);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error getting file size: {ex.Message}");
+                return ("Unknown", 0);
+            }
+        }
+
         private static string? ExtractDuration(string ffmpegOutput)
         {
             // Look for a line like: "Duration: 00:02:34.56, start: 0.000000, bitrate: 128 kb/s"
@@ -348,30 +375,6 @@ namespace Segra.Backend.Utils
                 }
             }
             return null;
-        }
-
-        private static string GetFileSize(string filePath)
-        {
-            try
-            {
-                var fileInfo = new FileInfo(filePath);
-                double fileSizeInMb = fileInfo.Length / (1024.0 * 1024.0);
-
-                if (fileSizeInMb > 1000)
-                {
-                    double fileSizeInGb = fileSizeInMb / 1024.0;
-                    return $"{fileSizeInGb:F2} GB";
-                }
-                else
-                {
-                    return $"{fileSizeInMb:F2} MB";
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Error getting file size: {ex.Message}");
-                return "Unknown";
-            }
         }
     }
 }

@@ -4,7 +4,8 @@ import { useSelectedVideo } from "../Context/SelectedVideoContext";
 import { Content } from "../Models/types";
 import { MdOutlinePlayCircleOutline } from 'react-icons/md';
 import { useScroll } from '../Context/ScrollContext';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import ContentFilters from '../Components/ContentFilters';
 
 export default function Sessions() {
   const {state} = useSettings();
@@ -13,6 +14,10 @@ export default function Sessions() {
   const { scrollPositions, setScrollPosition } = useScroll();
   const containerRef = useRef<HTMLDivElement>(null);
   const isSettingScroll = useRef(false);
+  
+  // State for filtered items
+  const sessionItems = state.content.filter((video) => video.type === 'Session');
+  const [filteredItems, setFilteredItems] = useState<Content[]>(sessionItems);
 
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
@@ -51,15 +56,22 @@ export default function Sessions() {
   return (
     <div 
       ref={containerRef} 
-      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200"
+      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200 overflow-x-hidden"
       onScroll={handleScroll}>
-      <h1 className="text-3xl font-bold mb-4">Full Sessions</h1>
-      {state.content.filter((video) => video.type === 'Session').length > 0 ? (
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-3xl font-bold">Full Sessions</h1>
+        <ContentFilters 
+          items={sessionItems} 
+          onFilteredItemsChange={setFilteredItems} 
+          sectionId="sessions" 
+        />
+      </div>
+      
+
+      {sessionItems.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {recording && recording.endTime !== null && <ContentCard key={-1} type="Session" isLoading />}
-          {state.content
-            .filter((video) => video.type === 'Session')
-            .map((video, index) => (
+          {filteredItems.map((video, index) => (
             <ContentCard
               key={index}
               content={video}

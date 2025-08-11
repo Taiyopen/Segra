@@ -554,6 +554,27 @@ namespace Segra.Backend.Utils
                                 continue;
                             }
 
+                            // Update FileSizeKb if it is 0 (migration, remove this in the future)
+                            if(metadata.FileSizeKb == 0)
+                            {
+                                Log.Information($"[MIGRATION] Adding FileSizeKb to {metadata.FilePath}");
+                                try
+                                {
+                                    metadata.FileSizeKb = ContentUtils.GetFileSize(metadata.FilePath).sizeKb;
+
+                                    string updatedMetadataJson = JsonSerializer.Serialize(metadata, new JsonSerializerOptions
+                                    {
+                                        WriteIndented = true
+                                    });
+
+                                    File.WriteAllText(metadataFilePath, updatedMetadataJson);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.Error($"Failed to update file size for {metadata.FilePath}: {ex.Message}");
+                                }
+                            }
+
                             content.Add(new Content
                             {
                                 Type = metadata.Type,
@@ -563,6 +584,7 @@ namespace Segra.Backend.Utils
                                 FileName = metadata.FileName,
                                 FilePath = metadata.FilePath,
                                 FileSize = metadata.FileSize,
+                                FileSizeKb = metadata.FileSizeKb,
                                 Duration = metadata.Duration,
                                 CreatedAt = metadata.CreatedAt
                             });

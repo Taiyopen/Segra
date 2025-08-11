@@ -987,6 +987,8 @@ namespace Segra.Backend.Models
 
         public string FileSize { get; set; } = string.Empty;
 
+        public long FileSizeKb { get; set; } = 0;
+
         public TimeSpan Duration { get; set; }
 
         public DateTime CreatedAt { get; set; }

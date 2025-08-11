@@ -2,9 +2,10 @@ import { useSettings } from '../Context/SettingsContext';
 import ContentCard from '../Components/ContentCard';
 import { useSelectedVideo } from "../Context/SelectedVideoContext";
 import { useScroll } from '../Context/ScrollContext';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Content } from "../Models/types";
 import { MdReplay30 } from 'react-icons/md';
+import ContentFilters from '../Components/ContentFilters';
 
 export default function ReplayBuffer() {
   const { state } = useSettings();
@@ -12,6 +13,10 @@ export default function ReplayBuffer() {
   const { scrollPositions, setScrollPosition } = useScroll();
   const containerRef = useRef<HTMLDivElement>(null);
   const isSettingScroll = useRef(false);
+  
+  // State for filtered items
+  const bufferItems = state.content.filter((video) => video.type === 'Buffer');
+  const [filteredItems, setFilteredItems] = useState<Content[]>(bufferItems);
 
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
@@ -47,14 +52,21 @@ export default function ReplayBuffer() {
   return (
     <div 
       ref={containerRef} 
-      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200"
+      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200 overflow-x-hidden"
       onScroll={handleScroll}>
-      <h1 className="text-3xl font-bold mb-4">Replay Buffer</h1>
-      {state.content.filter((video) => video.type === 'Buffer').length > 0 ? (
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-3xl font-bold">Replay Buffer</h1>
+        <ContentFilters 
+          items={bufferItems} 
+          onFilteredItemsChange={setFilteredItems} 
+          sectionId="replayBuffer" 
+        />
+      </div>
+      
+
+      {bufferItems.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {state.content
-            .filter((video) => video.type === 'Buffer')
-            .map((video, index) => (
+          {filteredItems.map((video, index) => (
             <ContentCard
               key={index}
               content={video}

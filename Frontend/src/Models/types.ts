@@ -10,6 +10,7 @@ export interface Content {
 	fileName: string;
 	filePath: string;
 	fileSize: string;
+	fileSizeKb: number;
 	duration: string;
 	createdAt: string;
 }
