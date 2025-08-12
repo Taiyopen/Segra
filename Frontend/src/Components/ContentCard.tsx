@@ -4,7 +4,7 @@ import {sendMessageToBackend} from '../Utils/MessageUtils'
 import {useAuth} from '../Hooks/useAuth.tsx';
 import {useModal} from '../Context/ModalContext';
 import UploadModal from './UploadModal';
-import { MdOutlineFileUpload, MdOutlineInsertDriveFile, MdDeleteOutline } from 'react-icons/md';
+import { MdOutlineFileUpload, MdOutlineInsertDriveFile, MdDeleteOutline, MdOutlineLink } from 'react-icons/md';
 import { HiOutlineSparkles } from 'react-icons/hi';
 import { useAiHighlights } from '../Context/AiHighlightsContext';
 import { FiExternalLink } from 'react-icons/fi';
@@ -196,17 +196,41 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
         <p className="text-sm text-gray-200 flex items-center justify-between w-full">
           <span>{content!.fileSize} &bull; {new Date(content!.createdAt).toLocaleDateString()}</span>
           {content!.uploadId && (
-            <span 
-              className="btn btn-ghost btn-sm btn-circle absolute right-3" 
-              onClick={(e) => {
-                e.stopPropagation();
-                sendMessageToBackend('OpenInBrowser', {
-                  Url: `https://segra.tv/video/${content!.uploadId}`
-                });
-              }}
-            >
-              <FiExternalLink size={20} className="p-x-[1px]" />
-            </span>
+            <div className="flex absolute right-3 gap-0">
+              <span 
+                className="btn btn-ghost btn-sm btn-circle relative group" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const url = `https://segra.tv/video/${content!.uploadId}`;
+                  navigator.clipboard.writeText(url);
+                  
+                  // Show tooltip
+                  const tooltip = e.currentTarget.querySelector('.tooltip');
+                  if (tooltip) {
+                    tooltip.classList.remove('hidden');
+                    setTimeout(() => {
+                      tooltip.classList.add('hidden');
+                    }, 1000);
+                  }
+                }}
+              >
+                <MdOutlineLink size={22} />
+                <div className="tooltip tooltip-top absolute left-1/2 transform -translate-x-1/2 hidden bg-secondary text-white text-xs px-2 py-1 rounded whitespace-nowrap z-[9999]">
+                  Copied!
+                </div>
+              </span>
+              <span 
+                className="btn btn-ghost btn-sm btn-circle" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sendMessageToBackend('OpenInBrowser', {
+                    Url: `https://segra.tv/video/${content!.uploadId}`
+                  });
+                }}
+              >
+                <FiExternalLink size={20} className="p-x-[1px]" />
+              </span>
+            </div>
           )}
         </p>
 
