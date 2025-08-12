@@ -24,6 +24,12 @@ export default function Highlights() {
   const highlightItems = state.content.filter((video) => video.type === 'Highlight');
   const [filteredItems, setFilteredItems] = useState<Content[]>(highlightItems);
 
+  // Update filtered items when content changes
+  useEffect(() => {
+    const newHighlightItems = state.content.filter((video) => video.type === 'Highlight');
+    setFilteredItems(newHighlightItems);
+  }, [state.content]);
+
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
   };

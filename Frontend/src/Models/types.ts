@@ -13,6 +13,7 @@ export interface Content {
 	fileSizeKb: number;
 	duration: string;
 	createdAt: string;
+	uploadId?: string;
 }
 
 export interface State {

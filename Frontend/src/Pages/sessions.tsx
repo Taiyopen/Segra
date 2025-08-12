@@ -19,6 +19,12 @@ export default function Sessions() {
   const sessionItems = state.content.filter((video) => video.type === 'Session');
   const [filteredItems, setFilteredItems] = useState<Content[]>(sessionItems);
 
+  // Update filtered items when content changes
+  useEffect(() => {
+    const newSessionItems = state.content.filter((video) => video.type === 'Session');
+    setFilteredItems(newSessionItems);
+  }, [state.content]);
+
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
   };

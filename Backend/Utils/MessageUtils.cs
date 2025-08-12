@@ -117,6 +117,23 @@ namespace Segra.Backend.Utils
                             openFileLocationParameterElement.TryGetProperty("FilePath", out JsonElement filePathElement);
                             Process.Start("explorer.exe", $"/select,\"{filePathElement.ToString().Replace("/", "\\")}\"");
                             break;
+                        case "OpenInBrowser":
+                            root.TryGetProperty("Parameters", out JsonElement openInBrowserParameterElement);
+                            if (openInBrowserParameterElement.TryGetProperty("Url", out JsonElement urlElement))
+                            {
+                                string url = urlElement.GetString()!;
+                                Log.Information($"Opening URL in browser: {url}");
+                                Process.Start(new ProcessStartInfo
+                                {
+                                    FileName = url,
+                                    UseShellExecute = true
+                                });
+                            }
+                            else
+                            {
+                                Log.Error("URL parameter not found in OpenInBrowser message");
+                            }
+                            break;
                         case "OpenLogsLocation":
                             string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra");
                             string? logFilePath = Directory.GetFiles(logDir, "*.log").FirstOrDefault();
@@ -309,8 +326,8 @@ namespace Segra.Backend.Utils
                 var responseContent = await response.Content.ReadAsStringAsync();
                 Log.Information($"Upload success: {responseContent}");
                 
-                // Check if showInBrowserAfterUpload is enabled and parse the URL from the response
-                if (Settings.Instance.ClipShowInBrowserAfterUpload && !string.IsNullOrEmpty(responseContent))
+                // Parse the response to extract the URL and update the content with uploadId
+                if (!string.IsNullOrEmpty(responseContent))
                 {
                     try
                     {
@@ -322,18 +339,71 @@ namespace Segra.Backend.Utils
                             string url = urlElement.GetString()!;
                             if (!string.IsNullOrEmpty(url))
                             {
-                                Log.Information($"Opening URL in browser: {url}");
-                                Process.Start(new ProcessStartInfo
+                                // Extract uploadId from the URL (after the last slash)
+                                string uploadId = url.Split('/').Last();
+                                Log.Information($"Extracted upload ID: {uploadId}");
+                                
+                                // Update the content with the uploadId
+                                var contentList = Settings.Instance.State.Content.ToList();
+                                string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+                                Log.Information($"File name: {fileName}, without extension: {fileNameWithoutExtension}");
+                                
+                                var contentToUpdate = contentList.FirstOrDefault(c => 
+                                    Path.GetFileNameWithoutExtension(c.FileName) == fileNameWithoutExtension);
+                                Log.Information($"Content to update: {contentToUpdate?.FileName ?? "not found"}");
+                                
+                                if (contentToUpdate != null)
                                 {
-                                    FileName = url,
-                                    UseShellExecute = true
-                                });
+                                    contentToUpdate.UploadId = uploadId;
+                                    
+                                    // Also update the metadata file
+                                    string contentTypeStr = contentToUpdate.Type.ToString().ToLower() + "s";
+                                    string metadataFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".metadata", contentTypeStr);
+                                    string metadataFilePath = Path.Combine(metadataFolderPath, $"{fileNameWithoutExtension}.json");
+                                    
+                                    if (File.Exists(metadataFilePath))
+                                    {
+                                        try
+                                        {
+                                            string metadataJson = File.ReadAllText(metadataFilePath);
+                                            var content = JsonSerializer.Deserialize<Content>(metadataJson);
+                                            if (content != null)
+                                            {
+                                                content.UploadId = uploadId;
+                                                string updatedMetadataJson = JsonSerializer.Serialize(content, new JsonSerializerOptions
+                                                {
+                                                    WriteIndented = true
+                                                });
+                                                File.WriteAllText(metadataFilePath, updatedMetadataJson);
+                                                Log.Information($"Updated metadata file with upload ID: {metadataFilePath}");
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Log.Error($"Error updating metadata file: {ex.Message}");
+                                        }
+                                    }
+
+                                    Log.Information($"Updated content with upload ID: {uploadId}");
+                                    SettingsUtils.LoadContentFromFolderIntoState(true);
+                                }
+                                
+                                // Open browser if setting is enabled
+                                if (Settings.Instance.ClipShowInBrowserAfterUpload)
+                                {
+                                    Log.Information($"Opening URL in browser: {url}");
+                                    Process.Start(new ProcessStartInfo
+                                    {
+                                        FileName = url,
+                                        UseShellExecute = true
+                                    });
+                                }
                             }
                         }
                     }
                     catch (Exception ex)
                     {
-                        Log.Error($"Failed to parse upload response or open browser: {ex.Message}");
+                        Log.Error($"Failed to parse upload response or update content: {ex.Message}");
                     }
                 }
             }

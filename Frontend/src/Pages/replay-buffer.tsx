@@ -18,6 +18,12 @@ export default function ReplayBuffer() {
   const bufferItems = state.content.filter((video) => video.type === 'Buffer');
   const [filteredItems, setFilteredItems] = useState<Content[]>(bufferItems);
 
+  // Update filtered items when content changes
+  useEffect(() => {
+    const newBufferItems = state.content.filter((video) => video.type === 'Buffer');
+    setFilteredItems(newBufferItems);
+  }, [state.content]);
+
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
   };

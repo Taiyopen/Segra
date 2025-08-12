@@ -20,6 +20,12 @@ export default function Clips() {
   const clipItems = state.content.filter((video) => video.type === 'Clip');
   const [filteredItems, setFilteredItems] = useState<Content[]>(clipItems);
 
+  // Update filtered items when content changes
+  useEffect(() => {
+    const newClipItems = state.content.filter((video) => video.type === 'Clip');
+    setFilteredItems(newClipItems);
+  }, [state.content]);
+
   const handlePlay = (video: Content) => {
     setSelectedVideo(video);
   };

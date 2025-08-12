@@ -1024,6 +1024,8 @@ namespace Segra.Backend.Models
         public DateTime CreatedAt { get; set; }
 
         public AiAnalysis? AiAnalysis { get; set; }
+
+        public string? UploadId { get; set; }
     }
 
     public class AiAnalysis

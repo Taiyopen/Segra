@@ -604,7 +604,8 @@ namespace Segra.Backend.Utils
                                 FileSize = metadata.FileSize,
                                 FileSizeKb = metadata.FileSizeKb,
                                 Duration = metadata.Duration,
-                                CreatedAt = metadata.CreatedAt
+                                CreatedAt = metadata.CreatedAt,
+                                UploadId = metadata.UploadId
                             });
                         }
                         catch (Exception ex)
