@@ -297,6 +297,14 @@ namespace Segra.Backend.Utils
                 Task.Run(() => OBSUtils.PlayStartSound());
                 hasChanges = true;
             }
+            
+            // Update ShowNewBadgeOnVideos
+            if (settings.ShowNewBadgeOnVideos != updatedSettings.ShowNewBadgeOnVideos)
+            {
+                Log.Information($"ShowNewBadgeOnVideos changed from '{settings.ShowNewBadgeOnVideos}' to '{updatedSettings.ShowNewBadgeOnVideos}'");
+                settings.ShowNewBadgeOnVideos = updatedSettings.ShowNewBadgeOnVideos;
+                hasChanges = true;
+            }
 
             // Update Theme
             if (settings.Theme != updatedSettings.Theme)

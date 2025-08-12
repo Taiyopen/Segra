@@ -149,6 +149,7 @@ export interface Settings {
 	whitelist: Game[];
 	blacklist: Game[];
 	soundEffectsVolume: number; // Volume for UI sound effects (0.0 to 1.0)
+	showNewBadgeOnVideos: boolean;
 	state: State;
 }
 
@@ -195,13 +196,14 @@ export const initialSettings: Settings = {
 	clipFps: 0,
 	clipAudioQuality: '128k',
 	clipPreset: 'veryfast',
+	soundEffectsVolume: 1,
+	showNewBadgeOnVideos: true,
 	keybindings: [
 		{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
 		{ keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true } // 121 is F10
 	],
 	whitelist: [],
 	blacklist: [],
-	soundEffectsVolume: 1,
 	state: initialState,
 };
 

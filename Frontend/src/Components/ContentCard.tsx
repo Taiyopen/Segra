@@ -18,7 +18,7 @@ interface VideoCardProps {
 }
 
 export default function ContentCard({content, type, onClick, isLoading}: VideoCardProps) {
-  const {contentFolder, enableAi} = useSettings();
+  const {contentFolder, enableAi, showNewBadgeOnVideos} = useSettings();
   const {session} = useAuth();
   const {openModal, closeModal} = useModal();
   const { aiProgress } = useAiHighlights();
@@ -183,7 +183,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
         <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
           {formattedDuration}
         </span>
-        {isRecent() && (type === 'Session' || type === 'Buffer') && (
+        {isRecent() && (type === 'Session' || type === 'Buffer') && showNewBadgeOnVideos && (
           <span className="absolute top-2 left-2 badge badge-primary badge-sm">
             NEW
           </span>

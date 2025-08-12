@@ -49,6 +49,7 @@ namespace Segra.Backend.Models
         private string _clipAudioQuality = "128k";
         private string _clipPreset = "veryfast";
         private float _soundEffectsVolume = 0.5f;
+        private bool _showNewBadgeOnVideos = true;
 
         // Returns the default keybindings
         private static List<Keybind> GetDefaultKeybindings()
@@ -544,6 +545,20 @@ namespace Segra.Backend.Models
                 {
                     _soundEffectsVolume = value;
                     SendToFrontend("Sound effects volume changed");
+                }
+            }
+        }
+
+        [JsonPropertyName("showNewBadgeOnVideos")]
+        public bool ShowNewBadgeOnVideos
+        {
+            get => _showNewBadgeOnVideos;
+            set
+            {
+                if (_showNewBadgeOnVideos != value)
+                {
+                    _showNewBadgeOnVideos = value;
+                    SendToFrontend("Show new badge setting changed");
                 }
             }
         }

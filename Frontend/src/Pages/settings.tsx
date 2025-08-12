@@ -1349,7 +1349,7 @@ export default function Settings() {
 			{/* UI Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
 				<h2 className="text-xl font-semibold mb-2">UI</h2>
-				<div className="form-control">
+				<div className="form-control mb-4">
 					<label className="label px-0">
 						<span className="label-text">Sound Effects Volume</span>
 					</label>
@@ -1377,6 +1377,18 @@ export default function Settings() {
 						/>
 						<span className="w-12 text-center">{Math.round((draggingSoundVolume ?? settings.soundEffectsVolume) * 100)}%</span>
 					</div>
+				</div>
+				<div className="form-control">
+					<label className="label cursor-pointer justify-start gap-2 px-0">
+						<input
+							type="checkbox"
+							name="showNewBadgeOnVideos"
+							checked={settings.showNewBadgeOnVideos}
+							onChange={(e) => updateSettings({ showNewBadgeOnVideos: e.target.checked })}
+							className="checkbox checkbox-sm checkbox-primary"
+						/>
+						<span className="label-text flex items-center gap-2">Show <span className="badge badge-primary badge-sm">NEW</span> badge on new sessions and replay buffers</span>
+					</label>
 				</div>
 			</div>
 
@@ -1425,7 +1437,7 @@ export default function Settings() {
 								name="runOnStartup"
 								checked={settings.runOnStartup}
 								onChange={(e) => updateSettings({runOnStartup: e.target.checked})}
-								className="checkbox checkbox-primary"
+								className="checkbox checkbox-primary checkbox-sm"
 							/>
 							<span className="font-medium cursor-pointer">Run on Startup</span>
 						</label>
