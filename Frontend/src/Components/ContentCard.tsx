@@ -172,11 +172,11 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
         onClick?.(content!);
       }}
     >
-      <figure className="relative aspect-ratio[16/9]">
+      <figure className="relative aspect-[16/9] bg-black">
         <img
           src={thumbnailPath}
           alt={"thumbnail"}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
           loading="lazy"
           width={1600}
           height={900}
