@@ -1,59 +1,30 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Content } from "../Models/types";
+import { useState, useEffect, useRef } from "react";
 import { MdFilterList, MdSort, MdOutlineAccessTime, MdOutlineStorage, MdOutlineTimer, MdOutlineGamepad } from "react-icons/md";
 
 export type SortOption = "newest" | "oldest" | "size" | "duration" | "game";
-const SORT_OPTIONS: SortOption[] = ["newest", "oldest", "size", "duration", "game"];
 
 export interface ContentFiltersProps {
-  items: Content[];
-  onFilteredItemsChange: (filteredItems: Content[]) => void;
+  uniqueGames: string[];
+  onGameFilterChange: (selectedGames: string[]) => void;
+  onSortChange: (sortOption: SortOption) => void;
   sectionId: string;
+  selectedGames: string[];
+  sortOption: SortOption;
 }
 
 export default function ContentFilters({
-  items,
-  onFilteredItemsChange,
+  uniqueGames,
+  onGameFilterChange,
+  onSortChange,
   sectionId,
+  selectedGames,
+  sortOption,
 }: ContentFiltersProps) {
-  // Persisted initializers
-  const [selectedGames, setSelectedGames] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem(`${sectionId}-filters`);
-      const parsed = saved ? JSON.parse(saved) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [sortOption, setSortOption] = useState<SortOption>(() => {
-    try {
-      const saved = localStorage.getItem(`${sectionId}-sort`);
-      const parsed = saved ? JSON.parse(saved) : "newest";
-      return SORT_OPTIONS.includes(parsed) ? parsed : "newest";
-    } catch {
-      return "newest";
-    }
-  });
-
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
 
   const filterRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
-
-  // Keep latest callback reference
-  const callbackRef = useRef(onFilteredItemsChange);
-  useEffect(() => {
-    callbackRef.current = onFilteredItemsChange;
-  }, [onFilteredItemsChange]);
-
-  // Unique game list
-  const uniqueGames = React.useMemo(() => {
-    const games = items.map((item) => item.game);
-    return [...new Set(games)].sort();
-  }, [items]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -69,32 +40,7 @@ export default function ContentFilters({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isFilterOpen, isSortOpen]);
 
-  // Load persisted state when sectionId changes
-  useEffect(() => {
-    try {
-      const savedFilters = localStorage.getItem(`${sectionId}-filters`);
-      const savedSort = localStorage.getItem(`${sectionId}-sort`);
-
-      if (savedFilters) {
-        const parsedFilters = JSON.parse(savedFilters);
-        setSelectedGames(Array.isArray(parsedFilters) ? parsedFilters : []);
-      } else {
-        setSelectedGames([]);
-      }
-
-      if (savedSort) {
-        const parsedSort = JSON.parse(savedSort);
-        setSortOption(SORT_OPTIONS.includes(parsedSort) ? parsedSort : "newest");
-      } else {
-        setSortOption("newest");
-      }
-    } catch {
-      setSelectedGames([]);
-      setSortOption("newest");
-    }
-  }, [sectionId]);
-
-  // Persist changes
+  // Persist changes to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(`${sectionId}-filters`, JSON.stringify(selectedGames));
@@ -103,59 +49,23 @@ export default function ContentFilters({
       /* no-op */
     }
   }, [selectedGames, sortOption, sectionId]);
-
-  // Compute filtered & sorted results
-  const filteredResults = React.useMemo(() => {
-    let out = [...items];
-
-    if (selectedGames.length > 0) {
-      out = out.filter((item) => selectedGames.includes(item.game));
-    }
-
-    out.sort((a, b) => {
-      switch (sortOption) {
-        case "newest":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        case "oldest":
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        case "size":
-          return (b.fileSizeKb ?? 0) - (a.fileSizeKb ?? 0);
-        case "duration": {
-          const toSecs = (dur: string) =>
-            dur.split(":").reduce((acc, t) => 60 * acc + (parseInt(t, 10) || 0), 0);
-          return toSecs(b.duration) - toSecs(a.duration);
-        }
-        case "game": {
-          const byGame = a.game.localeCompare(b.game);
-          return byGame !== 0 ? byGame : a.title.localeCompare(b.title);
-        }
-        default:
-          return 0;
-      }
-    });
-
-    return out;
-  }, [items, selectedGames, sortOption]);
-
-  // Notify parent only when results actually change
-  const prevSigRef = React.useRef<string>("");
-  const makeSig = (arr: Content[]) =>
-    arr.map((i) => `${i.title}|${i.createdAt}|${i.game}`).join("||");
-
-  useEffect(() => {
-    const nextSig = makeSig(filteredResults);
-    if (prevSigRef.current !== nextSig) {
-      prevSigRef.current = nextSig;
-      callbackRef.current(filteredResults);
-    }
-  }, [filteredResults]);
-
+  
   // UI handlers
   const toggleGameSelection = (game: string) => {
-    setSelectedGames((prev) => (prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game]));
+    const newSelectedGames = selectedGames.includes(game) 
+      ? selectedGames.filter((g: string) => g !== game) 
+      : [...selectedGames, game];
+    onGameFilterChange(newSelectedGames);
   };
 
-  const clearFilters = () => setSelectedGames([]);
+  const clearFilters = () => {
+    onGameFilterChange([]);
+  };
+
+  const handleSortChange = (option: SortOption) => {
+    onSortChange(option);
+    setIsSortOpen(false);
+  };
 
   const getSortLabel = (option: SortOption): string => {
     switch (option) {
@@ -242,10 +152,7 @@ export default function ContentFilters({
               <li>
                 <button
                   className={`hover:text-primary hover:bg-base-200 ${sortOption === "newest" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => {
-                    setSortOption("newest");
-                    setIsSortOpen(false);
-                  }}
+                  onClick={() => handleSortChange("newest")}
                 >
                   <MdOutlineAccessTime className="text-lg" /> Newest
                 </button>
@@ -253,10 +160,7 @@ export default function ContentFilters({
               <li>
                 <button
                   className={`hover:text-primary hover:bg-base-200 ${sortOption === "oldest" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => {
-                    setSortOption("oldest");
-                    setIsSortOpen(false);
-                  }}
+                  onClick={() => handleSortChange("oldest")}
                 >
                   <MdOutlineAccessTime className="text-lg" /> Oldest
                 </button>
@@ -264,10 +168,7 @@ export default function ContentFilters({
               <li>
                 <button
                   className={`hover:text-primary hover:bg-base-200 ${sortOption === "size" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => {
-                    setSortOption("size");
-                    setIsSortOpen(false);
-                  }}
+                  onClick={() => handleSortChange("size")}
                 >
                   <MdOutlineStorage className="text-lg" /> Size
                 </button>
@@ -275,10 +176,7 @@ export default function ContentFilters({
               <li>
                 <button
                   className={`hover:text-primary hover:bg-base-200 ${sortOption === "duration" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => {
-                    setSortOption("duration");
-                    setIsSortOpen(false);
-                  }}
+                  onClick={() => handleSortChange("duration")}
                 >
                   <MdOutlineTimer className="text-lg" /> Duration
                 </button>
@@ -286,10 +184,7 @@ export default function ContentFilters({
               <li>
                 <button
                   className={`hover:text-primary hover:bg-base-200 ${sortOption === "game" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => {
-                    setSortOption("game");
-                    setIsSortOpen(false);
-                  }}
+                  onClick={() => handleSortChange("game")}
                 >
                   <MdOutlineGamepad className="text-lg" /> Game A–Z
                 </button>
