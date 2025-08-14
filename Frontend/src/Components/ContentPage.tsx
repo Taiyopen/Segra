@@ -86,7 +86,7 @@ export default function ContentPage({
         }
         case "game": {
           const byGame = a.game.localeCompare(b.game);
-          return byGame !== 0 ? byGame : a.title.localeCompare(b.title);
+          return byGame !== 0 ? byGame : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
         default:
           return 0;
