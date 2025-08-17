@@ -184,10 +184,34 @@ namespace Segra.Backend.Utils
             };
 
             using Process process = new() { StartInfo = processInfo };
+            
+            // Set up asynchronous reading to prevent deadlocks with large files
+            var outputBuilder = new System.Text.StringBuilder();
+            var errorBuilder = new System.Text.StringBuilder();
+            
+            process.OutputDataReceived += (sender, e) => {
+                if (e.Data != null) {
+                    outputBuilder.AppendLine(e.Data);
+                }
+            };
+            
+            process.ErrorDataReceived += (sender, e) => {
+                if (e.Data != null) {
+                    errorBuilder.AppendLine(e.Data);
+                }
+            };
+            
             process.Start();
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
+            
+            // Begin asynchronous reading
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            
+            // Wait for the process to exit
             process.WaitForExit();
+            
+            string output = outputBuilder.ToString();
+            string error = errorBuilder.ToString();
 
             if (process.ExitCode != 0)
             {
