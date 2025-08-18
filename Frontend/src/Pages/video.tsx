@@ -11,7 +11,7 @@ import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun, FaTrashCan } from "react-icons/fa6";
-import { MdAddBox, MdBookmark, MdBookmarkAdd, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload, MdVolumeUp, MdVolumeOff, MdVolumeMute, MdVolumeDown, MdFullscreen, MdFullscreenExit } from "react-icons/md";
+import { MdAddBox, MdBookmark, MdBookmarkAdd, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdOutlineFileUpload, MdVolumeUp, MdVolumeOff, MdVolumeMute, MdVolumeDown, MdFullscreen, MdFullscreenExit } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 import WaveSurfer from 'wavesurfer.js'
@@ -151,16 +151,6 @@ export default function VideoComponent({ video }: { video: Content }) {
         vid.addEventListener("pause", onPause);
         vid.addEventListener("volumechange", onVolumeChange);
         
-        const showControlsFromKeys = () => {
-            setControlsVisible(true);
-            if (controlsHideTimeoutRef.current) {
-                clearTimeout(controlsHideTimeoutRef.current);
-            }
-            controlsHideTimeoutRef.current = window.setTimeout(() => {
-                setControlsVisible(false);
-            }, 2500);
-        };
-
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
             const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as any).isContentEditable;
@@ -184,13 +174,13 @@ export default function VideoComponent({ video }: { video: Content }) {
             // Arrow keys: seek 10s back/forward (allow holding)
             if ((e.key === 'ArrowLeft' || e.code === 'ArrowLeft') && !isTyping) {
                 e.preventDefault();
-                showControlsFromKeys();
+                showControlsTemporarily();
                 skipTime(-10);
                 return;
             }
             if ((e.key === 'ArrowRight' || e.code === 'ArrowRight') && !isTyping) {
                 e.preventDefault();
-                showControlsFromKeys();
+                showControlsTemporarily();
                 skipTime(10);
                 return;
             }
@@ -198,38 +188,14 @@ export default function VideoComponent({ video }: { video: Content }) {
             // Volume up/down (5% steps, allow holding)
             if ((e.key === 'ArrowUp' || e.code === 'ArrowUp') && !isTyping) {
                 e.preventDefault();
-                // Increase by 5%
-                if (videoRef.current) {
-                    const current = videoRef.current.volume;
-                    const next = Math.min(1, current + 0.05);
-                    videoRef.current.volume = next;
-                    if (videoRef.current.muted && next > 0) {
-                        videoRef.current.muted = false;
-                        setIsMuted(false);
-                    }
-                    setVolume(next);
-                    localStorage.setItem('segra-volume', next.toString());
-                    localStorage.setItem('segra-muted', videoRef.current.muted.toString());
-                }
-                showControlsFromKeys();
+                setPlayerVolume((videoRef.current?.volume ?? volume) + 0.05);
+                showControlsTemporarily();
                 return;
             }
             if ((e.key === 'ArrowDown' || e.code === 'ArrowDown') && !isTyping) {
                 e.preventDefault();
-                // Decrease by 5%
-                if (videoRef.current) {
-                    const current = videoRef.current.volume;
-                    const next = Math.max(0, current - 0.05);
-                    videoRef.current.volume = next;
-                    if (next === 0) {
-                        videoRef.current.muted = true;
-                        setIsMuted(true);
-                    }
-                    setVolume(next);
-                    localStorage.setItem('segra-volume', next.toString());
-                    localStorage.setItem('segra-muted', videoRef.current.muted.toString());
-                }
-                showControlsFromKeys();
+                setPlayerVolume((videoRef.current?.volume ?? volume) - 0.05);
+                showControlsTemporarily();
                 return;
             }
 
@@ -237,7 +203,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             if ((e.key === 'm' || e.key === 'M') && !isTyping) {
                 e.preventDefault();
                 toggleMute();
-                showControlsFromKeys();
+                showControlsTemporarily();
                 return;
             }
             if (e.key === 'Escape' && isFullscreen) {
@@ -303,22 +269,23 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, []);
 
-    // Create refs to track zoom state and position
+    // Create refs to track zoom state
     const wheelZoomRef = useRef(zoom);
-    const initializedRef = useRef(false);
-    const cursorPositionRef = useRef({ x: 0, time: 0 });
     
     // Update the wheel zoom ref when zoom changes from other sources (buttons)
     useEffect(() => {
         wheelZoomRef.current = zoom;
     }, [zoom]);
-    
-    // Initialize the timeline scroll position once when loaded
-    useEffect(() => {
-        if (scrollContainerRef.current && duration > 0 && !initializedRef.current) {
-            initializedRef.current = true;
+
+    const showControlsTemporarily = () => {
+        setControlsVisible(true);
+        if (controlsHideTimeoutRef.current) {
+            clearTimeout(controlsHideTimeoutRef.current);
         }
-    }, [duration, scrollContainerRef.current]);
+        controlsHideTimeoutRef.current = window.setTimeout(() => {
+            setControlsVisible(false);
+        }, 2500);
+    };
     
     // Handle timeline zooming with mouse wheel
     useEffect(() => {
@@ -340,12 +307,6 @@ export default function VideoComponent({ video }: { video: Content }) {
             
             // Calculate time at cursor position
             const timeAtCursor = (cursorX + scrollLeft) / oldPixelsPerSecond;
-            
-            // Store cursor position for reference
-            cursorPositionRef.current = {
-                x: cursorX,
-                time: timeAtCursor
-            };
             
             // Calculate new zoom level
             const zoomFactor = e.deltaY < 0 ? 1.2 : 0.8;
@@ -443,6 +404,26 @@ export default function VideoComponent({ video }: { video: Content }) {
             const newTime = videoRef.current.currentTime + seconds;
             videoRef.current.currentTime = Math.max(0, Math.min(newTime, videoRef.current.duration));
         }
+    };
+
+    const setPlayerVolume = (vol: number) => {
+        const target = Math.max(0, Math.min(1, vol));
+        const el = videoRef.current;
+        if (!el) {
+            setVolume(target);
+            return;
+        }
+        el.volume = target;
+        if (target === 0) {
+            el.muted = true;
+            setIsMuted(true);
+        } else if (el.muted) {
+            el.muted = false;
+            setIsMuted(false);
+        }
+        setVolume(target);
+        localStorage.setItem('segra-volume', target.toString());
+        localStorage.setItem('segra-muted', el.muted.toString());
     };
 
     // Toggle video play/pause state
@@ -713,8 +694,6 @@ export default function VideoComponent({ video }: { video: Content }) {
         document.head.appendChild(style);
     
         ws.on('ready', () => {
-            console.log('WaveSurfer is ready');
-            
             // Add a class to the timeline container to trigger the fade-in
             setTimeout(() => {
                 timelineContainer.classList.add('waveform-ready');
@@ -827,50 +806,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         );
     };
 
-    // Group overlapping bookmarks for timeline display
-    const groupOverlappingBookmarks = (bookmarks: any[], pixelsPerSecond: number) => {
-        if (!bookmarks?.length) return [];
-
-        // If at max zoom (10), return each bookmark as its own group
-        if (zoom >= 10) {
-            return bookmarks.map(bookmark => [bookmark]);
-        }
-
-        const OVERLAP_THRESHOLD = 20; // pixels
-        const groups: any[] = [];
-        let currentGroup: any[] = [];
-
-        const sortedBookmarks = [...bookmarks].sort((a, b) =>
-            timeStringToSeconds(a.time) - timeStringToSeconds(b.time)
-        );
-
-        sortedBookmarks.forEach((bookmark, index) => {
-            const currentTime = timeStringToSeconds(bookmark.time);
-            const currentPos = currentTime * pixelsPerSecond;
-
-            if (index === 0) {
-                currentGroup = [bookmark];
-            } else {
-                const prevTime = timeStringToSeconds(sortedBookmarks[index - 1].time);
-                const prevPos = prevTime * pixelsPerSecond;
-
-                if (Math.abs(currentPos - prevPos) < OVERLAP_THRESHOLD) {
-                    currentGroup.push(bookmark);
-                } else {
-                    if (currentGroup.length > 0) {
-                        groups.push([...currentGroup]);
-                    }
-                    currentGroup = [bookmark];
-                }
-            }
-
-            if (index === sortedBookmarks.length - 1 && currentGroup.length > 0) {
-                groups.push(currentGroup);
-            }
-        });
-
-        return groups;
-    };
+    
 
     const [selectedBookmarkTypes, setSelectedBookmarkTypes] = useState<Set<BookmarkType>>(new Set(Object.values(BookmarkType)));
 
@@ -937,8 +873,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             Id: bookmarkId
         });
         
-        // Add visual feedback for the user
-        console.log(`Added bookmark at ${formattedTime}`);
+        
     };
 
     const handleDeleteBookmark = (bookmarkId: number) => {
@@ -960,31 +895,13 @@ export default function VideoComponent({ video }: { video: Content }) {
                 Id: bookmarkId
             });
             
-            console.log(`Deleted bookmark with ID ${bookmarkId}`);
         }
     };
 
     // Handle volume change
     const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newVolume = parseFloat(e.target.value);
-        setVolume(newVolume);
-        
-        if (videoRef.current) {
-            videoRef.current.volume = newVolume;
-            
-            // If we're adjusting volume from zero or to zero, update muted state
-            if (newVolume === 0) {
-                videoRef.current.muted = true;
-                setIsMuted(true);
-            } else if (isMuted) {
-                videoRef.current.muted = false;
-                setIsMuted(false);
-            }
-            
-            // Save to localStorage
-            localStorage.setItem('segra-volume', newVolume.toString());
-            localStorage.setItem('segra-muted', videoRef.current.muted.toString());
-        }
+        setPlayerVolume(newVolume);
     };
 
     // Toggle mute state
@@ -1008,13 +925,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                         ref={playerContainerRef}
                         onMouseMove={() => {
                             setIsPointerInPlayer(true);
-                            setControlsVisible(true);
-                            if (controlsHideTimeoutRef.current) {
-                                clearTimeout(controlsHideTimeoutRef.current);
-                            }
-                            controlsHideTimeoutRef.current = window.setTimeout(() => {
-                                setControlsVisible(false);
-                            }, 2500);
+                            showControlsTemporarily();
                         }}
                         onMouseLeave={() => {
                             setIsPointerInPlayer(false);
@@ -1134,43 +1045,26 @@ export default function VideoComponent({ video }: { video: Content }) {
                                 overflow: "hidden"
                             }}
                         >
-                            {groupOverlappingBookmarks(filteredBookmarks, pixelsPerSecond).map((group, groupIndex) => {
-                                const isCluster = group.length > 1;
-                                const referenceBookmark = group[0];
-                                const timeInSeconds = timeStringToSeconds(referenceBookmark.time);
+                            {filteredBookmarks.map((bookmark, index) => {
+                                const timeInSeconds = timeStringToSeconds(bookmark.time);
                                 const leftPos = timeInSeconds * pixelsPerSecond;
-                                const Icon = iconMapping[referenceBookmark.type as BookmarkType] || IoSkull;
+                                const Icon = iconMapping[bookmark.type as BookmarkType] || IoSkull;
 
                                 return (
                                     <div
-                                        key={`bookmark-${groupIndex}`}
+                                        key={`bookmark-${bookmark.id ?? index}`}
                                         className="tooltip absolute bottom-0 transform -translate-x-1/2 cursor-pointer z-10 flex flex-col items-center text-[#25272e]"
-                                        data-tip={isCluster
-                                            ? `${group.length} bookmarks at ${referenceBookmark.time}`
-                                            : `${referenceBookmark.type}${referenceBookmark.subtype ? ` - ${referenceBookmark.subtype}` : ''} (${referenceBookmark.time})`
-                                        }
-                                        style={{
-                                            left: `${leftPos}px`
-                                        }}
+                                        data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
+                                        style={{ left: `${leftPos}px` }}
                                         onContextMenu={(e) => {
                                             e.preventDefault();
-                                            handleDeleteBookmark(referenceBookmark.id);
+                                            handleDeleteBookmark(bookmark.id);
                                         }}
                                     >
-                                        <div
-                                            className="bg-[#EFAF2B] w-[26px] h-[26px] rounded-full flex items-center justify-center mb-0"
-                                        >
-                                            {isCluster ? (
-                                                <MdBookmarks size={16} />
-                                            ) : (
-                                                <>
-                                                    <Icon size={16} />
-                                                </>
-                                            )}
+                                        <div className="bg-[#EFAF2B] w-[26px] h-[26px] rounded-full flex items-center justify-center mb-0">
+                                            <Icon size={16} />
                                         </div>
-                                        <div
-                                            className="w-[2px] h-[16px] bg-[#EFAF2B]"
-                                        />
+                                        <div className="w-[2px] h-[16px] bg-[#EFAF2B]" />
                                     </div>
                                 );
                             })}
