@@ -57,6 +57,21 @@ namespace Segra.Backend.Utils
 
                     switch (method)
                     {
+                        case "ToggleFullscreen":
+                            if (root.TryGetProperty("Parameters", out var fsParams) &&
+                                fsParams.TryGetProperty("enabled", out var enabledEl))
+                            {
+                                bool enabled = enabledEl.GetBoolean();
+                                try
+                                {
+                                    Program.SetFullscreen(enabled);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.Error(ex, "Failed to toggle fullscreen");
+                                }
+                            }
+                            break;
                         case "Login":
                             root.TryGetProperty("Parameters", out JsonElement loginParameterElement);
                             string accessToken = loginParameterElement.GetProperty("accessToken").GetString()!;

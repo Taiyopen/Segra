@@ -242,6 +242,20 @@ namespace Segra
             }
         }
 
+        public static void SetFullscreen(bool enabled)
+        {
+            try
+            {
+                if (Window == null) return;
+                Window.SetMaximized(enabled);
+                Log.Information($"Set maximized (fullscreen-mode): {enabled}");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error setting fullscreen state");
+            }
+        }
+
         private static async Task ShowApplicationWindow()
         {
             Log.Information("Showing application window. Window is " + (Window == null ? "null" : "not null"));

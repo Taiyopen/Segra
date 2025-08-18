@@ -11,7 +11,7 @@ import { useModal } from "../Context/ModalContext";
 import UploadModal from '../Components/UploadModal';
 import { IconType } from "react-icons";
 import { FaGun, FaTrashCan } from "react-icons/fa6";
-import { MdAddBox, MdBookmark, MdBookmarkAdd, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload, MdVolumeUp, MdVolumeOff, MdVolumeMute, MdVolumeDown } from "react-icons/md";
+import { MdAddBox, MdBookmark, MdBookmarkAdd, MdMovieCreation, MdOutlineHandshake, MdPause, MdPlayArrow, MdReplay10, MdForward10, MdBookmarks, MdOutlineFileUpload, MdVolumeUp, MdVolumeOff, MdVolumeMute, MdVolumeDown, MdFullscreen, MdFullscreenExit } from "react-icons/md";
 import { IoSkull, IoAdd, IoRemove } from "react-icons/io5";
 import SelectionCard from '../Components/SelectionCard';
 import WaveSurfer from 'wavesurfer.js'
@@ -58,6 +58,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     const audioRef = useRef<HTMLAudioElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const playerContainerRef = useRef<HTMLDivElement>(null);
     const latestDraggedSelectionRef = useRef<Selection | null>(null);
 
     // Video state
@@ -76,7 +77,10 @@ export default function VideoComponent({ video }: { video: Content }) {
         // Initialize muted state from localStorage or default to false
         return localStorage.getItem('segra-muted') === 'true';
     });
-    const [isVideoHovered, setIsVideoHovered] = useState(false);
+    const [controlsVisible, setControlsVisible] = useState(true);
+    const controlsHideTimeoutRef = useRef<number | null>(null);
+    const [isPointerInPlayer, setIsPointerInPlayer] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Interaction state
     const [isDragging, setIsDragging] = useState(false);
@@ -147,24 +151,114 @@ export default function VideoComponent({ video }: { video: Content }) {
         vid.addEventListener("pause", onPause);
         vid.addEventListener("volumechange", onVolumeChange);
         
+        const showControlsFromKeys = () => {
+            setControlsVisible(true);
+            if (controlsHideTimeoutRef.current) {
+                clearTimeout(controlsHideTimeoutRef.current);
+            }
+            controlsHideTimeoutRef.current = window.setTimeout(() => {
+                setControlsVisible(false);
+            }, 2500);
+        };
+
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
-            if (e.code === "Space" && target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+            const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as any).isContentEditable;
+
+            // Space to toggle play/pause globally (unless typing)
+            if ((e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') && !isTyping) {
+                if (e.repeat) return; // avoid rapid toggle on key repeat
                 e.preventDefault();
                 handlePlayPause();
+                return;
+            }
+
+            // F to toggle fullscreen overlay (unless typing)
+            if ((e.key === 'f' || e.key === 'F') && !isTyping) {
+                if (e.repeat) return;
+                e.preventDefault();
+                toggleFullscreen();
+                return;
+            }
+
+            // Arrow keys: seek 10s back/forward (allow holding)
+            if ((e.key === 'ArrowLeft' || e.code === 'ArrowLeft') && !isTyping) {
+                e.preventDefault();
+                showControlsFromKeys();
+                skipTime(-10);
+                return;
+            }
+            if ((e.key === 'ArrowRight' || e.code === 'ArrowRight') && !isTyping) {
+                e.preventDefault();
+                showControlsFromKeys();
+                skipTime(10);
+                return;
+            }
+
+            // Volume up/down (5% steps, allow holding)
+            if ((e.key === 'ArrowUp' || e.code === 'ArrowUp') && !isTyping) {
+                e.preventDefault();
+                // Increase by 5%
+                if (videoRef.current) {
+                    const current = videoRef.current.volume;
+                    const next = Math.min(1, current + 0.05);
+                    videoRef.current.volume = next;
+                    if (videoRef.current.muted && next > 0) {
+                        videoRef.current.muted = false;
+                        setIsMuted(false);
+                    }
+                    setVolume(next);
+                    localStorage.setItem('segra-volume', next.toString());
+                    localStorage.setItem('segra-muted', videoRef.current.muted.toString());
+                }
+                showControlsFromKeys();
+                return;
+            }
+            if ((e.key === 'ArrowDown' || e.code === 'ArrowDown') && !isTyping) {
+                e.preventDefault();
+                // Decrease by 5%
+                if (videoRef.current) {
+                    const current = videoRef.current.volume;
+                    const next = Math.max(0, current - 0.05);
+                    videoRef.current.volume = next;
+                    if (next === 0) {
+                        videoRef.current.muted = true;
+                        setIsMuted(true);
+                    }
+                    setVolume(next);
+                    localStorage.setItem('segra-volume', next.toString());
+                    localStorage.setItem('segra-muted', videoRef.current.muted.toString());
+                }
+                showControlsFromKeys();
+                return;
+            }
+
+            // Mute/unmute
+            if ((e.key === 'm' || e.key === 'M') && !isTyping) {
+                e.preventDefault();
+                toggleMute();
+                showControlsFromKeys();
+                return;
+            }
+            if (e.key === 'Escape' && isFullscreen) {
+                e.preventDefault();
+                exitFullscreen();
             }
         };
         
-        window.addEventListener("keydown", handleKeyDown);
+        const keyOptions: AddEventListenerOptions & EventListenerOptions = { capture: true };
+        window.addEventListener("keydown", handleKeyDown, keyOptions);
+
+        // No DOM fullscreen; we manage an overlay + window maximize from backend
         
         return () => {
             vid.removeEventListener("loadedmetadata", onLoadedMetadata);
             vid.removeEventListener("play", onPlay);
             vid.removeEventListener("pause", onPause);
             vid.removeEventListener("volumechange", onVolumeChange);
-            window.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("keydown", handleKeyDown, keyOptions as any);
         };
-    }, [volume, isMuted]);
+    }, [volume, isMuted, isFullscreen]);
 
     // Handle video playback time updates using requestAnimationFrame for smooth updates
     useEffect(() => {
@@ -356,6 +450,38 @@ export default function VideoComponent({ video }: { video: Content }) {
         handlePlayPause();
     };
 
+    // Fullscreen controls: request browser fullscreen and ask backend for OS-level fullscreen
+    const enterFullscreen = () => {
+        setIsFullscreen(true);
+        sendMessageToBackend("ToggleFullscreen", { enabled: true });
+    };
+
+    const exitFullscreen = () => {
+        setIsFullscreen(false);
+        sendMessageToBackend("ToggleFullscreen", { enabled: false });
+    };
+
+    const toggleFullscreen = () => {
+        if (isFullscreen) exitFullscreen(); else enterFullscreen();
+    };
+
+    // Prevent page scrollbars while our overlay is active
+    useEffect(() => {
+        const el = document.documentElement;
+        const body = document.body;
+        if (isFullscreen) {
+            el.style.overflow = 'hidden';
+            body.style.overflow = 'hidden';
+        } else {
+            el.style.overflow = '';
+            body.style.overflow = '';
+        }
+        return () => {
+            el.style.overflow = '';
+            body.style.overflow = '';
+        };
+    }, [isFullscreen]);
+
     // Handle clicks on the timeline to seek video
     const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
         if (isInteracting || !scrollContainerRef.current) return;
@@ -392,10 +518,15 @@ export default function VideoComponent({ video }: { video: Content }) {
         setTimeout(() => setIsInteracting(false), 0);
     };
 
-    // Format time in seconds to "MM:SS" display format
+    // Format time in seconds to "HH:MM:SS" when needed, otherwise "MM:SS"
     const formatTime = (time: number) => {
-        const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60);
+        const totalSeconds = Math.max(0, Math.floor(time));
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return `${hours.toString()}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     };
     
@@ -870,17 +1001,38 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     return (
         <DndProvider backend={HTML5Backend}>
-            <div className="flex w-full h-full bg-base-200" ref={containerRef}>
+            <div className="flex w-full h-full bg-base-200 overflow-hidden" ref={containerRef}>
                 <div className="flex-1 p-4 w-full lg:w-3/4">
-                    <div className="relative">
+                    <div
+                        className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen overflow-hidden bg-black' : 'relative'} ${(!controlsVisible && isPointerInPlayer) ? 'cursor-none' : ''}`}
+                        ref={playerContainerRef}
+                        onMouseMove={() => {
+                            setIsPointerInPlayer(true);
+                            setControlsVisible(true);
+                            if (controlsHideTimeoutRef.current) {
+                                clearTimeout(controlsHideTimeoutRef.current);
+                            }
+                            controlsHideTimeoutRef.current = window.setTimeout(() => {
+                                setControlsVisible(false);
+                            }, 2500);
+                        }}
+                        onMouseLeave={() => {
+                            setIsPointerInPlayer(false);
+                            if (controlsHideTimeoutRef.current) {
+                                clearTimeout(controlsHideTimeoutRef.current);
+                                controlsHideTimeoutRef.current = null;
+                            }
+                            setControlsVisible(false);
+                        }}
+                    >
                         <video
                             autoPlay
-                            className="relative rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]"
+                            className={`block relative ${isFullscreen ? 'w-full h-full' : 'rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]'}`}
                             src={getVideoPath()}
                             ref={videoRef}
                             onClick={togglePlayPause}
-                            onMouseEnter={() => setIsVideoHovered(true)}
-                            onMouseLeave={() => setIsVideoHovered(false)}
+                            onDoubleClick={toggleFullscreen}
+                            style={{ backgroundColor: 'black', objectFit: isFullscreen ? 'contain' as const : undefined }}
                         />
                         <audio
                             className="relative rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]"
@@ -889,27 +1041,55 @@ export default function VideoComponent({ video }: { video: Content }) {
                             hidden
                         />
                         
-                        {/* Volume control that appears on hover */}
-                        <div 
-                            className={`absolute bottom-4 right-4 bg-black/70 rounded-lg p-2 flex items-center gap-2 transition-opacity duration-300 ${isVideoHovered ? 'opacity-100' : 'opacity-0'}`}
-                            onMouseEnter={() => setIsVideoHovered(true)}
+                        {/* Control bar on hover: play/pause, time, scrubber, volume, fullscreen */}
+                        <div
+                            className={`absolute left-4 right-4 bottom-4 bg-black/70 rounded-lg px-3 py-2 flex items-center gap-3 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
                         >
-                            <button 
-                                onClick={toggleMute}
+                            <button
+                                onClick={togglePlayPause}
                                 className="text-white hover:text-accent transition-colors"
+                                aria-label={isPlaying ? 'Pause' : 'Play'}
                             >
-                                {isMuted || volume === 0 ? (
-                                    <MdVolumeOff className="w-6 h-6" />
-                                ) : volume < 0.33 ? (
-                                    <MdVolumeMute className="w-6 h-6" />
-                                ) : volume < 0.67 ? (
-                                    <MdVolumeDown className="w-6 h-6" />
-                                ) : (
-                                    <MdVolumeUp className="w-6 h-6" />
-                                )}
+                                {isPlaying ? <MdPause className="w-6 h-6" /> : <MdPlayArrow className="w-6 h-6" />}
                             </button>
-                            
-                            <div className="w-24 flex items-center">
+
+                            <span className="text-xs tabular-nums text-white/90 w-12 text-right">{formatTime(currentTime)}</span>
+
+                            <input
+                                type="range"
+                                min={0}
+                                max={Math.max(0.01, duration)}
+                                step={0.01}
+                                value={Math.min(currentTime, duration)}
+                                onChange={(e) => {
+                                    const t = parseFloat(e.target.value);
+                                    setCurrentTime(t);
+                                    if (videoRef.current) videoRef.current.currentTime = t;
+                                }}
+                                onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                className="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-accent"
+                            />
+
+                            <span className="text-xs tabular-nums text-white/90 w-12">{formatTime(duration)}</span>
+
+                            <div className="flex items-center gap-2 ml-2">
+                                <button
+                                    onClick={toggleMute}
+                                    className="text-white hover:text-accent transition-colors"
+                                    aria-label={isMuted ? 'Unmute' : 'Mute'}
+                                >
+                                    {isMuted || volume === 0 ? (
+                                        <MdVolumeOff className="w-6 h-6" />
+                                    ) : volume < 0.33 ? (
+                                        <MdVolumeMute className="w-6 h-6" />
+                                    ) : volume < 0.67 ? (
+                                        <MdVolumeDown className="w-6 h-6" />
+                                    ) : (
+                                        <MdVolumeUp className="w-6 h-6" />
+                                    )}
+                                </button>
                                 <input
                                     type="range"
                                     min="0"
@@ -917,9 +1097,24 @@ export default function VideoComponent({ video }: { video: Content }) {
                                     step="0.01"
                                     value={volume}
                                     onChange={handleVolumeChange}
-                                    className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-accent"
+                                    onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                    onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                    onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                    className="w-24 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-accent"
+                                    aria-label="Volume"
                                 />
                             </div>
+
+                            <button
+                                onClick={toggleFullscreen}
+                                onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                className="text-white hover:text-accent transition-colors ml-2"
+                                aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                            >
+                                {isFullscreen ? <MdFullscreenExit className="w-6 h-6" /> : <MdFullscreen className="w-6 h-6" />}
+                            </button>
                         </div>
                     </div>
                     <div
