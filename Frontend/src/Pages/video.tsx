@@ -86,18 +86,21 @@ export default function VideoComponent({ video }: { video: Content }) {
     const [isDragging, setIsDragging] = useState(false);
     const [isInteracting, setIsInteracting] = useState(false);
     const [hoveredSelectionId, setHoveredSelectionId] = useState<number | null>(null);
-    const [isHoveredByTimeline, setIsHoveredByTimeline] = useState(false);
     const [dragState, setDragState] = useState<{ id: number | null; offset: number }>({ 
         id: null, 
         offset: 0 
     });
+    const dragCandidateRef = useRef<{ id: number; startClientX: number; offset: number } | null>(null);
     const [resizingSelectionId, setResizingSelectionId] = useState<number | null>(null);
     const [resizeDirection, setResizeDirection] = useState<"start" | "end" | null>(null);
+    const resizeCandidateRef = useRef<{ id: number; direction: "start" | "end"; startClientX: number } | null>(null);
 
     // Computed values
     const basePixelsPerSecond = duration > 0 ? containerWidth / duration : 0;
     const pixelsPerSecond = basePixelsPerSecond * zoom;
     const sortedSelections = [...selections].sort((a, b) => a.startTime - b.startTime);
+    const selectionsRef = useRef(selections);
+    useEffect(() => { selectionsRef.current = selections; }, [selections]);
 
     // Icon mapping
     const iconMapping: Record<BookmarkType, IconType> = {
@@ -107,15 +110,39 @@ export default function VideoComponent({ video }: { video: Content }) {
         Death: IoSkull
     };
 
-    // Refreshes the thumbnail for a selection, updating loading states appropriately
+    // Track in-flight thumbnail requests to avoid stale overwrites
+    const thumbnailReqTokenRef = useRef<Map<number, number>>(new Map());
+
+    // Refreshes the thumbnail for a selection without overwriting live fields
     const refreshSelectionThumbnail = async (selection: Selection): Promise<void> => {
-        updateSelection({...selection, isLoading: true});
+        const id = selection.id;
+        // Read the latest selection from state (may be undefined immediately after add)
+        const current = selectionsRef.current.find((s) => s.id === id);
+
+        // Mark loading on latest state if present (new selection already has isLoading=true)
+        if (current) {
+            updateSelection({ ...current, isLoading: true });
+        }
+
+        // Bump request token for this id
+        const nextToken = (thumbnailReqTokenRef.current.get(id) ?? 0) + 1;
+        thumbnailReqTokenRef.current.set(id, nextToken);
+
         try {
+            const latest = selectionsRef.current.find((s) => s.id === id) ?? current ?? selection;
             const contentFileName = `${contentFolder}/${video.type.toLowerCase()}s/${video.fileName}.mp4`;
-            const thumbnailUrl = await fetchThumbnailAtTime(contentFileName, selection.startTime);
-            updateSelection({...selection, thumbnailDataUrl: thumbnailUrl, isLoading: false});
+            const thumbnailUrl = await fetchThumbnailAtTime(contentFileName, latest.startTime);
+
+            // Only apply if this is the latest request for this selection
+            if (thumbnailReqTokenRef.current.get(id) === nextToken) {
+                const newest = selectionsRef.current.find((s) => s.id === id) ?? latest;
+                updateSelection({ ...newest, thumbnailDataUrl: thumbnailUrl, isLoading: false });
+            }
         } catch {
-            updateSelection({...selection, isLoading: false});
+            if (thumbnailReqTokenRef.current.get(id) === nextToken) {
+                const newest = selectionsRef.current.find((s) => s.id === id) ?? current ?? selection;
+                updateSelection({ ...newest, isLoading: false });
+            }
         }
     };
 
@@ -510,15 +537,12 @@ export default function VideoComponent({ video }: { video: Content }) {
         }
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     };
+
     
-    // Check if the current time marker is over any visible selection
-    const isMarkerOverSelection = () => {
-        return sortedSelections.some(sel => 
-            sel.fileName === video.fileName && // Only check visible selections
-            currentTime >= sel.startTime && 
-            currentTime <= sel.endTime
-        );
-    };
+
+    
+    
+    
 
     // Generate major and minor tick marks for the timeline based on zoom level
     const generateTicks = () => {
@@ -552,7 +576,8 @@ export default function VideoComponent({ video }: { video: Content }) {
         if (!videoRef.current) return;
         const start = currentTime;
         const zoomRatio = zoom / 50 * 100;
-        const selectionDuration = Math.max(0.1, (duration * 0.0019) * (100 / zoomRatio));
+        // Cap the default selection duration at 2 minutes (120s)
+        const selectionDuration = Math.min(120, Math.max(0.1, (duration * 0.0019) * (100 / zoomRatio)));
         const end = currentTime + selectionDuration;
         
         const newSelection: Selection = {
@@ -566,13 +591,8 @@ export default function VideoComponent({ video }: { video: Content }) {
             game: video.game,
         };
         addSelection(newSelection);
-        try {
-            const contentFileName = `${contentFolder}/${video.type.toLowerCase()}s/${video.fileName}.mp4`;
-            const thumbnailUrl = await fetchThumbnailAtTime(contentFileName, start);
-            updateSelection({...newSelection, thumbnailDataUrl: thumbnailUrl, isLoading: false});
-        } catch {
-            updateSelection({...newSelection, isLoading: false});
-        }
+        // Kick off thumbnail generation; uses latest state and guards against stale overwrites
+        refreshSelectionThumbnail(newSelection);
     };
 
     // Create a clip from current selections
@@ -596,64 +616,85 @@ export default function VideoComponent({ video }: { video: Content }) {
         sendMessageToBackend("CreateClip", params);
     };
 
-    // Handle selection drag and drop operations
-    const handleSelectionDragStart = (e: React.MouseEvent<HTMLDivElement>, id: number) => {
-        e.stopPropagation();
-        if (!scrollContainerRef.current) return;
-        const rect = scrollContainerRef.current.getBoundingClientRect();
-        const dragPos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
-        const cursorTime = dragPos / pixelsPerSecond;
-        const sel = selections.find((s) => s.id === id);
-        if (sel) {
-            setDragState({id, offset: cursorTime - sel.startTime});
-            setIsInteracting(true);
-        }
-    };
+    // Handle selection drag and drop operations (drag start removed to allow segment click-through)
 
     const handleSelectionDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (dragState.id == null || !scrollContainerRef.current) return;
+        if (!scrollContainerRef.current) return;
+        if ((e.buttons & 1) !== 1 && dragState.id == null) return;
         const rect = scrollContainerRef.current.getBoundingClientRect();
         const dragPos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
         const cursorTime = dragPos / pixelsPerSecond;
 
-        const sel = selections.find((s) => s.id === dragState.id);
+        // If no active drag, see if we should start due to threshold
+        if (dragState.id == null) {
+            const cand = dragCandidateRef.current;
+            if (!cand) return;
+            const delta = Math.abs(e.clientX - cand.startClientX);
+            if (delta <= 3) return; // not enough movement yet
+            setDragState({ id: cand.id, offset: cand.offset });
+            setIsInteracting(true);
+        }
+
+        const activeId = dragState.id ?? dragCandidateRef.current?.id;
+        const activeOffset = dragState.id != null ? dragState.offset : dragCandidateRef.current?.offset ?? 0;
+        if (activeId == null) return;
+        const sel = selections.find((s) => s.id === activeId);
         if (sel) {
             const segLength = sel.endTime - sel.startTime;
-            let newStart = cursorTime - dragState.offset;
+            let newStart = cursorTime - activeOffset;
             newStart = Math.max(0, Math.min(newStart, duration - segLength));
-            const updatedSelection = {...sel, startTime: newStart, endTime: newStart + segLength};
+            const updatedSelection = { ...sel, startTime: newStart, endTime: newStart + segLength };
             updateSelection(updatedSelection);
             latestDraggedSelectionRef.current = updatedSelection;
         }
     };
 
-    const handleSelectionDragEnd = async () => {
+    const handleSelectionDragEnd = () => {
         const draggedId = dragState.id;
-        setDragState({id: null, offset: 0});
+        setDragState({ id: null, offset: 0 });
+        dragCandidateRef.current = null;
         setTimeout(() => setIsInteracting(false), 0);
         if (draggedId != null && latestDraggedSelectionRef.current) {
-            await refreshSelectionThumbnail(latestDraggedSelectionRef.current);
+            const sel = latestDraggedSelectionRef.current;
             latestDraggedSelectionRef.current = null;
+            void refreshSelectionThumbnail(sel);
         }
     };
 
     // Handle global mouse up events for drag operations
     useEffect(() => {
-        const handleGlobalMouseUp = async () => {
+        const handleGlobalMouseUp = () => {
             handleMarkerDragEnd();
             if (dragState.id !== null) {
-                await handleSelectionDragEnd();
+                handleSelectionDragEnd();
             }
             if (resizingSelectionId !== null) {
-                await handleSelectionResizeEnd();
+                handleSelectionResizeEnd();
             }
-
+            dragCandidateRef.current = null;
+            resizeCandidateRef.current = null;
         };
         window.addEventListener("mouseup", handleGlobalMouseUp);
         return () => {
             window.removeEventListener("mouseup", handleGlobalMouseUp);
         };
     }, [dragState.id, resizingSelectionId]);
+
+    // Start a potential drag on mousedown without blocking click-through
+    const handleSelectionMouseDown = (e: React.MouseEvent<HTMLDivElement>, id: number) => {
+        if (!scrollContainerRef.current) return;
+        const rect = scrollContainerRef.current.getBoundingClientRect();
+        const dragPos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
+        const cursorTime = dragPos / pixelsPerSecond;
+        const sel = selections.find((s) => s.id === id);
+        if (sel) {
+            dragCandidateRef.current = {
+                id,
+                startClientX: e.clientX,
+                offset: cursorTime - sel.startTime,
+            };
+        }
+    };
 
     useEffect(() => {
         if (!audioRef.current) return;
@@ -712,28 +753,41 @@ export default function VideoComponent({ video }: { video: Content }) {
         };
     }, []);
 
-    // Handle selection resize operations
-    const handleResizeStart = (
+    // Prepare to resize on drag (click-through on simple click)
+    const handleResizeMouseDown = (
         e: React.MouseEvent<HTMLDivElement>,
         id: number,
         direction: "start" | "end"
     ) => {
-        e.stopPropagation();
-        setResizingSelectionId(id);
-        setResizeDirection(direction);
-        setIsInteracting(true);
+        // Do not stop propagation so timeline click can still happen
+        resizeCandidateRef.current = { id, direction, startClientX: e.clientX };
     };
 
     const handleSelectionResize = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!scrollContainerRef.current || resizingSelectionId == null || !resizeDirection) return;
+        if (!scrollContainerRef.current) return;
+        if ((e.buttons & 1) !== 1 && (resizingSelectionId == null)) return;
         const rect = scrollContainerRef.current.getBoundingClientRect();
         const pos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
         const t = pos / pixelsPerSecond;
-        const sel = selections.find((s) => s.id === resizingSelectionId);
+        // If no active resize yet, check if we should start (threshold)
+        if (resizingSelectionId == null || !resizeDirection) {
+            const cand = resizeCandidateRef.current;
+            if (!cand) return;
+            const delta = Math.abs(e.clientX - cand.startClientX);
+            if (delta <= 3) return; // not enough movement
+            setResizingSelectionId(cand.id);
+            setResizeDirection(cand.direction);
+            setIsInteracting(true);
+        }
+
+        const activeId = resizingSelectionId ?? resizeCandidateRef.current?.id ?? null;
+        const activeDir = resizeDirection ?? resizeCandidateRef.current?.direction ?? null;
+        if (activeId == null || !activeDir) return;
+        const sel = selections.find((s) => s.id === activeId);
         if (!sel) return;
 
         let updatedSelection;
-        if (resizeDirection === "start") {
+        if (activeDir === "start") {
             const newStart = Math.max(0, Math.min(t, sel.endTime - 0.1));
             updatedSelection = {...sel, startTime: newStart};
         } else {
@@ -742,22 +796,29 @@ export default function VideoComponent({ video }: { video: Content }) {
         }
         latestDraggedSelectionRef.current = updatedSelection;
         updateSelection(updatedSelection);
+
+        // While resizing, keep the video time at the active edge and update marker state
+        const edgeTime = activeDir === 'start' ? updatedSelection.startTime : updatedSelection.endTime;
+        if (videoRef.current) {
+            const clamped = Math.max(0, Math.min(edgeTime, duration));
+            videoRef.current.currentTime = clamped;
+        }
+        setCurrentTime(edgeTime);
     };
 
-    const handleSelectionResizeEnd = async () => {
+    const handleSelectionResizeEnd = () => {
         setResizingSelectionId(null);
         setResizeDirection(null);
+        resizeCandidateRef.current = null;
+        setIsInteracting(false);
         if (latestDraggedSelectionRef.current) {
-            await refreshSelectionThumbnail(latestDraggedSelectionRef.current);
+            const sel = latestDraggedSelectionRef.current;
             latestDraggedSelectionRef.current = null;
+            void refreshSelectionThumbnail(sel);
         }
     };
 
-    // Handle right-click to remove selection
-    const handleSelectionContextMenu = (e: React.MouseEvent<HTMLDivElement>, id: number) => {
-        e.preventDefault();
-        removeSelection(id);
-    };
+    // Right-click to remove selection disabled to keep segments click-through
 
     // Move selection card in the sidebar
     const moveCard = (dragIndex: number, hoverIndex: number) => {
@@ -952,7 +1013,6 @@ export default function VideoComponent({ video }: { video: Content }) {
                             hidden
                         />
                         
-                        {/* Control bar on hover: play/pause, time, scrubber, volume, fullscreen */}
                         <div
                             className={`absolute left-4 right-4 bottom-4 bg-black/70 rounded-lg px-3 py-2 flex items-center gap-3 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
                         >
@@ -1115,57 +1175,36 @@ export default function VideoComponent({ video }: { video: Content }) {
                             {sortedSelections.map((sel) => {
                                 const left = sel.startTime * pixelsPerSecond;
                                 const width = (sel.endTime - sel.startTime) * pixelsPerSecond;
-                                const isHovered = sel.id === hoveredSelectionId;
                                 const hidden = sel.fileName !== video.fileName;
                                 return (
-                                    <div
-                                        key={sel.id}
-                                        className={`absolute top-0 left-0 h-full shadow cursor-move ${hidden ? "hidden" : ""} transition-colors overflow-hidden bg-primary ${isHovered && !isHoveredByTimeline ? "animate-pulse" : ""}`}
-                                        style={{
-                                            left: `${left}px`,
-                                            width: `${width}px`,
-                                        }}
-                                        onMouseEnter={() => {
-                                            setHoveredSelectionId(sel.id);
-                                            setIsHoveredByTimeline(true);
-                                        }}
-                                        onMouseLeave={() => {
-                                            setHoveredSelectionId(null);
-                                            setIsHoveredByTimeline(false);
-                                        }}
-                                        onMouseDown={(e) => handleSelectionDragStart(e, sel.id)}
-                                        onContextMenu={(e) => handleSelectionContextMenu(e, sel.id)}
-                                    >
+                                    <>
                                         <div
-                                            ref={(element) => {
-                                                if (element) {
-                                                    // If scrollWidth > clientWidth, content doesn't fit
-                                                    element.style.visibility = 
-                                                        element.scrollWidth <= element.clientWidth ? 'visible' : 'hidden';
-                                                }
-                                            }}
-                                            className="absolute top-0 left-0 right-0 text-center text-base-300 font-semibold text-xs select-none pt-[2px] whitespace-nowrap overflow-hidden text-ellipsis"
+                                            key={sel.id}
+                                            className={`absolute top-0 left-0 h-full cursor-move ${hidden ? "hidden" : ""} transition-colors overflow-hidden rounded-r-sm rounded-l-sm shadow-md
+                                                bg-primary/40 border border-primary/40`}
+                                            style={{ left: `${left}px`, width: `${width}px` }}
+                                            onMouseEnter={() => { setHoveredSelectionId(sel.id); }}
+                                            onMouseLeave={() => { setHoveredSelectionId(null); }}
+                                            onMouseDown={(e) => handleSelectionMouseDown(e, sel.id)}
+                                            onContextMenu={(e) => { e.preventDefault(); removeSelection(sel.id); }}
                                         >
-                                            {formatTime(sel.startTime)} - {formatTime(sel.endTime)}
+                                            <div className="absolute left-0 top-0 h-full w-[4px] bg-accent/80 rounded-l-sm pointer-events-none" />
+                                            <div className="absolute right-0 top-0 h-full w-[4px] bg-accent/80 rounded-r-sm pointer-events-none" />
+                                            
+                                            <div className="absolute top-0 -left-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto" onMouseDown={(e) => handleResizeMouseDown(e, sel.id, "start")} aria-label="Resize segment start" />
+                                            <div className="absolute top-0 -right-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto" onMouseDown={(e) => handleResizeMouseDown(e, sel.id, "end")} aria-label="Resize segment end" />
                                         </div>
-                                        <div
-                                            className="absolute top-0 -left-[7px] w-[17px] h-full bg-transparent cursor-col-resize"
-                                            onMouseDown={(e) => handleResizeStart(e, sel.id, "start")}
-                                        />
-                                        <div
-                                            className="absolute top-0 -right-[7px] w-[17px] h-full bg-transparent cursor-col-resize"
-                                            onMouseDown={(e) => handleResizeStart(e, sel.id, "end")}
-                                        />
-                                    </div>
+                                        
+                                    </>
                                 );
                             })}
-                            <div
-                                className={`marker absolute top-0 left-0 w-1 h-full rounded-sm -translate-x-1/2 cursor-pointer shadow ${isMarkerOverSelection() ? 'bg-base-300 opacity-80' : 'bg-accent'}`}
-                                style={{
-                                    left: `${currentTime * pixelsPerSecond}px`,
-                                }}
-                                onMouseDown={handleMarkerDragStart}
-                            />
+                            {resizingSelectionId == null && (
+                                <div
+                                    className="marker absolute top-0 left-0 w-1 h-full rounded-sm -translate-x-1/2 cursor-pointer shadow bg-accent"
+                                    style={{ left: `${currentTime * pixelsPerSecond}px` }}
+                                    onMouseDown={handleMarkerDragStart}
+                                />
+                            )}
                         </div>
                     </div>
                     <div className="flex items-center justify-between gap-4 py-1">
