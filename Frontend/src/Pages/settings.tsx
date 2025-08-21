@@ -11,6 +11,7 @@ import {MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription} from 'react-ic
 import {useUpdate} from '../Context/UpdateContext';
 import GameListManager from '../Components/GameListManager';
 import { SiGithub } from 'react-icons/si';
+import CloudBadge from '../Components/CloudBadge';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Settings() {
@@ -250,7 +251,7 @@ export default function Settings() {
 		if (!session) {
 			return (
 				<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-					<h2 className="text-xl font-semibold mb-4">Authentication</h2>
+					<h2 className="text-xl font-semibold mb-4 flex items-center gap-2">Authentication <CloudBadge side="right" /></h2>
 					
 					{error && (
 						<div className="alert alert-error mb-4" role="alert">
@@ -315,7 +316,7 @@ export default function Settings() {
 		
 		return (
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-				<h2 className="text-xl font-semibold mb-4">Account</h2>
+				<h2 className="text-xl font-semibold mb-4 flex items-center gap-2">Account <CloudBadge side="right" /></h2>
 				
 				<div className="bg-base-200 p-4 rounded-lg border border-custom">
 					<div className="flex items-center justify-between flex-wrap gap-4">
@@ -475,7 +476,7 @@ export default function Settings() {
 								className="checkbox checkbox-primary"
 								disabled={!session}
 							/>
-							<span className="text-sm ml-2">Enable Segra AI</span>
+							<span className="text-sm ml-2 flex items-center gap-1">Enable Segra AI <CloudBadge side="right" /></span>
 						</label>
 					</div>
 					<div className="flex items-center justify-between">
@@ -488,7 +489,7 @@ export default function Settings() {
 								className="checkbox checkbox-primary"
 								disabled={!session || !settings.enableAi}
 							/>
-							<span className="text-sm ml-2">Auto-generate Highlights</span>
+							<span className="text-sm ml-2 flex items-center gap-1">Auto-generate Highlights <CloudBadge side="right" /></span>
 						</label>
 					</div>
 				</div>
@@ -1400,7 +1401,7 @@ export default function Settings() {
 							onChange={(e) => updateSettings({ showGameBackground: e.target.checked })}
 							className="checkbox checkbox-sm checkbox-primary"
 						/>
-						<span className="label-text">Show game cover while recording</span>
+						<span className="label-text flex items-center gap-1">Show game cover while recording <CloudBadge side="right" /></span>
 					</label>
 				</div>
 			</div>
@@ -1411,7 +1412,7 @@ export default function Settings() {
 				<div className="bg-base-200 p-4 rounded-lg space-y-4 border border-custom">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<span className="font-medium">Update Channel</span>
+                        <span className="font-medium flex items-center gap-1">Update Channel <CloudBadge side="right" /></span>
 						</div>
 						<div className="flex items-center gap-2">
 						<button
@@ -1429,8 +1430,8 @@ export default function Settings() {
 								{settings.state.isCheckingForUpdates && (
 									<span className="loading loading-spinner loading-xs"></span>
 								)}
-								Check for Updates
-							</button>
+                            	Check for Updates
+                            </button>
 							<select
 								name="receiveBetaUpdates"
 								value={settings.receiveBetaUpdates ? "beta" : "stable"}
