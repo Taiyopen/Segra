@@ -38,7 +38,14 @@ namespace Segra.Backend.Utils
             foreach (string file in files)
             {
                 FileInfo fileInfo = new FileInfo(file);
-                size += fileInfo.Length;
+                try
+                {
+                    size += fileInfo.Length;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"Error calculating size for file {file}: {ex.Message}");
+                }
             }
 
             return size;
