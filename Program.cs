@@ -83,7 +83,7 @@ namespace Segra
             var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
 
             VelopackApp.Build()
-                .WithBeforeUpdateFastCallback((v) =>
+                .OnBeforeUpdateFastCallback((v) =>
                 {
                     if (UpdateUtils.UpdateManager == null)
                     {
@@ -99,7 +99,7 @@ namespace Segra
                     Log.Information($"Updating from version {currentVersion} to {v}");
                     File.WriteAllText(Path.Combine(Path.GetTempPath(), "segra.tmp"), currentVersion.ToString());
                 })
-                .WithAfterUpdateFastCallback((v) =>
+                .OnAfterUpdateFastCallback((v) =>
                 {
                     string previousVersionPath = Path.Combine(Path.GetTempPath(), "segra.tmp");
                     if (File.Exists(previousVersionPath))
@@ -114,13 +114,12 @@ namespace Segra
                         File.Delete(previousVersionPath);
                     }
                 })
-                .WithFirstRun((v) =>
+                .OnFirstRun((v) =>
                 {
                     Log.Information($"First run of Segra {v}");
                 })
                 .Run();
 
-            _ = Task.Run(UpdateUtils.GetReleaseNotes);
             _ = Task.Run(UpdateUtils.UpdateAppIfNecessary);
 
             try
