@@ -1,5 +1,5 @@
 import {createContext, useContext, useState, ReactNode, useEffect} from 'react';
-import {Settings, initialSettings} from '../Models/types';
+import {Settings, initialSettings, initialState} from '../Models/types';
 import {useWebSocketContext} from './WebSocketContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 
@@ -22,7 +22,44 @@ interface SettingsProviderProps {
 }
 
 export function SettingsProvider({children}: SettingsProviderProps) {
-	const [settings, setSettings] = useState<Settings>(initialSettings);
+	const STORAGE_KEY = 'segra.settings.v1';
+
+	const loadCachedSettings = (): Settings | null => {
+		try {
+			const raw = localStorage.getItem(STORAGE_KEY);
+			if (!raw) return null;
+			const cached = JSON.parse(raw);
+
+			// Merge cached settings with defaults
+			const revived: Settings = {
+				...initialSettings,
+				...cached,
+				state: {
+					...initialState,
+					...cached.state,
+				},
+			};
+
+			// Do not restore ongoing recording/preRecording or hasLoadedObs from cache
+			revived.state.recording = undefined;
+			revived.state.preRecording = undefined;
+			revived.state.hasLoadedObs = false;
+
+			return revived;
+		} catch {
+			return null;
+		}
+	};
+
+	const saveCachedSettings = (value: Settings) => {
+		try {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+		} catch {
+			// ignore caching errors
+		}
+	};
+
+	const [settings, setSettings] = useState<Settings>(() => loadCachedSettings() ?? initialSettings);
 	useWebSocketContext();
 
 	useEffect(() => {
@@ -52,6 +89,8 @@ export function SettingsProvider({children}: SettingsProviderProps) {
 		};
 
 		setSettings(updatedSettings);
+		// Persist stable settings for faster startup rendering before backend connects
+		saveCachedSettings(updatedSettings);
 
 		// Only send UpdateSettings to backend if the change is from the frontend
 		if (!fromBackend) {
