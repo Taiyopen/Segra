@@ -1094,34 +1094,6 @@ namespace Segra.Backend.Utils
             public required string DownloadUrl { get; set; }
         }
 
-        private static string GetEncoderIdBasedOnSettings()
-        {
-            // Check if user wants CPU or GPU encoding
-            if (Settings.Instance.Encoder.Equals("cpu", StringComparison.CurrentCultureIgnoreCase))
-            {
-                Log.Information("Using CPU encoder (x264)");
-                return CPU_ENCODER;
-            }
-
-            // User wants GPU encoding, check which GPU vendor is available
-            switch (DetectedGpuVendor)
-            {
-                case GpuVendor.Nvidia:
-                    Log.Information("Using NVIDIA GPU encoder (NVENC)");
-                    return NVIDIA_ENCODER;
-                case GpuVendor.AMD:
-                    Log.Information("Using AMD GPU encoder (AMF)");
-                    return AMD_ENCODER;
-                case GpuVendor.Intel:
-                    Log.Information("Using Intel GPU encoder (QSV)");
-                    return INTEL_ENCODER;
-                default:
-                    // Fall back to CPU encoding if no supported GPU is detected
-                    Log.Warning("No supported GPU detected, falling back to CPU encoder (x264)");
-                    return CPU_ENCODER;
-            }
-        }
-        
         public static void PlaySound(string resourceName, int delay = 0)
         {
             Thread.Sleep(delay);
