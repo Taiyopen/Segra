@@ -1390,6 +1390,19 @@ export default function Settings() {
 						<span className="label-text flex items-center gap-2">Show <span className="badge badge-primary badge-sm">NEW</span> badge on new sessions and replay buffers</span>
 					</label>
 				</div>
+
+				<div className="form-control">
+					<label className="label cursor-pointer justify-start gap-2 px-0">
+						<input
+							type="checkbox"
+							name="showGameBackground"
+							checked={settings.showGameBackground}
+							onChange={(e) => updateSettings({ showGameBackground: e.target.checked })}
+							className="checkbox checkbox-sm checkbox-primary"
+						/>
+						<span className="label-text">Show game cover while recording</span>
+					</label>
+				</div>
 			</div>
 
 			{/* Advanced Settings */}

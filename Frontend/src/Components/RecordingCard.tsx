@@ -1,7 +1,8 @@
-import {useState, useEffect} from "react";
-import {PreRecording, Recording} from "../Models/types";
-import { LuGamepad2 } from "react-icons/lu";
-import { BsDisplay } from "react-icons/bs";
+import {useState, useEffect, useCallback} from "react";
+import {PreRecording, Recording, GameResponse} from "../Models/types";
+import {LuGamepad2} from "react-icons/lu";
+import {BsDisplay} from "react-icons/bs";
+import {useSettings} from "../Context/SettingsContext";
 
 interface RecordingCardProps {
 	recording?: Recording;
@@ -10,6 +11,8 @@ interface RecordingCardProps {
 
 const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) => {
 	const [elapsedTime, setElapsedTime] = useState({hours: 0, minutes: 0, seconds: 0});
+	const {showGameBackground} = useSettings();
+	const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
 	useEffect(() => {
 		if(preRecording) {
@@ -39,20 +42,60 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 		return () => clearInterval(intervalId);
 	}, [recording?.startTime, preRecording]);
 
+	// Fetch game data from Segra.tv API
+	const fetchGameData = useCallback(async () => {
+		// Skip API call entirely if game background is disabled
+		if (!showGameBackground) {
+			setCoverUrl(null);
+			return;
+		}
+		
+		const gameName = preRecording ? preRecording.game : recording?.game;
+		
+		// Don't fetch for "Manual Recording"
+		if (!gameName || gameName === "Manual Recording") {
+			setCoverUrl(null);
+			return;
+		}
+		
+		try {
+			const response = await fetch(`https://segra.tv/api/games/search?name=${encodeURIComponent(gameName)}`);
+			
+			if (!response.ok) {
+				throw new Error('Game not found');
+			}
+			
+			const data: GameResponse = await response.json();
+			
+			// If we have a cover image_id, fetch the cover URL
+			if (data.game?.cover?.image_id) {
+				setCoverUrl(`https://segra.tv/api/games/cover/${data.game.cover.image_id}`);
+			}
+		} catch (error) {
+			console.error('Error fetching game data:', error);
+			setCoverUrl(null);
+		}
+	}, [preRecording, recording, setCoverUrl, showGameBackground]);
+	
+	// Call fetchGameData when game changes
+	useEffect(() => {
+		fetchGameData();
+	}, [fetchGameData]);
+
 	return (
 		<div className="mb-2 px-2">
-			<div className="bg-base-300 border border-primary border-opacity-75 rounded-lg px-3 py-3 cursor-default relative">
-				{/* Background image with fade effect */}
-				<div className="absolute top-1/2 right-0.5 w-[25%] h-[80%] -translate-y-1/2 z-0 opacity-20">
-					<div className="absolute inset-0" style={{
-						backgroundImage: `url(data:image/png;base64,${recording?.gameImage})`,
-						backgroundSize: "contain",
-						backgroundPosition: "right center",
-						backgroundRepeat: "no-repeat",
-						maskImage: "linear-gradient(to left, rgba(0,0,0,1), rgba(0,0,0,0))",
-						WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,1), rgba(0,0,0,0))"
-					}}></div>
-				</div>
+			<div className="bg-base-300 border border-primary border-opacity-75 rounded-lg px-3 py-3.5 cursor-default relative overflow-hidden">
+				{/* Background image with game cover */}
+				{coverUrl && showGameBackground && (
+					<div className="absolute inset-0 z-0 opacity-15">
+						<div className="absolute inset-0" style={{
+							backgroundImage: `url(${coverUrl})`,
+							backgroundSize: "cover",
+							backgroundPosition: "center",
+							backgroundRepeat: "no-repeat"
+						}}></div>
+					</div>
+				)}
 
 				{/* Recording Indicator */}
 				<div className="flex items-center mb-1 relative z-10">

@@ -50,6 +50,7 @@ namespace Segra.Backend.Models
         private string _clipPreset = "veryfast";
         private float _soundEffectsVolume = 0.5f;
         private bool _showNewBadgeOnVideos = true;
+        private bool _showGameBackground = true;
 
         // Returns the default keybindings
         private static List<Keybind> GetDefaultKeybindings()
@@ -559,6 +560,20 @@ namespace Segra.Backend.Models
                 {
                     _showNewBadgeOnVideos = value;
                     SendToFrontend("Show new badge setting changed");
+                }
+            }
+        }
+
+        [JsonPropertyName("showGameBackground")]
+        public bool ShowGameBackground
+        {
+            get => _showGameBackground;
+            set
+            {
+                if (_showGameBackground != value)
+                {
+                    _showGameBackground = value;
+                    SendToFrontend("Show game background setting changed");
                 }
             }
         }

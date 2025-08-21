@@ -151,6 +151,7 @@ export interface Settings {
 	blacklist: Game[];
 	soundEffectsVolume: number; // Volume for UI sound effects (0.0 to 1.0)
 	showNewBadgeOnVideos: boolean;
+	showGameBackground: boolean; // Show game background while recording
 	state: State;
 }
 
@@ -199,6 +200,7 @@ export const initialSettings: Settings = {
 	clipPreset: 'veryfast',
 	soundEffectsVolume: 1,
 	showNewBadgeOnVideos: true,
+	showGameBackground: true, // Default to showing game background
 	keybindings: [
 		{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
 		{ keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true } // 121 is F10
@@ -235,4 +237,15 @@ export interface AiProgress {
     status: 'processing' | 'done';
     message: string;
     content: Content;
+}
+
+export interface GameResponse {
+	game: {
+		id: number;
+		name: string;
+		cover?: {
+			id: number;
+			image_id: string;
+		};
+	};
 }

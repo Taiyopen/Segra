@@ -305,6 +305,14 @@ namespace Segra.Backend.Utils
                 settings.ShowNewBadgeOnVideos = updatedSettings.ShowNewBadgeOnVideos;
                 hasChanges = true;
             }
+            
+            // Update ShowGameBackground
+            if (settings.ShowGameBackground != updatedSettings.ShowGameBackground)
+            {
+                Log.Information($"ShowGameBackground changed from '{settings.ShowGameBackground}' to '{updatedSettings.ShowGameBackground}'");
+                settings.ShowGameBackground = updatedSettings.ShowGameBackground;
+                hasChanges = true;
+            }
 
             // Update Theme
             if (settings.Theme != updatedSettings.Theme)
