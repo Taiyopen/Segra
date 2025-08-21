@@ -294,7 +294,7 @@ namespace Segra.Backend.Utils
                 Log.Information($"SoundEffectsVolume changed from '{settings.SoundEffectsVolume}' to '{updatedSettings.SoundEffectsVolume}'");
                 settings.SoundEffectsVolume = updatedSettings.SoundEffectsVolume;
                 // Play the sound with the new volume to provide immediate feedback
-                Task.Run(() => OBSUtils.PlayStartSound());
+                Task.Run(() => OBSUtils.PlaySound("start"));
                 hasChanges = true;
             }
             

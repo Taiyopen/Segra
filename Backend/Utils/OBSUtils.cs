@@ -1,5 +1,6 @@
 using LibObs;
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using Segra.Backend.Models;
 using Segra.Backend.Services;
 using Serilog;
@@ -8,6 +9,7 @@ using System.Runtime.InteropServices;
 using static LibObs.Obs;
 using static Segra.Backend.Utils.GeneralUtils;
 using size_t = System.UIntPtr;
+using static Segra.Backend.Utils.MessageUtils;
 
 namespace Segra.Backend.Utils
 {
@@ -558,7 +560,7 @@ namespace Segra.Backend.Utils
             // Overwrite the file name with the hooked executable name if using game hook
             fileName = hookedExecutableFileName ?? fileName;
 
-            _ = Task.Run(PlayStartSound);
+            _ = Task.Run(() => PlaySound("start", 50));
 
             bool outputStarted;
             if (isReplayBufferMode)
@@ -567,14 +569,18 @@ namespace Segra.Backend.Utils
                 outputStarted = obs_output_start(bufferOutput);
                 if (!outputStarted)
                 {
-                    Log.Error($"Failed to start replay buffer: {obs_output_get_last_error(bufferOutput)}");
+                    string error = obs_output_get_last_error(bufferOutput);
+                    Log.Error($"Failed to start replay buffer: {error}");
+                    Task.Run(() => ShowModal("Replay buffer failed", $"Failed to start replay buffer. Check the log for more details.", "error"));
+                    Task.Run(() => PlaySound("error"));
+                    
                     Settings.Instance.State.Recording = null;
                     Settings.Instance.State.PreRecording = null;
-                    _ = MessageUtils.SendSettingsToFrontend("Failed to start replay buffer");
+                    GameDetectionService.PreventRetryRecording = true;
                     StopRecording();
                     return false;
                 }
-
+                
                 Log.Information("Replay buffer started successfully");
             }
             else
@@ -583,12 +589,19 @@ namespace Segra.Backend.Utils
                 outputStarted = obs_output_start(output);
                 if (!outputStarted)
                 {
-                    Log.Error($"Failed to start recording: {obs_output_get_last_error(output)}");
+                    string error = obs_output_get_last_error(output);
+                    Log.Error($"Failed to start recording: {error}");
+                    Task.Run(() => ShowModal("Recording failed", $"Failed to start recording. Check the log for more details.", "error"));
+                    Task.Run(() => PlaySound("error")); 
+
                     Settings.Instance.State.Recording = null;
                     Settings.Instance.State.PreRecording = null;
+                    GameDetectionService.PreventRetryRecording = true;
                     StopRecording();
                     return false;
                 }
+
+                Log.Information("Recording started successfully");
             }
 
             string? gameImage = GameIconUtils.ExtractIconAsBase64(exePath);
@@ -718,12 +731,13 @@ namespace Segra.Backend.Utils
                 _ = GameIntegrationService.Shutdown();
                 KeybindCaptureService.Stop();
 
-                ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording!.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
-                ContentUtils.CreateThumbnail(Settings.Instance.State.Recording!.FilePath!, Content.ContentType.Session);
-                Task.Run(() => ContentUtils.CreateAudioFile(Settings.Instance.State.Recording!.FilePath!, Content.ContentType.Session));
-
-                if (Settings.Instance.State.Recording != null)
+                // Might be null or empty if the recording failed to start
+                if (Settings.Instance.State.Recording != null && Settings.Instance.State.Recording.FilePath != null)
                 {
+                    ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
+                    ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+                    Task.Run(() => ContentUtils.CreateAudioFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session));
+
                     Log.Information($"Recording details:");
                     Log.Information($"Start Time: {Settings.Instance.State.Recording.StartTime}");
                     Log.Information($"End Time: {Settings.Instance.State.Recording.EndTime}");
@@ -1108,29 +1122,26 @@ namespace Segra.Backend.Utils
             }
         }
         
-        public static void PlayStartSound()
+        public static void PlaySound(string resourceName, int delay = 0)
         {
-            using (var unmanagedStream = Properties.Resources.start)
-            using (var memoryStream = new MemoryStream())
+            Thread.Sleep(delay);
+            using var stream = Properties.Resources.ResourceManager.GetStream(resourceName);
+            if (stream == null)
+                throw new ArgumentException($"Resource '{resourceName}' not found or not a stream.");
+
+            using var reader = new WaveFileReader(stream);
+            var sampleProvider = reader.ToSampleProvider();
+            var volumeProvider = new VolumeSampleProvider(sampleProvider)
             {
-                unmanagedStream.CopyTo(memoryStream);
-                byte[] audioData = memoryStream.ToArray();
+                Volume = Settings.Instance.SoundEffectsVolume
+            };
 
-                using (var audioReader = new WaveFileReader(new MemoryStream(audioData)))
-                using (var waveOut = new WaveOutEvent())
-                {
-                    var volumeStream = new VolumeWaveProvider16(audioReader)
-                    {
-                        Volume = Settings.Instance.SoundEffectsVolume
-                    };
+            using var waveOut = new WaveOutEvent();
+            waveOut.Init(volumeProvider);
+            waveOut.Play();
 
-                    waveOut.Init(volumeStream);
-                    waveOut.Play();
-
-                    while (waveOut.PlaybackState == PlaybackState.Playing)
-                        Thread.Sleep(100);
-                }
-            }
+            while (waveOut.PlaybackState == PlaybackState.Playing)
+                Thread.Sleep(50);
         }
 
         private static readonly Dictionary<string, string> EncoderFriendlyNames =

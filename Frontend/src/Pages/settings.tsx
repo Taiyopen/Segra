@@ -114,6 +114,7 @@ export default function Settings() {
 		const numericalFields = ['frameRate', 'bitrate', 'storageLimit', 'keyframeInterval', 'crfValue', 'cqLevel', 'clipQualityCrf', 'clipFps'];
 		
 		if (name === 'clipEncoder') {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const newSettings: any = {
 				[name]: value,
 			};
