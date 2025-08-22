@@ -85,7 +85,7 @@ export default function ContentFilters({
   return (
     <div className="flex items-center space-x-2">
       {/* Filter dropdown */}
-      <div className="relative" ref={filterRef}>
+      <div className={`dropdown dropdown-end ${isFilterOpen ? 'dropdown-open' : ''}`} ref={filterRef}>
         <button
           className="btn btn-sm no-animation btn-secondary border border-primary hover:text-primary hover:border-primary flex items-center gap-1"
           onClick={() => {
@@ -99,42 +99,39 @@ export default function ContentFilters({
             <span className="badge badge-sm badge-primary">{selectedGames.length}</span>
           )}
         </button>
-
-        {isFilterOpen && (
-          <div className="absolute right-0 mt-2 w-64 bg-base-300 shadow-lg rounded-box z-10 p-3 border border-base-content/20">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-medium">Filter by Game</h3>
-              {selectedGames.length > 0 && (
-                <button className="text-xs text-primary hover:underline" onClick={clearFilters}>
-                  Clear all
-                </button>
-              )}
-            </div>
-            <div className="max-h-60 overflow-y-auto">
-              {uniqueGames.length > 0 ? (
-                uniqueGames.map((game) => (
-                  <div key={game} className="form-control">
-                    <label className="label cursor-pointer justify-start gap-2 py-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-primary"
-                        checked={selectedGames.includes(game)}
-                        onChange={() => toggleGameSelection(game)}
-                      />
-                      <span className="label-text">{game}</span>
-                    </label>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-base-content/70">No games available</p>
-              )}
-            </div>
+        <div className="dropdown-content bg-base-300 border border-primary rounded-box z-[999] w-64 p-3 mt-1 shadow" tabIndex={0}>
+          <div className="flex justify-between items-center mb-1">
+            <h3 className="font-medium">Filter by Game</h3>
+            {selectedGames.length > 0 && (
+              <button className="text-xs text-primary hover:underline" onClick={clearFilters}>
+                Clear all
+              </button>
+            )}
           </div>
-        )}
+          <div className="max-h-60 overflow-y-auto mt-1 border-t border-base-content/10 pt-1">
+            {uniqueGames.length > 0 ? (
+              uniqueGames.map((game) => (
+                <div key={game} className="form-control">
+                  <label className="cursor-pointer flex w-full items-center justify-start gap-2 px-3 py-2.5 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-4 outline-none">
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-sm checkbox-primary"
+                      checked={selectedGames.includes(game)}
+                      onChange={() => toggleGameSelection(game)}
+                    />
+                    <span className="label-text">{game}</span>
+                  </label>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-base-content/70">No games available</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Sort dropdown */}
-      <div className="relative" ref={sortRef}>
+      <div className={`dropdown dropdown-end ${isSortOpen ? 'dropdown-open' : ''}`} ref={sortRef}>
         <button
           className="btn btn-sm no-animation btn-secondary border border-primary hover:text-primary hover:border-primary flex items-center gap-1"
           onClick={() => {
@@ -145,53 +142,63 @@ export default function ContentFilters({
           <MdSort />
           {getSortLabel(sortOption)}
         </button>
-
-        {isSortOpen && (
-          <div className="absolute right-0 mt-2 w-48 bg-base-300 shadow-lg rounded-box z-10 border border-base-content/20">
-            <ul className="menu p-2">
-              <li>
-                <button
-                  className={`hover:text-primary hover:bg-base-200 ${sortOption === "newest" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => handleSortChange("newest")}
-                >
-                  <MdOutlineAccessTime className="text-lg" /> Newest
-                </button>
-              </li>
-              <li>
-                <button
-                  className={`hover:text-primary hover:bg-base-200 ${sortOption === "oldest" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => handleSortChange("oldest")}
-                >
-                  <MdOutlineAccessTime className="text-lg" /> Oldest
-                </button>
-              </li>
-              <li>
-                <button
-                  className={`hover:text-primary hover:bg-base-200 ${sortOption === "size" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => handleSortChange("size")}
-                >
-                  <MdOutlineStorage className="text-lg" /> Size
-                </button>
-              </li>
-              <li>
-                <button
-                  className={`hover:text-primary hover:bg-base-200 ${sortOption === "duration" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => handleSortChange("duration")}
-                >
-                  <MdOutlineTimer className="text-lg" /> Duration
-                </button>
-              </li>
-              <li>
-                <button
-                  className={`hover:text-primary hover:bg-base-200 ${sortOption === "game" ? "text-primary" : ""} flex items-center gap-1`}
-                  onClick={() => handleSortChange("game")}
-                >
-                  <MdOutlineGamepad className="text-lg" /> Game A–Z
-                </button>
-              </li>
-            </ul>
-          </div>
-        )}
+        <ul className="dropdown-content menu bg-base-300 border border-primary rounded-box z-[999] w-56 p-2 mt-1 shadow" tabIndex={0}>
+          <li>
+            <a
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === "newest" ? "text-primary" : "text-white"
+              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange("newest")}
+            >
+              <MdOutlineAccessTime size="20" />
+              <span>Newest</span>
+            </a>
+          </li>
+          <li>
+            <a
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === "oldest" ? "text-primary" : "text-white"
+              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange("oldest")}
+            >
+              <MdOutlineAccessTime size="20" />
+              <span>Oldest</span>
+            </a>
+          </li>
+          <li>
+            <a
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === "size" ? "text-primary" : "text-white"
+              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange("size")}
+            >
+              <MdOutlineStorage size="20" />
+              <span>Size</span>
+            </a>
+          </li>
+          <li>
+            <a
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === "duration" ? "text-primary" : "text-white"
+              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange("duration")}
+            >
+              <MdOutlineTimer size="20" />
+              <span>Duration</span>
+            </a>
+          </li>
+          <li>
+            <a
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === "game" ? "text-primary" : "text-white"
+              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange("game")}
+            >
+              <MdOutlineGamepad size="20" />
+              <span>Game A–Z</span>
+            </a>
+          </li>
+        </ul>
       </div>
     </div>
   );
