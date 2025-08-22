@@ -1362,12 +1362,18 @@ export default function Settings() {
 				<div className="bg-base-200 p-4 rounded-lg space-y-4 border border-custom">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-                        <span className="font-medium flex items-center gap-1">Update Channel <CloudBadge side="right" /></span>
+                        <span className="font-medium">Update Channel</span>
+							<DropdownSelect
+								size='sm'
+								items={[{ value: 'stable', label: 'Stable' }, { value: 'beta', label: 'Beta' }]}
+								value={settings.receiveBetaUpdates ? 'beta' : 'stable'}
+								onChange={(val) => updateSettings({ receiveBetaUpdates: val === 'beta' })}
+							/>
 						</div>
 						<div className="flex items-center gap-2">
 						<button
 							onClick={() => openReleaseNotesModal(null)}
-							className="btn btn-sm btn-secondary border-custom hover:border-custom text-gray-400 hover:text-gray-300 flex items-center justify-center"
+							className="btn btn-sm btn-secondary outline outline-custom outline-1 hover:outline-custom hover:outline-1 text-gray-400 hover:text-gray-300 flex items-center justify-center"
 						>
 							<SiGithub className="text-lg flex-shrink-0" aria-hidden="true" />
 							<span className="inline-block">View Release Notes</span>
@@ -1382,12 +1388,6 @@ export default function Settings() {
 								)}
                             	Check for Updates
                             </button>
-							<DropdownSelect
-								size='sm'
-								items={[{ value: 'stable', label: 'Stable' }, { value: 'beta', label: 'Beta' }]}
-								value={settings.receiveBetaUpdates ? 'beta' : 'stable'}
-								onChange={(val) => updateSettings({ receiveBetaUpdates: val === 'beta' })}
-								/>
 						</div>
 					</div>
 
