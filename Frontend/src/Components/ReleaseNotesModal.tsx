@@ -134,7 +134,10 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
       <div className="modal-header pb-4 border-b border-gray-700">
         <h2 className="font-bold text-3xl mb-2 text-white">Release Notes</h2>
         <p className="text-gray-400 text-lg">
-          {filterVersion ? `New updates since v${filterVersion}` : 'See what\'s new in Segra'}
+          {filterVersion 
+            ? `New updates since v${filterVersion}` 
+            : <span>Current version: <span className="text-primary font-semibold">{__APP_VERSION__}</span></span>
+          }
         </p>
         <button 
           className="btn btn-circle btn-ghost absolute right-4 top-4 text-2xl hover:bg-base-100/30" 
@@ -184,13 +187,6 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
             </div>
           ))
         )}
-        
-        {/* Show your current version at the bottom */}
-        <div className="text-center mt-6 pt-4 border-t border-gray-700">
-          <p className="text-gray-400">
-            Your current version: <span className="text-primary">{__APP_VERSION__}</span>
-          </p>
-        </div>
       </div>
     </>
   );
