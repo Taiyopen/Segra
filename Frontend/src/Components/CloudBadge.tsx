@@ -21,7 +21,7 @@ export default function CloudBadge({
       data-tip={tip}
       aria-label={tip}
     >
-      <MdOutlineCloud className={`w-4 h-4 opacity-80 ${iconClassName}`} />
+      <MdOutlineCloud className={`w-4 h-4 ml-0.5 opacity-50 ${iconClassName}`} />
     </div>
   );
 }
