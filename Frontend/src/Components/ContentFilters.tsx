@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { MdFilterList, MdSort, MdOutlineAccessTime, MdOutlineStorage, MdOutlineTimer, MdOutlineGamepad } from "react-icons/md";
 
 export type SortOption = "newest" | "oldest" | "size" | "duration" | "game";
@@ -20,25 +20,6 @@ export default function ContentFilters({
   selectedGames,
   sortOption,
 }: ContentFiltersProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isSortOpen, setIsSortOpen] = useState(false);
-
-  const filterRef = useRef<HTMLDivElement>(null);
-  const sortRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdowns on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(event.target as Node) && isFilterOpen) {
-        setIsFilterOpen(false);
-      }
-      if (sortRef.current && !sortRef.current.contains(event.target as Node) && isSortOpen) {
-        setIsSortOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isFilterOpen, isSortOpen]);
 
   // Persist changes to localStorage
   useEffect(() => {
@@ -64,7 +45,10 @@ export default function ContentFilters({
 
   const handleSortChange = (option: SortOption) => {
     onSortChange(option);
-    setIsSortOpen(false);
+    // Close the dropdown by blurring the active element (DaisyUI closes on blur)
+    try {
+      (document.activeElement as HTMLElement)?.blur();
+    } catch {/* no-op */}
   };
 
   const getSortLabel = (option: SortOption): string => {
@@ -85,13 +69,9 @@ export default function ContentFilters({
   return (
     <div className="flex items-center space-x-2">
       {/* Filter dropdown */}
-      <div className={`dropdown dropdown-end ${isFilterOpen ? 'dropdown-open' : ''}`} ref={filterRef}>
+      <div className="dropdown dropdown-end">
         <button
           className="btn btn-sm no-animation btn-secondary border border-primary hover:text-primary hover:border-primary flex items-center gap-1"
-          onClick={() => {
-            setIsFilterOpen(!isFilterOpen);
-            setIsSortOpen(false);
-          }}
         >
           <MdFilterList />
           Filter
@@ -131,13 +111,9 @@ export default function ContentFilters({
       </div>
 
       {/* Sort dropdown */}
-      <div className={`dropdown dropdown-end ${isSortOpen ? 'dropdown-open' : ''}`} ref={sortRef}>
+      <div className="dropdown dropdown-end">
         <button
           className="btn btn-sm no-animation btn-secondary border border-primary hover:text-primary hover:border-primary flex items-center gap-1"
-          onClick={() => {
-            setIsSortOpen(!isSortOpen);
-            setIsFilterOpen(false);
-          }}
         >
           <MdSort />
           {getSortLabel(sortOption)}
