@@ -2,7 +2,7 @@ import React, {useEffect, useState, useRef} from 'react';
 import {useSettings, useSettingsUpdater} from '../Context/SettingsContext';
 import {sendMessageToBackend} from '../Utils/MessageUtils';
 import {themeChange} from 'theme-change';
-import {AudioDevice, GpuVendor, KeybindAction, Settings as SettingsType} from '../Models/types';
+import {AudioDevice, GpuVendor, KeybindAction, ClipFPS, ClipPreset} from '../Models/types';
 import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth.tsx';
@@ -13,6 +13,7 @@ import GameListManager from '../Components/GameListManager';
 import { SiGithub } from 'react-icons/si';
 import CloudBadge from '../Components/CloudBadge';
 import { motion, AnimatePresence } from 'framer-motion';
+import DropdownSelect from '../Components/DropdownSelect';
 
 export default function Settings() {
 	const {session, authError, isAuthenticating, clearAuthError, signOut} = useAuth();
@@ -137,69 +138,7 @@ export default function Settings() {
 		sendMessageToBackend('SetVideoLocation');
 	};
 
-	// Render preset options based on encoder type and GPU vendor
-	const renderPresetOptions = (settings: SettingsType) => {
-		if (settings.clipEncoder === 'cpu') {
-			// CPU encoder presets are the same regardless of GPU vendor
-			return (
-				<>
-					<option value="ultrafast">Ultrafast</option>
-					<option value="superfast">Superfast</option>
-					<option value="veryfast">Veryfast</option>
-					<option value="faster">Faster</option>
-					<option value="fast">Fast</option>
-					<option value="medium">Medium</option>
-					<option value="slow">Slow</option>
-					<option value="slower">Slower</option>
-					<option value="veryslow">Veryslow</option>
-				</>
-			);
-		} else {
-			// GPU encoder presets can vary based on GPU vendor
-			switch (settings.state.gpuVendor) {
-				case GpuVendor.Nvidia:
-					return (
-						<>
-							<option value="slow">Slow</option>
-							<option value="medium">Medium</option>
-							<option value="fast">Fast</option>
-							<option value="hp">High Performance</option>
-							<option value="hq">High Quality</option>
-							<option value="bd">Blu-ray Disk</option>
-							<option value="ll">Low Latency</option>
-							<option value="llhq">Low Latency High Quality</option>
-							<option value="llhp">Low Latency High Performance</option>
-							<option value="lossless">Lossless</option>
-							<option value="losslesshp">Lossless High Performance</option>
-						</>
-					);
-				case GpuVendor.AMD:
-					// AMD GPU presets
-					return (
-						<>
-							<option value="slow">Slow</option>
-							<option value="medium">Medium</option>
-							<option value="fast">Fast</option>
-							<option value="hp">High Performance</option>
-							<option value="hq">High Quality</option>
-						</>
-					);
-				case GpuVendor.Intel:
-					// Intel GPU presets
-					return (
-						<>
-							<option value="fast">Fast</option>
-							<option value="medium">Medium</option>
-							<option value="slow">Slow</option>
-						</>
-					);
-				default:
-					return (
-						<></>
-					);
-			}
-		}
-	};
+
 
 	useEffect(() => {
 		themeChange(false);
@@ -630,17 +569,16 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Resolution</span>
 						</label>
-						<select
-							name="resolution"
+						<DropdownSelect
+							items={[
+								{ value: '720p', label: '720p' },
+								{ value: '1080p', label: '1080p' },
+								{ value: '1440p', label: '1440p' },
+								{ value: '4K', label: '4K' },
+							]}
 							value={settings.resolution}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							<option value="720p">720p</option>
-							<option value="1080p">1080p</option>
-							<option value="1440p">1440p</option>
-							<option value="4K">4K</option>
-						</select>
+                        onChange={(val) => updateSettings({ resolution: val as '720p' | '1080p' | '1440p' | '4K' })}
+						/>
 					</div>
 
 					{/* Frame Rate */}
@@ -648,18 +586,11 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Frame Rate (FPS)</span>
 						</label>
-						<select
-							name="frameRate"
-							value={settings.frameRate}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							<option value="24">24</option>
-							<option value="30">30</option>
-							<option value="60">60</option>
-							<option value="120">120</option>
-							<option value="144">144</option>
-						</select>
+						<DropdownSelect
+							items={[24,30,60,120,144].map(v => ({ value: String(v), label: String(v) }))}
+							value={String(settings.frameRate)}
+							onChange={(val) => updateSettings({ frameRate: Number(val) })}
+						/>
 					</div>
 
 					{/* Rate Control */}
@@ -667,17 +598,16 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Rate Control</span>
 						</label>
-						<select
-							name="rateControl"
+						<DropdownSelect
+							items={[
+								{ value: 'CBR', label: 'CBR (Constant Bitrate)' },
+								{ value: 'VBR', label: 'VBR (Variable Bitrate)' },
+								{ value: 'CRF', label: 'CRF (Constant Rate Factor)' },
+								{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' },
+							]}
 							value={settings.rateControl}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							<option value="CBR">CBR (Constant Bitrate)</option>
-							<option value="VBR">VBR (Variable Bitrate)</option>
-							<option value="CRF">CRF (Constant Rate Factor)</option>
-							<option value="CQP">CQP (Constant Quantization Parameter)</option>
-						</select>
+							onChange={(val) => updateSettings({ rateControl: val })}
+						/>
 					</div>
 
 					{/* Bitrate (for CBR and VBR) */}
@@ -686,18 +616,11 @@ export default function Settings() {
 							<label className="label">
 								<span className="label-text">Bitrate (Mbps)</span>
 							</label>
-							<select
-								name="bitrate"
-								value={settings.bitrate}
-								onChange={handleChange}
-								className="select select-bordered bg-base-200"
-							>
-								{Array.from({length: 19}, (_, i) => (i + 2) * 5).map((value) => (
-									<option key={value} value={value}>
-										{value} Mbps
-									</option>
-								))}
-							</select>
+							<DropdownSelect
+								items={Array.from({length:19}, (_,i)=> (i+2)*5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
+								value={String(settings.bitrate)}
+								onChange={(val) => updateSettings({ bitrate: Number(val) })}
+							/>
 						</div>
 					)}
 
@@ -742,15 +665,11 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Video Encoder</span>
 						</label>
-						<select
-							name="encoder"
+						<DropdownSelect
+							items={[{value:'gpu', label:'GPU'},{value:'cpu', label:'CPU'}]}
 							value={settings.encoder}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							<option value="gpu">GPU</option>
-							<option value="cpu">CPU</option>
-						</select>
+							onChange={(val) => updateSettings({ encoder: val as 'gpu'|'cpu' })}
+						/>
 					</div>
 
 					{/* Codec */}
@@ -758,38 +677,24 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Codec</span>
 						</label>
-						<select
-							name="codec"
-							disabled={settings.state.codecs.length === 0}
-							value={settings.state.codecs.find((codec) => codec.internalEncoderId === settings.codec?.internalEncoderId)?.internalEncoderId}
-							onChange={(e) => updateSettings({codec: settings.state.codecs.find((codec) => codec.internalEncoderId === e.target.value)})}
-							className="select select-bordered bg-base-200"
-						>
-							{settings.state.codecs
+						<DropdownSelect
+							items={settings.state.codecs
 								.filter(codec => (settings.encoder === 'gpu' ? codec.isHardwareEncoder : !codec.isHardwareEncoder))
 								.sort((a, b) => {
-									// Priority order: jim_nvenc, h264_texture_amf, obs_x264, original order by OBS
 									const priorityOrder = ['jim_nvenc', 'h264_texture_amf', 'obs_x264'];
 									const aIndex = priorityOrder.indexOf(a.internalEncoderId);
 									const bIndex = priorityOrder.indexOf(b.internalEncoderId);
-									
-									if (aIndex !== -1 && bIndex !== -1) {
-										return aIndex - bIndex;
-									}
-									if (aIndex !== -1) {
-										return -1;
-									}
-									if (bIndex !== -1) {
-										return 1;
-									}
+									if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+									if (aIndex !== -1) return -1;
+									if (bIndex !== -1) return 1;
 									return 0;
 								})
-								.map((codec) => (
-									<option key={codec.internalEncoderId} value={codec.internalEncoderId}>
-										{codec.friendlyName}
-									</option>
-								))}
-						</select>
+								.map(codec => ({ value: codec.internalEncoderId, label: codec.friendlyName }))}
+							value={settings.state.codecs.find((c) => c.internalEncoderId === settings.codec?.internalEncoderId)?.internalEncoderId}
+							onChange={(val) => updateSettings({ codec: settings.state.codecs.find((c) => c.internalEncoderId === val) })}
+							disabled={settings.state.codecs.length === 0}
+							menuClassName="dropdown-content menu bg-base-300 border border-primary rounded-box z-[999] w-full p-2 mt-1 shadow"
+						/>
 					</div>
 				</div>
 				<div className="flex items-center justify-between mt-4">
@@ -862,17 +767,15 @@ export default function Settings() {
 						>
 							<div className="flex flex-col gap-1 mt-2">
 								<span className="font-medium">Monitor Selection</span>
-								<select
-									name="selectedDisplay"
-									value={settings.selectedDisplay?.deviceName || "Automatic"}
-									onChange={(e) => updateSettings({selectedDisplay: settings.state.displays.find(d => d.deviceName === e.target.value)})}
-									className="select select-bordered select-sm w-fit bg-base-200 focus:outline-none"
-								>
-									<option value={undefined}>Automatic</option>
-									{settings.state.displays.map((display) => (
-										<option key={display.deviceId} value={display.deviceName}>{display.deviceName}{display.isPrimary ? " (Primary)" : ""}</option>
-									))}
-								</select>
+							<DropdownSelect
+								items={[
+									{ value: 'Automatic', label: 'Automatic' },
+									...settings.state.displays.map(d => ({ value: d.deviceName, label: `${d.deviceName}${d.isPrimary ? ' (Primary)' : ''}` }))
+								]}
+								value={settings.selectedDisplay?.deviceName || 'Automatic'}
+								onChange={(val) => updateSettings({ selectedDisplay: val === 'Automatic' ? undefined : settings.state.displays.find(d => d.deviceName === val) })}
+								menuClassName="dropdown-content menu bg-base-300 border border-primary rounded-box z-[999] w-64 p-2 mt-1 shadow"
+							/>
 							</div>
 						</motion.div>
 					)}
@@ -933,15 +836,22 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Encoder</span>
 						</label>
-						<select
-							name="clipEncoder"
+						<DropdownSelect
+							items={[
+								{ value: 'cpu', label: 'CPU' },
+								...(settings.state.gpuVendor !== GpuVendor.Unknown ? [{ value: 'gpu', label: 'GPU' }] : [])
+							]}
 							value={settings.clipEncoder}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							<option value="cpu">CPU</option>
-							{settings.state.gpuVendor !== GpuVendor.Unknown && <option value="gpu">GPU</option>}
-						</select>
+							onChange={(val) => {
+								const newSettings: any = { clipEncoder: val };
+								if (val === 'cpu' && settings.clipEncoder !== 'cpu') {
+									newSettings.clipPreset = 'veryfast';
+								} else if (val === 'gpu' && settings.clipEncoder !== 'gpu') {
+									newSettings.clipPreset = 'medium';
+								}
+								updateSettings(newSettings);
+							}}
+						/>
 					</div>
 
 					{/* Quality (CRF) - New Dropdown */}
@@ -949,25 +859,24 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Quality (CRF)</span>
 						</label>
-						<select
-							name="clipQualityCrf"
-							value={settings.clipQualityCrf}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							<option value="17">17 (Highest Quality)</option>
-							<option value="18">18</option>
-							<option value="19">19</option>
-							<option value="20">20 (High Quality)</option>
-							<option value="21">21</option>
-							<option value="22">22</option>
-							<option value="23">23 (Normal Quality)</option>
-							<option value="24">24</option>
-							<option value="25">25</option>
-							<option value="26">26 (Low Quality)</option>
-							<option value="27">27</option>
-							<option value="28">28 (Lowest Quality)</option>
-						</select>
+						<DropdownSelect
+							items={[
+								{ value: '17', label: '17 (Highest Quality)' },
+								{ value: '18', label: '18' },
+								{ value: '19', label: '19' },
+								{ value: '20', label: '20 (High Quality)' },
+								{ value: '21', label: '21' },
+								{ value: '22', label: '22' },
+								{ value: '23', label: '23 (Normal Quality)' },
+								{ value: '24', label: '24' },
+								{ value: '25', label: '25' },
+								{ value: '26', label: '26 (Low Quality)' },
+								{ value: '27', label: '27' },
+								{ value: '28', label: '28 (Lowest Quality)' },
+							]}
+							value={String(settings.clipQualityCrf)}
+							onChange={(val) => updateSettings({ clipQualityCrf: Number(val) })}
+						/>
 					</div>
 
 					{/* Codec */}
@@ -975,17 +884,16 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Codec</span>
 						</label>
-						<select
-							name="clipCodec"
-							disabled={!settings.state.hasLoadedObs}
+						<DropdownSelect
+							items={[
+								{ value: 'h264', label: 'H.264' },
+								{ value: 'h265', label: 'H.265' },
+								...(settings.state.codecs.find(c => c.internalEncoderId.includes('av1')) && settings.clipEncoder === 'gpu' ? [{ value: 'av1', label: 'AV1' }] : [])
+							]}
 							value={settings.clipCodec}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							<option value="h264">H.264</option>
-							<option value="h265">H.265</option>
-							{settings.state.codecs.find(c =>c.internalEncoderId.includes("av1")) && settings.clipEncoder === "gpu" && <option value="av1">AV1</option>}
-						</select>
+                        onChange={(val) => updateSettings({ clipCodec: val as 'h264'|'h265'|'av1' })}
+							disabled={!settings.state.hasLoadedObs}
+						/>
 					</div>
 
 					{/* FPS */}
@@ -993,19 +901,18 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">FPS</span>
 						</label>
-						<select
-							name="clipFps"
-							value={settings.clipFps}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							<option value="0">Original FPS</option>
-							<option value="24">24 FPS</option>
-							<option value="30">30 FPS</option>
-							<option value="60">60 FPS</option>
-							<option value="120">120 FPS</option>
-							<option value="144">144 FPS</option>
-						</select>
+						<DropdownSelect
+							items={[
+								{ value: '0', label: 'Original FPS' },
+								{ value: '24', label: '24 FPS' },
+								{ value: '30', label: '30 FPS' },
+								{ value: '60', label: '60 FPS' },
+								{ value: '120', label: '120 FPS' },
+								{ value: '144', label: '144 FPS' },
+							]}
+							value={String(settings.clipFps)}
+                        onChange={(val) => updateSettings({ clipFps: Number(val) as ClipFPS })}
+						/>
 					</div>
 
 					{/* Audio Quality */}
@@ -1013,18 +920,17 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Audio Quality</span>
 						</label>
-						<select
-							name="clipAudioQuality"
+						<DropdownSelect
+							items={[
+								{ value: '96k', label: '96 kbps (Low)' },
+								{ value: '128k', label: '128 kbps (Medium)' },
+								{ value: '192k', label: '192 kbps (High)' },
+								{ value: '256k', label: '256 kbps (Very High)' },
+								{ value: '320k', label: '320 kbps (Insane)' },
+							]}
 							value={settings.clipAudioQuality}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							<option value="96k">96 kbps (Low)</option>
-							<option value="128k">128 kbps (Medium)</option>
-							<option value="192k">192 kbps (High)</option>
-							<option value="256k">256 kbps (Very High)</option>
-							<option value="320k">320 kbps (Insane)</option>
-						</select>
+							onChange={(val) => updateSettings({ clipAudioQuality: val as '96k'|'128k'|'192k'|'256k'|'320k' })}
+						/>
 					</div>
 
 					{/* Preset */}
@@ -1032,14 +938,57 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Preset</span>
 						</label>
-						<select
-							name="clipPreset"
+						<DropdownSelect
+							items={(() => {
+								if (settings.clipEncoder === 'cpu') {
+									return [
+										{ value: 'ultrafast', label: 'Ultrafast' },
+										{ value: 'superfast', label: 'Superfast' },
+										{ value: 'veryfast', label: 'Veryfast' },
+										{ value: 'faster', label: 'Faster' },
+										{ value: 'fast', label: 'Fast' },
+										{ value: 'medium', label: 'Medium' },
+										{ value: 'slow', label: 'Slow' },
+										{ value: 'slower', label: 'Slower' },
+										{ value: 'veryslow', label: 'Veryslow' },
+									];
+								}
+								switch (settings.state.gpuVendor) {
+									case GpuVendor.Nvidia:
+										return [
+											{ value: 'slow', label: 'Slow' },
+											{ value: 'medium', label: 'Medium' },
+											{ value: 'fast', label: 'Fast' },
+											{ value: 'hp', label: 'High Performance' },
+											{ value: 'hq', label: 'High Quality' },
+											{ value: 'bd', label: 'Blu-ray Disk' },
+											{ value: 'll', label: 'Low Latency' },
+											{ value: 'llhq', label: 'Low Latency High Quality' },
+											{ value: 'llhp', label: 'Low Latency High Performance' },
+											{ value: 'lossless', label: 'Lossless' },
+											{ value: 'losslesshp', label: 'Lossless High Performance' },
+										];
+									case GpuVendor.AMD:
+										return [
+											{ value: 'slow', label: 'Slow' },
+											{ value: 'medium', label: 'Medium' },
+											{ value: 'fast', label: 'Fast' },
+											{ value: 'hp', label: 'High Performance' },
+											{ value: 'hq', label: 'High Quality' },
+										];
+									case GpuVendor.Intel:
+										return [
+											{ value: 'fast', label: 'Fast' },
+											{ value: 'medium', label: 'Medium' },
+											{ value: 'slow', label: 'Slow' },
+										];
+									default:
+										return [];
+								}
+							})()}
 							value={settings.clipPreset}
-							onChange={handleChange}
-							className="select select-bordered bg-base-200"
-						>
-							{renderPresetOptions(settings)}
-						</select>
+                        onChange={(val) => updateSettings({ clipPreset: val as ClipPreset })}
+						/>
 					</div>
 				</div>
 				<div className="flex justify-start mt-4">
@@ -1433,15 +1382,12 @@ export default function Settings() {
 								)}
                             	Check for Updates
                             </button>
-							<select
-								name="receiveBetaUpdates"
-								value={settings.receiveBetaUpdates ? "beta" : "stable"}
-								onChange={(e) => updateSettings({receiveBetaUpdates: e.target.value === "beta"})}
-								className="select select-bordered select-sm w-32 bg-base-200"
-							>
-								<option value="stable">Stable</option>
-								<option value="beta">Beta</option>
-							</select>
+							<DropdownSelect
+								size='sm'
+								items={[{ value: 'stable', label: 'Stable' }, { value: 'beta', label: 'Beta' }]}
+								value={settings.receiveBetaUpdates ? 'beta' : 'stable'}
+								onChange={(val) => updateSettings({ receiveBetaUpdates: val === 'beta' })}
+								/>
 						</div>
 					</div>
 

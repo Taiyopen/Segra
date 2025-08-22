@@ -108,7 +108,7 @@ export interface Game {
 }
 
 export type ClipEncoder = 'gpu' | 'cpu';
-export type ClipCodec = 'h264' | 'h265';
+export type ClipCodec = 'h264' | 'h265' | 'av1';
 export type ClipFPS = 0 | 24 | 30 | 60 | 120 | 144;
 export type ClipAudioQuality = '96k' | '128k' | '192k' | '256k' | '320k';
 export type CpuClipPreset = 'ultrafast' | 'superfast' | 'veryfast' | 'faster' | 'fast' | 'medium' | 'slow' | 'slower' | 'veryslow';
