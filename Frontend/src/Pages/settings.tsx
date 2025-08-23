@@ -1299,11 +1299,10 @@ export default function Settings() {
 
 			{/* UI Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
-				<h2 className="text-xl font-semibold mb-2">UI</h2>
-				<div className="form-control mb-4">
-					<label className="label px-0">
-						<span className="label-text">Sound Effects Volume</span>
-					</label>
+				<h2 className="text-xl font-semibold mb-4">Segra</h2>
+				<div className="bg-base-200 px-4 py-2 rounded-lg space-y-1 border border-custom">
+					<div className="form-control">
+					<label className="label px-0">Sound Effects Volume</label>
 					<div className="flex items-center gap-2">
 						<input
 							type="range"
@@ -1324,12 +1323,12 @@ export default function Settings() {
 								updateSettings({ soundEffectsVolume: draggingSoundVolume ?? settings.soundEffectsVolume });
 								setDraggingSoundVolume(null); // Reset dragging state
 							}}
-							className="range range-sm range-primary w-48"
+							className="range range-xs range-primary w-48"
 						/>
 						<span className="w-12 text-center">{Math.round((draggingSoundVolume ?? settings.soundEffectsVolume) * 100)}%</span>
 					</div>
 				</div>
-				<div className="form-control">
+				<div className="form-control pt-2">
 					<label className="label cursor-pointer justify-start gap-2 px-0">
 						<input
 							type="checkbox"
@@ -1338,10 +1337,9 @@ export default function Settings() {
 							onChange={(e) => updateSettings({ showNewBadgeOnVideos: e.target.checked })}
 							className="checkbox checkbox-sm checkbox-primary"
 						/>
-						<span className="label-text flex items-center gap-2">Show <span className="badge badge-primary badge-sm">NEW</span> badge on new sessions and replay buffers</span>
+						<span className="flex items-center gap-1">Show<span className="badge badge-primary badge-sm">NEW</span>badge on new sessions and replay buffers</span>
 					</label>
 				</div>
-
 				<div className="form-control">
 					<label className="label cursor-pointer justify-start gap-2 px-0">
 						<input
@@ -1351,8 +1349,9 @@ export default function Settings() {
 							onChange={(e) => updateSettings({ showGameBackground: e.target.checked })}
 							className="checkbox checkbox-sm checkbox-primary"
 						/>
-						<span className="label-text flex items-center gap-1">Show game cover while recording <CloudBadge side="right" /></span>
+						<span className="flex items-center gap-1">Show game cover while recording <CloudBadge side="right" /></span>
 					</label>
+				</div>
 				</div>
 			</div>
 
