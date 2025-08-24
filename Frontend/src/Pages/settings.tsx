@@ -1396,6 +1396,18 @@ export default function Settings() {
 						<span className="flex items-center gap-1">Show game cover while recording <CloudBadge side="right" /></span>
 					</label>
 				</div>
+				<div className="form-control">
+					<label className="label cursor-pointer justify-start gap-2 px-0">
+						<input
+							type="checkbox"
+							name="showAudioWaveformInTimeline"
+							checked={settings.showAudioWaveformInTimeline}
+							onChange={(e) => updateSettings({ showAudioWaveformInTimeline: e.target.checked })}
+							className="checkbox checkbox-sm checkbox-primary"
+						/>
+						<span className="flex items-center gap-1">Show audio waveform in video timeline</span>
+					</label>
+				</div>
 				</div>
 			</div>
 

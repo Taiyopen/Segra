@@ -154,6 +154,7 @@ export interface Settings {
 	soundEffectsVolume: number; // Volume for UI sound effects (0.0 to 1.0)
 	showNewBadgeOnVideos: boolean;
 	showGameBackground: boolean; // Show game background while recording
+	showAudioWaveformInTimeline: boolean; // Show audio waveform in video timeline
 	state: State;
 }
 
@@ -205,6 +206,7 @@ export const initialSettings: Settings = {
 	soundEffectsVolume: 1,
 	showNewBadgeOnVideos: true,
 	showGameBackground: true, // Default to showing game background
+	showAudioWaveformInTimeline: true,
 	keybindings: [
 		{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
 		{ keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true } // 121 is F10

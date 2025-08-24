@@ -314,6 +314,14 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update ShowAudioWaveformInTimeline
+            if (settings.ShowAudioWaveformInTimeline != updatedSettings.ShowAudioWaveformInTimeline)
+            {
+                Log.Information($"ShowAudioWaveformInTimeline changed from '{settings.ShowAudioWaveformInTimeline}' to '{updatedSettings.ShowAudioWaveformInTimeline}'");
+                settings.ShowAudioWaveformInTimeline = updatedSettings.ShowAudioWaveformInTimeline;
+                hasChanges = true;
+            }
+
             // Update Theme
             if (settings.Theme != updatedSettings.Theme)
             {

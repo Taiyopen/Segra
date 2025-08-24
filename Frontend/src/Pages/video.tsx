@@ -697,6 +697,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     };
 
     useEffect(() => {
+        if (!settings.showAudioWaveformInTimeline) return;
         if (!audioRef.current) return;
         
         const timelineContainer = document.getElementsByClassName('timeline-container')[0] as HTMLElement;
@@ -751,7 +752,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                 document.head.removeChild(style);
             }
         };
-    }, []);
+    }, [settings.showAudioWaveformInTimeline]);
 
     // Prepare to resize on drag (click-through on simple click)
     const handleResizeMouseDown = (
@@ -1006,13 +1007,15 @@ export default function VideoComponent({ video }: { video: Content }) {
                             onDoubleClick={toggleFullscreen}
                             style={{ backgroundColor: 'black', objectFit: isFullscreen ? 'contain' as const : undefined }}
                         />
-                        <audio
-                            className="relative rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]"
-                            src={getAudioPath()}
-                            ref={audioRef}
-                            preload="metadata"
-                            hidden
-                        />
+                        {settings.showAudioWaveformInTimeline && (
+                            <audio
+                                className="relative rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]"
+                                src={getAudioPath()}
+                                ref={audioRef}
+                                preload="metadata"
+                                hidden
+                            />
+                        )}
                         
                         <div
                             className={`absolute left-4 right-4 bottom-4 bg-black/70 rounded-lg px-3 py-2 flex items-center gap-3 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
