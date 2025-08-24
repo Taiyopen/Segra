@@ -1010,6 +1010,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                             className="relative rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]"
                             src={getAudioPath()}
                             ref={audioRef}
+                            preload="metadata"
                             hidden
                         />
                         

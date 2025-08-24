@@ -255,15 +255,25 @@ namespace Segra.Backend.ContentServer
                 }
                 else if (File.Exists(fileName) && fileName.EndsWith(".mp3"))
                 {
+                    FileInfo fileInfo = new FileInfo(fileName);
+                    long fileLength = fileInfo.Length;
+                    
                     response.StatusCode = (int)HttpStatusCode.OK;
                     response.ContentType = "audio/mpeg";
                     response.Headers.Add("Access-Control-Allow-Origin", "*");
+                    response.Headers.Add("Accept-Ranges", "bytes");
                     response.AddHeader("Content-Disposition", $"attachment; filename=\"{Path.GetFileName(fileName)}\"");
+                    response.ContentLength64 = fileLength;
                     
-                    // Return the file directly
-                    byte[] fileData = File.ReadAllBytes(fileName);
-                    response.ContentLength64 = fileData.Length;
-                    response.OutputStream.Write(fileData, 0, fileData.Length);
+                    using (FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read))
+                    {
+                        byte[] buffer = new byte[64 * 1024]; // 64KB buffer
+                        int bytesRead;
+                        while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            response.OutputStream.Write(buffer, 0, bytesRead);
+                        }
+                    }
                 }
                 else
                 {
