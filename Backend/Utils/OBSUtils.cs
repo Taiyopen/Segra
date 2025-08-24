@@ -381,7 +381,7 @@ namespace Segra.Backend.Utils
 
             // Reset video settings to set correct output width for games with custom resolution
             Task.Delay(500).Wait();
-            ResetVideoSettings();
+            ResetVideoSettings(customFps: (uint)Settings.Instance.FrameRate);
             Task.Delay(1000).Wait();
 
             // If display recording is disabled, wait for game capture to hook
@@ -411,20 +411,28 @@ namespace Segra.Backend.Utils
             switch (Settings.Instance.RateControl)
             {
                 case "CBR":
-                    int videoBitrateKbps = Settings.Instance.Bitrate * 1000;
-                    obs_data_set_int(videoEncoderSettings, "bitrate", (uint)videoBitrateKbps);
+                    int targetBitrateKbps = Settings.Instance.Bitrate * 1000;
+                    obs_data_set_int(videoEncoderSettings, "bitrate", (uint)targetBitrateKbps);
+                    obs_data_set_int(videoEncoderSettings, "max_bitrate", (uint)targetBitrateKbps);
+                    obs_data_set_int(videoEncoderSettings, "bufsize", (uint)targetBitrateKbps);
                     break;
 
                 case "VBR":
-                    videoBitrateKbps = Settings.Instance.Bitrate * 1000;
-                    obs_data_set_int(videoEncoderSettings, "bitrate", (uint)videoBitrateKbps);
+                    int minBitrateKbps = Settings.Instance.MinBitrate * 1000;
+                    int maxBitrateKbps = Settings.Instance.MaxBitrate * 1000;
+                    obs_data_set_int(videoEncoderSettings, "bitrate", (uint)minBitrateKbps);
+                    obs_data_set_int(videoEncoderSettings, "max_bitrate", (uint)maxBitrateKbps);
+                    obs_data_set_int(videoEncoderSettings, "bufsize", (uint)maxBitrateKbps);
                     break;
 
                 case "CRF":
+                    // Software x264 path mainly; no explicit bitrate
                     obs_data_set_int(videoEncoderSettings, "crf", (uint)Settings.Instance.CrfValue);
                     break;
 
                 case "CQP":
+                    // Hardware encoders (NVENC/QSV/AMF) often use cqp/cq; provide both cqp and qp for compatibility
+                    obs_data_set_int(videoEncoderSettings, "cqp", (uint)Settings.Instance.CqLevel);
                     obs_data_set_int(videoEncoderSettings, "qp", (uint)Settings.Instance.CqLevel);
                     break;
 
