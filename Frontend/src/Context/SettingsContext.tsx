@@ -1,4 +1,4 @@
-import {createContext, useContext, useState, ReactNode, useEffect} from 'react';
+import {createContext, useContext, useState, ReactNode, useEffect, useCallback} from 'react';
 import {Settings, initialSettings, initialState} from '../Models/types';
 import {useWebSocketContext} from './WebSocketContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
@@ -78,25 +78,28 @@ export function SettingsProvider({children}: SettingsProviderProps) {
 		};
 	}, []);
 
-	const updateSettings: SettingsUpdateContextType = (newSettings, fromBackend = false) => {
-		const updatedSettings = {
-			...settings,
-			...newSettings,
-			state: {
-				...settings.state,
-				...newSettings.state,
-			},
-		};
+	const updateSettings = useCallback<SettingsUpdateContextType>((newSettings, fromBackend = false) => {
+		setSettings((prev) => {
+			const updatedSettings: Settings = {
+				...prev,
+				...newSettings,
+				state: {
+					...prev.state,
+					...newSettings.state,
+				},
+			};
 
-		setSettings(updatedSettings);
-		// Persist stable settings for faster startup rendering before backend connects
-		saveCachedSettings(updatedSettings);
+			// Persist stable settings for faster startup rendering before backend connects
+			saveCachedSettings(updatedSettings);
 
-		// Only send UpdateSettings to backend if the change is from the frontend
-		if (!fromBackend) {
-			sendMessageToBackend('UpdateSettings', updatedSettings);
-		}
-	};
+			// Only send UpdateSettings to backend if the change is from the frontend
+			if (!fromBackend) {
+				sendMessageToBackend('UpdateSettings', updatedSettings);
+			}
+
+			return updatedSettings;
+		});
+	}, []);
 
 	return (
 		<SettingsContext.Provider value={settings}>

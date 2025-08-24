@@ -378,6 +378,22 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update MinBitrate (VBR only)
+            if (settings.MinBitrate != updatedSettings.MinBitrate)
+            {
+                Log.Information($"MinBitrate changed from '{settings.MinBitrate} Mbps' to '{updatedSettings.MinBitrate} Mbps'");
+                settings.MinBitrate = updatedSettings.MinBitrate;
+                hasChanges = true;
+            }
+
+            // Update MaxBitrate (VBR only)
+            if (settings.MaxBitrate != updatedSettings.MaxBitrate)
+            {
+                Log.Information($"MaxBitrate changed from '{settings.MaxBitrate} Mbps' to '{updatedSettings.MaxBitrate} Mbps'");
+                settings.MaxBitrate = updatedSettings.MaxBitrate;
+                hasChanges = true;
+            }
+
             // Update Encoder
             bool hasAutoSelectedCodec = false;
             if (settings.Encoder != updatedSettings.Encoder)

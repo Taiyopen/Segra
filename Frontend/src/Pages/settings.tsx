@@ -33,6 +33,15 @@ export default function Settings() {
 	const [draggingVolume, setDraggingVolume] = useState<{ deviceId: string | null; volume: number | null }>({ deviceId: null, volume: null });
 	const [draggingSoundVolume, setDraggingSoundVolume] = useState<number | null>(null);
 
+	// Ensure CRF is only used with CPU encoder; if user switches to GPU, switch off CRF
+	useEffect(() => {
+		if (settings.encoder === 'gpu' && settings.rateControl === 'CRF') {
+			updateSettings({ rateControl: 'CQP' });
+		} else if (settings.encoder === 'cpu' && settings.rateControl === 'CQP') {
+			updateSettings({ rateControl: 'CRF' });
+		}
+	}, [settings.encoder, settings.rateControl, updateSettings]);
+
 	// Helper function to get a display name for a key code
 	const getKeyDisplayName = (keyCode: number): string => {
 		// Function keys
@@ -112,7 +121,7 @@ export default function Settings() {
 
 	const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
 		const {name, value} = event.target;
-		const numericalFields = ['frameRate', 'bitrate', 'storageLimit', 'keyframeInterval', 'crfValue', 'cqLevel', 'clipQualityCrf', 'clipFps'];
+		const numericalFields = ['frameRate', 'bitrate', 'minBitrate', 'maxBitrate', 'storageLimit', 'keyframeInterval', 'crfValue', 'cqLevel', 'clipQualityCrf', 'clipFps'];
 		
 		if (name === 'clipEncoder') {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -598,20 +607,21 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Rate Control</span>
 						</label>
-						<DropdownSelect
-							items={[
-								{ value: 'CBR', label: 'CBR (Constant Bitrate)' },
-								{ value: 'VBR', label: 'VBR (Variable Bitrate)' },
-								{ value: 'CRF', label: 'CRF (Constant Rate Factor)' },
-								{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' },
-							]}
-							value={settings.rateControl}
-							onChange={(val) => updateSettings({ rateControl: val })}
-						/>
+					{/* Rate control: hide CRF when encoder is not CPU */}
+					<DropdownSelect
+						items={[
+							{ value: 'CBR', label: 'CBR (Constant Bitrate)' },
+							{ value: 'VBR', label: 'VBR (Variable Bitrate)' },
+							...(settings.encoder === 'cpu' ? [{ value: 'CRF', label: 'CRF (Constant Rate Factor)' }] : []),
+							...(settings.encoder !== 'cpu' ? [{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' }] : []),
+						]}
+						value={settings.rateControl}
+						onChange={(val) => updateSettings({ rateControl: val })}
+					/>
 					</div>
 
-					{/* Bitrate (for CBR and VBR) */}
-					{(settings.rateControl === 'CBR' || settings.rateControl === 'VBR') && (
+					{/* Bitrate (for CBR) */}
+					{settings.rateControl === 'CBR' && (
 						<div className="form-control">
 							<label className="label">
 								<span className="label-text">Bitrate (Mbps)</span>
@@ -621,6 +631,40 @@ export default function Settings() {
 								value={String(settings.bitrate)}
 								onChange={(val) => updateSettings({ bitrate: Number(val) })}
 							/>
+						</div>
+					)}
+
+					{/* VBR Min/Max Bitrate */}
+					{settings.rateControl === 'VBR' && (
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="form-control">
+								<label className="label">
+									<span className="label-text">Minimum Bitrate (Mbps)</span>
+								</label>
+								<DropdownSelect
+									items={Array.from({length:19}, (_,i)=> (i+2)*5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
+									value={String(settings.minBitrate ?? settings.bitrate)}
+									onChange={(val) => {
+										const min = Number(val);
+										const max = Math.max(min, settings.maxBitrate ?? min);
+										updateSettings({ minBitrate: min, maxBitrate: max });
+									}}
+								/>
+							</div>
+							<div className="form-control">
+								<label className="label">
+									<span className="label-text">Maximum Bitrate (Mbps)</span>
+								</label>
+								<DropdownSelect
+									items={Array.from({length:19}, (_,i)=> (i+2)*5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
+									value={String(settings.maxBitrate ?? Math.max(settings.minBitrate ?? settings.bitrate, Math.round((settings.bitrate||10)*1.5)))}
+									onChange={(val) => {
+										const max = Number(val);
+										const min = Math.min(max, settings.minBitrate ?? settings.bitrate);
+										updateSettings({ maxBitrate: max, minBitrate: min });
+									}}
+								/>
+							</div>
 						</div>
 					)}
 

@@ -18,6 +18,8 @@ namespace Segra.Backend.Models
         private string _resolution = "1080p";
         private int _frameRate = 60;
         private int _bitrate = 40;
+        private int _minBitrate = 40;
+        private int _maxBitrate = 60;
         private string _rateControl = "VBR";
         private int _crfValue = 23;
         private int _cqLevel = 20;
@@ -205,6 +207,28 @@ namespace Segra.Backend.Models
             set
             {
                 _bitrate = value;
+            }
+        }
+
+        // Minimum bitrate in Mbps (used for VBR only)
+        [JsonPropertyName("minBitrate")]
+        public int MinBitrate
+        {
+            get => _minBitrate;
+            set
+            {
+                _minBitrate = value;
+            }
+        }
+
+        // Maximum bitrate in Mbps (used for VBR only)
+        [JsonPropertyName("maxBitrate")]
+        public int MaxBitrate
+        {
+            get => _maxBitrate;
+            set
+            {
+                _maxBitrate = value;
             }
         }
 
