@@ -265,7 +265,7 @@ export default function Settings() {
 		
 		return (
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-				<h2 className="text-xl font-semibold mb-4 flex items-center gap-2">Account <CloudBadge side="right" /></h2>
+				<h2 className="text-xl mb-4 flex items-center gap-2"><span className="font-semibold">Account</span> <CloudBadge side="right" /></h2>
 				
 				<div className="bg-base-200 p-4 rounded-lg border border-custom">
 					<div className="flex items-center justify-between flex-wrap gap-4">

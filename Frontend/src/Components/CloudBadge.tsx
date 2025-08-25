@@ -17,7 +17,7 @@ export default function CloudBadge({
 }: CloudBadgeProps) {
   return (
     <div
-      className={`tooltip tooltip-${side} inline-flex items-center ${className}`}
+      className={`tooltip tooltip-${side} tooltip-primary inline-flex items-center ${className}`}
       data-tip={tip}
       aria-label={tip}
     >
