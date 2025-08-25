@@ -105,7 +105,8 @@ internal static class MigrationUtils
     {
         return new List<Migration>
         {
-            new("0001_waveforms_json", Apply_0001_WaveformsJson)
+            new("0001_waveforms_json", Apply_0001_WaveformsJson),
+            new("0002_hide_dotfolders", Apply_0002_HideDotfolders)
         };
     }
 
@@ -164,5 +165,36 @@ internal static class MigrationUtils
             }
         }
     }
-}
 
+    // Migration 0002: Mark all top-level dotfolders under content root as Hidden
+    private static void Apply_0002_HideDotfolders()
+    {
+        string contentRoot = Settings.Instance.ContentFolder;
+        if (!Directory.Exists(contentRoot)) return;
+
+        try
+        {
+            foreach (var dir in Directory.EnumerateDirectories(contentRoot, ".*", SearchOption.TopDirectoryOnly))
+            {
+                try
+                {
+                    var di = new DirectoryInfo(dir);
+                    // Only mark hidden if it starts with '.'
+                    if (di.Name.StartsWith('.'))
+                    {
+                        di.Attributes |= FileAttributes.Hidden;
+                        Log.Information("Ensured hidden attribute on folder: {Folder}", di.FullName);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to set hidden attribute on folder: {Folder}", dir);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Error while enumerating dotfolders for hidden attribute");
+        }
+    }
+}
