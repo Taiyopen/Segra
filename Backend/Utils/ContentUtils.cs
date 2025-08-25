@@ -143,85 +143,143 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static void CreateAudioFile(string videoFilePath, Content.ContentType type)
+        public static void CreateWaveformFile(string videoFilePath, Content.ContentType type)
         {
             string ffmpegPath = "ffmpeg.exe";
 
-            if(!File.Exists(ffmpegPath)) {
-                Log.Error($"FFmpeg executable not found at: {ffmpegPath}");
-                return;
-            }
-                
-            if(!File.Exists(videoFilePath)) {
-                Log.Error($"Video file not found at: {videoFilePath}");
-                return;
-            }
-
-            // Get the directory and file name
-            string contentFileName = Path.GetFileNameWithoutExtension(videoFilePath);
-
-            // Ensure the .audio folder exists
-            string audioFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".audio", type.ToString().ToLower() + "s");
-            if (!Directory.Exists(audioFolderPath))
+            try
             {
-                DirectoryInfo dir = Directory.CreateDirectory(audioFolderPath);
-                dir.Attributes |= FileAttributes.Hidden;
-            }
-
-            // Create a temporary audio file to prevent Segra from trying to play it while it's being created
-            string tempAudioFilePath = Path.Combine(audioFolderPath, $"{contentFileName}.temp.mp3");
-            string audioFilePath = Path.Combine(audioFolderPath, $"{contentFileName}.mp3");
-            string ffmpegArgs = $"-i \"{videoFilePath}\" -vn -acodec libmp3lame -q:a 6 \"{tempAudioFilePath}\"";
-
-            ProcessStartInfo processInfo = new()
-            {
-                FileName = ffmpegPath,
-                Arguments = ffmpegArgs,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using Process process = new() { StartInfo = processInfo };
-            
-            // Set up asynchronous reading to prevent deadlocks with large files
-            var outputBuilder = new System.Text.StringBuilder();
-            var errorBuilder = new System.Text.StringBuilder();
-            
-            process.OutputDataReceived += (sender, e) => {
-                if (e.Data != null) {
-                    outputBuilder.AppendLine(e.Data);
+                if (!File.Exists(ffmpegPath))
+                {
+                    Log.Error($"FFmpeg executable not found at: {ffmpegPath}");
+                    return;
                 }
-            };
-            
-            process.ErrorDataReceived += (sender, e) => {
-                if (e.Data != null) {
-                    errorBuilder.AppendLine(e.Data);
+                if (!File.Exists(videoFilePath))
+                {
+                    Log.Error($"Video file not found at: {videoFilePath}");
+                    return;
                 }
-            };
-            
-            process.Start();
-            
-            // Begin asynchronous reading
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            
-            // Wait for the process to exit
-            process.WaitForExit();
-            
-            string output = outputBuilder.ToString();
-            string error = errorBuilder.ToString();
 
-            if (process.ExitCode != 0)
-            {
-                Log.Error($"FFmpeg error: {error}");
-                Log.Error("Audio file creation failed.");
+                string contentFileName = Path.GetFileNameWithoutExtension(videoFilePath);
+
+                // Ensure the .waveforms folder exists and is hidden
+                string waveformFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".waveforms", type.ToString().ToLower() + "s");
+                if (!Directory.Exists(waveformFolderPath))
+                {
+                    DirectoryInfo dir = Directory.CreateDirectory(waveformFolderPath);
+                    dir.Attributes |= FileAttributes.Hidden;
+                }
+
+                string tempPcmPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pcm");
+                string waveformJsonPathTemp = Path.Combine(waveformFolderPath, $"{contentFileName}.peaks.temp.json");
+                string waveformJsonPath = Path.Combine(waveformFolderPath, $"{contentFileName}.peaks.json");
+
+                // Decode audio to raw mono 16-bit PCM at a modest sample rate for efficiency
+                int sampleRate = 11025;
+                string ffmpegArgs = $"-i \"{videoFilePath}\" -vn -ac 1 -ar {sampleRate} -f s16le -acodec pcm_s16le \"{tempPcmPath}\"";
+
+                var processInfo = new ProcessStartInfo
+                {
+                    FileName = ffmpegPath,
+                    Arguments = ffmpegArgs,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = false,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using (var process = new Process { StartInfo = processInfo })
+                {
+                    var errorBuilder = new System.Text.StringBuilder();
+                    process.ErrorDataReceived += (s, e) => { if (e.Data != null) errorBuilder.AppendLine(e.Data); };
+                    process.Start();
+                    process.BeginErrorReadLine();
+                    process.WaitForExit();
+                    if (process.ExitCode != 0)
+                    {
+                        Log.Error($"FFmpeg error while extracting PCM: {errorBuilder}");
+                        return;
+                    }
+                }
+
+                if (!File.Exists(tempPcmPath))
+                {
+                    Log.Error("PCM extraction did not produce output file.");
+                    return;
+                }
+
+                // Read PCM and compute min/max pairs as 8-bit integers similar to audiowaveform output
+                byte[] pcmBytes = File.ReadAllBytes(tempPcmPath);
+                int totalSamples = pcmBytes.Length / 2; // 16-bit mono
+                if (totalSamples == 0)
+                {
+                    Log.Warning("No audio samples found when generating waveform peaks.");
+                    var emptyJson = new
+                    {
+                        version = 2,
+                        channels = 1,
+                        sample_rate = sampleRate,
+                        samples_per_pixel = 1,
+                        bits = 8,
+                        length = 0,
+                        data = Array.Empty<int>()
+                    };
+                    File.WriteAllText(waveformJsonPathTemp, System.Text.Json.JsonSerializer.Serialize(emptyJson));
+                    File.Move(waveformJsonPathTemp, waveformJsonPath, true);
+                    return;
+                }
+
+                // Aim for ~50 pixel columns per second; each column contributes two values (min,max)
+                double columnsPerSecond = 50.0;
+                int columns = Math.Max(1, (int)Math.Round((totalSamples / (double)sampleRate) * columnsPerSecond));
+                int samplesPerPixel = Math.Max(1, (int)Math.Ceiling(totalSamples / (double)columns));
+
+                var data = new List<int>(columns * 2);
+
+                for (int i = 0; i < totalSamples; i += samplesPerPixel)
+                {
+                    int end = Math.Min(totalSamples, i + samplesPerPixel);
+                    short min16 = short.MaxValue;
+                    short max16 = short.MinValue;
+                    int byteIndex = i * 2;
+                    for (int s = i; s < end; s++, byteIndex += 2)
+                    {
+                        short sample = BitConverter.ToInt16(pcmBytes, byteIndex);
+                        if (sample < min16) min16 = sample;
+                        if (sample > max16) max16 = sample;
+                    }
+                    // Scale 16-bit PCM to 8-bit range approximately -128..127
+                    int min8 = (int)Math.Round(min16 / 256.0);
+                    int max8 = (int)Math.Round(max16 / 256.0);
+                    // Clamp to [-128,127]
+                    min8 = Math.Max(-128, Math.Min(127, min8));
+                    max8 = Math.Max(-128, Math.Min(127, max8));
+                    data.Add(min8);
+                    data.Add(max8);
+                }
+
+                var wrapper = new
+                {
+                    version = 2,
+                    channels = 1,
+                    sample_rate = sampleRate,
+                    samples_per_pixel = samplesPerPixel,
+                    bits = 8,
+                    length = data.Count,
+                    data = data
+                };
+                // Serialize JSON
+                var json = System.Text.Json.JsonSerializer.Serialize(wrapper);
+                File.WriteAllText(waveformJsonPathTemp, json);
+                File.Move(waveformJsonPathTemp, waveformJsonPath, true);
+                Log.Information($"Waveform JSON successfully created at: {waveformJsonPath}");
+
+                // Cleanup
+                try { File.Delete(tempPcmPath); } catch { /* ignore */ }
             }
-            else
+            catch (Exception ex)
             {
-                File.Move(tempAudioFilePath, audioFilePath);
-                Log.Information($"Audio file successfully created at: {audioFilePath}");
+                Log.Error($"Error creating waveform JSON: {ex.Message}");
             }
         }
 
@@ -326,19 +384,19 @@ namespace Segra.Backend.Utils
                     Log.Warning($"Thumbnail file not found: {thumbnailFilePath}");
                 }
 
-                // Construct the audio file path
-                string audioFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".audio", type.ToString().ToLower() + "s");
-                string audioFilePath = Path.Combine(audioFolderPath, $"{contentFileName}.mp3");
+                // Construct the waveform JSON path
+                string waveformFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".waveforms", type.ToString().ToLower() + "s");
+                string waveformFilePath = Path.Combine(waveformFolderPath, $"{contentFileName}.peaks.json");
 
-                // Delete the audio file if it exists
-                if (File.Exists(audioFilePath))
+                // Delete the waveform file if it exists
+                if (File.Exists(waveformFilePath))
                 {
-                    File.Delete(audioFilePath);
-                    Log.Information($"Audio file deleted: {audioFilePath}");
+                    File.Delete(waveformFilePath);
+                    Log.Information($"Waveform file deleted: {waveformFilePath}");
                 }
                 else
                 {
-                    Log.Warning($"Audio file not found: {audioFilePath}");
+                    Log.Warning($"Waveform file not found: {waveformFilePath}");
                 }
             }
             catch (UnauthorizedAccessException ex)

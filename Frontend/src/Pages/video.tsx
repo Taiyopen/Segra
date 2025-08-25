@@ -55,7 +55,6 @@ export default function VideoComponent({ video }: { video: Content }) {
     
     // Refs
     const videoRef = useRef<HTMLVideoElement>(null);
-    const audioRef = useRef<HTMLAudioElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -698,24 +697,11 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     useEffect(() => {
         if (!settings.showAudioWaveformInTimeline) return;
-        if (!audioRef.current) return;
         
         const timelineContainer = document.getElementsByClassName('timeline-container')[0] as HTMLElement;
         if (!timelineContainer) return;
     
-        const ws = WaveSurfer.create({
-            container: timelineContainer,
-            waveColor: '#49515b',
-            progressColor: '#49515b',
-            cursorColor: 'transparent',
-            media: audioRef.current,
-            height: 49,
-            interact: false,
-            barHeight: 1.75,
-            barAlign: 'bottom',
-            barRadius: 2,
-        });
-
+        let wavesurfer: ReturnType<typeof WaveSurfer.create> | null = null;
         const style = document.createElement('style');
         style.textContent = `
           .timeline-container ::part(wrapper),
@@ -734,20 +720,47 @@ export default function VideoComponent({ video }: { video: Content }) {
           }
         `;
         document.head.appendChild(style);
-    
-        ws.on('ready', () => {
-            // Add a class to the timeline container to trigger the fade-in
-            setTimeout(() => {
-                timelineContainer.classList.add('waveform-ready');
-            }, 10);
-        });
 
-        ws.on('error', (error) => {
-            console.error('WaveSurfer error:', error);
-        });
+        // Fetch the peaks data and then initialize WaveSurfer
+        const peaksUrl = getWaveformPath();
+        fetch(peaksUrl)
+            .then(response => response.json())
+            .then(peaksData => {
+                let durationFromPeaks: number | undefined = undefined;
+                const data: number[] = Array.isArray(peaksData?.data) ? peaksData.data : [];
+                const sr = Number(peaksData?.sample_rate) || 0;
+                const spp = Number(peaksData?.samples_per_pixel) || 0;
+                if (sr > 0 && spp > 0 && data.length > 1) {
+                    const columns = Math.floor(data.length / 2); // min/max pairs for mono
+                    durationFromPeaks = (columns * spp) / sr;
+                }
+
+                wavesurfer = WaveSurfer.create({
+                    container: timelineContainer,
+                    waveColor: '#49515b',
+                    progressColor: '#49515b',
+                    cursorColor: 'transparent',
+                    peaks: peaksData.data,
+                    duration: durationFromPeaks,
+                    height: 49,
+                    interact: false,
+                    barHeight: 1,
+                    barAlign: 'bottom',
+                    barRadius: 2,
+                });
+
+                wavesurfer.on('error', (err: Error) => {
+                    console.error('[Waveform] WaveSurfer error:', err);
+                });
+            })
+            .catch((error: Error) => {
+                console.error('Error loading audio peaks:', error);
+            });
     
         return () => {
-            ws.destroy();
+            if (wavesurfer) {
+                wavesurfer.destroy();
+            }
             if (document.head.contains(style)) {
                 document.head.removeChild(style);
             }
@@ -836,8 +849,8 @@ export default function VideoComponent({ video }: { video: Content }) {
     };
 
     // Get audio source URL
-    const getAudioPath = (): string => {
-        const contentFileName = `${contentFolder}/.audio/${video.type.toLowerCase()}s/${video.fileName}.mp3`;
+    const getWaveformPath = (): string => {
+        const contentFileName = `${contentFolder}/.waveforms/${video.type.toLowerCase()}s/${video.fileName}.peaks.json`;
         return `http://localhost:2222/api/content?input=${encodeURIComponent(contentFileName)}&type=${video.type.toLowerCase()}`;
     };
 
@@ -1007,15 +1020,6 @@ export default function VideoComponent({ video }: { video: Content }) {
                             onDoubleClick={toggleFullscreen}
                             style={{ backgroundColor: 'black', objectFit: isFullscreen ? 'contain' as const : undefined }}
                         />
-                        {settings.showAudioWaveformInTimeline && (
-                            <audio
-                                className="relative rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]"
-                                src={getAudioPath()}
-                                ref={audioRef}
-                                preload="metadata"
-                                hidden
-                            />
-                        )}
                         
                         <div
                             className={`absolute left-4 right-4 bottom-4 bg-black/70 rounded-lg px-3 py-2 flex items-center gap-3 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
@@ -1169,7 +1173,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                             })}
                         </div>
                         <div
-                            className="timeline-container bg-base-300 border border-primary rounded-lg relative h-[50px] w-full overflow-hidden"
+                            className="timeline-container bg-base-300 border border-primary rounded-lg relative h-[50px] w-full overflow-hidden waveform-ready"
                             style={{
                                 width: `${duration * pixelsPerSecond}px`,
                                 minWidth: "100%"

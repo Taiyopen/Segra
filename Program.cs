@@ -187,6 +187,9 @@ namespace Segra
                     Directory.CreateDirectory(Settings.Instance.ContentFolder);
                 }
 
+                // Run data migrations (non-blocking)
+                Task.Run(MigrationUtils.RunMigrations);
+
                 // Try to login with stored credentials
                 Task.Run(AuthService.TryAutoLogin);
 

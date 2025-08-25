@@ -253,16 +253,15 @@ namespace Segra.Backend.ContentServer
                         }
                     }
                 }
-                else if (File.Exists(fileName) && fileName.EndsWith(".mp3"))
+                else if (File.Exists(fileName) && fileName.EndsWith(".json"))
                 {
                     FileInfo fileInfo = new FileInfo(fileName);
                     long fileLength = fileInfo.Length;
                     
                     response.StatusCode = (int)HttpStatusCode.OK;
-                    response.ContentType = "audio/mpeg";
+                    response.ContentType = "application/json";
                     response.Headers.Add("Access-Control-Allow-Origin", "*");
                     response.Headers.Add("Accept-Ranges", "bytes");
-                    response.AddHeader("Content-Disposition", $"attachment; filename=\"{Path.GetFileName(fileName)}\"");
                     response.ContentLength64 = fileLength;
                     
                     using (FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read))

@@ -129,7 +129,7 @@ namespace Segra.Backend.Utils
             // Create metadata for the buffer recording
             ContentUtils.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game);
             ContentUtils.CreateThumbnail(savedPath, Content.ContentType.Buffer);
-            Task.Run(() => ContentUtils.CreateAudioFile(savedPath, Content.ContentType.Buffer));
+            Task.Run(() => ContentUtils.CreateWaveformFile(savedPath, Content.ContentType.Buffer));
 
             // Reload content list to include the new buffer file
             SettingsUtils.LoadContentFromFolderIntoState(true);
@@ -744,7 +744,7 @@ namespace Segra.Backend.Utils
                 {
                     ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
                     ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
-                    Task.Run(() => ContentUtils.CreateAudioFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session));
+                    Task.Run(() => ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session));
 
                     Log.Information($"Recording details:");
                     Log.Information($"Start Time: {Settings.Instance.State.Recording.StartTime}");
