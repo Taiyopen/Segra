@@ -183,7 +183,7 @@ namespace Segra.Backend.Utils
                     FileName = ffmpegPath,
                     Arguments = ffmpegArgs,
                     UseShellExecute = false,
-                    RedirectStandardOutput = false,
+                    RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true
                 };
@@ -192,9 +192,27 @@ namespace Segra.Backend.Utils
                 {
                     var errorBuilder = new System.Text.StringBuilder();
                     process.ErrorDataReceived += (s, e) => { if (e.Data != null) errorBuilder.AppendLine(e.Data); };
+                    
+                    // Simple task to continuously read stdout to prevent buffer filling
+                    var outputReadTask = new Task(() => {
+                        using (var reader = process.StandardOutput)
+                        {
+                            while (!reader.EndOfStream)
+                            {
+                                reader.ReadLine();
+                            }
+                        }
+                    });
+                    
                     process.Start();
                     process.BeginErrorReadLine();
+                    outputReadTask.Start();
+                    
                     process.WaitForExit();
+                    
+                    // Give the output task a moment to finish
+                    outputReadTask.Wait(1000);
+                    
                     if (process.ExitCode != 0)
                     {
                         Log.Error($"FFmpeg error while extracting PCM: {errorBuilder}");
