@@ -794,6 +794,7 @@ export default function Settings() {
 						animate={{ 
 							opacity: 1, 
 							height: 'fit-content',
+							overflow: 'visible',
 							transition: { 
 								duration: 0.3,
 								height: { type: 'spring', stiffness: 300, damping: 30 }
@@ -818,7 +819,6 @@ export default function Settings() {
 								]}
 								value={settings.selectedDisplay?.deviceName || 'Automatic'}
 								onChange={(val) => updateSettings({ selectedDisplay: val === 'Automatic' ? undefined : settings.state.displays.find(d => d.deviceName === val) })}
-								menuClassName="dropdown-content menu bg-base-300 border border-primary rounded-box z-[999] w-64 p-2 mt-1 shadow"
 							/>
 							</div>
 						</motion.div>
