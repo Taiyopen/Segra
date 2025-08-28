@@ -131,6 +131,7 @@ export interface Settings {
 	contentFolder: string;
 	inputDevices: DeviceSetting[];
 	outputDevices: DeviceSetting[];
+	forceMonoInputSources: boolean;
 	enableDisplayRecording: boolean;
 	selectedDisplay: Display | null;
 	enableAi: boolean;
@@ -186,6 +187,7 @@ export const initialSettings: Settings = {
 	contentFolder: '',
 	inputDevices: [],
 	outputDevices: [],
+	forceMonoInputSources: false,
 	enableDisplayRecording: true,
 	selectedDisplay: null, // Default to null (auto-select)
 	enableAi: true,

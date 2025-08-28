@@ -460,6 +460,14 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update ForceMonoInputSources
+            if (settings.ForceMonoInputSources != updatedSettings.ForceMonoInputSources)
+            {
+                Log.Information($"ForceMonoInputSources changed from '{settings.ForceMonoInputSources}' to '{updatedSettings.ForceMonoInputSources}'");
+                settings.ForceMonoInputSources = updatedSettings.ForceMonoInputSources;
+                hasChanges = true;
+            }
+
             // Update RateControl
             if (settings.RateControl != updatedSettings.RateControl)
             {

@@ -28,6 +28,7 @@ namespace Segra.Backend.Models
         private int _storageLimit = 100;
         private List<DeviceSetting> _inputDevices = new List<DeviceSetting>();
         private List<DeviceSetting> _outputDevices = new List<DeviceSetting>();
+        private bool _forceMonoInputSources = false;
         private bool _enableDisplayRecording = true;
         private Display? _selectedDisplay = null;
         private bool _enableAi = true;
@@ -440,6 +441,20 @@ namespace Segra.Backend.Models
         public State State
         {
             get => _state;
+        }
+
+        [JsonPropertyName("forceMonoInputSources")]
+        public bool ForceMonoInputSources
+        {
+            get => _forceMonoInputSources;
+            set
+            {
+                if (_forceMonoInputSources != value)
+                {
+                    _forceMonoInputSources = value;
+                    SendToFrontend("Force mono input sources changed");
+                }
+            }
         }
 
         [JsonPropertyName("auth")]

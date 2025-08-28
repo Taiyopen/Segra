@@ -15,6 +15,7 @@ namespace Segra.Backend.Utils
 {
     public static class OBSUtils
     {
+        private const uint OBS_SOURCE_FLAG_FORCE_MONO = 1u << 1; // from obs.h
         public static bool IsInitialized { get; private set; }
         public static GpuVendor DetectedGpuVendor { get; private set; } = DetectGpuVendor();
         static bool signalOutputStop = false;
@@ -29,13 +30,6 @@ namespace Segra.Backend.Utils
         static IntPtr audioEncoder = IntPtr.Zero;
         private static string? hookedExecutableFileName;
         private static System.Threading.Timer? gameCaptureHookTimeoutTimer = null;
-
-        // Available encoder IDs for different hardware
-        private const string NVIDIA_ENCODER = "jim_nvenc";
-        private const string AMD_ENCODER = "h264_texture_amf";
-        private const string INTEL_ENCODER = "qsv_h264";
-        private const string CPU_ENCODER = "obs_x264";
-
         static signal_callback_t outputStopCallback = (data, cd) =>
         {
             signalOutputStop = true;
@@ -464,6 +458,9 @@ namespace Segra.Backend.Utils
 
                         obs_data_release(micSettings);
 
+                        // Apply Force Mono if enabled
+                        SetForceMono(micSource, Settings.Instance.ForceMonoInputSources);
+
                         float volume = deviceSetting.Volume;
                         obs_source_set_volume(micSource, volume);
 
@@ -838,6 +835,29 @@ namespace Segra.Backend.Utils
 
             _isGameCaptureHooked = false;
             Log.Information("Game unhooked.");
+        }
+
+        
+        private static void SetForceMono(IntPtr source, bool forceMono)
+        {
+            if (source == IntPtr.Zero) return;
+            try
+            {
+                uint flags = obs_source_get_flags(source);
+                bool currentlyMono = (flags & OBS_SOURCE_FLAG_FORCE_MONO) != 0;
+                if (forceMono && !currentlyMono)
+                {
+                    obs_source_set_flags(source, flags | OBS_SOURCE_FLAG_FORCE_MONO);
+                }
+                else if (!forceMono && currentlyMono)
+                {
+                    obs_source_set_flags(source, flags & ~OBS_SOURCE_FLAG_FORCE_MONO);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Failed to set force mono on source: {ex.Message}");
+            }
         }
 
         private static bool WaitForGameToStart(int timeoutMs = 80000)

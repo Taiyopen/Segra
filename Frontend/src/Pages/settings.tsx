@@ -1225,6 +1225,18 @@ export default function Settings() {
 						</div>
 					</div>
 				</div>
+				<div className="mt-4">
+					<label className="cursor-pointer flex items-center">
+						<input
+							type="checkbox"
+							name="forceMonoInputSources"
+							checked={settings.forceMonoInputSources}
+							onChange={(e) => updateSettings({ forceMonoInputSources: e.target.checked })}
+							className="checkbox checkbox-sm checkbox-accent"
+						/>
+						<span className="ml-2">Mono Input Devices</span>
+					</label>
+				</div>
 			</div>
 
 			{/* Keybindings Settings */}
