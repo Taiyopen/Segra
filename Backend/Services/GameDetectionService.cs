@@ -323,7 +323,6 @@ namespace Segra.Backend.Services
                             {
                                 windowClass = classBuilder.ToString();
                             }
-                            Log.Information($"Window info for {Path.GetFileName(exePath)}: Title='{windowTitle}', Class='{windowClass}', FileDescription='{fileDescription}'");
                         }
                     }
                 }
