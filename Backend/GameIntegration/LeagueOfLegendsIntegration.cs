@@ -176,22 +176,22 @@ namespace Segra.Backend.GameIntegration
             int currentKills = 0;
             int currentDeaths = 0;
             int currentAssists = 0;
-            
+
             if (scores.TryGetProperty("kills", out JsonElement killsElement))
             {
                 currentKills = killsElement.GetInt32();
             }
-            
+
             if (scores.TryGetProperty("deaths", out JsonElement deathsElement))
             {
                 currentDeaths = deathsElement.GetInt32();
             }
-            
+
             if (scores.TryGetProperty("assists", out JsonElement assistsElement))
             {
                 currentAssists = assistsElement.GetInt32();
             }
-            
+
             // If this is the first time we're capturing stats for this game session,
             // just store the values without creating bookmarks
             if (!_initialStatsCaptured)
@@ -203,7 +203,7 @@ namespace Segra.Backend.GameIntegration
                 _initialStatsCaptured = true;
                 return;
             }
-            
+
             // Process kills
             if (currentKills > _stats.Kills)
             {

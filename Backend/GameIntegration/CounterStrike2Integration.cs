@@ -13,15 +13,15 @@ namespace Segra.Backend.GameIntegration
         private const string Prefix = "http://127.0.0.1:1340/";
         private int _lastValidKills = 0;
         private int _lastValidDeaths = 0;
-        
+
         private class GameState
         {
             [System.Text.Json.Serialization.JsonPropertyName("player")]
             public Player? Player { get; set; }
-            
+
             [System.Text.Json.Serialization.JsonPropertyName("provider")]
             public Provider? Provider { get; set; }
-            
+
             [System.Text.Json.Serialization.JsonPropertyName("map")]
             public Map? Map { get; set; }
         }
@@ -30,7 +30,7 @@ namespace Segra.Backend.GameIntegration
         {
             [System.Text.Json.Serialization.JsonPropertyName("steamid")]
             public string? SteamId { get; set; }
-            
+
             [System.Text.Json.Serialization.JsonPropertyName("match_stats")]
             public MatchStats? MatchStats { get; set; }
         }
@@ -45,7 +45,7 @@ namespace Segra.Backend.GameIntegration
         {
             [System.Text.Json.Serialization.JsonPropertyName("phase")]
             public string? Phase { get; set; }
-            
+
             [System.Text.Json.Serialization.JsonPropertyName("name")]
             public string? Name { get; set; }
         }
@@ -54,7 +54,7 @@ namespace Segra.Backend.GameIntegration
         {
             [System.Text.Json.Serialization.JsonPropertyName("kills")]
             public int? Kills { get; set; }
-            
+
             [System.Text.Json.Serialization.JsonPropertyName("deaths")]
             public int? Deaths { get; set; }
         }
@@ -71,7 +71,7 @@ namespace Segra.Backend.GameIntegration
                     try
                     {
                         HttpListenerContext context = await _listener.GetContextAsync();
-                    
+
                         _ = Task.Run(async () =>
                         {
                             try
@@ -130,7 +130,7 @@ namespace Segra.Backend.GameIntegration
                 {
                     string body = await ReadRequestBodyAsync(context.Request);
                     Log.Debug($"CS2 integration received payload: {body}");
-                    
+
                     GameState gameState = DeserializeState(body);
                     ProcessGameState(gameState);
                 }
@@ -213,7 +213,7 @@ namespace Segra.Backend.GameIntegration
             {
                 int killsGained = currentKills - _lastValidKills;
                 Log.Information($"Kill detected: {_lastValidKills} -> {currentKills} (+{killsGained})");
-                
+
                 for (int i = 0; i < killsGained; i++)
                 {
                     AddBookmark(BookmarkType.Kill);
@@ -224,7 +224,7 @@ namespace Segra.Backend.GameIntegration
             {
                 int deathsGained = currentDeaths - _lastValidDeaths;
                 Log.Information($"Death detected: {_lastValidDeaths} -> {currentDeaths} (+{deathsGained})");
-                
+
                 for (int i = 0; i < deathsGained; i++)
                 {
                     AddBookmark(BookmarkType.Death);

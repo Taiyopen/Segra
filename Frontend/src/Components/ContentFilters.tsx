@@ -30,11 +30,11 @@ export default function ContentFilters({
       /* no-op */
     }
   }, [selectedGames, sortOption, sectionId]);
-  
+
   // UI handlers
   const toggleGameSelection = (game: string) => {
-    const newSelectedGames = selectedGames.includes(game) 
-      ? selectedGames.filter((g: string) => g !== game) 
+    const newSelectedGames = selectedGames.includes(game)
+      ? selectedGames.filter((g: string) => g !== game)
       : [...selectedGames, game];
     onGameFilterChange(newSelectedGames);
   };
@@ -48,7 +48,7 @@ export default function ContentFilters({
     // Close the dropdown by blurring the active element (DaisyUI closes on blur)
     try {
       (document.activeElement as HTMLElement)?.blur();
-    } catch {/* no-op */}
+    } catch {/* no-op */ }
   };
 
   const getSortLabel = (option: SortOption): string => {
@@ -121,9 +121,8 @@ export default function ContentFilters({
         <ul className="dropdown-content menu bg-base-300 border border-primary rounded-box z-[999] w-56 p-2 mt-1 shadow" tabIndex={0}>
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${
-                sortOption === "newest" ? "text-primary" : "text-white"
-              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "newest" ? "text-primary" : "text-white"
+                } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
               onClick={() => handleSortChange("newest")}
             >
               <MdOutlineAccessTime size="20" />
@@ -132,9 +131,8 @@ export default function ContentFilters({
           </li>
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${
-                sortOption === "oldest" ? "text-primary" : "text-white"
-              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "oldest" ? "text-primary" : "text-white"
+                } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
               onClick={() => handleSortChange("oldest")}
             >
               <MdOutlineAccessTime size="20" />
@@ -143,9 +141,8 @@ export default function ContentFilters({
           </li>
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${
-                sortOption === "size" ? "text-primary" : "text-white"
-              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "size" ? "text-primary" : "text-white"
+                } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
               onClick={() => handleSortChange("size")}
             >
               <MdOutlineStorage size="20" />
@@ -154,9 +151,8 @@ export default function ContentFilters({
           </li>
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${
-                sortOption === "duration" ? "text-primary" : "text-white"
-              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "duration" ? "text-primary" : "text-white"
+                } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
               onClick={() => handleSortChange("duration")}
             >
               <MdOutlineTimer size="20" />
@@ -165,9 +161,8 @@ export default function ContentFilters({
           </li>
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${
-                sortOption === "game" ? "text-primary" : "text-white"
-              } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "game" ? "text-primary" : "text-white"
+                } hover:bg-white/5 active:!text-primary active:!bg-white/5 rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
               onClick={() => handleSortChange("game")}
             >
               <MdOutlineGamepad size="20" />

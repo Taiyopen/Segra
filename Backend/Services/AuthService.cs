@@ -35,30 +35,30 @@ namespace Segra.Backend.Services
             try
             {
                 Log.Debug($"Login attempt starting - JWT length: {jwt?.Length ?? 0}, RefreshToken length: {refreshToken?.Length ?? 0}, IsAutoLogin: {isAutoLogin}");
-                
+
                 if (string.IsNullOrEmpty(jwt) || string.IsNullOrEmpty(refreshToken))
                 {
                     Log.Warning("Login attempt with empty JWT or refresh token");
                     return;
                 }
-                
+
                 if (!IsAuthenticated() || Session == null || Session.Expired())
                 {
                     Log.Debug("Current session is null, expired, or not authenticated. Setting new session...");
                     Session = await _client.Auth.SetSession(jwt, refreshToken);
                     Log.Debug($"SetSession completed. Session is {(Session == null ? "null" : "valid")}");
-                    
+
                     Log.Debug("Refreshing session...");
                     Session = await _client.Auth.RefreshSession();
                     Log.Debug($"RefreshSession completed. Session is {(Session == null ? "null" : "valid")}");
-                    
+
                     // Save the updated tokens to settings
                     if (Session != null)
                     {
                         Log.Debug($"Saving tokens to settings. AccessToken length: {Session.AccessToken?.Length ?? 0}, RefreshToken length: {Session.RefreshToken?.Length ?? 0}");
                         Models.Settings.Instance.Auth.Jwt = Session?.AccessToken ?? string.Empty;
                         Models.Settings.Instance.Auth.RefreshToken = Session?.RefreshToken ?? string.Empty;
-                        
+
                         if (isAutoLogin)
                         {
                             Log.Information($"Auto login successful for user {Session?.User?.Id}");
@@ -96,10 +96,10 @@ namespace Segra.Backend.Services
 
                     // We do not need to call the sign out method because the session is already removed since frontend called it
                     //await _client.Auth.SignOut();
-                    
+
                     Log.Information($"Logged out user: {userId}");
                     Session = null;
-                    
+
                     // Clear stored credentials
                     Models.Settings.Instance.Auth.Jwt = string.Empty;
                     Models.Settings.Instance.Auth.RefreshToken = string.Empty;
@@ -121,19 +121,19 @@ namespace Segra.Backend.Services
         {
             bool isAuthenticated = Session != null && !string.IsNullOrEmpty(Session.AccessToken);
             Log.Debug($"IsAuthenticated check: {isAuthenticated}, Session is {(Session == null ? "null" : "not null")}, AccessToken is {(string.IsNullOrEmpty(Session?.AccessToken) ? "empty/null" : "present")}");
-            
+
             if (Session != null && Session.Expired())
             {
                 Log.Debug("Session exists but is expired");
             }
-            
+
             return isAuthenticated;
         }
 
         public static async Task<string> GetJwtAsync()
         {
             Log.Debug($"GetJwtAsync called. Session is {(Session == null ? "null" : "not null")}");
-            
+
             if (Session == null)
             {
                 Log.Debug("Session is null, attempting to refresh");
@@ -142,7 +142,7 @@ namespace Segra.Backend.Services
             {
                 Log.Debug($"Session is expired (Expiry: {Session.ExpiresAt}), attempting to refresh");
             }
-            
+
             if (Session == null || Session.Expired() == true)
             {
                 try
@@ -150,7 +150,7 @@ namespace Segra.Backend.Services
                     Log.Debug("Refreshing session...");
                     Session = await _client.Auth.RefreshSession();
                     Log.Debug($"RefreshSession completed. Session is {(Session == null ? "null" : "valid")}");
-                    
+
                     // Update stored tokens when refreshed
                     if (Session != null)
                     {

@@ -14,7 +14,7 @@ export function AiHighlightsProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const handleWebSocketMessage = (event: CustomEvent<{ method: string; content: any }>) => {
             const { method, content } = event.detail;
-            
+
             if (method === 'AiProgress') {
                 const progress = content as AiProgress;
                 setAiProgress(prev => ({

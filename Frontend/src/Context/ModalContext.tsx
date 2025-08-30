@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useRef, useState, ReactNode} from 'react';
+import React, { createContext, useContext, useRef, useState, ReactNode } from 'react';
 
 interface ModalContextType {
   openModal: (content: ReactNode) => void;
@@ -7,7 +7,7 @@ interface ModalContextType {
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
 
-export const ModalProvider: React.FC<{children: ReactNode}> = ({children}) => {
+export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const modalRef = useRef<HTMLDialogElement>(null);
   const [modalContent, setModalContent] = useState<ReactNode>(null);
 
@@ -26,7 +26,7 @@ export const ModalProvider: React.FC<{children: ReactNode}> = ({children}) => {
   };
 
   return (
-    <ModalContext.Provider value={{openModal, closeModal}}>
+    <ModalContext.Provider value={{ openModal, closeModal }}>
       {children}
       <dialog ref={modalRef} className="modal modal-bottom sm:modal-middle" onClick={(e) => {
         if (e.target === modalRef.current) {

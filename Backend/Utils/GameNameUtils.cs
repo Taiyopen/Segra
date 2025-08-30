@@ -42,7 +42,7 @@ namespace Segra.Backend.Utils
                     // Invalid path index, return the install directory name
                     return installDir;
                 }
-                
+
                 string pathSegment = normalizedPath.Substring(0, commonPathIndex);
                 string? baseDir = Path.GetDirectoryName(pathSegment);
                 if (baseDir == null)
@@ -50,7 +50,7 @@ namespace Segra.Backend.Utils
                     // If we can't get a valid directory, return the install directory name
                     return installDir;
                 }
-                
+
                 string steamAppsDir = Path.Combine(
                     baseDir,
                     "Steam",

@@ -48,14 +48,14 @@ export default function GenericModal({ title, subtitle, description, type, onClo
         {subtitle && (
           <p className="text-gray-400 text-lg mt-2">{subtitle}</p>
         )}
-        <button 
-          className="btn btn-circle btn-ghost absolute right-4 top-4 text-2xl hover:bg-base-100/30" 
+        <button
+          className="btn btn-circle btn-ghost absolute right-4 top-4 text-2xl hover:bg-base-100/30"
           onClick={onClose}
         >
           ✕
         </button>
       </div>
-      
+
       <div className={`modal-body py-2 mt-4`}>
         <div className="text-gray-300 text-lg whitespace-pre-line">
           {description}

@@ -6,10 +6,10 @@ namespace Segra.Backend.Models
     {
         [JsonPropertyName("friendlyName")]
         public required string FriendlyName { get; set; }
-        
+
         [JsonPropertyName("internalEncoderId")]
         public required string InternalEncoderId { get; set; }
-        
+
         [JsonPropertyName("isHardwareEncoder")]
         public required bool IsHardwareEncoder { get; set; }
 

@@ -52,7 +52,7 @@ namespace Segra.Backend.Utils
                 }
 
                 var json = File.ReadAllText(SettingsFilePath);
-                
+
                 var options = new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true,
@@ -61,13 +61,13 @@ namespace Segra.Backend.Utils
                     AllowTrailingCommas = true,
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
                 };
-                
+
                 Settings.Instance.BeginBulkUpdate();
-                
+
                 using (JsonDocument document = JsonDocument.Parse(json))
                 {
                     JsonElement root = document.RootElement;
-                    
+
                     foreach (JsonProperty property in root.EnumerateObject())
                     {
                         try
@@ -78,21 +78,21 @@ namespace Segra.Backend.Utils
                                 var targetProperty = typeof(Settings).GetProperty(
                                     propertyName,
                                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                                
+
                                 if (targetProperty != null && targetProperty.CanWrite)
                                 {
                                     try
                                     {
                                         Type collectionType = targetProperty.PropertyType;
-                                        
-                                        Type elementType = collectionType.IsGenericType ? 
+
+                                        Type elementType = collectionType.IsGenericType ?
                                             collectionType.GetGenericArguments()[0] : typeof(object);
-                                        
+
                                         var listType = typeof(List<>).MakeGenericType(elementType);
                                         var validItems = Activator.CreateInstance(listType);
-                                        
+
                                         var addMethod = listType.GetMethod("Add");
-                                        
+
                                         foreach (JsonElement itemElement in property.Value.EnumerateArray())
                                         {
                                             try
@@ -108,7 +108,7 @@ namespace Segra.Backend.Utils
                                                 Log.Warning($"Failed to deserialize an item in {property.Name}: {itemEx.Message}");
                                             }
                                         }
-                                        
+
                                         targetProperty.SetValue(Settings.Instance, validItems);
                                     }
                                     catch (Exception collEx)
@@ -123,7 +123,7 @@ namespace Segra.Backend.Utils
                                 var targetProperty = typeof(Settings).GetProperty(
                                     propertyName,
                                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                                
+
                                 if (targetProperty != null && targetProperty.CanWrite)
                                 {
                                     try
@@ -146,7 +146,7 @@ namespace Segra.Backend.Utils
                                 var targetProperty = typeof(Settings).GetProperty(
                                     propertyName,
                                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                                
+
                                 if (targetProperty != null && targetProperty.CanWrite)
                                 {
                                     try
@@ -170,12 +170,12 @@ namespace Segra.Backend.Utils
                         }
                     }
                 }
-                
+
                 Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
                 Settings.Instance.State.GpuVendor = GeneralUtils.DetectGpuVendor();
 
                 Log.Information("Settings loaded from {0}", SettingsFilePath);
-                
+
                 Settings.Instance.EndBulkUpdateAndSaveSettings();
                 return true;
             }
@@ -287,7 +287,7 @@ namespace Segra.Backend.Utils
                 settings.ClipPreset = updatedSettings.ClipPreset;
                 hasChanges = true;
             }
-            
+
             // Update SoundEffectsVolume
             if (settings.SoundEffectsVolume != updatedSettings.SoundEffectsVolume)
             {
@@ -297,7 +297,7 @@ namespace Segra.Backend.Utils
                 Task.Run(() => OBSUtils.PlaySound("start"));
                 hasChanges = true;
             }
-            
+
             // Update ShowNewBadgeOnVideos
             if (settings.ShowNewBadgeOnVideos != updatedSettings.ShowNewBadgeOnVideos)
             {
@@ -305,7 +305,7 @@ namespace Segra.Backend.Utils
                 settings.ShowNewBadgeOnVideos = updatedSettings.ShowNewBadgeOnVideos;
                 hasChanges = true;
             }
-            
+
             // Update ShowGameBackground
             if (settings.ShowGameBackground != updatedSettings.ShowGameBackground)
             {
@@ -416,7 +416,7 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"Encoder changed from '{settings.Encoder}' to '{updatedSettings.Encoder}'");
                 settings.Encoder = updatedSettings.Encoder;
-                
+
                 // When encoder changes, automatically select an appropriate codec
                 var newCodec = OBSUtils.SelectDefaultCodec(settings.Encoder, settings.State.Codecs);
                 if (newCodec != null && (settings.Codec == null || !settings.Codec.Equals(newCodec)))
@@ -425,16 +425,16 @@ namespace Segra.Backend.Utils
                     settings.Codec = newCodec;
                     hasAutoSelectedCodec = true;
                 }
-                
+
                 hasChanges = true;
             }
 
             // Update Codec
             if (settings.Codec != null && updatedSettings.Codec != null && !settings.Codec.Equals(updatedSettings.Codec) && !hasAutoSelectedCodec)
             {
-                if(!OBSUtils.IsInitialized)
+                if (!OBSUtils.IsInitialized)
                 {
-                   Log.Warning($"Codec change before OBS initialization, skipping");
+                    Log.Warning($"Codec change before OBS initialization, skipping");
                 }
                 else
                 {
@@ -509,8 +509,8 @@ namespace Segra.Backend.Utils
             }
 
             // Update SelectedDisplay
-            if ((settings.SelectedDisplay == null && updatedSettings.SelectedDisplay != null) || 
-                (settings.SelectedDisplay != null && updatedSettings.SelectedDisplay == null) || 
+            if ((settings.SelectedDisplay == null && updatedSettings.SelectedDisplay != null) ||
+                (settings.SelectedDisplay != null && updatedSettings.SelectedDisplay == null) ||
                 (settings.SelectedDisplay != null && updatedSettings.SelectedDisplay != null && !settings.SelectedDisplay.Equals(updatedSettings.SelectedDisplay)))
             {
                 Log.Information($"SelectedDisplay changed from '{settings.SelectedDisplay}' to '{updatedSettings.SelectedDisplay}'");
@@ -621,7 +621,7 @@ namespace Segra.Backend.Utils
                             }
 
                             // Update FileSizeKb if it is 0 (migration, remove this in the future)
-                            if(metadata.FileSizeKb == 0)
+                            if (metadata.FileSizeKb == 0)
                             {
                                 Log.Information($"[MIGRATION] Adding FileSizeKb to {metadata.FilePath}");
                                 try

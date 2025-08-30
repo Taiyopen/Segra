@@ -1,4 +1,4 @@
-import {createContext, useContext, useState, ReactNode} from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 import { ContentType } from '../Models/types';
 
 export interface Selection {
@@ -24,7 +24,7 @@ interface SelectionsContextType {
 
 const SelectionsContext = createContext<SelectionsContextType | undefined>(undefined);
 
-export const SelectionsProvider = ({children}: {children: ReactNode}) => {
+export const SelectionsProvider = ({ children }: { children: ReactNode }) => {
 	const [selections, setSelections] = useState<Selection[]>([]);
 
 	const addSelection = (sel: Selection) => {
@@ -55,7 +55,7 @@ export const SelectionsProvider = ({children}: {children: ReactNode}) => {
 
 	return (
 		<SelectionsContext.Provider
-			value={{selections, addSelection, updateSelection, removeSelection, clearSelectionsForVideo, updateSelectionsArray, clearAllSelections}}
+			value={{ selections, addSelection, updateSelection, removeSelection, clearSelectionsForVideo, updateSelectionsArray, clearAllSelections }}
 		>
 			{children}
 		</SelectionsContext.Provider>

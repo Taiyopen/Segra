@@ -27,11 +27,11 @@ const timeStringToSeconds = (timeStr: string): number => {
 const fetchThumbnailAtTime = async (videoPath: string, timeInSeconds: number): Promise<string> => {
     const url = `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(videoPath)}&time=${timeInSeconds}`;
     const response = await fetch(url);
-    
+
     if (!response.ok) {
         throw new Error(`Failed to fetch thumbnail: ${response.statusText}`);
     }
-    
+
     const blob = await response.blob();
     return URL.createObjectURL(blob);
 };
@@ -44,15 +44,15 @@ export default function VideoComponent({ video }: { video: Content }) {
     const { session } = useAuth();
     const { uploads } = useUploads();
     const { openModal, closeModal } = useModal();
-    const { 
-        selections, 
-        addSelection, 
-        updateSelection, 
-        removeSelection, 
+    const {
+        selections,
+        addSelection,
+        updateSelection,
+        removeSelection,
         updateSelectionsArray,
-        clearAllSelections 
+        clearAllSelections
     } = useSelections();
-    
+
     // Refs
     const videoRef = useRef<HTMLVideoElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -85,9 +85,9 @@ export default function VideoComponent({ video }: { video: Content }) {
     const [isDragging, setIsDragging] = useState(false);
     const [isInteracting, setIsInteracting] = useState(false);
     const [hoveredSelectionId, setHoveredSelectionId] = useState<number | null>(null);
-    const [dragState, setDragState] = useState<{ id: number | null; offset: number }>({ 
-        id: null, 
-        offset: 0 
+    const [dragState, setDragState] = useState<{ id: number | null; offset: number }>({
+        id: null,
+        offset: 0
     });
     const dragCandidateRef = useRef<{ id: number; startClientX: number; offset: number } | null>(null);
     const [resizingSelectionId, setResizingSelectionId] = useState<number | null>(null);
@@ -149,11 +149,11 @@ export default function VideoComponent({ video }: { video: Content }) {
     useEffect(() => {
         const vid = videoRef.current;
         if (!vid) return;
-        
+
         // Apply saved volume and muted state on load
         vid.volume = volume;
         vid.muted = isMuted;
-        
+
         const onLoadedMetadata = () => {
             setDuration(vid.duration);
             setZoom(1);
@@ -165,18 +165,18 @@ export default function VideoComponent({ video }: { video: Content }) {
             if (vid) {
                 setVolume(vid.volume);
                 setIsMuted(vid.muted);
-                
+
                 // Save to localStorage when volume changes
                 localStorage.setItem('segra-volume', vid.volume.toString());
                 localStorage.setItem('segra-muted', vid.muted.toString());
             }
         };
-        
+
         vid.addEventListener("loadedmetadata", onLoadedMetadata);
         vid.addEventListener("play", onPlay);
         vid.addEventListener("pause", onPause);
         vid.addEventListener("volumechange", onVolumeChange);
-        
+
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
             const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as any).isContentEditable;
@@ -237,12 +237,12 @@ export default function VideoComponent({ video }: { video: Content }) {
                 exitFullscreen();
             }
         };
-        
+
         const keyOptions: AddEventListenerOptions & EventListenerOptions = { capture: true };
         window.addEventListener("keydown", handleKeyDown, keyOptions);
 
         // No DOM fullscreen; we manage an overlay + window maximize from backend
-        
+
         return () => {
             vid.removeEventListener("loadedmetadata", onLoadedMetadata);
             vid.removeEventListener("play", onPlay);
@@ -297,7 +297,7 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     // Create refs to track zoom state
     const wheelZoomRef = useRef(zoom);
-    
+
     // Update the wheel zoom ref when zoom changes from other sources (buttons)
     useEffect(() => {
         wheelZoomRef.current = zoom;
@@ -312,45 +312,45 @@ export default function VideoComponent({ video }: { video: Content }) {
             setControlsVisible(false);
         }, 2500);
     };
-    
+
     // Handle timeline zooming with mouse wheel
     useEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
-        
+
         const handleWheel = (e: WheelEvent) => {
             e.preventDefault();
             if (duration === 0) return;
-            
+
             // Get container dimensions
             const rect = container.getBoundingClientRect();
             const cursorX = e.clientX - rect.left;
             const scrollLeft = container.scrollLeft;
-            
+
             // Calculate base pixels per second for time conversion
             const basePixelsPerSecond = containerWidth / duration;
             const oldPixelsPerSecond = basePixelsPerSecond * wheelZoomRef.current;
-            
+
             // Calculate time at cursor position
             const timeAtCursor = (cursorX + scrollLeft) / oldPixelsPerSecond;
-            
+
             // Calculate new zoom level
             const zoomFactor = e.deltaY < 0 ? 1.2 : 0.8;
             const newZoom = Math.min(Math.max(wheelZoomRef.current * zoomFactor, 1), 50);
-            
+
             // Update zoom ref immediately
             wheelZoomRef.current = newZoom;
-            
+
             // Calculate new scroll position based on cursor time point
             const newPixelsPerSecond = basePixelsPerSecond * newZoom;
             const newCursorPosition = timeAtCursor * newPixelsPerSecond;
             const newScrollLeft = newCursorPosition - cursorX;
-            
+
             // Apply scroll position immediately
             requestAnimationFrame(() => {
                 if (container) {
                     container.scrollLeft = newScrollLeft;
-                    
+
                     // Double check the position after the frame renders
                     requestAnimationFrame(() => {
                         if (container) {
@@ -362,14 +362,14 @@ export default function VideoComponent({ video }: { video: Content }) {
                     });
                 }
             });
-            
+
             // Update React state
             setZoom(newZoom);
         };
-        
+
         const wheelEventOptions: AddEventListenerOptions = { passive: false };
         container.addEventListener("wheel", handleWheel, wheelEventOptions);
-        
+
         return () => {
             container.removeEventListener("wheel", handleWheel, wheelEventOptions);
         };
@@ -377,38 +377,38 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     const handleZoomChange = (increment: boolean) => {
         if (!scrollContainerRef.current) return;
-        
+
         const container = scrollContainerRef.current;
         const scrollLeft = container.scrollLeft;
-        
+
         // Calculate time at marker position (current time)
         const basePixelsPerSecond = containerWidth / duration;
         const oldPixelsPerSecond = basePixelsPerSecond * zoom;
-        
+
         // Use current time as the focus point for zooming
         const markerTime = currentTime;
         const markerPosition = markerTime * oldPixelsPerSecond;
-        
+
         // Calculate new zoom
         const newZoom = increment ? zoom * 1.5 : zoom * 0.5;
         const finalZoom = Math.min(Math.max(newZoom, 1), 50);
-        
+
         // Update zoom state
         setZoom(finalZoom);
-        
+
         // Calculate new scroll position to keep marker in view
         setTimeout(() => {
             if (container) {
                 const newPixelsPerSecond = basePixelsPerSecond * finalZoom;
                 const newMarkerPosition = markerTime * newPixelsPerSecond;
-                
+
                 // Calculate new scroll position to center on marker
                 // Adjust scroll to position marker at same relative position
                 const viewportWidth = container.clientWidth;
                 const markerOffset = markerPosition - scrollLeft;
                 const visibleRatio = markerOffset / viewportWidth;
                 const newScrollPosition = newMarkerPosition - (visibleRatio * viewportWidth);
-                
+
                 container.scrollLeft = newScrollPosition;
             }
         }, 0);
@@ -537,11 +537,11 @@ export default function VideoComponent({ video }: { video: Content }) {
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     };
 
-    
 
-    
-    
-    
+
+
+
+
 
     // Generate major and minor tick marks for the timeline based on zoom level
     const generateTicks = () => {
@@ -565,10 +565,10 @@ export default function VideoComponent({ video }: { video: Content }) {
             if (Math.abs(t % majorTickInterval) < 0.0001) continue;
             minorTicks.push(t);
         }
-        return {majorTicks, minorTicks};
+        return { majorTicks, minorTicks };
     };
 
-    const {majorTicks, minorTicks} = generateTicks();
+    const { majorTicks, minorTicks } = generateTicks();
 
     // Add a new selection at the current video position
     const handleAddSelection = async () => {
@@ -578,7 +578,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         // Cap the default selection duration at 2 minutes (120s)
         const selectionDuration = Math.min(120, Math.max(0.1, (duration * 0.0019) * (100 / zoomRatio)));
         const end = currentTime + selectionDuration;
-        
+
         const newSelection: Selection = {
             id: Date.now(),
             type: video.type,
@@ -697,10 +697,10 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     useEffect(() => {
         if (!settings.showAudioWaveformInTimeline) return;
-        
+
         const timelineContainer = document.getElementsByClassName('timeline-container')[0] as HTMLElement;
         if (!timelineContainer) return;
-    
+
         let wavesurfer: ReturnType<typeof WaveSurfer.create> | null = null;
         const style = document.createElement('style');
         style.textContent = `
@@ -756,7 +756,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             .catch((error: Error) => {
                 console.error('Error loading audio peaks:', error);
             });
-    
+
         return () => {
             if (wavesurfer) {
                 wavesurfer.destroy();
@@ -803,10 +803,10 @@ export default function VideoComponent({ video }: { video: Content }) {
         let updatedSelection;
         if (activeDir === "start") {
             const newStart = Math.max(0, Math.min(t, sel.endTime - 0.1));
-            updatedSelection = {...sel, startTime: newStart};
+            updatedSelection = { ...sel, startTime: newStart };
         } else {
             const newEnd = Math.min(duration, Math.max(t, sel.startTime + 0.1));
-            updatedSelection = {...sel, endTime: newEnd};
+            updatedSelection = { ...sel, endTime: newEnd };
         }
         latestDraggedSelectionRef.current = updatedSelection;
         updateSelection(updatedSelection);
@@ -860,7 +860,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         if (videoRef.current && !videoRef.current.paused) {
             videoRef.current.pause();
         }
-        
+
         openModal(
             <UploadModal
                 video={video}
@@ -881,7 +881,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         );
     };
 
-    
+
 
     const [selectedBookmarkTypes, setSelectedBookmarkTypes] = useState<Set<BookmarkType>>(new Set(Object.values(BookmarkType)));
 
@@ -909,36 +909,36 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     const handleAddBookmark = () => {
         if (!videoRef.current) return;
-        
+
         const currentTimeInSeconds = videoRef.current.currentTime;
         // Format time as HH:MM:SS.mmm for consistency with backend
         const hours = Math.floor(currentTimeInSeconds / 3600);
         const minutes = Math.floor((currentTimeInSeconds % 3600) / 60);
         const seconds = Math.floor(currentTimeInSeconds % 60);
         const milliseconds = Math.floor((currentTimeInSeconds % 1) * 1000);
-        
+
         const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
-        
+
         // Default to Manual bookmark type if not specified
         const bookmarkType = BookmarkType.Manual;
-        
+
         // Generate a random ID between 1 and MAX_INT
         const bookmarkId = Math.floor(Math.random() * 2147483647) + 1;
-        
+
         // Create a new bookmark object
         const newBookmark: Bookmark = {
             id: bookmarkId,
             type: bookmarkType,
             time: formattedTime
         };
-        
+
         // Add the bookmark to the video's bookmarks array
         video.bookmarks.push(newBookmark);
-        
+
         // Force a re-render to show the new bookmark
         const bookmarks = [...video.bookmarks];
         video.bookmarks = bookmarks;
-        
+
         // Send message to backend to add bookmark
         sendMessageToBackend('AddBookmark', {
             FilePath: video.filePath,
@@ -947,29 +947,29 @@ export default function VideoComponent({ video }: { video: Content }) {
             ContentType: video.type,
             Id: bookmarkId
         });
-        
-        
+
+
     };
 
     const handleDeleteBookmark = (bookmarkId: number) => {
         // Find the bookmark in the video's bookmarks array
         const bookmarkIndex = video.bookmarks.findIndex(b => b.id === bookmarkId);
-        
+
         if (bookmarkIndex !== -1) {
             // Remove the bookmark from the array
             video.bookmarks.splice(bookmarkIndex, 1);
-            
+
             // Force a re-render to update the UI
             const bookmarks = [...video.bookmarks];
             video.bookmarks = bookmarks;
-            
+
             // Send message to backend to delete the bookmark
             sendMessageToBackend('DeleteBookmark', {
                 FilePath: video.filePath,
                 ContentType: video.type,
                 Id: bookmarkId
             });
-            
+
         }
     };
 
@@ -985,7 +985,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             const newMutedState = !videoRef.current.muted;
             videoRef.current.muted = newMutedState;
             setIsMuted(newMutedState);
-            
+
             // Save to localStorage
             localStorage.setItem('segra-muted', newMutedState.toString());
         }
@@ -1020,7 +1020,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                             onDoubleClick={toggleFullscreen}
                             style={{ backgroundColor: 'black', objectFit: isFullscreen ? 'contain' as const : undefined }}
                         />
-                        
+
                         <div
                             className={`absolute left-4 right-4 bottom-4 bg-black/70 rounded-lg px-3 py-2 flex items-center gap-3 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
                         >
@@ -1198,11 +1198,11 @@ export default function VideoComponent({ video }: { video: Content }) {
                                         >
                                             <div className="absolute left-0 top-0 h-full w-[4px] bg-accent/80 rounded-l-sm pointer-events-none" />
                                             <div className="absolute right-0 top-0 h-full w-[4px] bg-accent/80 rounded-r-sm pointer-events-none" />
-                                            
+
                                             <div className="absolute top-0 -left-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto" onMouseDown={(e) => handleResizeMouseDown(e, sel.id, "start")} aria-label="Resize segment start" />
                                             <div className="absolute top-0 -right-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto" onMouseDown={(e) => handleResizeMouseDown(e, sel.id, "end")} aria-label="Resize segment end" />
                                         </div>
-                                        
+
                                     </>
                                 );
                             })}
@@ -1287,8 +1287,8 @@ export default function VideoComponent({ video }: { video: Content }) {
                                                     key={type}
                                                     onClick={() => toggleBookmarkType(type)}
                                                     className={`btn btn-sm btn-secondary border-none transition-colors join-item ${selectedBookmarkTypes.has(type)
-                                                            ? 'text-accent'
-                                                            : 'text-gray-400'}`}
+                                                        ? 'text-accent'
+                                                        : 'text-gray-400'}`}
                                                 >
                                                     {React.createElement(iconMapping[type] || IoSkull, {
                                                         className: "w-6 h-6"
@@ -1344,7 +1344,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                     type="checkbox"
                                     name="clipClearSelectionsAfterCreatingClip"
                                     checked={settings.clipClearSelectionsAfterCreatingClip}
-                                    onChange={(e) => updateSettings({clipClearSelectionsAfterCreatingClip: e.target.checked})}
+                                    onChange={(e) => updateSettings({ clipClearSelectionsAfterCreatingClip: e.target.checked })}
                                     className="checkbox checkbox-sm checkbox-accent"
                                 />
                                 <span className="text-sm ml-2">Auto-Clear Selections</span>

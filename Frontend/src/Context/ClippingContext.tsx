@@ -26,7 +26,7 @@ export function ClippingProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const handleWebSocketMessage = (event: CustomEvent<{ method: string; content: any }>) => {
             const { method, content } = event.detail;
-            
+
             if (method === 'ClipProgress') {
                 const progress = content as ClippingProgress;
                 setClippingProgress(prev => ({

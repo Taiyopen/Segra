@@ -66,7 +66,7 @@ namespace Segra.Backend.Utils
             {
                 DisplayDevice device = new DisplayDevice();
                 device.Size = Marshal.SizeOf(device);
-                
+
                 if (EnumDisplayDevices(mi.DeviceName, 0, ref device, 1))
                 {
                     string friendlyName = GetFriendlyMonitorName(device.DeviceID, device.DeviceString);
@@ -75,8 +75,8 @@ namespace Segra.Backend.Utils
                     Log.Information("  Friendly Name: {FriendlyName}", friendlyName);
                     Log.Information("  Device ID: {DeviceID}", device.DeviceID);
                     Log.Information("  Display String: {DeviceString}", device.DeviceString);
-                    Log.Information("  Resolution: {Width}x{Height}", 
-                        lprcMonitor.Right - lprcMonitor.Left, 
+                    Log.Information("  Resolution: {Width}x{Height}",
+                        lprcMonitor.Right - lprcMonitor.Left,
                         lprcMonitor.Bottom - lprcMonitor.Top);
                     Log.Information("  Position: {X},{Y}", lprcMonitor.Left, lprcMonitor.Top);
                     Log.Information("  Primary: {IsPrimary}", (mi.Flags & 1) != 0);
@@ -84,7 +84,7 @@ namespace Segra.Backend.Utils
                     displays.Add(new Display { DeviceName = friendlyName, DeviceId = device.DeviceID, IsPrimary = (mi.Flags & 1) != 0 });
                 }
             }
-            
+
             return true;
         }
 

@@ -20,24 +20,24 @@ namespace Segra.Backend.Utils
             // Extract the main part of the device name, handling cases with nested parentheses
             var mainPattern = @"^([^(]+)\((.+)\)$";
             var match = Regex.Match(friendlyName, mainPattern);
-            
+
             if (match.Success && match.Groups.Count > 2)
             {
                 // Group 2 contains everything inside the main parentheses
                 var deviceName = match.Groups[2].Value.Trim();
                 return deviceName;
             }
-            
+
             // Fallback to original name if pattern doesn't match
             return friendlyName;
         }
-        
+
         public static List<AudioDevice> GetInputDevices()
         {
             var devices = new List<AudioDevice>();
             var enumerator = new MMDeviceEnumerator();
             var collection = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
-            
+
             try
             {
                 var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
@@ -45,10 +45,11 @@ namespace Segra.Backend.Utils
                 {
                     // Add default device first with (Default)
                     var defaultDeviceName = GetCleanDeviceName(defaultDevice.FriendlyName);
-                    devices.Add(new AudioDevice { 
-                        Id = defaultDevice.ID, 
-                        Name = defaultDeviceName + " (Default)", 
-                        IsDefault = true 
+                    devices.Add(new AudioDevice
+                    {
+                        Id = defaultDevice.ID,
+                        Name = defaultDeviceName + " (Default)",
+                        IsDefault = true
                     });
                 }
             }
@@ -62,14 +63,17 @@ namespace Segra.Backend.Utils
                 foreach (var device in collection)
                 {
                     if (device == null) continue;
-                    
+
                     // Skip if this device is already added as the default
                     if (devices.Any(d => d.Id == device.ID)) continue;
-                    
-                    try {
+
+                    try
+                    {
                         var cleanName = GetCleanDeviceName(device.FriendlyName);
                         devices.Add(new AudioDevice { Id = device.ID, Name = cleanName, IsDefault = false });
-                    } catch {
+                    }
+                    catch
+                    {
                         // Device name is invalid
                     }
                 }
@@ -81,16 +85,16 @@ namespace Segra.Backend.Utils
                 var defaultDev = devices.FirstOrDefault(d => d.IsDefault);
                 var devicesToSort = defaultDev != null ? devices.Where(d => !d.IsDefault).ToList() : devices;
                 var sortedDevices = devicesToSort.OrderBy(d => d.Name).ToList();
-                
+
                 if (defaultDev != null)
                 {
                     sortedDevices.Insert(0, defaultDev);
                     return sortedDevices;
                 }
-                
+
                 return sortedDevices;
             }
-            
+
             return devices;
         }
 
@@ -99,7 +103,7 @@ namespace Segra.Backend.Utils
             var devices = new List<AudioDevice>();
             var enumerator = new MMDeviceEnumerator();
             var collection = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
-            
+
             try
             {
                 var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
@@ -107,10 +111,11 @@ namespace Segra.Backend.Utils
                 {
                     // Add default device first with (Default)
                     var defaultDeviceName = GetCleanDeviceName(defaultDevice.FriendlyName);
-                    devices.Add(new AudioDevice { 
-                        Id = defaultDevice.ID, 
-                        Name = defaultDeviceName + " (Default)", 
-                        IsDefault = true 
+                    devices.Add(new AudioDevice
+                    {
+                        Id = defaultDevice.ID,
+                        Name = defaultDeviceName + " (Default)",
+                        IsDefault = true
                     });
                 }
             }
@@ -124,14 +129,17 @@ namespace Segra.Backend.Utils
                 foreach (var device in collection)
                 {
                     if (device == null) continue;
-                    
+
                     // Skip if this device is already added as the default
                     if (devices.Any(d => d.Id == device.ID)) continue;
-                    
-                    try {
+
+                    try
+                    {
                         var cleanName = GetCleanDeviceName(device.FriendlyName);
                         devices.Add(new AudioDevice { Id = device.ID, Name = cleanName, IsDefault = false });
-                    } catch {
+                    }
+                    catch
+                    {
                         // Device name is invalid
                     }
                 }
@@ -143,16 +151,16 @@ namespace Segra.Backend.Utils
                 var defaultDev = devices.FirstOrDefault(d => d.IsDefault);
                 var devicesToSort = defaultDev != null ? devices.Where(d => !d.IsDefault).ToList() : devices;
                 var sortedDevices = devicesToSort.OrderBy(d => d.Name).ToList();
-                
+
                 if (defaultDev != null)
                 {
                     sortedDevices.Insert(0, defaultDev);
                     return sortedDevices;
                 }
-                
+
                 return sortedDevices;
             }
-            
+
             return devices;
         }
     }

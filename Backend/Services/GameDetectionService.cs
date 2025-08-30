@@ -124,7 +124,7 @@ namespace Segra.Backend.Services
                 processStopWatcher?.Stop();
                 processStartWatcher?.Dispose();
                 processStopWatcher?.Dispose();
-                
+
                 // Stop and dispose the process check timer
                 _processCheckTimer?.Change(Timeout.Infinite, Timeout.Infinite);
                 _processCheckTimer?.Dispose();
@@ -197,10 +197,10 @@ namespace Segra.Backend.Services
 
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
-        
+
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-        
+
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
@@ -256,7 +256,7 @@ namespace Segra.Backend.Services
             }
 
             // Check for anticheat in file description and log window information
-            if (IsAntiCheatClient(exePath)) 
+            if (IsAntiCheatClient(exePath))
             {
                 Log.Information($"Detected anticheat client for this executable, will not record");
                 return false;
@@ -282,19 +282,19 @@ namespace Segra.Backend.Services
 
                 // Array of blacklisted words in file descriptions
                 string[] blacklistedWords = ["anticheat", "loader", "launcher"];
-                
+
                 if (File.Exists(exePath))
                 {
                     FileVersionInfo fileInfo = FileVersionInfo.GetVersionInfo(exePath);
                     fileDescription = fileInfo.FileDescription ?? string.Empty;
                     Log.Information($"File description: '{fileDescription}' for {exePath}");
-                    
+
                     // Check for blacklisted words in file description
                     if (!string.IsNullOrEmpty(fileDescription))
                     {
-                        string? matchedWord = blacklistedWords.FirstOrDefault(word => 
+                        string? matchedWord = blacklistedWords.FirstOrDefault(word =>
                             fileDescription.Contains(word, StringComparison.OrdinalIgnoreCase));
-                            
+
                         if (matchedWord != null)
                         {
                             Log.Information($"Detected blacklisted word '{matchedWord}' in file description: '{fileDescription}' for {exePath}, will not record");
@@ -388,7 +388,7 @@ namespace Segra.Backend.Services
         {
             // Skip if already recording
             if (Settings.Instance.State.Recording != null || PreventRetryRecording) return;
-            
+
             try
             {
                 // Get the foreground window and its process ID
@@ -400,16 +400,16 @@ namespace Segra.Backend.Services
                     Log.Debug("[ProcessCheck] No valid foreground window found");
                     return;
                 }
-                
+
                 // Get the executable path of the foreground process
                 string foregroundExePath = ResolveProcessPath((int)foregroundPid);
-                
+
                 if (string.IsNullOrEmpty(foregroundExePath))
                 {
                     Log.Debug("[ProcessCheck] Could not resolve foreground process path");
                     return;
                 }
-                
+
                 // Check if the foreground process is a game we should record
                 if (ShouldRecordGame(foregroundExePath))
                 {
@@ -420,7 +420,7 @@ namespace Segra.Backend.Services
                         processName = process.ProcessName;
                     }
                     catch { }
-                    
+
                     Log.Information($"[ProcessCheck] Foreground window is a game: {processName}, Path: {foregroundExePath}");
                     StartGameRecording((int)foregroundPid, foregroundExePath);
                 }
@@ -430,22 +430,22 @@ namespace Segra.Backend.Services
                 Log.Error($"[ProcessCheck] Error checking foreground window: {ex.Message}");
             }
         }
-        
+
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
 
         private static string ExtractGameName(string exePath)
         {
             if (string.IsNullOrEmpty(exePath)) return "Unknown";
-            
+
             // First check if it's in our games.json database
             string? jsonGameName = GameUtils.GetGameNameFromExePath(exePath);
             if (!string.IsNullOrEmpty(jsonGameName)) return jsonGameName;
-            
+
             // Then try Steam lookup
             string? steamName = AttemptSteamAcfLookup(exePath);
             if (!string.IsNullOrEmpty(steamName)) return steamName;
-            
+
             // Fall back to filename
             return Path.GetFileNameWithoutExtension(exePath);
         }

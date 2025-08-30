@@ -59,11 +59,11 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleWebSocketMessage = (event: CustomEvent<any>) => {
       const message = event.detail;
-      
+
       if (isUpdateProgressMessage(message)) {
         setUpdateInfo(message.content);
       }
-      
+
       if (isReleaseNotesMessage(message)) {
         // Handle the ReleaseNotes message
         if (message.content && message.content.releaseNotesList) {
@@ -73,11 +73,11 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if(isShowReleaseNotesMessage(message)) {
+      if (isShowReleaseNotesMessage(message)) {
         openReleaseNotesModal(message.content);
       }
-      
-      if(isShowModalMessage(message)) {
+
+      if (isShowModalMessage(message)) {
         openGenericModal(message.content);
       }
     };
@@ -100,13 +100,13 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
   const openReleaseNotesModal = (filterVersion: string | null = __APP_VERSION__) => {
     openModal(
-      <ReleaseNotesModal 
+      <ReleaseNotesModal
         onClose={closeModal}
         filterVersion={filterVersion}
       />
     );
   };
-  
+
   const openGenericModal = (modalData: ModalMessage) => {
     openModal(
       <GenericModal
@@ -120,9 +120,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <UpdateContext.Provider value={{ 
-      updateInfo, 
-      releaseNotes, 
+    <UpdateContext.Provider value={{
+      updateInfo,
+      releaseNotes,
       openReleaseNotesModal,
       openModal: openGenericModal,
       clearUpdateInfo,

@@ -5,9 +5,9 @@ import ContentCard from '../Components/ContentCard';
 
 export default function Clips() {
   const { clippingProgress } = useClipping();
-  
+
   // Pre-render the progress card element
-  const progressCardElement = Object.keys(clippingProgress).length > 0 ? 
+  const progressCardElement = Object.keys(clippingProgress).length > 0 ?
     <ContentCard key="clipping-progress" type="Clip" isLoading /> : null;
 
   return (

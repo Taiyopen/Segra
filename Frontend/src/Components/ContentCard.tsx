@@ -1,15 +1,15 @@
-import {useSettings} from '../Context/SettingsContext';
-import {Content} from '../Models/types';
-import {sendMessageToBackend} from '../Utils/MessageUtils'
-import {useAuth} from '../Hooks/useAuth.tsx';
-import {useModal} from '../Context/ModalContext';
+import { useSettings } from '../Context/SettingsContext';
+import { Content } from '../Models/types';
+import { sendMessageToBackend } from '../Utils/MessageUtils'
+import { useAuth } from '../Hooks/useAuth.tsx';
+import { useModal } from '../Context/ModalContext';
 import UploadModal from './UploadModal';
 import { MdOutlineFileUpload, MdOutlineInsertDriveFile, MdDeleteOutline, MdOutlineLink } from 'react-icons/md';
 import { HiOutlineSparkles } from 'react-icons/hi';
 import { useAiHighlights } from '../Context/AiHighlightsContext';
 import { FiExternalLink } from 'react-icons/fi';
 
-type VideoType = 'Session' | 'Buffer' | 'Clip'  | 'Highlight';
+type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight';
 
 interface VideoCardProps {
   content?: Content; // Optional for skeleton cards
@@ -18,17 +18,17 @@ interface VideoCardProps {
   isLoading?: boolean; // Indicates if this is a loading (skeleton) card
 }
 
-export default function ContentCard({content, type, onClick, isLoading}: VideoCardProps) {
-  const {contentFolder, enableAi, showNewBadgeOnVideos} = useSettings();
-  const {session} = useAuth();
-  const {openModal, closeModal} = useModal();
+export default function ContentCard({ content, type, onClick, isLoading }: VideoCardProps) {
+  const { contentFolder, enableAi, showNewBadgeOnVideos } = useSettings();
+  const { session } = useAuth();
+  const { openModal, closeModal } = useModal();
   const { aiProgress } = useAiHighlights();
 
   if (isLoading) {
     // Render a skeleton card
     return (
-      <div className={type === 'Highlight' 
-        ? "card card-compact shadow-xl w-full relative highlight-card" 
+      <div className={type === 'Highlight'
+        ? "card card-compact shadow-xl w-full relative highlight-card"
         : "card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-[#49515b]"
       }>
         {type === 'Highlight' && (
@@ -36,8 +36,8 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
             <div className="card absolute inset-[1px] bg-base-300 z-[2]">
               <figure className="relative aspect-w-16 aspect-h-9">
                 {/* Thumbnail Skeleton */}
-                <div className="skeleton w-full h-0 relative bg-base-300/70 rounded-none" style={{paddingTop: '56.25%'}}></div>
-                <span className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full" style={{aspectRatio: '16/9', visibility: 'hidden'}}></span>
+                <div className="skeleton w-full h-0 relative bg-base-300/70 rounded-none" style={{ paddingTop: '56.25%' }}></div>
+                <span className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full" style={{ aspectRatio: '16/9', visibility: 'hidden' }}></span>
               </figure>
               <div className="card-body text-gray-300">
                 {/* Title Skeleton */}
@@ -48,13 +48,13 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
             </div>
           </div>
         )}
-        
+
         {type !== 'Highlight' && (
           <>
             <figure className="relative aspect-w-16 aspect-h-9">
               {/* Thumbnail Skeleton */}
-              <div className="skeleton w-full h-0 relative bg-base-300/70 rounded-none" style={{paddingTop: '56.25%'}}></div>
-              <span className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full" style={{aspectRatio: '16/9', visibility: 'hidden'}}></span>
+              <div className="skeleton w-full h-0 relative bg-base-300/70 rounded-none" style={{ paddingTop: '56.25%' }}></div>
+              <span className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full" style={{ aspectRatio: '16/9', visibility: 'hidden' }}></span>
             </figure>
             <div className="card card-body bg-base-300">
               {/* Title Skeleton */}
@@ -94,24 +94,24 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
   // Check if content was created within the last hour and hasn't been viewed yet
   const isRecent = (): boolean => {
     if (!content) return false;
-    
+
     // Check if this content has been viewed already
     const viewedContent = localStorage.getItem('viewed-content') || '{}';
     const viewedContentObj = JSON.parse(viewedContent);
     if (viewedContentObj[content.fileName]) {
       return false;
     }
-    
+
     const createdAt = new Date(content.createdAt);
     const now = new Date();
     const diffInHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
     return diffInHours <= 1; // Content is considered recent if created within the last hour
   };
-  
+
   // Mark content as viewed when clicked
   const markAsViewed = () => {
     if (!content) return;
-    
+
     const viewedContent = localStorage.getItem('viewed-content') || '{}';
     const viewedContentObj = JSON.parse(viewedContent);
     viewedContentObj[content.fileName] = true;
@@ -197,13 +197,13 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
           <span>{content!.fileSize} &bull; {new Date(content!.createdAt).toLocaleDateString()}</span>
           {content!.uploadId && (
             <div className="flex absolute right-3 gap-0">
-              <span 
-                className="btn btn-ghost btn-sm btn-circle relative group" 
+              <span
+                className="btn btn-ghost btn-sm btn-circle relative group"
                 onClick={(e) => {
                   e.stopPropagation();
                   const url = `https://segra.tv/video/${content!.uploadId}`;
                   navigator.clipboard.writeText(url);
-                  
+
                   // Show tooltip
                   const tooltip = e.currentTarget.querySelector('.tooltip');
                   if (tooltip) {
@@ -219,8 +219,8 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                   Copied!
                 </div>
               </span>
-              <span 
-                className="btn btn-ghost btn-sm btn-circle" 
+              <span
+                className="btn btn-ghost btn-sm btn-circle"
                 onClick={(e) => {
                   e.stopPropagation();
                   sendMessageToBackend('OpenInBrowser', {
@@ -260,20 +260,19 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                   // Get authentication status
                   const { session } = useAuth();
                   const isLoggedIn = !!session;
-                  
+
                   const hasBookmarks = content?.bookmarks && content.bookmarks.length > 0;
                   const isProcessing = Object.values(aiProgress).some(
                     progress => progress.content.fileName === content?.fileName && progress.status === 'processing'
                   );
                   const isDisabled = !hasBookmarks || isProcessing || !isLoggedIn;
-                  
+
                   return (
                     <a
-                      className={`flex w-full items-center gap-2 px-4 py-3 ${
-                        isDisabled 
-                          ? 'text-gray-400 cursor-not-allowed' 
+                      className={`flex w-full items-center gap-2 px-4 py-3 ${isDisabled
+                          ? 'text-gray-400 cursor-not-allowed'
                           : 'text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20'
-                      } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+                        } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
                       onClick={() => {
                         // Only proceed if there are bookmarks, user is logged in, and no processing
                         if (hasBookmarks && !isProcessing && isLoggedIn) {
@@ -285,12 +284,12 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                     >
                       <HiOutlineSparkles size="20" />
                       <span>
-                        {isProcessing 
-                          ? 'Generating AI Clip...' 
-                          : (!isLoggedIn 
-                              ? 'Log In to Create AI Clip'
-                              : (hasBookmarks ? 'Create AI Highlight' : 'No Highlights')
-                            )
+                        {isProcessing
+                          ? 'Generating AI Clip...'
+                          : (!isLoggedIn
+                            ? 'Log In to Create AI Clip'
+                            : (hasBookmarks ? 'Create AI Highlight' : 'No Highlights')
+                          )
                         }
                       </span>
                     </a>
@@ -298,7 +297,7 @@ export default function ContentCard({content, type, onClick, isLoading}: VideoCa
                 })()}
               </li>
             )}
-            
+
             <li>
               <a
                 className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"

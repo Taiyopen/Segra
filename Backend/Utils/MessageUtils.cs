@@ -170,7 +170,7 @@ namespace Segra.Backend.Utils
                                 Log.Information("Recording already in progress. Skipping...");
                                 return;
                             }
-                            
+
                             await Task.Run(() => OBSUtils.StartRecording(startManually: true));
                             break;
                         case "StopRecording":
@@ -340,15 +340,15 @@ namespace Segra.Backend.Utils
 
                 var responseContent = await response.Content.ReadAsStringAsync();
                 Log.Information($"Upload success: {responseContent}");
-                
+
                 // Parse the response to extract the URL and update the content with uploadId
                 if (!string.IsNullOrEmpty(responseContent))
                 {
                     try
                     {
                         var responseJson = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                        if (responseJson.TryGetProperty("success", out var successElement) && 
-                            successElement.GetBoolean() && 
+                        if (responseJson.TryGetProperty("success", out var successElement) &&
+                            successElement.GetBoolean() &&
                             responseJson.TryGetProperty("url", out var urlElement))
                         {
                             string url = urlElement.GetString()!;
@@ -357,25 +357,25 @@ namespace Segra.Backend.Utils
                                 // Extract uploadId from the URL (after the last slash)
                                 string uploadId = url.Split('/').Last();
                                 Log.Information($"Extracted upload ID: {uploadId}");
-                                
+
                                 // Update the content with the uploadId
                                 var contentList = Settings.Instance.State.Content.ToList();
                                 string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
                                 Log.Information($"File name: {fileName}, without extension: {fileNameWithoutExtension}");
-                                
-                                var contentToUpdate = contentList.FirstOrDefault(c => 
+
+                                var contentToUpdate = contentList.FirstOrDefault(c =>
                                     Path.GetFileNameWithoutExtension(c.FileName) == fileNameWithoutExtension);
                                 Log.Information($"Content to update: {contentToUpdate?.FileName ?? "not found"}");
-                                
+
                                 if (contentToUpdate != null)
                                 {
                                     contentToUpdate.UploadId = uploadId;
-                                    
+
                                     // Also update the metadata file
                                     string contentTypeStr = contentToUpdate.Type.ToString().ToLower() + "s";
                                     string metadataFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".metadata", contentTypeStr);
                                     string metadataFilePath = Path.Combine(metadataFolderPath, $"{fileNameWithoutExtension}.json");
-                                    
+
                                     if (File.Exists(metadataFilePath))
                                     {
                                         try
@@ -402,7 +402,7 @@ namespace Segra.Backend.Utils
                                     Log.Information($"Updated content with upload ID: {uploadId}");
                                     SettingsUtils.LoadContentFromFolderIntoState(true);
                                 }
-                                
+
                                 // Open browser if setting is enabled
                                 if (Settings.Instance.ClipShowInBrowserAfterUpload)
                                 {

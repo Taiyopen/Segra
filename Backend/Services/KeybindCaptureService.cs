@@ -43,13 +43,13 @@ namespace Segra.Backend.Services
             int nCode, IntPtr wParam, IntPtr lParam);
 
         private static readonly List<int> _pressedKeys = new List<int>(4);
-        
+
         private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             if (nCode >= 0 && wParam == WM_KEYDOWN)
             {
                 int vkCode = Marshal.ReadInt32(lParam);
-                
+
                 bool ctrlPressed = (Control.ModifierKeys & Keys.Control) == Keys.Control;
                 bool altPressed = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
                 bool shiftPressed = (Control.ModifierKeys & Keys.Shift) == Keys.Shift;
@@ -59,7 +59,7 @@ namespace Segra.Backend.Services
                 if (altPressed) _pressedKeys.Add(18);
                 if (shiftPressed) _pressedKeys.Add(16);
                 _pressedKeys.Add(vkCode);
-                
+
                 var keybindings = Settings.Instance.Keybindings;
                 if (keybindings != null)
                 {
@@ -87,7 +87,7 @@ namespace Segra.Backend.Services
                                         Task.Run(PlayBookmarkSound);
                                     }
                                     break;
-                                    
+
                                 case KeybindAction.SaveReplayBuffer:
                                     if (recording != null && Settings.Instance.RecordingMode == RecordingMode.Buffer)
                                     {
@@ -104,18 +104,18 @@ namespace Segra.Backend.Services
 
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
         }
-        
+
         private static bool DoKeysMatch(List<int> keybindKeys, List<int> pressedKeys)
         {
             if (keybindKeys.Count != pressedKeys.Count)
                 return false;
-                
+
             foreach (var key in keybindKeys)
             {
                 if (!pressedKeys.Contains(key))
                     return false;
             }
-            
+
             return true;
         }
 
@@ -124,21 +124,21 @@ namespace Segra.Backend.Services
             var audioStream = new MemoryStream(Properties.Resources.bookmark);
             var audioReader = new WaveFileReader(audioStream);
             var waveOut = new WaveOutEvent();
-            
+
             var volumeStream = new VolumeWaveProvider16(audioReader)
             {
                 Volume = 0.5f
             };
 
             waveOut.Init(volumeStream);
-            
+
             waveOut.PlaybackStopped += (sender, args) =>
             {
                 waveOut.Dispose();
                 audioReader.Dispose();
                 audioStream.Dispose();
             };
-            
+
             waveOut.Play();
         }
 

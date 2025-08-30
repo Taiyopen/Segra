@@ -75,10 +75,10 @@ function isVersionNewer(version1: string, version2: string): boolean {
 export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNotesModalProps) {
   const [localReleaseNotes, setLocalReleaseNotes] = useState<ReleaseNote[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  
+
   // Access the global release notes context
   const { releaseNotes: globalReleaseNotes } = useContext(ReleaseNotesContext);
-  
+
   // Update local state when global release notes change
   useEffect(() => {
     if (globalReleaseNotes.length > 0) {
@@ -89,11 +89,11 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
       const timer = setTimeout(() => {
         setIsLoading(false);
       }, 2000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [globalReleaseNotes]);
-  
+
   // Format date from ISO string (e.g., "2025-02-26T23:37:33Z") to "26 February 2025"
   const formatDate = (isoDate: string): string => {
     try {
@@ -120,7 +120,7 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
   };
 
   // Filter notes to only show those newer than the current app version if filterVersion is provided
-  const filteredNotes = filterVersion 
+  const filteredNotes = filterVersion
     ? localReleaseNotes.filter(note => isVersionNewer(filterVersion, note.version))
     : localReleaseNotes;
 
@@ -134,19 +134,19 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
       <div className="modal-header pb-4 border-b border-gray-700">
         <h2 className="font-bold text-3xl mb-2 text-white">Release Notes</h2>
         <p className="text-gray-400 text-lg">
-          {filterVersion 
-            ? `New updates since v${filterVersion}` 
+          {filterVersion
+            ? `New updates since v${filterVersion}`
             : <span>Current version: <span className="text-primary font-semibold">{__APP_VERSION__}</span></span>
           }
         </p>
-        <button 
-          className="btn btn-circle btn-ghost absolute right-4 top-4 text-2xl hover:bg-base-100/30" 
+        <button
+          className="btn btn-circle btn-ghost absolute right-4 top-4 text-2xl hover:bg-base-100/30"
           onClick={onClose}
         >
           ✕
         </button>
       </div>
-      
+
       <div className="modal-body pt-4">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-10">
@@ -155,7 +155,7 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
         ) : decodedReleaseNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10">
             <p className="text-gray-400 text-xl">
-              {filterVersion 
+              {filterVersion
                 ? 'You are up to date! No new release notes available.'
                 : 'No release notes available.'}
             </p>
@@ -172,14 +172,14 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
                   {formatDate(note.releaseDate)}
                 </div>
               </div>
-              
+
               {/* Markdown content with custom components for larger text */}
               <div className="text-gray-300 markdown-content text-lg">
                 <Markdown options={{ overrides: MarkdownComponents }}>
                   {decodeBase64(note.base64Markdown)}
                 </Markdown>
               </div>
-              
+
               {/* Divider except for last item */}
               {index < decodedReleaseNotes.length - 1 && (
                 <div className="border-t border-gray-700 mt-8"></div>

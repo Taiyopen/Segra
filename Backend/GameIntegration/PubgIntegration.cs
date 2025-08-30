@@ -120,8 +120,8 @@ namespace Segra.Backend.GameIntegration
                     string cleanInstigator = RemoveClanTag(instigator);
                     string cleanVictim = RemoveClanTag(victim);
                     string cleanRecordName = RemoveClanTag(matchInfo.RecordUserNickName);
-                    
-                    if (string.Equals(cleanInstigator, cleanRecordName, StringComparison.OrdinalIgnoreCase) && 
+
+                    if (string.Equals(cleanInstigator, cleanRecordName, StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(cleanVictim, cleanRecordName, StringComparison.OrdinalIgnoreCase))
                     {
                         var downTime = MatchTimestampToLocal(matchInfo.Timestamp, details.Time);
@@ -171,8 +171,8 @@ namespace Segra.Backend.GameIntegration
                     string cleanKiller = RemoveClanTag(killer);
                     string cleanVictim = RemoveClanTag(victim);
                     string cleanRecordName = RemoveClanTag(matchInfo.RecordUserNickName);
-                    
-                    if (string.Equals(cleanKiller, cleanRecordName, StringComparison.OrdinalIgnoreCase) && 
+
+                    if (string.Equals(cleanKiller, cleanRecordName, StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(cleanVictim, cleanRecordName, StringComparison.OrdinalIgnoreCase))
                     {
                         var killTime = MatchTimestampToLocal(matchInfo.Timestamp, details.Time);
@@ -222,7 +222,7 @@ namespace Segra.Backend.GameIntegration
                 {
                     string cleanVictim = RemoveClanTag(victim);
                     string cleanRecordName = RemoveClanTag(matchInfo.RecordUserNickName);
-                    
+
                     if (string.Equals(cleanVictim, cleanRecordName, StringComparison.OrdinalIgnoreCase))
                     {
                         var deathTime = MatchTimestampToLocal(matchInfo.Timestamp, details.Time);

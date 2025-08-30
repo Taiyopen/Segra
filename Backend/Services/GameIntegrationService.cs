@@ -27,7 +27,7 @@ namespace Segra.Backend.Services
                 _ => null,
             };
 
-            if (_gameIntegration == null) 
+            if (_gameIntegration == null)
             {
                 return;
             }
@@ -38,7 +38,7 @@ namespace Segra.Backend.Services
 
         public static async Task Shutdown()
         {
-            if (_gameIntegration == null) 
+            if (_gameIntegration == null)
             {
                 return;
             }

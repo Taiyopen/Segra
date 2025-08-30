@@ -1,22 +1,22 @@
-import {useState, useEffect, useCallback} from "react";
-import {PreRecording, Recording, GameResponse} from "../Models/types";
-import {LuGamepad2} from "react-icons/lu";
-import {BsDisplay} from "react-icons/bs";
-import {useSettings} from "../Context/SettingsContext";
+import { useState, useEffect, useCallback } from "react";
+import { PreRecording, Recording, GameResponse } from "../Models/types";
+import { LuGamepad2 } from "react-icons/lu";
+import { BsDisplay } from "react-icons/bs";
+import { useSettings } from "../Context/SettingsContext";
 
 interface RecordingCardProps {
 	recording?: Recording;
 	preRecording?: PreRecording;
 }
 
-const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) => {
-	const [elapsedTime, setElapsedTime] = useState({hours: 0, minutes: 0, seconds: 0});
-	const {showGameBackground} = useSettings();
+const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }) => {
+	const [elapsedTime, setElapsedTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
+	const { showGameBackground } = useSettings();
 	const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
 	useEffect(() => {
-		if(preRecording) {
-			setElapsedTime({hours: 0, minutes: 0, seconds: 0});
+		if (preRecording) {
+			setElapsedTime({ hours: 0, minutes: 0, seconds: 0 });
 			return;
 		}
 
@@ -32,7 +32,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 			const minutes = Math.floor((secondsElapsed % 3600) / 60);
 			const seconds = secondsElapsed % 60;
 
-			setElapsedTime({hours, minutes, seconds});
+			setElapsedTime({ hours, minutes, seconds });
 		};
 
 		// Update the timer every second
@@ -49,24 +49,24 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 			setCoverUrl(null);
 			return;
 		}
-		
+
 		const gameName = preRecording ? preRecording.game : recording?.game;
-		
+
 		// Don't fetch for "Manual Recording"
 		if (!gameName || gameName === "Manual Recording") {
 			setCoverUrl(null);
 			return;
 		}
-		
+
 		try {
 			const response = await fetch(`https://segra.tv/api/games/search?name=${encodeURIComponent(gameName)}`);
-			
+
 			if (!response.ok) {
 				throw new Error('Game not found');
 			}
-			
+
 			const data: GameResponse = await response.json();
-			
+
 			// If we have a cover image_id, fetch the cover URL
 			if (data.game?.cover?.image_id) {
 				setCoverUrl(`https://segra.tv/api/games/cover/${data.game.cover.image_id}`);
@@ -76,7 +76,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 			setCoverUrl(null);
 		}
 	}, [preRecording, recording, setCoverUrl, showGameBackground]);
-	
+
 	// Call fetchGameData when game changes
 	useEffect(() => {
 		fetchGameData();
@@ -111,14 +111,14 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 								<input type="checkbox" checked={recording?.isUsingGameHook} />
 								<div className={`swap-on`}>
 									<LuGamepad2 className="h-5 w-5 text-gray-300" />
-								</div>	
+								</div>
 								<div className={`swap-off`}>
 									<BsDisplay className="h-5 w-5 text-gray-300 scale-90" />
 								</div>
 							</div>
 						</div>
 					)
-				}
+					}
 				</div>
 
 				{/* Recording Details */}
@@ -127,11 +127,11 @@ const RecordingCard: React.FC<RecordingCardProps> = ({recording, preRecording}) 
 						<span className="countdown">
 							{elapsedTime.hours > 0 && (
 								<>
-									<span style={{"--value": elapsedTime.hours} as React.CSSProperties}></span>:
+									<span style={{ "--value": elapsedTime.hours } as React.CSSProperties}></span>:
 								</>
 							)}
-							<span style={{"--value": elapsedTime.minutes} as React.CSSProperties}></span>:
-							<span style={{"--value": elapsedTime.seconds} as React.CSSProperties}></span>
+							<span style={{ "--value": elapsedTime.minutes } as React.CSSProperties}></span>:
+							<span style={{ "--value": elapsedTime.seconds } as React.CSSProperties}></span>
 						</span>
 						<p className="truncate ml-2">{preRecording ? preRecording.game : recording?.game}</p>
 					</div>

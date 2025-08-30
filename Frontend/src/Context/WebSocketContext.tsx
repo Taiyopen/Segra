@@ -19,14 +19,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   // Ref to track if we've already handled a version mismatch (prevent multiple reloads)
   const versionCheckHandled = useRef(false);
-  
+
   // Check for stored version info on mount
   useEffect(() => {
     const storedOldVersion = localStorage.getItem('oldAppVersion');
     if (storedOldVersion) {
       // Clear the flag so it only runs once
       localStorage.removeItem('oldAppVersion');
-      
+
       // Import and use the update context to show release notes
       import('../Context/UpdateContext').then(({ useUpdate }) => {
         const { openReleaseNotesModal } = useUpdate();
@@ -34,18 +34,18 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       });
     }
   }, []);
-  
+
   // Log when the WebSocket provider mounts or session changes
   useEffect(() => {
     console.log("WebSocketProvider: Session state changed:", !!session);
   }, [session]);
-  
+
   // We only need the onOpen and onMessage callbacks, not the returned functions
   useWebSocket('ws://localhost:5000/', {
     onOpen: () => {
       console.log('Connected to WebSocket server');
       sendMessageToBackend("NewConnection");
-      
+
       // If we already have a session when connecting, ensure we're logged in
       if (session) {
         console.log("WebSocket connected with active session, ensuring login state");
@@ -59,12 +59,12 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       try {
         const data: WebSocketMessage = JSON.parse(event.data);
         console.log("WebSocket message received:", data);
-        
+
         // Handle version check
         if (data.method === "AppVersion" && !versionCheckHandled.current) {
           versionCheckHandled.current = true;
           const backendVersion = data.content?.version;
-          
+
           if (backendVersion && backendVersion !== __APP_VERSION__) {
             console.log(`Version mismatch: Backend ${backendVersion}, Frontend ${__APP_VERSION__}. Reloading...`);
             // Store the old version before reloading
@@ -73,7 +73,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             return;
           }
         }
-        
+
         // Dispatch the message to all listeners
         window.dispatchEvent(new CustomEvent('websocket-message', {
           detail: data

@@ -38,7 +38,7 @@ namespace Segra.Backend.Utils
 
             // Merge overlapping selections
             List<Selection> mergedSelections = MergeOverlappingSelections(initialSelections);
-            
+
             Log.Information($"Merged {initialSelections.Count} bookmarks into {mergedSelections.Count} clip sections");
 
             await CreateClips(mergedSelections, false, aiProgressMessage);
@@ -223,7 +223,7 @@ namespace Segra.Backend.Utils
                 if (currentSettings.ClipEncoder.Equals("gpu", StringComparison.OrdinalIgnoreCase))
                 {
                     GpuVendor gpuVendor = DetectGpuVendor();
-                    
+
                     switch (gpuVendor)
                     {
                         case GpuVendor.Nvidia:
@@ -275,15 +275,15 @@ namespace Segra.Backend.Utils
             // Sort selections by start time
             var sortedSelections = selections.OrderBy(s => s.StartTime).ToList();
             List<Selection> mergedSelections = new List<Selection>();
-            
+
             // Start with the first selection
             Selection current = sortedSelections[0];
-            
+
             // Iterate through the sorted selections
             for (int i = 1; i < sortedSelections.Count; i++)
             {
                 var next = sortedSelections[i];
-                
+
                 // Check if the current selection overlaps with the next one
                 if (current.EndTime >= next.StartTime)
                 {
@@ -297,10 +297,10 @@ namespace Segra.Backend.Utils
                     current = next;
                 }
             }
-            
+
             // Add the last merged selection
             mergedSelections.Add(current);
-            
+
             return mergedSelections;
         }
 
@@ -316,7 +316,7 @@ namespace Segra.Backend.Utils
             {
                 // GPU encoder uses hardware-accelerated codecs based on GPU vendor
                 GpuVendor gpuVendor = DetectGpuVendor();
-                
+
                 switch (gpuVendor)
                 {
                     case GpuVendor.Nvidia:

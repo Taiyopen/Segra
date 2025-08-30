@@ -11,7 +11,7 @@ interface UploadModalProps {
 }
 
 export default function UploadModal({ video, onUpload, onClose }: UploadModalProps) {
-  const {contentFolder, clipShowInBrowserAfterUpload} = useSettings();
+  const { contentFolder, clipShowInBrowserAfterUpload } = useSettings();
   const updateSettings = useSettingsUpdater();
   const { session } = useAuth();
   const [title, setTitle] = useState(video.title || '');
@@ -54,7 +54,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
         </div>
         <div className="modal-body">
           <div className="w-full aspect-video mb-4 mt-4">
-            <video 
+            <video
               src={getVideoPath()}
               autoPlay
               muted
@@ -62,14 +62,14 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
               className="w-full h-full object-contain bg-base-300 rounded-lg"
             />
           </div>
-          
+
           <div className="form-control w-full">
             <label className="label">
               <span className="label-text">Title</span>
             </label>
-            <input 
+            <input
               ref={titleInputRef}
-              type="text" 
+              type="text"
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
@@ -84,13 +84,13 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
               </label>
             )}
           </div>
-          
+
           <div className="form-control mt-2">
             <label className="label cursor-pointer justify-start gap-2">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 className="checkbox checkbox-primary"
-                checked={clipShowInBrowserAfterUpload} 
+                checked={clipShowInBrowserAfterUpload}
                 onChange={(e) => updateSettings({ clipShowInBrowserAfterUpload: e.target.checked })}
               />
               <span className="label-text">Open in browser after upload</span>
@@ -99,7 +99,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
 
         </div>
         <div className="modal-action mt-6">
-          <button 
+          <button
             className="btn btn-secondary bg-base-300 h-10 text-gray-400 border-primary hover:text-accent hover:border-primary flex items-center gap-1 w-full"
             onClick={handleUpload}
             disabled={session === null}

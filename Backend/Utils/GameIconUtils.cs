@@ -21,9 +21,9 @@ namespace Segra.Backend.Utils
             {
                 IntPtr large;
                 IntPtr small;
-                
+
                 int iconCount = ExtractIconEx(executablePath, 0, out large, out small, 1);
-                
+
                 // Only extract if there is an icon and it's large
                 if (iconCount > 0 && large != IntPtr.Zero)
                 {

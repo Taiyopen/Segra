@@ -257,13 +257,13 @@ namespace Segra.Backend.ContentServer
                 {
                     FileInfo fileInfo = new FileInfo(fileName);
                     long fileLength = fileInfo.Length;
-                    
+
                     response.StatusCode = (int)HttpStatusCode.OK;
                     response.ContentType = "application/json";
                     response.Headers.Add("Access-Control-Allow-Origin", "*");
                     response.Headers.Add("Accept-Ranges", "bytes");
                     response.ContentLength64 = fileLength;
-                    
+
                     using (FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read))
                     {
                         byte[] buffer = new byte[64 * 1024]; // 64KB buffer

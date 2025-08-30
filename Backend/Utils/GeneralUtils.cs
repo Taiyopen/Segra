@@ -43,11 +43,12 @@ namespace Segra.Backend.Utils
             }
 
             // Try using DXCore first - it's more reliable but requires Windows 10 build 19041 or later
-            try {
+            try
+            {
                 using var factory = DXCore.DXCoreCreateAdapterFactory<IDXCoreAdapterFactory>();
 
                 Guid[] filter = { DXCore.D3D12_Graphics };
-                using var list  =
+                using var list =
                     factory.CreateAdapterList<IDXCoreAdapterList>(filter);
 
                 var adapters = new List<IDXCoreAdapter>();
@@ -61,7 +62,7 @@ namespace Segra.Backend.Utils
                     Log.Information(adapter.DriverDescription);
                     Log.Information($"  Vendor : 0x{adapter.HardwareID.VendorID:X4}");
                     Log.Information($"  Device : 0x{adapter.HardwareID.DeviceID:X4}");
-                    Log.Information($"  VRAM   : {adapter.DedicatedAdapterMemory / (1024*1024)} MiB");
+                    Log.Information($"  VRAM   : {adapter.DedicatedAdapterMemory / (1024 * 1024)} MiB");
                     Log.Information($"  Integrated: {adapter.IsIntegrated}");
                 }
 
@@ -114,30 +115,31 @@ namespace Segra.Backend.Utils
                     "SELECT * FROM Win32_VideoController WHERE CurrentHorizontalResolution > 0 AND CurrentVerticalResolution > 0"))
                 {
                     List<System.Management.ManagementObject> gpus = searcher.Get().Cast<System.Management.ManagementObject>().ToList();
-                    
+
                     // Log all active GPUs found
                     Log.Information($"Found {gpus.Count} active GPU(s):");
                     foreach (var gpu in gpus)
                     {
                         Log.Information($"  - {gpu["Name"]} (Status: {gpu["Status"]}, PNPDeviceID: {gpu["PNPDeviceID"]}, VideoMemoryType: {gpu["VideoMemoryType"]}, RAM: {gpu["AdapterRAM"]}, Driver: {gpu["DriverVersion"]});");
                     }
-                    
+
                     // Sort GPUs - external GPUs first, then internal ones
-                    gpus.Sort((a, b) => {
+                    gpus.Sort((a, b) =>
+                    {
                         string nameA = a["Name"]?.ToString() ?? string.Empty;
                         string nameB = b["Name"]?.ToString() ?? string.Empty;
-                        
+
                         bool isAInternal = internalGpuIdentifiers.Any(id => nameA.Contains(id, StringComparison.OrdinalIgnoreCase));
                         bool isBInternal = internalGpuIdentifiers.Any(id => nameB.Contains(id, StringComparison.OrdinalIgnoreCase));
-                        
+
                         // External GPUs come first (false before true)
                         return isAInternal.CompareTo(isBInternal);
                     });
-                    
+
                     foreach (var gpu in gpus)
                     {
                         string name = gpu["Name"]?.ToString()?.ToLower() ?? string.Empty;
-                        
+
                         if (name.Contains("nvidia"))
                         {
                             Log.Information($"Detected NVIDIA GPU: {gpu["Name"]}");
@@ -158,23 +160,23 @@ namespace Segra.Backend.Utils
                         }
                     }
                 }
-                
+
                 // Fallback: check all video controllers if the above didn't find any active ones
                 using (var searcher = new System.Management.ManagementObjectSearcher("SELECT * FROM Win32_VideoController"))
                 {
                     var allGpus = searcher.Get().Cast<System.Management.ManagementObject>().ToList();
-                    
+
                     // Log all GPUs found in fallback search
                     Log.Information($"Found {allGpus.Count} total GPU(s) in fallback search:");
                     foreach (var gpu in allGpus)
                     {
                         Log.Information($"  - {gpu["Name"]} (Status: {gpu["Status"]}, Driver: {gpu["DriverVersion"]});");
                     }
-                    
+
                     foreach (System.Management.ManagementObject gpu in allGpus)
                     {
                         string name = gpu["Name"]?.ToString()?.ToLower() ?? string.Empty;
-                        
+
                         if (name.Contains("nvidia"))
                         {
                             Log.Information($"Detected NVIDIA GPU: {gpu["Name"]}");
@@ -195,7 +197,7 @@ namespace Segra.Backend.Utils
                         }
                     }
                 }
-                
+
                 Log.Warning("Could not identify GPU vendor, will default to CPU encoding if GPU encoding is selected");
                 return GpuVendor.Unknown;
             }

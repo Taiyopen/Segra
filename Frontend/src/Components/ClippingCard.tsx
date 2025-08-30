@@ -43,7 +43,7 @@ const ClippingCard: React.FC<ClippingCardProps> = ({ clipping }) => {
                     {/* Clipping Details */}
                     <div className="min-w-0 flex-1">
                         {clipping.progress < 100 && (
-                            <button 
+                            <button
                                 onClick={() => cancelClip(clipping.id)}
                                 className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-red-500 hover:text-red-400 transition-colors"
                                 aria-label="Cancel clip"

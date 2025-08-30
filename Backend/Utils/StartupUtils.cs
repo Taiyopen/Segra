@@ -34,7 +34,7 @@ namespace Segra.Backend.Utils
                     shortcut.GetType().InvokeMember("Save", BindingFlags.InvokeMethod, null, shortcut, null);
                     Log.Information("Added Segra to startup");
                 }
-                else if(!enable && File.Exists(linkPath))
+                else if (!enable && File.Exists(linkPath))
                 {
                     File.Delete(linkPath);
                     Log.Information("Removed Segra from startup");

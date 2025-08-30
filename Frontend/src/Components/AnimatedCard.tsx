@@ -11,9 +11,9 @@ const AnimatedCard: React.FC<AnimatedCardProps> = ({ children }) => {
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 50 }}
-      transition={{ 
-        type: "spring", 
-        stiffness: 500, 
+      transition={{
+        type: "spring",
+        stiffness: 500,
         damping: 30,
         mass: 1
       }}

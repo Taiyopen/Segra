@@ -6,7 +6,7 @@ namespace Segra.Backend.Models
     {
         [JsonPropertyName("name")]
         public required string Name { get; set; }
-        
+
         [JsonPropertyName("exe")]
         public required string Exe { get; set; }
     }

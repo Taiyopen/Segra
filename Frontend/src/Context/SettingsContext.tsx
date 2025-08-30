@@ -1,13 +1,13 @@
-import {createContext, useContext, useState, ReactNode, useEffect, useCallback} from 'react';
-import {Settings, initialSettings, initialState} from '../Models/types';
-import {useWebSocketContext} from './WebSocketContext';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { Settings, initialSettings, initialState } from '../Models/types';
+import { useWebSocketContext } from './WebSocketContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 
 type SettingsContextType = Settings;
 type SettingsUpdateContextType = (newSettings: Partial<Settings>, fromBackend?: boolean) => void;
 
 const SettingsContext = createContext<SettingsContextType>(initialSettings);
-const SettingsUpdateContext = createContext<SettingsUpdateContextType>(() => {});
+const SettingsUpdateContext = createContext<SettingsUpdateContextType>(() => { });
 
 export function useSettings(): SettingsContextType {
 	return useContext(SettingsContext);
@@ -21,7 +21,7 @@ interface SettingsProviderProps {
 	children: ReactNode;
 }
 
-export function SettingsProvider({children}: SettingsProviderProps) {
+export function SettingsProvider({ children }: SettingsProviderProps) {
 	const STORAGE_KEY = 'segra.settings.v1';
 
 	const loadCachedSettings = (): Settings | null => {
@@ -65,7 +65,7 @@ export function SettingsProvider({children}: SettingsProviderProps) {
 	useEffect(() => {
 		const handleWebSocketMessage = (event: CustomEvent<any>) => {
 			const data = event.detail;
-			
+
 			if (data.method === 'Settings') {
 				updateSettings(data.content, true);
 			}

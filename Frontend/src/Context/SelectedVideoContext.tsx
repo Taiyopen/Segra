@@ -1,4 +1,4 @@
-import {createContext, useContext, useState, ReactNode} from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 import { Content } from '../Models/types';
 
 interface SelectedVideoContextProps {
@@ -8,11 +8,11 @@ interface SelectedVideoContextProps {
 
 const SelectedVideoContext = createContext<SelectedVideoContextProps | undefined>(undefined);
 
-export const SelectedVideoProvider = ({children}: {children: ReactNode}) => {
+export const SelectedVideoProvider = ({ children }: { children: ReactNode }) => {
   const [selectedVideo, setSelectedVideo] = useState<Content | null>(null);
 
   return (
-    <SelectedVideoContext.Provider value={{selectedVideo, setSelectedVideo}}>
+    <SelectedVideoContext.Provider value={{ selectedVideo, setSelectedVideo }}>
       {children}
     </SelectedVideoContext.Provider>
   );

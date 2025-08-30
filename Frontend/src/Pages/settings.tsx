@@ -1,14 +1,14 @@
-import React, {useEffect, useState, useRef} from 'react';
-import {useSettings, useSettingsUpdater} from '../Context/SettingsContext';
-import {sendMessageToBackend} from '../Utils/MessageUtils';
-import {themeChange} from 'theme-change';
-import {AudioDevice, GpuVendor, KeybindAction, ClipFPS, ClipPreset} from '../Models/types';
-import {supabase} from '../lib/supabase/client';
-import {FaDiscord} from 'react-icons/fa';
-import {useAuth} from '../Hooks/useAuth.tsx';
-import {useProfile} from '../Hooks/useUserProfile';
-import {MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription, MdClose} from 'react-icons/md';
-import {useUpdate} from '../Context/UpdateContext';
+import React, { useEffect, useState, useRef } from 'react';
+import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
+import { sendMessageToBackend } from '../Utils/MessageUtils';
+import { themeChange } from 'theme-change';
+import { AudioDevice, GpuVendor, KeybindAction, ClipFPS, ClipPreset } from '../Models/types';
+import { supabase } from '../lib/supabase/client';
+import { FaDiscord } from 'react-icons/fa';
+import { useAuth } from '../Hooks/useAuth.tsx';
+import { useProfile } from '../Hooks/useUserProfile';
+import { MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription, MdClose } from 'react-icons/md';
+import { useUpdate } from '../Context/UpdateContext';
 import GameListManager from '../Components/GameListManager';
 import { SiGithub } from 'react-icons/si';
 import CloudBadge from '../Components/CloudBadge';
@@ -16,12 +16,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import DropdownSelect from '../Components/DropdownSelect';
 
 export default function Settings() {
-	const {session, authError, isAuthenticating, clearAuthError, signOut} = useAuth();
-	const {data: profile, error: profileError} = useProfile();
+	const { session, authError, isAuthenticating, clearAuthError, signOut } = useAuth();
+	const { data: profile, error: profileError } = useProfile();
 	const [error, setError] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
-	const {openReleaseNotesModal, checkForUpdates} = useUpdate();
+	const { openReleaseNotesModal, checkForUpdates } = useUpdate();
 	const settings = useSettings();
 	const updateSettings = useSettingsUpdater();
 	const [localStorageLimit, setLocalStorageLimit] = useState<number>(settings.storageLimit);
@@ -120,21 +120,21 @@ export default function Settings() {
 	}, [settings.replayBufferMaxSize]);
 
 	const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-		const {name, value} = event.target;
+		const { name, value } = event.target;
 		const numericalFields = ['frameRate', 'bitrate', 'minBitrate', 'maxBitrate', 'storageLimit', 'keyframeInterval', 'crfValue', 'cqLevel', 'clipQualityCrf', 'clipFps'];
-		
+
 		if (name === 'clipEncoder') {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const newSettings: any = {
 				[name]: value,
 			};
-			
+
 			if (value === 'cpu' && settings.clipEncoder !== 'cpu') {
 				newSettings.clipPreset = 'veryfast';
 			} else if (value === 'gpu' && settings.clipEncoder !== 'gpu') {
 				newSettings.clipPreset = 'medium';
 			}
-			
+
 			updateSettings(newSettings);
 		} else {
 			updateSettings({
@@ -157,11 +157,11 @@ export default function Settings() {
 	const handleDiscordLogin = async () => {
 		setError('');
 		try {
-			const {error} = await supabase.auth.signInWithOAuth({
+			const { error } = await supabase.auth.signInWithOAuth({
 				provider: 'discord',
 				options: {
 					redirectTo: window.location.href,
-					queryParams: {prompt: 'consent'}
+					queryParams: { prompt: 'consent' }
 				}
 			});
 
@@ -175,7 +175,7 @@ export default function Settings() {
 		e.preventDefault();
 		setError('');
 		try {
-			const {error} = await supabase.auth.signInWithPassword({email, password});
+			const { error } = await supabase.auth.signInWithPassword({ email, password });
 			if (error) throw error;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Login failed');
@@ -201,14 +201,14 @@ export default function Settings() {
 			return (
 				<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 					<h2 className="text-xl font-semibold mb-4 flex items-center gap-2">Authentication <CloudBadge side="right" /></h2>
-					
+
 					{error && (
 						<div className="alert alert-error mb-4" role="alert">
 							<MdWarning className="w-5 h-5" />
 							<span>{error}</span>
 						</div>
 					)}
-					
+
 					<div className="bg-base-200 p-6 rounded-lg space-y-4 border border-custom">
 						<button
 							onClick={handleDiscordLogin}
@@ -262,11 +262,11 @@ export default function Settings() {
 				</div>
 			);
 		}
-		
+
 		return (
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl mb-4 flex items-center gap-2"><span className="font-semibold">Account</span> <CloudBadge side="right" /></h2>
-				
+
 				<div className="bg-base-200 p-4 rounded-lg border border-custom">
 					<div className="flex items-center justify-between flex-wrap gap-4">
 						<div className="flex items-center gap-4 min-w-0">
@@ -306,7 +306,7 @@ export default function Settings() {
 									{session?.user?.email || 'Authenticated User'}
 								</p>
 							</div>
-							
+
 							{/* Logout Button */}
 							<button
 								onClick={handleLogout}
@@ -318,7 +318,7 @@ export default function Settings() {
 							</button>
 						</div>
 					</div>
-					
+
 					{/* Error State */}
 					{profileError && (
 						<div
@@ -356,23 +356,23 @@ export default function Settings() {
 	// Multi-track audio: first 5 selected sources get isolated tracks (Track 1 is Full Mix)
 	const selectedInputIds = settings.inputDevices.map(d => d.id);
 	const selectedOutputIds = settings.outputDevices.map(d => d.id);
-    const combinedSelectedIds = [...selectedInputIds, ...selectedOutputIds];
-    const maxIsolatedTracks = 5; // per-source tracks beyond Full Mix
-    const hasOverTrackLimit = settings.enableSeparateAudioTracks && combinedSelectedIds.length > maxIsolatedTracks;
-    const selectionSig = combinedSelectedIds.join(',');
+	const combinedSelectedIds = [...selectedInputIds, ...selectedOutputIds];
+	const maxIsolatedTracks = 5; // per-source tracks beyond Full Mix
+	const hasOverTrackLimit = settings.enableSeparateAudioTracks && combinedSelectedIds.length > maxIsolatedTracks;
+	const selectionSig = combinedSelectedIds.join(',');
 
-    // Dismissible warning for track limit exceeded, persisted per selection signature
-    const [trackLimitWarnDismissed, setTrackLimitWarnDismissed] = useState<boolean>(false);
+	// Dismissible warning for track limit exceeded, persisted per selection signature
+	const [trackLimitWarnDismissed, setTrackLimitWarnDismissed] = useState<boolean>(false);
 
-    useEffect(() => {
-        const storedSig = localStorage.getItem('segra.trackLimitWarnDismissedSig');
-        if (hasOverTrackLimit) {
-            setTrackLimitWarnDismissed(storedSig === selectionSig);
-        } else {
-            // Reset dismissal when under the limit
-            setTrackLimitWarnDismissed(false);
-        }
-    }, [selectionSig, hasOverTrackLimit]);
+	useEffect(() => {
+		const storedSig = localStorage.getItem('segra.trackLimitWarnDismissedSig');
+		if (hasOverTrackLimit) {
+			setTrackLimitWarnDismissed(storedSig === selectionSig);
+		} else {
+			// Reset dismissal when under the limit
+			setTrackLimitWarnDismissed(false);
+		}
+	}, [selectionSig, hasOverTrackLimit]);
 
 	// Function to toggle input device selection
 	const toggleInputDevice = (deviceId: string) => {
@@ -404,7 +404,7 @@ export default function Settings() {
 			const deviceToAdd = settings.state.outputDevices.find(d => d.id === deviceId);
 			if (deviceToAdd) {
 				// Add as DeviceSetting with volume 1.0
-				updatedDevices = [...settings.outputDevices, { id: deviceId, name: deviceToAdd.name, volume: 1.0 }]; 
+				updatedDevices = [...settings.outputDevices, { id: deviceId, name: deviceToAdd.name, volume: 1.0 }];
 			}
 		}
 		updateSettings({ outputDevices: updatedDevices });
@@ -422,7 +422,7 @@ export default function Settings() {
 	return (
 		<div className="p-5 space-y-6 bg-base-200">
 			<h1 className="text-3xl font-bold">Settings</h1>
-			
+
 			{/* Authentication Section */}
 			{renderAuthSection()}
 
@@ -442,7 +442,7 @@ export default function Settings() {
 								type="checkbox"
 								name="enableAI"
 								checked={settings.enableAi}
-								onChange={(e) => updateSettings({enableAi: e.target.checked})}
+								onChange={(e) => updateSettings({ enableAi: e.target.checked })}
 								className="checkbox checkbox-primary"
 								disabled={!session}
 							/>
@@ -455,7 +455,7 @@ export default function Settings() {
 								type="checkbox"
 								name="autoGenerateHighlights"
 								checked={settings.autoGenerateHighlights}
-								onChange={(e) => updateSettings({autoGenerateHighlights: e.target.checked})}
+								onChange={(e) => updateSettings({ autoGenerateHighlights: e.target.checked })}
 								className="checkbox checkbox-primary"
 								disabled={!session || !settings.enableAi}
 							/>
@@ -469,7 +469,7 @@ export default function Settings() {
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Capture Mode</h2>
 				<div className="grid grid-cols-2 gap-6">
-					<div 
+					<div
 						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primaryYellow' : 'border-primary'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
 						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Session' })}
 					>
@@ -479,16 +479,16 @@ export default function Settings() {
 								Records your entire gaming session from start to finish. Ideal for content creators who want complete gameplay recordings.
 							</p>
 							<div className="text-xs text-base-content text-opacity-70">
-								• Uses more storage space<br/>
-								• Full game integration features<br/>
-								• Access to AI-generated clips<br/>
+								• Uses more storage space<br />
+								• Full game integration features<br />
+								• Access to AI-generated clips<br />
 								• Access to Bookmarks
 							</div>
 						</div>
 					</div>
-					<div 
+					<div
 						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primaryYellow' : 'border-primary'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
-						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Buffer'})}
+						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Buffer' })}
 					>
 						<div className="flex items-center gap-2 mb-3">
 							<div className="text-lg font-semibold text-center">Replay Buffer</div>
@@ -498,8 +498,8 @@ export default function Settings() {
 								Continuously records in the background. Save only your best moments with a hotkey press.
 							</p>
 							<div className="text-xs text-base-content text-opacity-70">
-								• Efficient storage usage<br/>
-								• No game integration<br/>
+								• Efficient storage usage<br />
+								• No game integration<br />
 								• No bookmarks
 							</div>
 						</div>
@@ -510,39 +510,39 @@ export default function Settings() {
 			{/* Video Settings */}
 			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
 				<h2 className="text-xl font-semibold mb-4">Video Settings</h2>
-				
+
 				{/* Replay Buffer Settings - Only show when Replay Buffer mode is selected */}
 				<AnimatePresence>
 					{settings.recordingMode === 'Buffer' && (
-						<motion.div 
+						<motion.div
 							className="bg-base-300 rounded-lg border border-custom"
 							initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
-							animate={{ 
-								opacity: 1, 
+							animate={{
+								opacity: 1,
 								height: 'fit-content',
-								transition: { 
+								transition: {
 									duration: 0.3,
 									height: { type: 'spring', stiffness: 300, damping: 30 }
 								}
 							}}
-							exit={{ 
+							exit={{
 								opacity: 0,
 								height: 0,
-								transition: { 
+								transition: {
 									duration: 0.2
 								}
 							}}
-							//layout
+						//layout
 						>
 							<div className="content-wrapper mb-4 p-3 pb-0">
-								<motion.h3 
+								<motion.h3
 									className="text-md font-medium mb-3"
 									initial={{ opacity: 0 }}
 									animate={{ opacity: 1, transition: { delay: 0.1 } }}
 								>
 									Replay Buffer Settings
 								</motion.h3>
-								<motion.div 
+								<motion.div
 									className="grid grid-cols-2 gap-4"
 									initial={{ opacity: 0 }}
 									animate={{ opacity: 1, transition: { delay: 0.2 } }}
@@ -607,7 +607,7 @@ export default function Settings() {
 								{ value: '4K', label: '4K' },
 							]}
 							value={settings.resolution}
-                        onChange={(val) => updateSettings({ resolution: val as '720p' | '1080p' | '1440p' | '4K' })}
+							onChange={(val) => updateSettings({ resolution: val as '720p' | '1080p' | '1440p' | '4K' })}
 						/>
 					</div>
 
@@ -617,7 +617,7 @@ export default function Settings() {
 							<span className="label-text">Frame Rate (FPS)</span>
 						</label>
 						<DropdownSelect
-							items={[24,30,60,120,144].map(v => ({ value: String(v), label: String(v) }))}
+							items={[24, 30, 60, 120, 144].map(v => ({ value: String(v), label: String(v) }))}
 							value={String(settings.frameRate)}
 							onChange={(val) => updateSettings({ frameRate: Number(val) })}
 						/>
@@ -628,17 +628,17 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Rate Control</span>
 						</label>
-					{/* Rate control: hide CRF when encoder is not CPU */}
-					<DropdownSelect
-						items={[
-							{ value: 'CBR', label: 'CBR (Constant Bitrate)' },
-							{ value: 'VBR', label: 'VBR (Variable Bitrate)' },
-							...(settings.encoder === 'cpu' ? [{ value: 'CRF', label: 'CRF (Constant Rate Factor)' }] : []),
-							...(settings.encoder !== 'cpu' ? [{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' }] : []),
-						]}
-						value={settings.rateControl}
-						onChange={(val) => updateSettings({ rateControl: val })}
-					/>
+						{/* Rate control: hide CRF when encoder is not CPU */}
+						<DropdownSelect
+							items={[
+								{ value: 'CBR', label: 'CBR (Constant Bitrate)' },
+								{ value: 'VBR', label: 'VBR (Variable Bitrate)' },
+								...(settings.encoder === 'cpu' ? [{ value: 'CRF', label: 'CRF (Constant Rate Factor)' }] : []),
+								...(settings.encoder !== 'cpu' ? [{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' }] : []),
+							]}
+							value={settings.rateControl}
+							onChange={(val) => updateSettings({ rateControl: val })}
+						/>
 					</div>
 
 					{/* Bitrate (for CBR) */}
@@ -648,7 +648,7 @@ export default function Settings() {
 								<span className="label-text">Bitrate (Mbps)</span>
 							</label>
 							<DropdownSelect
-								items={Array.from({length:19}, (_,i)=> (i+2)*5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
+								items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
 								value={String(settings.bitrate)}
 								onChange={(val) => updateSettings({ bitrate: Number(val) })}
 							/>
@@ -663,7 +663,7 @@ export default function Settings() {
 									<span className="label-text">Minimum Bitrate (Mbps)</span>
 								</label>
 								<DropdownSelect
-									items={Array.from({length:19}, (_,i)=> (i+2)*5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
+									items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
 									value={String(settings.minBitrate ?? settings.bitrate)}
 									onChange={(val) => {
 										const min = Number(val);
@@ -677,8 +677,8 @@ export default function Settings() {
 									<span className="label-text">Maximum Bitrate (Mbps)</span>
 								</label>
 								<DropdownSelect
-									items={Array.from({length:19}, (_,i)=> (i+2)*5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
-									value={String(settings.maxBitrate ?? Math.max(settings.minBitrate ?? settings.bitrate, Math.round((settings.bitrate||10)*1.5)))}
+									items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
+									value={String(settings.maxBitrate ?? Math.max(settings.minBitrate ?? settings.bitrate, Math.round((settings.bitrate || 10) * 1.5)))}
 									onChange={(val) => {
 										const max = Number(val);
 										const min = Math.min(max, settings.minBitrate ?? settings.bitrate);
@@ -731,9 +731,9 @@ export default function Settings() {
 							<span className="label-text">Video Encoder</span>
 						</label>
 						<DropdownSelect
-							items={[{value:'gpu', label:'GPU'},{value:'cpu', label:'CPU'}]}
+							items={[{ value: 'gpu', label: 'GPU' }, { value: 'cpu', label: 'CPU' }]}
 							value={settings.encoder}
-							onChange={(val) => updateSettings({ encoder: val as 'gpu'|'cpu' })}
+							onChange={(val) => updateSettings({ encoder: val as 'gpu' | 'cpu' })}
 						/>
 					</div>
 
@@ -763,24 +763,24 @@ export default function Settings() {
 					</div>
 				</div>
 				<div className="form-control mt-2">
-						<label className="label cursor-pointer justify-start gap-2 px-0">
-							<input
-								type="checkbox"
-								name="enableSeparateAudioTracks"
-								checked={settings.enableSeparateAudioTracks}
-								onChange={(e) => updateSettings({ enableSeparateAudioTracks: e.target.checked })}
-								className="checkbox checkbox-sm checkbox-primary"
-							/>
-							<span className="flex items-center gap-1">Separate audio tracks</span>
-						</label>
-					</div>
+					<label className="label cursor-pointer justify-start gap-2 px-0">
+						<input
+							type="checkbox"
+							name="enableSeparateAudioTracks"
+							checked={settings.enableSeparateAudioTracks}
+							onChange={(e) => updateSettings({ enableSeparateAudioTracks: e.target.checked })}
+							className="checkbox checkbox-sm checkbox-primary"
+						/>
+						<span className="flex items-center gap-1">Separate audio tracks</span>
+					</label>
+				</div>
 				<div className="flex items-center justify-between mt-2">
 					<label className="flex items-center gap-2">
 						<input
 							type="checkbox"
 							name="enableDisplayRecording"
 							checked={settings.enableDisplayRecording}
-							onChange={(e) => updateSettings({enableDisplayRecording: e.target.checked})}
+							onChange={(e) => updateSettings({ enableDisplayRecording: e.target.checked })}
 							className="checkbox checkbox-primary checkbox-sm"
 						/>
 						<span className="font-medium cursor-pointer">Enable Display Recording</span>
@@ -789,23 +789,23 @@ export default function Settings() {
 				</div>
 				<AnimatePresence>
 					{settings.enableDisplayRecording && (
-						<motion.div 
-						initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
-						animate={{ 
-							opacity: 1, 
-							height: 'fit-content',
-							transition: { 
-								duration: 0.3,
-								height: { type: 'spring', stiffness: 300, damping: 30 }
-							}
-						}}
-						exit={{ 
-							opacity: 0,
-							height: 0,
-							transition: { 
-								duration: 0.2
-							}
-						}}
+						<motion.div
+							initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+							animate={{
+								opacity: 1,
+								height: 'fit-content',
+								transition: {
+									duration: 0.3,
+									height: { type: 'spring', stiffness: 300, damping: 30 }
+								}
+							}}
+							exit={{
+								opacity: 0,
+								height: 0,
+								transition: {
+									duration: 0.2
+								}
+							}}
 							className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 text-amber-400 text-sm flex items-center"
 							key="display-recording-warning"
 						>
@@ -822,37 +822,37 @@ export default function Settings() {
 				</AnimatePresence>
 				<AnimatePresence>
 					{settings.enableDisplayRecording && (
-						<motion.div 
-						initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
-						animate={{ 
-							opacity: 1, 
-							height: 'fit-content',
-							overflow: 'visible',
-							transition: { 
-								duration: 0.3,
-								height: { type: 'spring', stiffness: 300, damping: 30 }
-							}
-						}}
-						exit={{ 
-							opacity: 0,
-							height: 0,
-							transition: { 
-								duration: 0.2
-							}
-						}}
-							
+						<motion.div
+							initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+							animate={{
+								opacity: 1,
+								height: 'fit-content',
+								overflow: 'visible',
+								transition: {
+									duration: 0.3,
+									height: { type: 'spring', stiffness: 300, damping: 30 }
+								}
+							}}
+							exit={{
+								opacity: 0,
+								height: 0,
+								transition: {
+									duration: 0.2
+								}
+							}}
+
 							key="display-selection"
 						>
 							<div className="flex flex-col gap-1 mt-2">
 								<span className="font-medium">Monitor Selection</span>
-							<DropdownSelect
-								items={[
-									{ value: 'Automatic', label: 'Automatic' },
-									...settings.state.displays.map(d => ({ value: d.deviceName, label: `${d.deviceName}${d.isPrimary ? ' (Primary)' : ''}` }))
-								]}
-								value={settings.selectedDisplay?.deviceName || 'Automatic'}
-								onChange={(val) => updateSettings({ selectedDisplay: val === 'Automatic' ? undefined : settings.state.displays.find(d => d.deviceName === val) })}
-							/>
+								<DropdownSelect
+									items={[
+										{ value: 'Automatic', label: 'Automatic' },
+										...settings.state.displays.map(d => ({ value: d.deviceName, label: `${d.deviceName}${d.isPrimary ? ' (Primary)' : ''}` }))
+									]}
+									value={settings.selectedDisplay?.deviceName || 'Automatic'}
+									onChange={(val) => updateSettings({ selectedDisplay: val === 'Automatic' ? undefined : settings.state.displays.find(d => d.deviceName === val) })}
+								/>
 							</div>
 						</motion.div>
 					)}
@@ -895,7 +895,7 @@ export default function Settings() {
 							name="storageLimit"
 							value={localStorageLimit}
 							onChange={(e) => setLocalStorageLimit(Number(e.target.value))}
-							onBlur={() => updateSettings({storageLimit: localStorageLimit})}
+							onBlur={() => updateSettings({ storageLimit: localStorageLimit })}
 							placeholder="Set maximum storage in GB"
 							min="1"
 							className="input input-bordered bg-base-200"
@@ -968,7 +968,7 @@ export default function Settings() {
 								...(settings.state.codecs.find(c => c.internalEncoderId.includes('av1')) && settings.clipEncoder === 'gpu' ? [{ value: 'av1', label: 'AV1' }] : [])
 							]}
 							value={settings.clipCodec}
-                        onChange={(val) => updateSettings({ clipCodec: val as 'h264'|'h265'|'av1' })}
+							onChange={(val) => updateSettings({ clipCodec: val as 'h264' | 'h265' | 'av1' })}
 							disabled={!settings.state.hasLoadedObs}
 						/>
 					</div>
@@ -988,7 +988,7 @@ export default function Settings() {
 								{ value: '144', label: '144 FPS' },
 							]}
 							value={String(settings.clipFps)}
-                        onChange={(val) => updateSettings({ clipFps: Number(val) as ClipFPS })}
+							onChange={(val) => updateSettings({ clipFps: Number(val) as ClipFPS })}
 						/>
 					</div>
 
@@ -1006,7 +1006,7 @@ export default function Settings() {
 								{ value: '320k', label: '320 kbps (Insane)' },
 							]}
 							value={settings.clipAudioQuality}
-							onChange={(val) => updateSettings({ clipAudioQuality: val as '96k'|'128k'|'192k'|'256k'|'320k' })}
+							onChange={(val) => updateSettings({ clipAudioQuality: val as '96k' | '128k' | '192k' | '256k' | '320k' })}
 						/>
 					</div>
 
@@ -1064,7 +1064,7 @@ export default function Settings() {
 								}
 							})()}
 							value={settings.clipPreset}
-                        onChange={(val) => updateSettings({ clipPreset: val as ClipPreset })}
+							onChange={(val) => updateSettings({ clipPreset: val as ClipPreset })}
 						/>
 					</div>
 				</div>
@@ -1074,7 +1074,7 @@ export default function Settings() {
 							type="checkbox"
 							name="clipClearSelectionsAfterCreatingClip"
 							checked={settings.clipClearSelectionsAfterCreatingClip}
-							onChange={(e) => updateSettings({clipClearSelectionsAfterCreatingClip: e.target.checked})}
+							onChange={(e) => updateSettings({ clipClearSelectionsAfterCreatingClip: e.target.checked })}
 							className="checkbox checkbox-sm checkbox-accent"
 						/>
 						<span className="font-medium ml-2">Auto-Clear Selections After Creating Clip</span>
@@ -1091,7 +1091,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Input Devices</span>
 						</label>
-                        <div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-visible overflow-x-hidden border border-primary">
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-visible overflow-x-hidden border border-primary">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableInputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1113,15 +1113,15 @@ export default function Settings() {
 											{device.name}
 											{(() => {
 												const selectedIndex = combinedSelectedIds.indexOf(device.id);
-                                    const showLimitIcon = settings.enableSeparateAudioTracks && settings.inputDevices.some(d => d.id === device.id) && selectedIndex >= maxIsolatedTracks;
+												const showLimitIcon = settings.enableSeparateAudioTracks && settings.inputDevices.some(d => d.id === device.id) && selectedIndex >= maxIsolatedTracks;
 												return showLimitIcon ? (
-                                        <div className="tooltip tooltip-bottom tooltip-warning ml-1 inline-flex" data-tip="This source will be included in the Full Mix only">
-                                            <MdWarning className="h-4 w-4 text-warning" />
-                                        </div>
+													<div className="tooltip tooltip-bottom tooltip-warning ml-1 inline-flex" data-tip="This source will be included in the Full Mix only">
+														<MdWarning className="h-4 w-4 text-warning" />
+													</div>
 												) : null;
 											})()}
 										</span>
-										{/* Volume slider */} 
+										{/* Volume slider */}
 										{settings.inputDevices.some(d => d.id === device.id) && (
 											<div className="flex items-center gap-1 w-32">
 												<input
@@ -1154,7 +1154,7 @@ export default function Settings() {
 								</div>
 							))}
 
-							{/* Show unavailable devices that are still selected */} 
+							{/* Show unavailable devices that are still selected */}
 							{settings.inputDevices
 								.filter(deviceSetting => !isDeviceAvailable(deviceSetting.id, settings.state.inputDevices) && deviceSetting.id)
 								.map(deviceSetting => (
@@ -1216,7 +1216,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Output Devices</span>
 						</label>
-                        <div className="bg-base-200 rounded-lg p-2 max-h-48 border border-primary">
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 border border-primary">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableOutputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1238,13 +1238,13 @@ export default function Settings() {
 											{device.name}
 											{(() => {
 												const selectedIndex = combinedSelectedIds.indexOf(device.id);
-                                    const showLimitIcon = settings.enableSeparateAudioTracks && settings.outputDevices.some(d => d.id === device.id) && selectedIndex >= maxIsolatedTracks;
-                                    return showLimitIcon ? (
-                                        <div className="tooltip tooltip-bottom tooltip-warning ml-1 inline-flex" data-tip="This source will be included in the Full Mix only">
-                                            <MdWarning className="h-4 w-4 text-warning" />
-                                        </div>
-                                    ) : null;
-                                })()}
+												const showLimitIcon = settings.enableSeparateAudioTracks && settings.outputDevices.some(d => d.id === device.id) && selectedIndex >= maxIsolatedTracks;
+												return showLimitIcon ? (
+													<div className="tooltip tooltip-bottom tooltip-warning ml-1 inline-flex" data-tip="This source will be included in the Full Mix only">
+														<MdWarning className="h-4 w-4 text-warning" />
+													</div>
+												) : null;
+											})()}
 										</span>
 									</label>
 								</div>
@@ -1351,29 +1351,29 @@ export default function Settings() {
 									</div>
 									<span className="font-medium">{keybind.action == KeybindAction.CreateBookmark ? 'Create Bookmark' : 'Save Replay Buffer'}</span>
 								</label>
-								<button 
+								<button
 									className={`kbd kbd-md min-w-[25%] text-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
 									style={{ display: 'flex', justifyContent: 'center' }}
 									onClick={() => {
 										activeKeysRef.current = [];
 										setIsCapturingKey(index);
-										
+
 										const handleKeyDown = (e: KeyboardEvent) => {
 											e.preventDefault();
-											
+
 											const newActiveKeys = [...activeKeysRef.current];
-											
+
 											if (e.ctrlKey && !newActiveKeys.includes(17)) newActiveKeys.push(17);
 											if (e.altKey && !newActiveKeys.includes(18)) newActiveKeys.push(18);
 											if (e.shiftKey && !newActiveKeys.includes(16)) newActiveKeys.push(16);
-											
+
 											if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && !newActiveKeys.includes(e.keyCode)) {
 												newActiveKeys.push(e.keyCode);
 											}
-											
+
 											activeKeysRef.current = newActiveKeys;
 										};
-										
+
 										const handleKeyUp = (e: KeyboardEvent) => {
 											// Cancel if Escape key is pressed
 											if (e.keyCode === 27) {
@@ -1383,7 +1383,7 @@ export default function Settings() {
 												activeKeysRef.current = [];
 												return;
 											}
-											
+
 											if (e.keyCode !== 16 && e.keyCode !== 17 && e.keyCode !== 18 && activeKeysRef.current.length > 0) {
 												const updatedKeybindings = [...settings.keybindings];
 												updatedKeybindings[index] = {
@@ -1391,14 +1391,14 @@ export default function Settings() {
 													keys: [...activeKeysRef.current]
 												};
 												updateSettings({ keybindings: updatedKeybindings });
-												
+
 												window.removeEventListener('keydown', handleKeyDown);
 												window.removeEventListener('keyup', handleKeyUp);
 												setIsCapturingKey(null);
 												activeKeysRef.current = [];
 											}
 										};
-										
+
 										window.addEventListener('keydown', handleKeyDown);
 										window.addEventListener('keyup', handleKeyUp);
 									}}
@@ -1408,14 +1408,14 @@ export default function Settings() {
 											{keybind.keys.map((key, keyIndex) => {
 												// Format special keys
 												const isLastKey = keyIndex === keybind.keys.length - 1;
-												
+
 												// Check if this is a modifier key
 												let keyName = '';
 												if (key === 17) keyName = 'CTRL';
 												else if (key === 18) keyName = 'ALT';
 												else if (key === 16) keyName = 'SHIFT';
 												else keyName = getKeyDisplayName(key);
-												
+
 												return (
 													<span key={keyIndex} className="font-bold">
 														{keyName}{!isLastKey && ' + '}
@@ -1441,60 +1441,60 @@ export default function Settings() {
 			</div>
 
 			{/* UI Settings */}
-				<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
-					<h2 className="text-xl font-semibold mb-4">Segra</h2>
-					<div className="bg-base-200 px-4 py-2 rounded-lg space-y-1 border border-custom">
+			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
+				<h2 className="text-xl font-semibold mb-4">Segra</h2>
+				<div className="bg-base-200 px-4 py-2 rounded-lg space-y-1 border border-custom">
 					<div className="form-control">
-					<label className="label px-0">Sound Effects Volume</label>
-					<div className="flex items-center gap-2">
-						<input
-							type="range"
-							name="soundEffectsVolume"
-							min="0"
-							max="1"
-							step="0.01"
-							value={draggingSoundVolume ?? settings.soundEffectsVolume}
-							onChange={(e) => {
-								setDraggingSoundVolume(parseFloat(e.target.value));
-							}}
-							onMouseDown={(e) => setDraggingSoundVolume(parseFloat(e.currentTarget.value))}
-							onMouseUp={(e) => {
-								updateSettings({ soundEffectsVolume: parseFloat(e.currentTarget.value) });
-								setDraggingSoundVolume(null); // Reset dragging state
-							}}
-							onTouchEnd={() => {
-								updateSettings({ soundEffectsVolume: draggingSoundVolume ?? settings.soundEffectsVolume });
-								setDraggingSoundVolume(null); // Reset dragging state
-							}}
-							className="range range-xs range-primary w-48"
-						/>
-						<span className="w-12 text-center">{Math.round((draggingSoundVolume ?? settings.soundEffectsVolume) * 100)}%</span>
+						<label className="label px-0">Sound Effects Volume</label>
+						<div className="flex items-center gap-2">
+							<input
+								type="range"
+								name="soundEffectsVolume"
+								min="0"
+								max="1"
+								step="0.01"
+								value={draggingSoundVolume ?? settings.soundEffectsVolume}
+								onChange={(e) => {
+									setDraggingSoundVolume(parseFloat(e.target.value));
+								}}
+								onMouseDown={(e) => setDraggingSoundVolume(parseFloat(e.currentTarget.value))}
+								onMouseUp={(e) => {
+									updateSettings({ soundEffectsVolume: parseFloat(e.currentTarget.value) });
+									setDraggingSoundVolume(null); // Reset dragging state
+								}}
+								onTouchEnd={() => {
+									updateSettings({ soundEffectsVolume: draggingSoundVolume ?? settings.soundEffectsVolume });
+									setDraggingSoundVolume(null); // Reset dragging state
+								}}
+								className="range range-xs range-primary w-48"
+							/>
+							<span className="w-12 text-center">{Math.round((draggingSoundVolume ?? settings.soundEffectsVolume) * 100)}%</span>
+						</div>
 					</div>
-				</div>
-				<div className="form-control pt-2">
-					<label className="label cursor-pointer justify-start gap-2 px-0">
-						<input
-							type="checkbox"
-							name="showNewBadgeOnVideos"
-							checked={settings.showNewBadgeOnVideos}
-							onChange={(e) => updateSettings({ showNewBadgeOnVideos: e.target.checked })}
-							className="checkbox checkbox-sm checkbox-primary"
-						/>
-						<span className="flex items-center gap-1">Show<span className="badge badge-primary badge-sm">NEW</span>badge on new sessions and replay buffers</span>
-					</label>
-				</div>
-				<div className="form-control">
-					<label className="label cursor-pointer justify-start gap-2 px-0">
-						<input
-							type="checkbox"
-							name="showGameBackground"
-							checked={settings.showGameBackground}
-							onChange={(e) => updateSettings({ showGameBackground: e.target.checked })}
-							className="checkbox checkbox-sm checkbox-primary"
-						/>
-						<span className="flex items-center gap-1">Show game cover while recording <CloudBadge side="right" /></span>
-					</label>
-				</div>
+					<div className="form-control pt-2">
+						<label className="label cursor-pointer justify-start gap-2 px-0">
+							<input
+								type="checkbox"
+								name="showNewBadgeOnVideos"
+								checked={settings.showNewBadgeOnVideos}
+								onChange={(e) => updateSettings({ showNewBadgeOnVideos: e.target.checked })}
+								className="checkbox checkbox-sm checkbox-primary"
+							/>
+							<span className="flex items-center gap-1">Show<span className="badge badge-primary badge-sm">NEW</span>badge on new sessions and replay buffers</span>
+						</label>
+					</div>
+					<div className="form-control">
+						<label className="label cursor-pointer justify-start gap-2 px-0">
+							<input
+								type="checkbox"
+								name="showGameBackground"
+								checked={settings.showGameBackground}
+								onChange={(e) => updateSettings({ showGameBackground: e.target.checked })}
+								className="checkbox checkbox-sm checkbox-primary"
+							/>
+							<span className="flex items-center gap-1">Show game cover while recording <CloudBadge side="right" /></span>
+						</label>
+					</div>
 					<div className="form-control">
 						<label className="label cursor-pointer justify-start gap-2 px-0">
 							<input
@@ -1516,7 +1516,7 @@ export default function Settings() {
 				<div className="bg-base-200 p-4 rounded-lg space-y-4 border border-custom">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-                        <span className="font-medium">Update Channel</span>
+							<span className="font-medium">Update Channel</span>
 							<DropdownSelect
 								size='sm'
 								items={[{ value: 'stable', label: 'Stable' }, { value: 'beta', label: 'Beta' }]}
@@ -1525,13 +1525,13 @@ export default function Settings() {
 							/>
 						</div>
 						<div className="flex items-center gap-2">
-						<button
-							onClick={() => openReleaseNotesModal(null)}
-							className="btn btn-sm btn-secondary outline outline-custom outline-1 hover:outline-custom hover:outline-1 text-gray-400 hover:text-gray-300 flex items-center justify-center"
-						>
-							<SiGithub className="text-lg flex-shrink-0" aria-hidden="true" />
-							<span className="inline-block">View Release Notes</span>
-						</button>
+							<button
+								onClick={() => openReleaseNotesModal(null)}
+								className="btn btn-sm btn-secondary outline outline-custom outline-1 hover:outline-custom hover:outline-1 text-gray-400 hover:text-gray-300 flex items-center justify-center"
+							>
+								<SiGithub className="text-lg flex-shrink-0" aria-hidden="true" />
+								<span className="inline-block">View Release Notes</span>
+							</button>
 							<button
 								className="btn btn-sm btn-primary flex items-center gap-1"
 								onClick={() => checkForUpdates()}
@@ -1540,8 +1540,8 @@ export default function Settings() {
 								{settings.state.isCheckingForUpdates && (
 									<span className="loading loading-spinner loading-xs"></span>
 								)}
-                            	Check for Updates
-                            </button>
+								Check for Updates
+							</button>
 						</div>
 					</div>
 
@@ -1551,7 +1551,7 @@ export default function Settings() {
 								type="checkbox"
 								name="runOnStartup"
 								checked={settings.runOnStartup}
-								onChange={(e) => updateSettings({runOnStartup: e.target.checked})}
+								onChange={(e) => updateSettings({ runOnStartup: e.target.checked })}
 								className="checkbox checkbox-primary checkbox-sm"
 							/>
 							<span className="font-medium cursor-pointer">Run on Startup</span>

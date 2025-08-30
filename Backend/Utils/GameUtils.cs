@@ -28,7 +28,7 @@ namespace Segra.Backend.Utils
 
             // Convert backslashes to forward slashes for consistent comparison
             string normalizedPath = exePath.Replace("\\", "/");
-            
+
             // Check if any game exe path is contained within the given exePath
             foreach (var gamePath in _gameExePaths)
             {
@@ -37,7 +37,7 @@ namespace Segra.Backend.Utils
                     return true;
                 }
             }
-            
+
             return false;
         }
 
@@ -47,7 +47,7 @@ namespace Segra.Backend.Utils
                 return null;
 
             string normalizedPath = exePath.Replace("\\", "/");
-            
+
             foreach (var entry in _exeToGameName)
             {
                 if (normalizedPath.Contains(entry.Key, StringComparison.OrdinalIgnoreCase))
@@ -55,7 +55,7 @@ namespace Segra.Backend.Utils
                     return entry.Value;
                 }
             }
-            
+
             return null;
         }
 
@@ -63,22 +63,22 @@ namespace Segra.Backend.Utils
         {
             string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra");
             string jsonPath = Path.Combine(appDataDir, "games.json");
-            
+
             if (!File.Exists(jsonPath))
             {
                 Log.Warning("games.json file not found. Game detection from JSON will be disabled.");
                 return;
             }
-            
+
             try
             {
                 string jsonContent = File.ReadAllText(jsonPath);
                 _games = JsonSerializer.Deserialize<List<GameInfo>>(jsonContent) ?? new List<GameInfo>();
-                
+
                 // Build lookup collections for fast access
                 _gameExePaths.Clear();
                 _exeToGameName.Clear();
-                
+
                 foreach (var game in _games)
                 {
                     if (!string.IsNullOrEmpty(game.Exe))
@@ -89,7 +89,7 @@ namespace Segra.Backend.Utils
                         _exeToGameName[normalizedExe] = game.Name;
                     }
                 }
-                
+
                 Log.Information($"Loaded {_games.Count} games from games.json");
             }
             catch (Exception ex)
@@ -102,7 +102,7 @@ namespace Segra.Backend.Utils
         {
             string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra");
             Directory.CreateDirectory(appDataDir); // Ensure directory exists
-            
+
             string jsonPath = Path.Combine(appDataDir, "games.json");
             string apiUrl = "https://api.github.com/repos/Segergren/Segra/contents/games.json?ref=main";
             string localHashPath = Path.Combine(appDataDir, "games.hash");
@@ -133,9 +133,9 @@ namespace Segra.Backend.Utils
                         Log.Error("Download URL not found in the API response.");
                         return;
                     }
-                    
+
                     string remoteHash = metadata.Sha;
-                    
+
                     // Check if we already have the file with the correct hash
                     if (File.Exists(jsonPath) && File.Exists(localHashPath))
                     {
@@ -158,7 +158,7 @@ namespace Segra.Backend.Utils
                         httpClient.DefaultRequestHeaders.Clear();
                         var jsonBytes = await httpClient.GetByteArrayAsync(metadata.DownloadUrl);
                         await File.WriteAllBytesAsync(jsonPath, jsonBytes);
-                        
+
                         // Save the hash for future reference
                         await File.WriteAllTextAsync(localHashPath, remoteHash);
 
@@ -176,7 +176,7 @@ namespace Segra.Backend.Utils
         {
             [JsonPropertyName("sha")]
             public required string Sha { get; set; }
-            
+
             [JsonPropertyName("download_url")]
             public required string DownloadUrl { get; set; }
         }

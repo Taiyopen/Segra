@@ -221,32 +221,32 @@ export const initialSettings: Settings = {
 };
 
 export interface Selection {
-    id: number;
-    type: ContentType;
-    startTime: number;
-    endTime: number;
-    thumbnailDataUrl?: string;
-    isLoading: boolean;
-    fileName: string;
-    game?: string;
+	id: number;
+	type: ContentType;
+	startTime: number;
+	endTime: number;
+	thumbnailDataUrl?: string;
+	isLoading: boolean;
+	fileName: string;
+	game?: string;
 }
 
 export interface SelectionCardProps {
-    selection: Selection;
-    index: number;
-    moveCard: (dragIndex: number, hoverIndex: number) => void;
-    formatTime: (time: number) => string;
-    isHovered: boolean;
-    setHoveredSelectionId: (id: number | null) => void;
-    removeSelection: (id: number) => void;
+	selection: Selection;
+	index: number;
+	moveCard: (dragIndex: number, hoverIndex: number) => void;
+	formatTime: (time: number) => string;
+	isHovered: boolean;
+	setHoveredSelectionId: (id: number | null) => void;
+	removeSelection: (id: number) => void;
 }
 
 export interface AiProgress {
-    id: string;
-    progress: number;
-    status: 'processing' | 'done';
-    message: string;
-    content: Content;
+	id: string;
+	progress: number;
+	status: 'processing' | 'done';
+	message: string;
+	content: Content;
 }
 
 export interface GameResponse {

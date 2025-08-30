@@ -32,10 +32,10 @@ export default function ContentPage({
   const { scrollPositions, setScrollPosition } = useScroll();
   const containerRef = useRef<HTMLDivElement>(null);
   const isSettingScroll = useRef(false);
-  
+
   // Get content items of the specified type
   const contentItems = state.content.filter((video) => video.type === contentType);
-  
+
   // Filter and sort state
   const [selectedGames, setSelectedGames] = useState<string[]>(() => {
     try {
@@ -45,7 +45,7 @@ export default function ContentPage({
       return [];
     }
   });
-  
+
   const [sortOption, setSortOption] = useState<SortOption>(() => {
     try {
       const saved = localStorage.getItem(`${sectionId}-sort`);
@@ -54,22 +54,22 @@ export default function ContentPage({
       return "newest";
     }
   });
-  
+
   // Get unique games for filter dropdown
   const uniqueGames = useMemo(() => {
     const games = contentItems.map(item => item.game);
     return [...new Set(games)].sort();
   }, [contentItems]);
-  
+
   // Apply filters and sorting
   const filteredItems = useMemo(() => {
     let filtered = [...contentItems];
-    
+
     // Apply game filter
     if (selectedGames.length > 0) {
       filtered = filtered.filter(item => selectedGames.includes(item.game));
     }
-    
+
     // Apply sorting
     filtered.sort((a, b) => {
       switch (sortOption) {
@@ -92,16 +92,16 @@ export default function ContentPage({
           return 0;
       }
     });
-    
+
     return filtered;
   }, [contentItems, selectedGames, sortOption]);
-  
+
   // Handle filter changes
   const handleGameFilterChange = (games: string[]) => {
     setSelectedGames(games);
     localStorage.setItem(`${sectionId}-filters`, JSON.stringify(games));
   };
-  
+
   // Handle sort changes
   const handleSortChange = (option: SortOption) => {
     setSortOption(option);
@@ -116,10 +116,10 @@ export default function ContentPage({
   useEffect(() => {
     // Type-safe access to scroll positions
     const position = sectionId === 'clips' ? scrollPositions.clips :
-                    sectionId === 'highlights' ? scrollPositions.highlights :
-                    sectionId === 'replayBuffer' ? scrollPositions.replayBuffer :
-                    sectionId === 'sessions' ? scrollPositions.sessions : 0;
-                    
+      sectionId === 'highlights' ? scrollPositions.highlights :
+        sectionId === 'replayBuffer' ? scrollPositions.replayBuffer :
+          sectionId === 'sessions' ? scrollPositions.sessions : 0;
+
     if (containerRef.current && position > 0) {
       isSettingScroll.current = true;
       containerRef.current.scrollTop = position;
@@ -141,13 +141,13 @@ export default function ContentPage({
       scrollTimeout.current = setTimeout(() => {
         const currentPos = containerRef.current?.scrollTop;
         if (currentPos === undefined) return;
-        
+
         // Type-safe scroll position update
         const pageKey = sectionId === 'clips' ? 'clips' :
-                       sectionId === 'highlights' ? 'highlights' :
-                       sectionId === 'replayBuffer' ? 'replayBuffer' :
-                       sectionId === 'sessions' ? 'sessions' : null;
-        
+          sectionId === 'highlights' ? 'highlights' :
+            sectionId === 'replayBuffer' ? 'replayBuffer' :
+              sectionId === 'sessions' ? 'sessions' : null;
+
         if (pageKey) {
           setScrollPosition(pageKey, currentPos);
         }
@@ -160,13 +160,13 @@ export default function ContentPage({
   const hasProgress = progressValues.length > 0;
 
   return (
-    <div 
-      ref={containerRef} 
+    <div
+      ref={containerRef}
       className="p-5 space-y-6 overflow-y-auto h-full bg-base-200 overflow-x-hidden"
       onScroll={handleScroll}>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold">{title}</h1>
-        <ContentFilters 
+        <ContentFilters
           uniqueGames={uniqueGames}
           onGameFilterChange={handleGameFilterChange}
           onSortChange={handleSortChange}
@@ -175,12 +175,12 @@ export default function ContentPage({
           sortOption={sortOption}
         />
       </div>
-      
+
       {(contentItems.length > 0 || hasProgress) ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {/* Show progress card if applicable */}
           {isProgressVisible && progressCardElement}
-          
+
           {/* Show content cards */}
           {filteredItems.map((video, index) => (
             <ContentCard
@@ -190,9 +190,9 @@ export default function ContentPage({
               type={contentType}
             />
           ))}
-          
+
           {/* Show AI content cards for highlights if applicable */}
-          {contentType === 'Highlight' && hasProgress && 
+          {contentType === 'Highlight' && hasProgress &&
             progressValues.map((progress: any, index) => (
               <AiContentCard
                 key={`ai-${index}`}

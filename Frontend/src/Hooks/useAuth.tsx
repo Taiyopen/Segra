@@ -1,7 +1,7 @@
-import {useState, useEffect, createContext, useContext, ReactNode} from 'react';
-import {Session, User} from '@supabase/supabase-js';
-import {supabase} from '../lib/supabase/client';
-import {sendMessageToBackend} from '../Utils/MessageUtils';
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase/client';
+import { sendMessageToBackend } from '../Utils/MessageUtils';
 
 // Create a context to store authentication state
 interface AuthContextType {
@@ -10,13 +10,13 @@ interface AuthContextType {
   authError: string | null;
   isAuthenticating: boolean;
   clearAuthError: () => void;
-  signOut: () => Promise<void>; 
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 // Provider component that wraps the app
-export function AuthProvider({children}: {children: ReactNode}) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -27,17 +27,17 @@ export function AuthProvider({children}: {children: ReactNode}) {
   const handleSignOut = async () => {
     try {
       // Sign out from Supabase
-      const { error } = await supabase.auth.signOut({scope: 'local'});
-      
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+
       if (error) throw error;
-      
+
       // Manually update state since local signOut might not trigger the event
       setSession(null);
       setUser(null);
-      
+
       // Notify backend about logout
       sendMessageToBackend('Logout');
-      
+
       console.log("User signed out manually");
     } catch (err) {
       console.error("Sign out error:", err);
@@ -51,27 +51,27 @@ export function AuthProvider({children}: {children: ReactNode}) {
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
-        
+
         if (code) {
           setIsAuthenticating(true);
-          const {data: { session }, error} = await supabase.auth.exchangeCodeForSession(code);
+          const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
 
           if (error) throw error;
 
-          const {error: profileError} = await supabase
-          .from('profiles')
-          .select('username, avatar_url')
-          .eq('id', session?.user?.id)
-          .single();
-  
-        if (profileError && profileError.code === 'PGRST116') {
-          console.error("Profile error, user may not have a profile:", profileError);
-          handleSignOut();
-          setAuthError('Please register at Segra.tv before logging into the app.');
-        }
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .select('username, avatar_url')
+            .eq('id', session?.user?.id)
+            .single();
 
-        // Clean URL after successful login
-        window.history.replaceState({}, document.title, window.location.pathname);
+          if (profileError && profileError.code === 'PGRST116') {
+            console.error("Profile error, user may not have a profile:", profileError);
+            handleSignOut();
+            setAuthError('Please register at Segra.tv before logging into the app.');
+          }
+
+          // Clean URL after successful login
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch (err) {
         setAuthError(err instanceof Error ? err.message : 'Authentication failed');
@@ -86,11 +86,11 @@ export function AuthProvider({children}: {children: ReactNode}) {
   // Listen for auth state changes
   useEffect(() => {
     console.log("Auth initialization starting, hasInitialized:", hasInitialized);
-    
+
     // Only initialize once
     if (hasInitialized) return;
 
-    const {data: authListener} = supabase.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
         console.log("Auth state changed:", event, !!currentSession);
         setSession(currentSession);
@@ -115,7 +115,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
       console.log("Initial session retrieved:", !!initialSession);
       setSession(initialSession);
       setUser(initialSession?.user ?? null);
-      
+
       // If there's an initial session, send the credentials to the backend
       if (initialSession) {
         console.log("Sending initial login credentials to backend");
@@ -124,7 +124,7 @@ export function AuthProvider({children}: {children: ReactNode}) {
           refreshToken: initialSession.refresh_token
         });
       }
-      
+
       setHasInitialized(true);
     });
 
@@ -134,12 +134,12 @@ export function AuthProvider({children}: {children: ReactNode}) {
   }, [hasInitialized]);
 
   const value = {
-    user, 
-    session, 
-    authError, 
+    user,
+    session,
+    authError,
     isAuthenticating,
     clearAuthError: () => setAuthError(null),
-    signOut: handleSignOut 
+    signOut: handleSignOut
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -21,7 +21,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleWebSocketMessage = (event: CustomEvent<any>) => {
       const data = event.detail;
-      
+
       if (data.method === 'UploadProgress') {
         const { title, fileName, progress, status, message } = data.content;
         setUploads(prev => ({

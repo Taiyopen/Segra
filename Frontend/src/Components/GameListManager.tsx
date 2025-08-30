@@ -10,7 +10,7 @@ interface GameListManagerProps {
 
 export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) => {
   const settings = useSettings();
-  
+
   const [newGameName, setNewGameName] = useState('');
   const [newGamePath, setNewGamePath] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -22,7 +22,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
   useEffect(() => {
     const handleWebSocketMessage = (event: CustomEvent<any>) => {
       const message = event.detail;
-      
+
       if (isSelectingFile && isSelectedGameExecutableMessage(message)) {
         const selectedGame = message.content as Game;
         setNewGameName(selectedGame.name);
@@ -54,7 +54,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
 
     // Send to backend
     sendMessageToBackend(
-      listType === 'whitelist' ? 'AddToWhitelist' : 'AddToBlacklist', 
+      listType === 'whitelist' ? 'AddToWhitelist' : 'AddToBlacklist',
       { game: newGame }
     );
 
@@ -66,7 +66,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
 
   const handleRemoveGame = (game: Game) => {
     sendMessageToBackend(
-      listType === 'whitelist' ? 'RemoveFromWhitelist' : 'RemoveFromBlacklist', 
+      listType === 'whitelist' ? 'RemoveFromWhitelist' : 'RemoveFromBlacklist',
       { game }
     );
   };
@@ -85,9 +85,9 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
               <label className="label">
                 <span className="label-text">Game Name</span>
               </label>
-              <input 
-                type="text" 
-                className="input input-bordered w-full bg-base-200" 
+              <input
+                type="text"
+                className="input input-bordered w-full bg-base-200"
                 value={newGameName}
                 onChange={(e) => setNewGameName(e.target.value)}
                 placeholder="Enter game name"
@@ -98,14 +98,14 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
                 <span className="label-text">Game Path</span>
               </label>
               <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  className="input input-bordered w-full bg-base-200" 
+                <input
+                  type="text"
+                  className="input input-bordered w-full bg-base-200"
                   value={newGamePath}
                   onChange={(e) => setNewGamePath(e.target.value)}
                   placeholder="Enter game executable path"
                 />
-                <button 
+                <button
                   className="btn btn-secondary border-custom border-opacity-75 hover:border-custom"
                   onClick={handleSelectExecutable}
                   disabled={isSelectingFile}
@@ -119,14 +119,14 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-2">
-              <button 
-                className="btn btn-sm btn-secondary border-custom hover:border-custom" 
+              <button
+                className="btn btn-sm btn-secondary border-custom hover:border-custom"
                 onClick={() => setIsAdding(false)}
               >
                 Cancel
               </button>
-              <button 
-                className="btn btn-sm btn-secondary border-custom hover:border-custom" 
+              <button
+                className="btn btn-sm btn-secondary border-custom hover:border-custom"
                 onClick={handleAddGame}
                 disabled={!newGameName.trim() || !newGamePath.trim()}
               >
@@ -160,8 +160,8 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
                     <td className="font-medium">{game.name}</td>
                     <td className="text-xs text-gray-400 truncate max-w-xs">{game.path}</td>
                     <td>
-                      <button 
-                        className="btn btn-sm btn-secondary border-custom hover:border-custom" 
+                      <button
+                        className="btn btn-sm btn-secondary border-custom hover:border-custom"
                         onClick={() => handleRemoveGame(game)}
                       >
                         Remove
@@ -174,11 +174,11 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
           </table>
         </div>
       </div>
-      
+
       {!isAdding && (
         <div className="flex justify-start mt-5">
-          <button 
-            className="btn btn-sm btn-secondary border-primary hover:border-primary" 
+          <button
+            className="btn btn-sm btn-secondary border-primary hover:border-primary"
             onClick={handleSelectExecutable}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-1">

@@ -182,7 +182,7 @@ namespace Segra
                 }
 
                 // Ensure content folder exists
-                if(!Directory.Exists(Settings.Instance.ContentFolder))
+                if (!Directory.Exists(Settings.Instance.ContentFolder))
                 {
                     Directory.CreateDirectory(Settings.Instance.ContentFolder);
                 }
@@ -212,13 +212,13 @@ namespace Segra
                 {
                     LoadFrontend();
                 }
-                
+
                 // Wait for show window events
                 while (true)
                 {
                     int signalIndex = WaitHandle.WaitAny([ShowWindowEvent]);
                     Log.Information($"Signal received: {signalIndex}");
-                    if (signalIndex == 0) 
+                    if (signalIndex == 0)
                     {
                         Log.Information("Show window event triggered");
                         ShowApplicationWindow().GetAwaiter().GetResult();
@@ -277,7 +277,7 @@ namespace Segra
                         Log.Information("Application window brought to foreground");
                     }
                 });
-                
+
                 LoadFrontend();
             }
             else
@@ -329,7 +329,7 @@ namespace Segra
                 HideApplicationWindow();
                 return true;
             });
-            
+
             Window.WaitForClose();
         }
 
@@ -408,11 +408,11 @@ namespace Segra
                     icon.Visible = true;
 
                     var menu = new ContextMenuStrip();
-                    menu.Items.Add("Open", null, async (s,e) => await ShowApplicationWindow());
-                    menu.Items.Add("Exit", null, (s,e) => Environment.Exit(0));
+                    menu.Items.Add("Open", null, async (s, e) => await ShowApplicationWindow());
+                    menu.Items.Add("Exit", null, (s, e) => Environment.Exit(0));
                     icon.ContextMenuStrip = menu;
 
-                    icon.MouseDoubleClick += async (s,e) =>
+                    icon.MouseDoubleClick += async (s, e) =>
                     {
                         if (e.Button == MouseButtons.Left)
                             await ShowApplicationWindow();
