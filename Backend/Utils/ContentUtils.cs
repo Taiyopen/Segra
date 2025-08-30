@@ -34,6 +34,33 @@ namespace Segra.Backend.Utils
                 // Create the metadata file
                 string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
                 var (displaySize, sizeKb) = GetFileSize(filePath);
+                // Build audio track names: Track 1 is Full Mix, then one per audio source (inputs then outputs), up to OBS's 6 total tracks
+                var trackNames = new List<string>
+                {
+                    "Full Mix"
+                };
+                try
+                {
+                    if (Settings.Instance.EnableSeparateAudioTracks)
+                    {
+                        var perSourceNames = new List<string>();
+                        if (Settings.Instance.InputDevices != null)
+                            perSourceNames.AddRange(Settings.Instance.InputDevices.Select(d => d.Name));
+                        if (Settings.Instance.OutputDevices != null)
+                            perSourceNames.AddRange(Settings.Instance.OutputDevices.Select(d => d.Name));
+
+                        // OBS supports 6 tracks total; we already used 1 for the mix
+                        foreach (var name in perSourceNames.Take(Math.Max(0, 5)))
+                        {
+                            trackNames.Add(name);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"Failed to build audio track names for metadata: {ex.Message}");
+                }
+
                 var metadataContent = new Content
                 {
                     Type = type,
@@ -45,7 +72,8 @@ namespace Segra.Backend.Utils
                     FileSize = displaySize,
                     FileSizeKb = sizeKb,
                     CreatedAt = DateTime.Now,
-                    Duration = GetVideoDuration(filePath)
+                    Duration = GetVideoDuration(filePath),
+                    AudioTrackNames = trackNames
                 };
 
                 string metadataJson = System.Text.Json.JsonSerializer.Serialize(metadataContent, new System.Text.Json.JsonSerializerOptions
@@ -118,17 +146,31 @@ namespace Segra.Backend.Utils
 
                 using (Process process = new Process { StartInfo = processInfo })
                 {
-                    process.Start();
+                    var errorBuilder = new System.Text.StringBuilder();
+                    process.ErrorDataReceived += (s, e) => { if (e.Data != null) errorBuilder.AppendLine(e.Data); };
 
-                    // Capture output (for debugging or logging)
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
+                    // Continuously drain stdout to avoid deadlocks
+                    var outputReadTask = new Task(() =>
+                    {
+                        using (var reader = process.StandardOutput)
+                        {
+                            while (!reader.EndOfStream)
+                            {
+                                reader.ReadLine();
+                            }
+                        }
+                    });
+
+                    process.Start();
+                    process.BeginErrorReadLine();
+                    outputReadTask.Start();
 
                     process.WaitForExit();
+                    outputReadTask.Wait(1000);
 
                     if (process.ExitCode != 0)
                     {
-                        Log.Error($"FFmpeg error: {error}");
+                        Log.Error($"FFmpeg error: {errorBuilder}");
                         Log.Error("Thumbnail generation failed.");
                     }
                     else

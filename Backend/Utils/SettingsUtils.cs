@@ -322,6 +322,14 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update EnableSeparateAudioTracks
+            if (settings.EnableSeparateAudioTracks != updatedSettings.EnableSeparateAudioTracks)
+            {
+                Log.Information($"EnableSeparateAudioTracks changed from '{settings.EnableSeparateAudioTracks}' to '{updatedSettings.EnableSeparateAudioTracks}'");
+                settings.EnableSeparateAudioTracks = updatedSettings.EnableSeparateAudioTracks;
+                hasChanges = true;
+            }
+
             // Update Theme
             if (settings.Theme != updatedSettings.Theme)
             {

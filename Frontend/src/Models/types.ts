@@ -156,6 +156,7 @@ export interface Settings {
 	showNewBadgeOnVideos: boolean;
 	showGameBackground: boolean; // Show game background while recording
 	showAudioWaveformInTimeline: boolean; // Show audio waveform in video timeline
+	enableSeparateAudioTracks: boolean; // Advanced: per-source audio tracks
 	state: State;
 }
 
@@ -209,6 +210,7 @@ export const initialSettings: Settings = {
 	showNewBadgeOnVideos: true,
 	showGameBackground: true, // Default to showing game background
 	showAudioWaveformInTimeline: true,
+	enableSeparateAudioTracks: false,
 	keybindings: [
 		{ keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
 		{ keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true } // 121 is F10

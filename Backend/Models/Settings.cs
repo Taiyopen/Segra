@@ -55,6 +55,7 @@ namespace Segra.Backend.Models
         private bool _showNewBadgeOnVideos = true;
         private bool _showGameBackground = true;
         private bool _showAudioWaveformInTimeline = true;
+        private bool _enableSeparateAudioTracks = false;
 
         // Returns the default keybindings
         private static List<Keybind> GetDefaultKeybindings()
@@ -293,7 +294,6 @@ namespace Segra.Backend.Models
                 if (_enableDisplayRecording != value)
                 {
                     _enableDisplayRecording = value;
-                    SendToFrontend("Enable display recording changed");
                 }
             }
         }
@@ -331,7 +331,6 @@ namespace Segra.Backend.Models
                 if (_autoGenerateHighlights != value)
                 {
                     _autoGenerateHighlights = value;
-                    SendToFrontend("Auto generate highlights changed");
                 }
             }
         }
@@ -599,7 +598,6 @@ namespace Segra.Backend.Models
                 if (_showNewBadgeOnVideos != value)
                 {
                     _showNewBadgeOnVideos = value;
-                    SendToFrontend("Show new badge setting changed");
                 }
             }
         }
@@ -628,6 +626,19 @@ namespace Segra.Backend.Models
                 {
                     _showAudioWaveformInTimeline = value;
                     SendToFrontend("Show audio waveform setting changed");
+                }
+            }
+        }
+
+        [JsonPropertyName("enableSeparateAudioTracks")]
+        public bool EnableSeparateAudioTracks
+        {
+            get => _enableSeparateAudioTracks;
+            set
+            {
+                if (_enableSeparateAudioTracks != value)
+                {
+                    _enableSeparateAudioTracks = value;
                 }
             }
         }
@@ -1095,6 +1106,12 @@ namespace Segra.Backend.Models
         public AiAnalysis? AiAnalysis { get; set; }
 
         public string? UploadId { get; set; }
+
+        // Names for the audio tracks in the recording/container.
+        // Track 1 is always the mixed track ("Full Mix").
+        // Subsequent tracks correspond to each configured audio source
+        // in the same order they are added (inputs, then outputs), up to 6 total tracks in OBS.
+        public List<string>? AudioTrackNames { get; set; }
     }
 
     public class AiAnalysis

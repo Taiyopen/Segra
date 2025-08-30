@@ -7,7 +7,7 @@ import {supabase} from '../lib/supabase/client';
 import {FaDiscord} from 'react-icons/fa';
 import {useAuth} from '../Hooks/useAuth.tsx';
 import {useProfile} from '../Hooks/useUserProfile';
-import {MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription} from 'react-icons/md';
+import {MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription, MdClose} from 'react-icons/md';
 import {useUpdate} from '../Context/UpdateContext';
 import GameListManager from '../Components/GameListManager';
 import { SiGithub } from 'react-icons/si';
@@ -352,6 +352,27 @@ export default function Settings() {
 	const hasUnavailableOutputDevices = settings.outputDevices.some(
 		deviceSetting => !isDeviceAvailable(deviceSetting.id, settings.state.outputDevices)
 	);
+
+	// Multi-track audio: first 5 selected sources get isolated tracks (Track 1 is Full Mix)
+	const selectedInputIds = settings.inputDevices.map(d => d.id);
+	const selectedOutputIds = settings.outputDevices.map(d => d.id);
+    const combinedSelectedIds = [...selectedInputIds, ...selectedOutputIds];
+    const maxIsolatedTracks = 5; // per-source tracks beyond Full Mix
+    const hasOverTrackLimit = settings.enableSeparateAudioTracks && combinedSelectedIds.length > maxIsolatedTracks;
+    const selectionSig = combinedSelectedIds.join(',');
+
+    // Dismissible warning for track limit exceeded, persisted per selection signature
+    const [trackLimitWarnDismissed, setTrackLimitWarnDismissed] = useState<boolean>(false);
+
+    useEffect(() => {
+        const storedSig = localStorage.getItem('segra.trackLimitWarnDismissedSig');
+        if (hasOverTrackLimit) {
+            setTrackLimitWarnDismissed(storedSig === selectionSig);
+        } else {
+            // Reset dismissal when under the limit
+            setTrackLimitWarnDismissed(false);
+        }
+    }, [selectionSig, hasOverTrackLimit]);
 
 	// Function to toggle input device selection
 	const toggleInputDevice = (deviceId: string) => {
@@ -741,7 +762,19 @@ export default function Settings() {
 						/>
 					</div>
 				</div>
-				<div className="flex items-center justify-between mt-4">
+				<div className="form-control mt-2">
+						<label className="label cursor-pointer justify-start gap-2 px-0">
+							<input
+								type="checkbox"
+								name="enableSeparateAudioTracks"
+								checked={settings.enableSeparateAudioTracks}
+								onChange={(e) => updateSettings({ enableSeparateAudioTracks: e.target.checked })}
+								className="checkbox checkbox-sm checkbox-primary"
+							/>
+							<span className="flex items-center gap-1">Separate audio tracks</span>
+						</label>
+					</div>
+				<div className="flex items-center justify-between mt-2">
 					<label className="flex items-center gap-2">
 						<input
 							type="checkbox"
@@ -1058,7 +1091,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Input Devices</span>
 						</label>
-						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto border border-primary">
+                        <div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-visible overflow-x-hidden border border-primary">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableInputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1076,7 +1109,18 @@ export default function Settings() {
 											checked={settings.inputDevices.some(d => d.id === device.id)}
 											onChange={() => toggleInputDevice(device.id)}
 										/>
-										<span className="label-text flex-1 mr-2">{device.name}</span>
+										<span className="label-text flex-1 mr-2 flex items-center">
+											{device.name}
+											{(() => {
+												const selectedIndex = combinedSelectedIds.indexOf(device.id);
+                                    const showLimitIcon = settings.enableSeparateAudioTracks && settings.inputDevices.some(d => d.id === device.id) && selectedIndex >= maxIsolatedTracks;
+												return showLimitIcon ? (
+                                        <div className="tooltip tooltip-bottom tooltip-warning ml-1 inline-flex" data-tip="This source will be included in the Full Mix only">
+                                            <MdWarning className="h-4 w-4 text-warning" />
+                                        </div>
+												) : null;
+											})()}
+										</span>
 										{/* Volume slider */} 
 										{settings.inputDevices.some(d => d.id === device.id) && (
 											<div className="flex items-center gap-1 w-32">
@@ -1172,7 +1216,7 @@ export default function Settings() {
 						<label className="label">
 							<span className="label-text">Output Devices</span>
 						</label>
-						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto border border-primary">
+                        <div className="bg-base-200 rounded-lg p-2 max-h-48 border border-primary">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableOutputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1190,7 +1234,18 @@ export default function Settings() {
 											checked={settings.outputDevices.some(d => d.id === device.id)}
 											onChange={() => toggleOutputDevice(device.id)}
 										/>
-										<span className="label-text">{device.name}</span>
+										<span className="label-text flex items-center">
+											{device.name}
+											{(() => {
+												const selectedIndex = combinedSelectedIds.indexOf(device.id);
+                                    const showLimitIcon = settings.enableSeparateAudioTracks && settings.outputDevices.some(d => d.id === device.id) && selectedIndex >= maxIsolatedTracks;
+                                    return showLimitIcon ? (
+                                        <div className="tooltip tooltip-bottom tooltip-warning ml-1 inline-flex" data-tip="This source will be included in the Full Mix only">
+                                            <MdWarning className="h-4 w-4 text-warning" />
+                                        </div>
+                                    ) : null;
+                                })()}
+										</span>
 									</label>
 								</div>
 							))}
@@ -1236,6 +1291,38 @@ export default function Settings() {
 						/>
 						<span className="ml-2">Mono Input Devices</span>
 					</label>
+
+					<AnimatePresence>
+						{hasOverTrackLimit && !trackLimitWarnDismissed && (
+							<motion.div
+								initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+								animate={{
+									opacity: 1,
+									height: 'fit-content',
+									transition: {
+										duration: 0.3,
+										height: { type: 'spring', stiffness: 300, damping: 30 }
+									}
+								}}
+								exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
+								className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 text-amber-400 text-sm flex items-center"
+							>
+								<div className="py-2 flex items-center w-full">
+									<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
+									<motion.span className="flex-1">
+										You have selected more than 5 audio sources. Only the first 5 will be saved as separate audio tracks. Any additional sources will be recorded in the Full Mix only.
+									</motion.span>
+									<button
+										aria-label="Dismiss track limit warning"
+										className="btn btn-ghost btn-xs text-amber-300 hover:text-amber-100"
+										onClick={() => { setTrackLimitWarnDismissed(true); localStorage.setItem('segra.trackLimitWarnDismissedSig', selectionSig); }}
+									>
+										<MdClose className="h-4 w-4" />
+									</button>
+								</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
 				</div>
 			</div>
 
@@ -1354,9 +1441,9 @@ export default function Settings() {
 			</div>
 
 			{/* UI Settings */}
-			<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
-				<h2 className="text-xl font-semibold mb-4">Segra</h2>
-				<div className="bg-base-200 px-4 py-2 rounded-lg space-y-1 border border-custom">
+				<div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
+					<h2 className="text-xl font-semibold mb-4">Segra</h2>
+					<div className="bg-base-200 px-4 py-2 rounded-lg space-y-1 border border-custom">
 					<div className="form-control">
 					<label className="label px-0">Sound Effects Volume</label>
 					<div className="flex items-center gap-2">
@@ -1408,18 +1495,18 @@ export default function Settings() {
 						<span className="flex items-center gap-1">Show game cover while recording <CloudBadge side="right" /></span>
 					</label>
 				</div>
-				<div className="form-control">
-					<label className="label cursor-pointer justify-start gap-2 px-0">
-						<input
-							type="checkbox"
-							name="showAudioWaveformInTimeline"
-							checked={settings.showAudioWaveformInTimeline}
-							onChange={(e) => updateSettings({ showAudioWaveformInTimeline: e.target.checked })}
-							className="checkbox checkbox-sm checkbox-primary"
-						/>
-						<span className="flex items-center gap-1">Show audio waveform in video timeline</span>
-					</label>
-				</div>
+					<div className="form-control">
+						<label className="label cursor-pointer justify-start gap-2 px-0">
+							<input
+								type="checkbox"
+								name="showAudioWaveformInTimeline"
+								checked={settings.showAudioWaveformInTimeline}
+								onChange={(e) => updateSettings({ showAudioWaveformInTimeline: e.target.checked })}
+								className="checkbox checkbox-sm checkbox-primary"
+							/>
+							<span className="flex items-center gap-1">Show audio waveform in video timeline</span>
+						</label>
+					</div>
 				</div>
 			</div>
 
