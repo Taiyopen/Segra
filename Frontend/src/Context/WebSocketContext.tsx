@@ -20,21 +20,6 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   // Ref to track if we've already handled a version mismatch (prevent multiple reloads)
   const versionCheckHandled = useRef(false);
 
-  // Check for stored version info on mount
-  useEffect(() => {
-    const storedOldVersion = localStorage.getItem('oldAppVersion');
-    if (storedOldVersion) {
-      // Clear the flag so it only runs once
-      localStorage.removeItem('oldAppVersion');
-
-      // Import and use the update context to show release notes
-      import('../Context/UpdateContext').then(({ useUpdate }) => {
-        const { openReleaseNotesModal } = useUpdate();
-        openReleaseNotesModal(storedOldVersion);
-      });
-    }
-  }, []);
-
   // Log when the WebSocket provider mounts or session changes
   useEffect(() => {
     console.log("WebSocketProvider: Session state changed:", !!session);
@@ -53,6 +38,21 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           accessToken: session.access_token,
           refreshToken: session.refresh_token
         });
+      }
+
+      // Check if we have an old version stored, if so, show release notes
+      const storedOldVersion = localStorage.getItem('oldAppVersion');
+      if (storedOldVersion) {
+        // Clear the flag so it only runs once
+        localStorage.removeItem('oldAppVersion');
+
+        // Wait 1 second before showing release notes
+        setTimeout(() => {
+          // Dispatch a custom event that UpdateContext can listen for
+          window.dispatchEvent(new CustomEvent('show-release-notes', {
+            detail: { filterVersion: storedOldVersion }
+          }));
+        }, 1000);
       }
     },
     onMessage: (event) => {

@@ -82,10 +82,21 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    // Listen for WebSocket messages
     window.addEventListener('websocket-message', handleWebSocketMessage as EventListener);
+    
+    // Listen for the custom show-release-notes event
+    const handleShowReleaseNotes = (event: CustomEvent<any>) => {
+      if (event.detail && event.detail.filterVersion) {
+        openReleaseNotesModal(event.detail.filterVersion);
+      }
+    };
+    
+    window.addEventListener('show-release-notes', handleShowReleaseNotes as EventListener);
 
     return () => {
       window.removeEventListener('websocket-message', handleWebSocketMessage as EventListener);
+      window.removeEventListener('show-release-notes', handleShowReleaseNotes as EventListener);
     };
   }, []);
 
