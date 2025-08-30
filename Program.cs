@@ -120,8 +120,6 @@ namespace Segra
                 })
                 .Run();
 
-            _ = Task.Run(UpdateUtils.UpdateAppIfNecessary);
-
             try
             {
                 Log.Information("Application starting up...");
@@ -187,7 +185,7 @@ namespace Segra
                     Directory.CreateDirectory(Settings.Instance.ContentFolder);
                 }
 
-                // Run data migrations (non-blocking)
+                // Run data migrations
                 Task.Run(MigrationUtils.RunMigrations);
 
                 // Try to login with stored credentials
@@ -196,6 +194,9 @@ namespace Segra
                 // Start WebSocket and Load Settings
                 Task.Run(MessageUtils.StartWebsocket);
                 Task.Run(StorageUtils.EnsureStorageBelowLimit);
+
+                // Check for updates
+                Task.Run(UpdateUtils.UpdateAppIfNecessary);
 
                 // Check if application was launched from startup
                 bool startMinimized = IsLaunchedFromStartup();
