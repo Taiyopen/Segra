@@ -136,7 +136,7 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
         <p className="text-gray-400 text-lg">
           {filterVersion
             ? `New updates since v${filterVersion}`
-            : <span>Current version: <span className="text-primary font-semibold">{__APP_VERSION__}</span></span>
+            : `You are running v${__APP_VERSION__}`
           }
         </p>
         <button

@@ -1570,7 +1570,7 @@ export default function Settings() {
 						<MdOutlineDescription className="text-lg flex-shrink-0" aria-hidden="true" />
 						<span className="inline-block">View Logs</span>
 					</button>
-					<div>Segra {__APP_VERSION__}</div>
+					<div>Segra v{__APP_VERSION__}</div>
 				</div>
 			</div>
 		</div>
