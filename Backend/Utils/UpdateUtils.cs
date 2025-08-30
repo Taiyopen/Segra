@@ -47,6 +47,9 @@ namespace Segra.Backend.Utils
                 // Store the update info for later use
                 LatestUpdateInfo = newVersion;
 
+                // Fetch latest release notes immediately so the UI has fresh data while showing the update
+                _ = Task.Run(GetReleaseNotes);
+
                 // Get target version string
                 string targetVersion = newVersion.TargetFullRelease.Version.ToString();
 
