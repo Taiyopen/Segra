@@ -1823,7 +1823,7 @@
   { "name": "V Rising", "exe": "V Rising/VRising.exe" },
   { "name": "Valheim", "exe": "Valheim/valheim.exe" },
   { "name": "Valkyria Chronicles 4", "exe": "Valkyria Chronicles 4/valkyria4.exe" },
-  { "name": "Valorant", "exe": "VALORANT/live/VALORANT.exe" },
+  { "name": "Valorant", "exe": "Win64/VALORANT-Win64-Shipping.exe" },
   { "name": "Vampire Survivors", "exe": "Vampire Survivors/VampireSurvivors.exe" },
   { "name": "Vampire: The Masquerade - Bloodlines", "exe": "Vampire The Masquerade - Bloodlines/vampire.exe" },
   { "name": "Vampire: The Masquerade - Bloodlines 2", "exe": "Vampire The Masquerade - Bloodlines 2/VTMB2/Binaries/Win64/VTMB2-Win64-Shipping.exe" },
