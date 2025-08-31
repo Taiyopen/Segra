@@ -6,7 +6,6 @@ import { useScroll } from '../Context/ScrollContext';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { IconType } from 'react-icons';
 import ContentFilters, { SortOption } from './ContentFilters';
-import AiContentCard from './AiContentCard';
 
 interface ContentPageProps {
   contentType: ContentType;
@@ -190,16 +189,6 @@ export default function ContentPage({
               type={contentType}
             />
           ))}
-
-          {/* Show AI content cards for highlights if applicable */}
-          {contentType === 'Highlight' && hasProgress &&
-            progressValues.map((progress: any, index) => (
-              <AiContentCard
-                key={`ai-${index}`}
-                progress={progress}
-              />
-            ))
-          }
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center h-64 text-gray-500">
