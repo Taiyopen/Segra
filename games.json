@@ -1059,7 +1059,7 @@
   { "name": "Might & Magic Heroes VII", "exe": "Might and Magic Heroes VII/Binaries/Win64/MMH7Game-Win64-Shipping.exe" },
   { "name": "Mina the Hollower", "exe": "Mina the Hollower/MinaTheHollower.exe" },
   { "name": "MindsEye", "exe": "MindsEye/MindsEye.exe" },
-  { "name": "Minecraft", "exe": "bin/javaw.exe" },
+  { "name": "Minecraft: Java Edition", "exe": "bin/javaw.exe" },
   { "name": "Minecraft Dungeons", "exe": "Minecraft Dungeons/Dungeons/Binaries/Win64/Dungeons-Win64-Shipping.exe" },
   { "name": "Minecraft Legends", "exe": "Minecraft Legends/MinecraftLegends.exe" },
   { "name": "Mirror's Edge", "exe": "Mirrors Edge/Binaries/MirrorsEdge.exe" },
