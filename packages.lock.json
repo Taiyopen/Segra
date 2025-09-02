@@ -2,12 +2,6 @@
   "version": 1,
   "dependencies": {
     "net9.0-windows10.0.17763": {
-      "EventHook": {
-        "type": "Direct",
-        "requested": "[1.4.113, )",
-        "resolved": "1.4.113",
-        "contentHash": "IL9FGekRmqXSsXl8pnhZrFhL4uWrHpNNViysFEbVSLGISCVbmR0hCTSchuQb+PCC/XEy4cdqraIbQkZPZKMzSw=="
-      },
       "Microsoft.Extensions.FileProviders.Embedded": {
         "type": "Direct",
         "requested": "[9.0.8, )",
