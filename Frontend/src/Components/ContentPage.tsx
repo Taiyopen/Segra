@@ -3,7 +3,7 @@ import ContentCard from './ContentCard';
 import { useSelectedVideo } from "../Context/SelectedVideoContext";
 import { Content, ContentType } from "../Models/types";
 import { useScroll } from '../Context/ScrollContext';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { IconType } from 'react-icons';
 import ContentFilters, { SortOption } from './ContentFilters';
 
@@ -112,7 +112,7 @@ export default function ContentPage({
   };
 
   // Restore scroll position on mount
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Type-safe access to scroll positions
     const position = sectionId === 'clips' ? scrollPositions.clips :
       sectionId === 'highlights' ? scrollPositions.highlights :
@@ -128,7 +128,7 @@ export default function ContentPage({
     }
   }, []); // Only run on mount
 
-  const scrollTimeout = useRef<NodeJS.Timeout>();
+    const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Save scroll position when scrolling
   const handleScroll = () => {
