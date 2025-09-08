@@ -223,28 +223,24 @@ export default function Settings() {
 
 						<form onSubmit={handleEmailLogin} className="space-y-4">
 							<div className="form-control">
-								<label className="label">
-									<span className="label-text">Email</span>
-								</label>
+								<div className="mb-2">Email</div>
 								<input
 									type="email"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
-									className="input input-bordered bg-base-200"
+									className="input input-bordered bg-base-200 w-full"
 									disabled={isAuthenticating}
 									required
 								/>
 							</div>
 
 							<div className="form-control">
-								<label className="label">
-									<span className="label-text">Password</span>
-								</label>
+								<div className="mb-2">Password</div>
 								<input
 									type="password"
 									value={password}
 									onChange={(e) => setPassword(e.target.value)}
-									className="input input-bordered bg-base-200"
+									className="input input-bordered bg-base-200 w-full"
 									disabled={isAuthenticating}
 									required
 								/>
@@ -783,7 +779,7 @@ export default function Settings() {
 							className="checkbox checkbox-primary checkbox-sm"
 						/>
 						<span className="font-medium cursor-pointer">Enable Display Recording</span>
-						<span className="badge badge-warning badge-sm text-base-content text-base-300!">Beta</span>
+						<span className="badge badge-primary badge-sm text-base-content text-base-300!">Beta</span>
 					</label>
 				</div>
 				<AnimatePresence>
