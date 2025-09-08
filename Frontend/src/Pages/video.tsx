@@ -1272,14 +1272,6 @@ export default function VideoComponent({ video }: { video: Content }) {
                         <div className="flex items-center gap-3">
                             {(video.type === "Session" || video.type === "Buffer") && (
                                 <>
-                                    <div className="flex items-center gap-2 bg-base-300 rounded-lg">
-                                        <button
-                                            onClick={handleAddBookmark}
-                                            className="btn btn-sm btn-secondary border-custom hover:border-custom h-10 text-gray-400 hover:text-accent tooltip tooltip-secondary tooltip-bottom" data-tip="Add Bookmark"
-                                        >
-                                            <MdBookmarkAdd className="w-6 h-6" />
-                                        </button>
-                                    </div>
                                     {availableBookmarkTypes.length > 0 && (
                                         <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 join border border-custom">
                                             {availableBookmarkTypes.map(type => (
@@ -1297,6 +1289,14 @@ export default function VideoComponent({ video }: { video: Content }) {
                                             ))}
                                         </div>
                                     )}
+                                    <div className="flex items-center gap-2 bg-base-300 rounded-lg">
+                                        <button
+                                            onClick={handleAddBookmark}
+                                            className="btn btn-sm btn-secondary border-custom hover:border-custom h-10 text-gray-400 hover:text-accent"
+                                        >
+                                            <MdBookmarkAdd className="w-6 h-6" />
+                                        </button>
+                                    </div>
                                 </>
                             )}
 
