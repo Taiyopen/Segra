@@ -1328,7 +1328,7 @@ export default function Settings() {
 				<div className="space-y-2">
 					{settings.keybindings.map((keybind, index) => (
 						<div key={index} className="flex items-center justify-between">
-							<div className="flex items-center justify-between bg-base-200 rounded-lg p-2 px-3 border border-base-400 min-w-[50%]">
+							<div className="flex items-center justify-between bg-base-200 rounded-lg py-2 px-3 border border-base-400 min-w-[50%]">
 								<label className="flex items-center gap-2 cursor-pointer">
 									<div className="flex items-center gap-2 mr-2">
 										<input
@@ -1348,7 +1348,7 @@ export default function Settings() {
 									<span className="font-medium">{keybind.action == KeybindAction.CreateBookmark ? 'Create Bookmark' : 'Save Replay Buffer'}</span>
 								</label>
 								<button
-									className={`kbd kbd-md cursor-pointer min-w-[25%] h-10 text-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
+									className={`kbd kbd-md cursor-pointer min-w-[25%] h-8 text-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
 									style={{ display: 'flex', justifyContent: 'center' }}
 									onClick={() => {
 										activeKeysRef.current = [];
