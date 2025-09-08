@@ -91,7 +91,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
               <tr>
                 <th className="font-bold text-base-content w-1/3">Game</th>
                 <th className="font-bold text-base-content w-1/2">Executable Path</th>
-                <th className="font-bold text-base-content w-1/6">Action</th>
+                <th className="font-bold text-base-content w-1/6"></th>
               </tr>
             </thead>
             <tbody>
