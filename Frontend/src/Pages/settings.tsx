@@ -589,7 +589,7 @@ export default function Settings() {
 						</motion.div>
 					)}
 				</AnimatePresence>
-				<div className="grid grid-cols-2 gap-4 pt-4">
+				<div className="grid grid-cols-2 gap-4">
 					{/* Resolution */}
 					<div className="form-control">
 						<label className="label">
@@ -757,7 +757,7 @@ export default function Settings() {
 						/>
 					</div>
 				</div>
-				<div className="form-control mt-2">
+				<div className="form-control mt-3">
 					<label className="label cursor-pointer justify-start gap-2 px-0">
 						<input
 							type="checkbox"
@@ -770,7 +770,7 @@ export default function Settings() {
 					</label>
 				</div>
 				<div className="flex items-center justify-between mt-2">
-					<label className="flex items-center gap-2">
+					<label className="flex items-center gap-2 cursor-pointer">
 						<input
 							type="checkbox"
 							name="enableDisplayRecording"
