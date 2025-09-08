@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase/client';
 import { FaDiscord } from 'react-icons/fa';
 import { useAuth } from '../Hooks/useAuth.tsx';
 import { useProfile } from '../Hooks/useUserProfile';
-import { MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription, MdClose } from 'react-icons/md';
+import { MdOutlineLogout, MdWarning, MdLock, MdOutlineDescription, MdClose, MdOutlineUpdate } from 'react-icons/md';
 import { useUpdate } from '../Context/UpdateContext';
 import GameListManager from '../Components/GameListManager';
 import { SiGithub } from 'react-icons/si';
@@ -310,7 +310,7 @@ export default function Settings() {
 							{/* Logout Button */}
 							<button
 								onClick={handleLogout}
-								className="btn btn-sm no-animation btn-outline btn-error"
+								className="btn btn-sm no-animation btn-outline btn-error h-8"
 								disabled={isLoggingOut}
 							>
 								{!isLoggingOut && <MdOutlineLogout className="w-4 h-4" />}
@@ -470,7 +470,7 @@ export default function Settings() {
 				<h2 className="text-xl font-semibold mb-4">Capture Mode</h2>
 				<div className="grid grid-cols-2 gap-6">
 					<div
-						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primaryYellow' : 'border-primary'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primary' : 'border-base-400'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
 						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Session' })}
 					>
 						<div className="text-lg font-semibold mb-3">Session Recording</div>
@@ -487,7 +487,7 @@ export default function Settings() {
 						</div>
 					</div>
 					<div
-						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primaryYellow' : 'border-primary'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+						className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primary' : 'border-base-400'} ${settings.state.recording || settings.state.preRecording != null ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
 						onClick={() => !settings.state.recording && !settings.state.preRecording && updateSettings({ recordingMode: 'Buffer' })}
 					>
 						<div className="flex items-center gap-2 mb-3">
@@ -549,7 +549,7 @@ export default function Settings() {
 								>
 									{/* Buffer Duration */}
 									<div className="form-control">
-										<label className="label">
+										<label className="label text-base-content">
 											<span className="label-text">Buffer Duration (seconds)</span>
 										</label>
 										<input
@@ -564,13 +564,13 @@ export default function Settings() {
 											className={`input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80`}
 										/>
 										<div className="help-text-container">
-											<span className="text-xs text-base-content text-opacity-60 mt-1">How many seconds of gameplay to keep in memory</span>
+											<span className="text-xs text-base-content/60 mt-1">How many seconds of gameplay to keep in memory</span>
 										</div>
 									</div>
 
 									{/* Buffer Max Size */}
 									<div className="form-control">
-										<label className="label">
+										<label className="label text-base-content">
 											<span className="label-text">Maximum Size (MB)</span>
 										</label>
 										<input
@@ -585,7 +585,7 @@ export default function Settings() {
 											className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80"
 										/>
 										<div className="help-text-container">
-											<span className="text-xs text-base-content text-opacity-60 mt-1">Maximum buffer size in megabytes</span>
+											<span className="text-xs text-base-content/60 mt-1">Maximum buffer size in megabytes</span>
 										</div>
 									</div>
 								</motion.div>
@@ -593,11 +593,11 @@ export default function Settings() {
 						</motion.div>
 					)}
 				</AnimatePresence>
-				<div className="grid grid-cols-2 gap-4">
+				<div className="grid grid-cols-2 gap-4 pt-4">
 					{/* Resolution */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Resolution</span>
+							<span className="label-text text-base-content">Resolution</span>
 						</label>
 						<DropdownSelect
 							items={[
@@ -614,7 +614,7 @@ export default function Settings() {
 					{/* Frame Rate */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Frame Rate (FPS)</span>
+							<span className="label-text text-base-content">Frame Rate (FPS)</span>
 						</label>
 						<DropdownSelect
 							items={[24, 30, 60, 120, 144].map(v => ({ value: String(v), label: String(v) }))}
@@ -626,7 +626,7 @@ export default function Settings() {
 					{/* Rate Control */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Rate Control</span>
+							<span className="label-text text-base-content">Rate Control</span>
 						</label>
 						{/* Rate control: hide CRF when encoder is not CPU */}
 						<DropdownSelect
@@ -645,7 +645,7 @@ export default function Settings() {
 					{settings.rateControl === 'CBR' && (
 						<div className="form-control">
 							<label className="label">
-								<span className="label-text">Bitrate (Mbps)</span>
+								<span className="label-text text-base-content">Bitrate (Mbps)</span>
 							</label>
 							<DropdownSelect
 								items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
@@ -660,7 +660,7 @@ export default function Settings() {
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div className="form-control">
 								<label className="label">
-									<span className="label-text">Minimum Bitrate (Mbps)</span>
+									<span className="label-text text-base-content">Minimum Bitrate (Mbps)</span>
 								</label>
 								<DropdownSelect
 									items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
@@ -674,7 +674,7 @@ export default function Settings() {
 							</div>
 							<div className="form-control">
 								<label className="label">
-									<span className="label-text">Maximum Bitrate (Mbps)</span>
+									<span className="label-text text-base-content">Maximum Bitrate (Mbps)</span>
 								</label>
 								<DropdownSelect
 									items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map(v => ({ value: String(v), label: `${v} Mbps` }))}
@@ -693,7 +693,7 @@ export default function Settings() {
 					{settings.rateControl === 'CRF' && (
 						<div className="form-control">
 							<label className="label">
-								<span className="label-text">CRF Value (0-51)</span>
+								<span className="label-text text-base-content">CRF Value (0-51)</span>
 							</label>
 							<input
 								type="number"
@@ -711,7 +711,7 @@ export default function Settings() {
 					{settings.rateControl === 'CQP' && (
 						<div className="form-control">
 							<label className="label">
-								<span className="label-text">CQ Level (0-30)</span>
+								<span className="label-text text-base-content">CQ Level (0-30)</span>
 							</label>
 							<input
 								type="number"
@@ -728,7 +728,7 @@ export default function Settings() {
 					{/* Encoder */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Video Encoder</span>
+							<span className="label-text text-base-content">Video Encoder</span>
 						</label>
 						<DropdownSelect
 							items={[{ value: 'gpu', label: 'GPU' }, { value: 'cpu', label: 'CPU' }]}
@@ -740,7 +740,7 @@ export default function Settings() {
 					{/* Codec */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Codec</span>
+							<span className="label-text text-base-content">Codec</span>
 						</label>
 						<DropdownSelect
 							items={settings.state.codecs
@@ -758,7 +758,6 @@ export default function Settings() {
 							value={settings.state.codecs.find((c) => c.internalEncoderId === settings.codec?.internalEncoderId)?.internalEncoderId}
 							onChange={(val) => updateSettings({ codec: settings.state.codecs.find((c) => c.internalEncoderId === val) })}
 							disabled={settings.state.codecs.length === 0}
-							menuClassName="dropdown-content menu bg-base-300 border border-primary rounded-box z-[999] w-full p-2 mt-1 shadow"
 						/>
 					</div>
 				</div>
@@ -771,7 +770,7 @@ export default function Settings() {
 							onChange={(e) => updateSettings({ enableSeparateAudioTracks: e.target.checked })}
 							className="checkbox checkbox-sm checkbox-primary"
 						/>
-						<span className="flex items-center gap-1">Separate audio tracks</span>
+						<span className="flex items-center gap-1 text-base-content">Separate audio tracks</span>
 					</label>
 				</div>
 				<div className="flex items-center justify-between mt-2">
@@ -784,7 +783,7 @@ export default function Settings() {
 							className="checkbox checkbox-primary checkbox-sm"
 						/>
 						<span className="font-medium cursor-pointer">Enable Display Recording</span>
-						<span className="badge badge-warning badge-sm">Beta</span>
+						<span className="badge badge-warning badge-sm text-base-content text-base-300!">Beta</span>
 					</label>
 				</div>
 				<AnimatePresence>
@@ -810,7 +809,7 @@ export default function Settings() {
 							key="display-recording-warning"
 						>
 							<div className="py-2 flex items-center w-full">
-								<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
+								<MdWarning className="h-5 w-5 mr-2 shrink-0" />
 								<motion.span>
 									This feature enables recording of games that do not support game hook.
 									This could cause lag during gameplay as it uses display capture instead of game capture.
@@ -865,8 +864,8 @@ export default function Settings() {
 				<div className="grid grid-cols-2 gap-4">
 					{/* Recording Path */}
 					<div className="form-control">
-						<label className="label">
-							<span className="label-text">Recording Path</span>
+						<label className="label pb-1">
+							<span className="label-text text-base-content">Recording Path</span>
 						</label>
 						<div className="flex space-x-2">
 							<div className="join w-full">
@@ -878,7 +877,7 @@ export default function Settings() {
 									placeholder="Enter or select folder path"
 									className="input input-bordered flex-1 bg-base-200 join-item"
 								/>
-								<button onClick={handleBrowseClick} className="btn btn-secondary bg-base-200 border-primary hover:border-custom font-semibold join-item">
+								<button onClick={handleBrowseClick} className="btn btn-secondary bg-base-200 hover:bg-base-300 hover:text-primary border-base-400 hover:border-base-400 font-semibold join-item">
 									Browse
 								</button>
 							</div>
@@ -887,9 +886,10 @@ export default function Settings() {
 
 					{/* Storage Limit */}
 					<div className="form-control">
-						<label className="label">
-							<span className="label-text">Storage Limit (GB)</span>
+						<label className="label block px-0 pb-1">
+							<span className="label-text text-base-content">Storage Limit (GB)</span>
 						</label>
+
 						<input
 							type="number"
 							name="storageLimit"
@@ -898,7 +898,7 @@ export default function Settings() {
 							onBlur={() => updateSettings({ storageLimit: localStorageLimit })}
 							placeholder="Set maximum storage in GB"
 							min="1"
-							className="input input-bordered bg-base-200"
+							className="input input-bordered bg-base-200 w-full block"
 						/>
 					</div>
 				</div>
@@ -911,7 +911,7 @@ export default function Settings() {
 					{/* Encoder */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Encoder</span>
+							<span className="label-text text-base-content">Encoder</span>
 						</label>
 						<DropdownSelect
 							items={[
@@ -934,7 +934,7 @@ export default function Settings() {
 					{/* Quality (CRF) - New Dropdown */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Quality (CRF)</span>
+							<span className="label-text text-base-content">Quality (CRF)</span>
 						</label>
 						<DropdownSelect
 							items={[
@@ -959,7 +959,7 @@ export default function Settings() {
 					{/* Codec */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Codec</span>
+							<span className="label-text text-base-content">Codec</span>
 						</label>
 						<DropdownSelect
 							items={[
@@ -976,7 +976,7 @@ export default function Settings() {
 					{/* FPS */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">FPS</span>
+							<span className="label-text text-base-content">FPS</span>
 						</label>
 						<DropdownSelect
 							items={[
@@ -995,7 +995,7 @@ export default function Settings() {
 					{/* Audio Quality */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Audio Quality</span>
+							<span className="label-text text-base-content">Audio Quality</span>
 						</label>
 						<DropdownSelect
 							items={[
@@ -1013,7 +1013,7 @@ export default function Settings() {
 					{/* Preset */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Preset</span>
+							<span className="label-text text-base-content">Preset</span>
 						</label>
 						<DropdownSelect
 							items={(() => {
@@ -1089,9 +1089,9 @@ export default function Settings() {
 					{/* Input Devices (Multiple Selection) */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Input Devices</span>
+							<span className="label-text text-base-content">Input Devices</span>
 						</label>
-						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-visible overflow-x-hidden border border-primary">
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-visible overflow-x-hidden border border-base-400">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableInputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1214,9 +1214,9 @@ export default function Settings() {
 					{/* Output Devices (Multiple Selection) */}
 					<div className="form-control">
 						<label className="label">
-							<span className="label-text">Output Devices</span>
+							<span className="label-text text-base-content">Output Devices</span>
 						</label>
-						<div className="bg-base-200 rounded-lg p-2 max-h-48 border border-primary">
+						<div className="bg-base-200 rounded-lg p-2 max-h-48 border border-base-400">
 							{/* Warning for unavailable devices */}
 							{hasUnavailableOutputDevices && (
 								<div className="text-warning text-xs mb-2 flex items-center">
@@ -1308,7 +1308,7 @@ export default function Settings() {
 								className="mt-3 bg-amber-900 bg-opacity-30 border border-amber-500 rounded px-3 text-amber-400 text-sm flex items-center"
 							>
 								<div className="py-2 flex items-center w-full">
-									<MdWarning className="h-5 w-5 mr-2 flex-shrink-0" />
+									<MdWarning className="h-5 w-5 mr-2 shrink-0" />
 									<motion.span className="flex-1">
 										You have selected more than 5 audio sources. Only the first 5 will be saved as separate audio tracks. Any additional sources will be recorded in the Full Mix only.
 									</motion.span>
@@ -1332,7 +1332,7 @@ export default function Settings() {
 				<div className="space-y-2">
 					{settings.keybindings.map((keybind, index) => (
 						<div key={index} className="flex items-center justify-between">
-							<div className="flex items-center justify-between bg-base-200 rounded-lg p-2 px-3 border border-primary min-w-[50%]">
+							<div className="flex items-center justify-between bg-base-200 rounded-lg p-2 px-3 border border-base-400 min-w-[50%]">
 								<label className="flex items-center gap-2 cursor-pointer">
 									<div className="flex items-center gap-2 mr-2">
 										<input
@@ -1352,7 +1352,7 @@ export default function Settings() {
 									<span className="font-medium">{keybind.action == KeybindAction.CreateBookmark ? 'Create Bookmark' : 'Save Replay Buffer'}</span>
 								</label>
 								<button
-									className={`kbd kbd-md min-w-[25%] text-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
+									className={`kbd kbd-md cursor-pointer min-w-[25%] h-10 text-lg ${isCapturingKey === index ? 'animate-pulse' : ''}`}
 									style={{ display: 'flex', justifyContent: 'center' }}
 									onClick={() => {
 										activeKeysRef.current = [];
@@ -1445,7 +1445,7 @@ export default function Settings() {
 				<h2 className="text-xl font-semibold mb-4">Segra</h2>
 				<div className="bg-base-200 px-4 py-2 rounded-lg space-y-1 border border-custom">
 					<div className="form-control">
-						<label className="label px-0">Sound Effects Volume</label>
+						<label className="label px-0 text-base-content">Sound Effects Volume</label>
 						<div className="flex items-center gap-2">
 							<input
 								type="range"
@@ -1480,7 +1480,7 @@ export default function Settings() {
 								onChange={(e) => updateSettings({ showNewBadgeOnVideos: e.target.checked })}
 								className="checkbox checkbox-sm checkbox-primary"
 							/>
-							<span className="flex items-center gap-1">Show<span className="badge badge-primary badge-sm">NEW</span>badge on new sessions and replay buffers</span>
+							<span className="flex items-center gap-1 text-base-content">Show<span className="badge badge-primary badge-sm text-base-300">NEW</span>badge on new sessions and replay buffers</span>
 						</label>
 					</div>
 					<div className="form-control">
@@ -1492,7 +1492,7 @@ export default function Settings() {
 								onChange={(e) => updateSettings({ showGameBackground: e.target.checked })}
 								className="checkbox checkbox-sm checkbox-primary"
 							/>
-							<span className="flex items-center gap-1">Show game cover while recording <CloudBadge side="right" /></span>
+							<span className="flex items-center gap-1 text-base-content">Show game cover while recording <CloudBadge side="right" /></span>
 						</label>
 					</div>
 					<div className="form-control">
@@ -1504,7 +1504,7 @@ export default function Settings() {
 								onChange={(e) => updateSettings({ showAudioWaveformInTimeline: e.target.checked })}
 								className="checkbox checkbox-sm checkbox-primary"
 							/>
-							<span className="flex items-center gap-1">Show audio waveform in video timeline</span>
+							<span className="flex items-center gap-1 text-base-content">Show audio waveform in video timeline</span>
 						</label>
 					</div>
 				</div>
@@ -1515,31 +1515,36 @@ export default function Settings() {
 				<h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
 				<div className="bg-base-200 p-4 rounded-lg space-y-4 border border-custom">
 					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
-							<span className="font-medium">Update Channel</span>
-							<DropdownSelect
-								size='sm'
-								items={[{ value: 'stable', label: 'Stable' }, { value: 'beta', label: 'Beta' }]}
-								value={settings.receiveBetaUpdates ? 'beta' : 'stable'}
-								onChange={(val) => updateSettings({ receiveBetaUpdates: val === 'beta' })}
-							/>
+						<div className="flex flex-row items-center">
+							<div className="flex-none mr-2">
+								<span className="text-base-content">Update Channel</span>
+							</div>
+							<div className="flex-none w-28">
+								<DropdownSelect
+									size='sm'
+									buttonClassName="btn btn-sm h-8 min-h-0 border-base-400 w-full justify-between"
+									items={[{ value: 'stable', label: 'Stable' }, { value: 'beta', label: 'Beta' }]}
+									value={settings.receiveBetaUpdates ? 'beta' : 'stable'}
+									onChange={(val) => updateSettings({ receiveBetaUpdates: val === 'beta' })}
+								/>
+							</div>
 						</div>
 						<div className="flex items-center gap-2">
 							<button
 								onClick={() => openReleaseNotesModal(null)}
-								className="btn btn-sm btn-secondary outline outline-custom outline-1 hover:outline-custom hover:outline-1 text-gray-400 hover:text-gray-300 flex items-center justify-center"
+								className="btn btn-sm btn-secondary border-custom hover:border-custom text-gray-400 hover:text-gray-300 flex items-center justify-center"
 							>
-								<SiGithub className="text-lg flex-shrink-0" aria-hidden="true" />
+								<SiGithub className="text-lg shrink-0" aria-hidden="true" />
 								<span className="inline-block">View Release Notes</span>
 							</button>
 							<button
-								className="btn btn-sm btn-primary flex items-center gap-1"
+								className="btn btn-sm btn-primary flex items-center gap-1 text-base-300 w-38"
 								onClick={() => checkForUpdates()}
 								disabled={settings.state.isCheckingForUpdates}
 							>
-								{settings.state.isCheckingForUpdates && (
+								{settings.state.isCheckingForUpdates ? (
 									<span className="loading loading-spinner loading-xs"></span>
-								)}
+								) : <MdOutlineUpdate className="text-lg shrink-0"/>}
 								Check for Updates
 							</button>
 						</div>
@@ -1567,7 +1572,7 @@ export default function Settings() {
 						onClick={() => sendMessageToBackend('OpenLogsLocation')}
 						className="btn btn-sm btn-secondary border-custom hover:border-custom text-gray-400 hover:text-gray-300 flex items-center justify-center"
 					>
-						<MdOutlineDescription className="text-lg flex-shrink-0" aria-hidden="true" />
+						<MdOutlineDescription className="text-lg shrink-0" aria-hidden="true" />
 						<span className="inline-block">View Logs</span>
 					</button>
 					<div>Segra {__APP_VERSION__ === "Developer Preview" ? __APP_VERSION__ : "v" + __APP_VERSION__}</div>

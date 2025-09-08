@@ -1,6 +1,58 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+﻿@import "tailwindcss";
+@plugin "daisyui" {
+    themes: false;
+}
+
+@plugin "daisyui/theme" {
+    name: "segra";
+    default: true;
+    color-scheme: dark;
+    /* Dina färger (oförändrade) */
+    --color-primary: #fecb00;
+    --color-secondary: #171f2a;
+    --color-accent: #fecb00;
+    --color-neutral: #142638;
+    --color-base-100: #132733;
+    --color-base-200: #15232F;
+    --color-base-300: #171f2a;
+    --color-base-content: #ffffff;
+    --color-info: #005293;
+    --color-success: #36D399;
+    --color-warning: #ffd481;
+    --color-error: #F87272;
+    --card-p: 1rem;
+    /* DaisyUI v5 tokens – matcha v4-defaults */
+    --radius-box: 1rem; /* v4: --rounded-box: 1rem */
+    --radius-field: 0.5rem; /* v4: --rounded-btn: 0.5rem */
+    --radius-selector: 0.45rem; /* v4: --rounded-badge: 1.9rem */
+    /* Storleksskala (px, skriv som siffra utan enhet) – rimlig v4-känsla */
+    --size-selector: 0.25rem;
+    --size-field: 0.3rem;
+    /* Kantlinje & effekter */
+    --border: 1px; /* v4 hade 1px på knappar/flikar */
+    --depth: 0; /* v4 hade inget djup */
+    --noise: 0; /* v4 hade ingen noise */
+}
+
+@layer components {
+  .checkbox { color: var(--color-base-300) !important; }
+  .tooltip[data-tip]::before { color: var(--color-base-300) !important; }
+  .btn:is(:disabled,[disabled],.btn-disabled):not(.btn-link,.btn-ghost){
+    background-color: var(--btn-bg) !important;
+    box-shadow: var(--btn-shadow) !important;
+  }
+  @media (hover:hover){
+    .btn:is(:disabled,[disabled],.btn-disabled):hover{
+      background-color: var(--btn-bg) !important;
+    }
+  }
+}
+
+@theme {
+    --color-base-400: #49515b;
+    --color-custom: #2e3640;
+    --color-primary-yellow: #fecb00;
+}
 
 :root {
   --foreground-rgb: 0, 0, 0;

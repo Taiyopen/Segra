@@ -62,7 +62,7 @@ const AiContentCard: React.FC<AiContentCardProps> = ({ progress }) => {
   return (
     <div className="card card-compact shadow-xl w-full relative highlight-card min-h-[271.5px]">
       <div className="absolute inset-0 rounded-lg highlight-border">
-        <div className="card absolute inset-[1px] bg-base-300 z-[2]">
+        <div className="card absolute inset-px bg-base-300 z-2">
           <figure className="relative aspect-w-16 aspect-h-9">
             <div className="w-full h-0 relative bg-base-300/70 rounded-none" style={{ paddingTop: '56.25%' }}>
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-base-200">

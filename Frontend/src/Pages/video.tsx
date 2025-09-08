@@ -1173,7 +1173,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                             })}
                         </div>
                         <div
-                            className="timeline-container bg-base-300 border border-primary rounded-lg relative h-[50px] w-full overflow-hidden waveform-ready"
+                            className="timeline-container bg-base-300 border border-base-400 rounded-lg relative h-[50px] w-full overflow-hidden waveform-ready"
                             style={{
                                 width: `${duration * pixelsPerSecond}px`,
                                 minWidth: "100%"
@@ -1208,7 +1208,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                             })}
                             {resizingSelectionId == null && (
                                 <div
-                                    className="marker absolute top-0 left-0 w-1 h-full rounded-sm -translate-x-1/2 cursor-pointer shadow bg-accent"
+                                    className="marker absolute top-0 left-0 w-1 h-full rounded-sm -translate-x-1/2 cursor-pointer shadow bg-accent z-10"
                                     style={{ left: `${currentTime * pixelsPerSecond}px` }}
                                     onMouseDown={handleMarkerDragStart}
                                 />

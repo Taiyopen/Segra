@@ -33,7 +33,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
       }>
         {type === 'Highlight' && (
           <div className="absolute inset-0 rounded-lg highlight-border">
-            <div className="card absolute inset-[1px] bg-base-300 z-[2]">
+            <div className="card absolute inset-px bg-base-300 z-2">
               <figure className="relative aspect-w-16 aspect-h-9">
                 {/* Thumbnail Skeleton */}
                 <div className="skeleton w-full h-0 relative bg-base-300/70 rounded-none" style={{ paddingTop: '56.25%' }}></div>
@@ -172,7 +172,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
         onClick?.(content!);
       }}
     >
-      <figure className="relative aspect-[16/9] bg-black">
+      <figure className="relative aspect-video bg-black">
         <img
           src={thumbnailPath}
           alt={"thumbnail"}
@@ -185,20 +185,119 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
           {formattedDuration}
         </span>
         {isRecent() && (type === 'Session' || type === 'Buffer') && showNewBadgeOnVideos && (
-          <span className="absolute top-2 left-2 badge badge-primary badge-sm">
+          <span className="absolute top-2 left-2 badge badge-primary badge-sm text-base-300 opacity-90">
             NEW
           </span>
         )}
       </figure>
 
       <div className="card-body">
-        <h2 className="card-title truncate">{content!.title || (content!.game || 'Untitled')}</h2>
+        <div className="flex justify-between items-center">
+          <h2 className="card-title truncate">{content!.title || (content!.game || 'Untitled')}</h2>
+          <div className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
+            <label 
+              tabIndex={0} 
+              className="btn btn-ghost btn-sm btn-circle p-1 hover:bg-white/20 active:bg-white/20"
+            >
+              <svg fill="#e5e7eb" height={22} width={22} version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32.055 32.055"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <path d="M3.968,12.061C1.775,12.061,0,13.835,0,16.027c0,2.192,1.773,3.967,3.968,3.967c2.189,0,3.966-1.772,3.966-3.967 C7.934,13.835,6.157,12.061,3.968,12.061z M16.233,12.061c-2.188,0-3.968,1.773-3.968,3.965c0,2.192,1.778,3.967,3.968,3.967 s3.97-1.772,3.97-3.967C20.201,13.835,18.423,12.061,16.233,12.061z M28.09,12.061c-2.192,0-3.969,1.774-3.969,3.967 c0,2.19,1.774,3.965,3.969,3.965c2.188,0,3.965-1.772,3.965-3.965S30.278,12.061,28.09,12.061z"></path> </g> </g></svg>
+            </label>
+            <ul tabIndex={0} className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2 shadow">
+              {(type === "Clip" || type === "Highlight") && (
+                <li>
+                  <a
+                    className="flex w-full items-center gap-2 px-4 py-3 text-primary hover:bg-primary/10 active:bg-primary/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
+                    onClick={() => {
+                      // Blur the active element before handling upload
+                      (document.activeElement as HTMLElement).blur();
+                      handleUpload();
+                    }}
+                  >
+                    <MdOutlineFileUpload size="20" />
+                    <span>Upload</span>
+                  </a>
+                </li>
+              )}
+              {(type === "Session") && enableAi && (
+                <li>
+                  {(() => {
+                    // Get authentication status
+                    const { session } = useAuth();
+                    const isLoggedIn = !!session;
+
+                    const hasBookmarks = content?.bookmarks && content.bookmarks.length > 0;
+                    const isProcessing = Object.values(aiProgress).some(
+                      progress => progress.content.fileName === content?.fileName && progress.status === 'processing'
+                    );
+                    const isDisabled = !hasBookmarks || isProcessing || !isLoggedIn;
+
+                    return (
+                      <a
+                        className={`flex w-full items-center gap-2 px-4 py-3 ${isDisabled
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20'
+                          } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+                        onClick={() => {
+                          // Only proceed if there are bookmarks, user is logged in, and no processing
+                          if (hasBookmarks && !isProcessing && isLoggedIn) {
+                            // Blur the active element before handling create AI clip
+                            (document.activeElement as HTMLElement).blur();
+                            handleCreateAiClip();
+                          }
+                        }}
+                      >
+                        <HiOutlineSparkles size="20" />
+                        <span>
+                          {isProcessing
+                            ? 'Generating AI Clip...'
+                            : (!isLoggedIn
+                              ? 'Log In to Create AI Clip'
+                              : (hasBookmarks ? 'Create AI Highlight' : 'No Highlights')
+                            )
+                          }
+                        </span>
+                      </a>
+                    );
+                  })()}
+                </li>
+              )}
+
+              <li>
+                <a
+                  className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
+                  onClick={() => {
+                    // I don't know why it doesn't hide by itself?
+                    (document.activeElement as HTMLElement).blur();
+
+                    handleOpenFileLocation();
+                  }}
+                >
+                  <MdOutlineInsertDriveFile size="20" />
+                  <span>Open File Location</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  className="flex w-full items-center gap-2 px-4 py-3 text-error hover:bg-error/10 active:bg-error/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
+                  onClick={() => {
+                    // I don't know why it doesn't hide by itself?
+                    (document.activeElement as HTMLElement).blur();
+
+                    handleDelete();
+                  }}
+                >
+                  <MdDeleteOutline size="20" />
+                  <span>Delete</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
         <p className="text-sm text-gray-200 flex items-center justify-between w-full">
           <span>{content!.fileSize} &bull; {new Date(content!.createdAt).toLocaleDateString()}</span>
           {content!.uploadId && (
-            <div className="flex absolute right-3 gap-0">
+            <div className="flex absolute right-3 gap-0 pr-1">
               <span
-                className="btn btn-ghost btn-sm btn-circle relative group"
+                className="btn btn-ghost btn-sm btn-circle relative group hover:bg-white/20 active:bg-white/20"
                 onClick={(e) => {
                   e.stopPropagation();
                   const url = `https://segra.tv/video/${content!.uploadId}`;
@@ -215,12 +314,12 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
                 }}
               >
                 <MdOutlineLink size={22} />
-                <div className="tooltip tooltip-top absolute left-1/2 transform -translate-x-1/2 hidden bg-secondary text-white text-xs px-2 py-1 rounded whitespace-nowrap z-[9999]">
+                <div className="tooltip tooltip-top absolute left-1/2 transform -translate-x-1/2 hidden bg-secondary text-white text-xs px-2 py-1 rounded whitespace-nowrap z-9999">
                   Copied!
                 </div>
               </span>
               <span
-                className="btn btn-ghost btn-sm btn-circle"
+                className="btn btn-ghost btn-sm btn-circle hover:bg-white/20 active:bg-white/20"
                 onClick={(e) => {
                   e.stopPropagation();
                   sendMessageToBackend('OpenInBrowser', {
@@ -234,100 +333,6 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
           )}
         </p>
 
-        <div className="dropdown dropdown-end absolute right-3 rounded-md" onClick={(e) => e.stopPropagation()}>
-          <div tabIndex={0} role="button" className="btn btn-ghost btn-sm btn-circle p-1">
-            <svg fill="#e5e7eb" height={22} width={22} version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32.055 32.055"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <path d="M3.968,12.061C1.775,12.061,0,13.835,0,16.027c0,2.192,1.773,3.967,3.968,3.967c2.189,0,3.966-1.772,3.966-3.967 C7.934,13.835,6.157,12.061,3.968,12.061z M16.233,12.061c-2.188,0-3.968,1.773-3.968,3.965c0,2.192,1.778,3.967,3.968,3.967 s3.97-1.772,3.97-3.967C20.201,13.835,18.423,12.061,16.233,12.061z M28.09,12.061c-2.192,0-3.969,1.774-3.969,3.967 c0,2.19,1.774,3.965,3.969,3.965c2.188,0,3.965-1.772,3.965-3.965S30.278,12.061,28.09,12.061z"></path> </g> </g></svg>
-          </div>
-          <ul tabIndex={0} className="dropdown-content menu bg-base-300 border border-primary rounded-box z-[999] w-52 p-2 shadow">
-            {(type === "Clip" || type === "Highlight") && (
-              <li>
-                <a
-                  className="flex w-full items-center gap-2 px-4 py-3 text-primary hover:bg-primary/10 active:bg-primary/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
-                  onClick={() => {
-                    // Blur the active element before handling upload
-                    (document.activeElement as HTMLElement).blur();
-                    handleUpload();
-                  }}
-                >
-                  <MdOutlineFileUpload size="20" />
-                  <span>Upload</span>
-                </a>
-              </li>
-            )}
-            {(type === "Session") && enableAi && (
-              <li>
-                {(() => {
-                  // Get authentication status
-                  const { session } = useAuth();
-                  const isLoggedIn = !!session;
-
-                  const hasBookmarks = content?.bookmarks && content.bookmarks.length > 0;
-                  const isProcessing = Object.values(aiProgress).some(
-                    progress => progress.content.fileName === content?.fileName && progress.status === 'processing'
-                  );
-                  const isDisabled = !hasBookmarks || isProcessing || !isLoggedIn;
-
-                  return (
-                    <a
-                      className={`flex w-full items-center gap-2 px-4 py-3 ${isDisabled
-                          ? 'text-gray-400 cursor-not-allowed'
-                          : 'text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20'
-                        } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
-                      onClick={() => {
-                        // Only proceed if there are bookmarks, user is logged in, and no processing
-                        if (hasBookmarks && !isProcessing && isLoggedIn) {
-                          // Blur the active element before handling create AI clip
-                          (document.activeElement as HTMLElement).blur();
-                          handleCreateAiClip();
-                        }
-                      }}
-                    >
-                      <HiOutlineSparkles size="20" />
-                      <span>
-                        {isProcessing
-                          ? 'Generating AI Clip...'
-                          : (!isLoggedIn
-                            ? 'Log In to Create AI Clip'
-                            : (hasBookmarks ? 'Create AI Highlight' : 'No Highlights')
-                          )
-                        }
-                      </span>
-                    </a>
-                  );
-                })()}
-              </li>
-            )}
-
-            <li>
-              <a
-                className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
-                onClick={() => {
-                  // I don't know why it doesn't hide by itself?
-                  (document.activeElement as HTMLElement).blur();
-
-                  handleOpenFileLocation();
-                }}
-              >
-                <MdOutlineInsertDriveFile size="20" />
-                <span>Open File Location</span>
-              </a>
-            </li>
-            <li>
-              <a
-                className="flex w-full items-center gap-2 px-4 py-3 text-error hover:bg-error/10 active:bg-error/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
-                onClick={() => {
-                  // I don't know why it doesn't hide by itself?
-                  (document.activeElement as HTMLElement).blur();
-
-                  handleDelete();
-                }}
-              >
-                <MdDeleteOutline size="20" />
-                <span>Delete</span>
-              </a>
-            </li>
-          </ul>
-        </div>
       </div>
     </div>
   );

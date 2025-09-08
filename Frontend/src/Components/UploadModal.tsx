@@ -65,7 +65,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
 
           <div className="form-control w-full">
             <label className="label">
-              <span className="label-text">Title</span>
+              <span className="label-text text-base-content">Title</span>
             </label>
             <input
               ref={titleInputRef}
@@ -93,14 +93,14 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
                 checked={clipShowInBrowserAfterUpload}
                 onChange={(e) => updateSettings({ clipShowInBrowserAfterUpload: e.target.checked })}
               />
-              <span className="label-text">Open in browser after upload</span>
+              <span className="label-text text-base-content">Open in browser after upload</span>
             </label>
           </div>
 
         </div>
         <div className="modal-action mt-6">
           <button
-            className="btn btn-secondary bg-base-300 h-10 text-gray-400 border-primary hover:text-accent hover:border-primary flex items-center gap-1 w-full"
+            className="btn btn-secondary bg-base-300 h-10 text-gray-400 border-base-400 hover:text-primary hover:border-base-400 hover:bg-base-300 flex items-center gap-1 w-full"
             onClick={handleUpload}
             disabled={session === null}
           >

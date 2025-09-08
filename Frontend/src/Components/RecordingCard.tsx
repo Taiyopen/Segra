@@ -84,7 +84,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
 
 	return (
 		<div className="mb-2 px-2">
-			<div className="bg-base-300 border border-primary border-opacity-75 rounded-lg px-3 py-3.5 cursor-default relative">
+			<div className="bg-base-300 border border-base-400 border-opacity-75 rounded-lg px-3 py-3.5 cursor-default relative">
 				{/* Background image with game cover */}
 				{coverUrl && showGameBackground && (
 					<div className="absolute inset-0 z-0 opacity-15">

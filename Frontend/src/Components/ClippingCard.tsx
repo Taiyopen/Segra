@@ -31,7 +31,7 @@ const ClippingCard: React.FC<ClippingCardProps> = ({ clipping }) => {
 
     return (
         <div className="w-full px-2">
-            <div className="bg-base-300 border border-primary border-opacity-75 rounded-lg p-3">
+            <div className="bg-base-300 border border-base-400 border-opacity-75 rounded-lg p-3">
                 <div className="flex items-center gap-3 w-full relative">
                     {/* Progress */}
                     {clipping.progress < 100 ? (
