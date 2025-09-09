@@ -21,21 +21,20 @@ export default function RenameModal({
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    nameInputRef.current?.focus();
-    nameInputRef.current?.select();
+    const timer = setTimeout(() => {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const handleRename = () => {
     const trimmedName = newName.trim();
-    if (!trimmedName) {
-      setNameError(true);
-      nameInputRef.current?.focus();
-      return;
-    }
 
-    // Check if name contains invalid characters
+    // Check if name contains invalid characters (only if not empty)
     const invalidChars = /[<>:"/\\|?*]/;
-    if (invalidChars.test(trimmedName)) {
+    if (trimmedName && invalidChars.test(trimmedName)) {
       setNameError(true);
       nameInputRef.current?.focus();
       return;
