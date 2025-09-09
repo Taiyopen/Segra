@@ -8,6 +8,7 @@ using System.Diagnostics;
 using Segra.Backend.Services;
 using Segra.Backend.Models;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows.Forms;
 using System.Globalization;
 
@@ -506,26 +507,47 @@ namespace Segra.Backend.Utils
                         return;
                 }
 
-                // Open file dialog
-                using var openFileDialog = new OpenFileDialog
-                {
-                    Filter = "MP4 Video Files (*.mp4)|*.mp4",
-                    Title = "Import MP4 Video Files",
-                    CheckFileExists = true,
-                    CheckPathExists = true,
-                    Multiselect = true
-                };
+                // Open file dialog on dedicated STA thread to avoid reentrancy issues with WebView2
+                string[]? selectedFiles = null;
 
-                if (openFileDialog.ShowDialog() != DialogResult.OK)
-                {
-                    Log.Information("Import cancelled by user");
-                    return;
-                }
+                var tcs = new TaskCompletionSource<string[]?>();
 
-                string[] selectedFiles = openFileDialog.FileNames;
-                if (selectedFiles.Length == 0)
+                var staThread = new Thread(() =>
                 {
-                    Log.Information("No files selected for import");
+                    try
+                    {
+                        using var openFileDialog = new OpenFileDialog
+                        {
+                            Filter = "MP4 Video Files (*.mp4)|*.mp4",
+                            Title = "Import MP4 Video Files",
+                            CheckFileExists = true,
+                            CheckPathExists = true,
+                            Multiselect = true
+                        };
+
+                        if (openFileDialog.ShowDialog() == DialogResult.OK)
+                        {
+                            tcs.SetResult(openFileDialog.FileNames);
+                        }
+                        else
+                        {
+                            tcs.SetResult(null);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.SetException(ex);
+                    }
+                });
+
+                staThread.SetApartmentState(ApartmentState.STA);
+                staThread.Start();
+
+                selectedFiles = await tcs.Task;
+
+                if (selectedFiles == null || selectedFiles.Length == 0)
+                {
+                    Log.Information("Import cancelled by user or no files selected");
                     return;
                 }
 
