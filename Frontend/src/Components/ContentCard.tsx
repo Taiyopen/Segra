@@ -1,15 +1,22 @@
-import { useSettings } from '../Context/SettingsContext';
-import { Content } from '../Models/types';
-import { sendMessageToBackend } from '../Utils/MessageUtils'
-import { useAuth } from '../Hooks/useAuth.tsx';
-import { useModal } from '../Context/ModalContext';
-import UploadModal from './UploadModal';
-import { MdOutlineFileUpload, MdOutlineInsertDriveFile, MdDeleteOutline, MdOutlineLink } from 'react-icons/md';
-import { HiOutlineSparkles } from 'react-icons/hi';
-import { useAiHighlights } from '../Context/AiHighlightsContext';
-import { FiExternalLink } from 'react-icons/fi';
+import { useSettings } from "../Context/SettingsContext";
+import { Content } from "../Models/types";
+import { sendMessageToBackend } from "../Utils/MessageUtils";
+import { useAuth } from "../Hooks/useAuth.tsx";
+import { useModal } from "../Context/ModalContext";
+import UploadModal from "./UploadModal";
+import RenameModal from "./RenameModal";
+import {
+  MdOutlineFileUpload,
+  MdOutlineInsertDriveFile,
+  MdDriveFileRenameOutline,
+  MdDeleteOutline,
+  MdOutlineLink,
+} from "react-icons/md";
+import { HiOutlineSparkles } from "react-icons/hi";
+import { useAiHighlights } from "../Context/AiHighlightsContext";
+import { FiExternalLink } from "react-icons/fi";
 
-type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight';
+type VideoType = "Session" | "Buffer" | "Clip" | "Highlight";
 
 interface VideoCardProps {
   content?: Content; // Optional for skeleton cards
@@ -18,7 +25,12 @@ interface VideoCardProps {
   isLoading?: boolean; // Indicates if this is a loading (skeleton) card
 }
 
-export default function ContentCard({ content, type, onClick, isLoading }: VideoCardProps) {
+export default function ContentCard({
+  content,
+  type,
+  onClick,
+  isLoading,
+}: VideoCardProps) {
   const { contentFolder, enableAi, showNewBadgeOnVideos } = useSettings();
   const { session } = useAuth();
   const { openModal, closeModal } = useModal();
@@ -27,17 +39,26 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
   if (isLoading) {
     // Render a skeleton card
     return (
-      <div className={type === 'Highlight'
-        ? "card card-compact shadow-xl w-full relative highlight-card"
-        : "card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-[#49515b]"
-      }>
-        {type === 'Highlight' && (
+      <div
+        className={
+          type === "Highlight"
+            ? "card card-compact shadow-xl w-full relative highlight-card"
+            : "card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-[#49515b]"
+        }
+      >
+        {type === "Highlight" && (
           <div className="absolute inset-0 rounded-lg highlight-border">
             <div className="card absolute inset-px bg-base-300 z-2">
               <figure className="relative aspect-w-16 aspect-h-9">
                 {/* Thumbnail Skeleton */}
-                <div className="skeleton w-full h-0 relative bg-base-300/70 rounded-none" style={{ paddingTop: '56.25%' }}></div>
-                <span className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full" style={{ aspectRatio: '16/9', visibility: 'hidden' }}></span>
+                <div
+                  className="skeleton w-full h-0 relative bg-base-300/70 rounded-none"
+                  style={{ paddingTop: "56.25%" }}
+                ></div>
+                <span
+                  className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full"
+                  style={{ aspectRatio: "16/9", visibility: "hidden" }}
+                ></span>
               </figure>
               <div className="card-body text-gray-300">
                 {/* Title Skeleton */}
@@ -49,12 +70,18 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
           </div>
         )}
 
-        {type !== 'Highlight' && (
+        {type !== "Highlight" && (
           <>
             <figure className="relative aspect-w-16 aspect-h-9">
               {/* Thumbnail Skeleton */}
-              <div className="skeleton w-full h-0 relative bg-base-300/70 rounded-none" style={{ paddingTop: '56.25%' }}></div>
-              <span className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full" style={{ aspectRatio: '16/9', visibility: 'hidden' }}></span>
+              <div
+                className="skeleton w-full h-0 relative bg-base-300/70 rounded-none"
+                style={{ paddingTop: "56.25%" }}
+              ></div>
+              <span
+                className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full"
+                style={{ aspectRatio: "16/9", visibility: "hidden" }}
+              ></span>
             </figure>
             <div className="card card-body bg-base-300">
               {/* Title Skeleton */}
@@ -75,16 +102,16 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
 
   const formatDuration = (duration: string): string => {
     try {
-      const time = duration.split('.')[0]; // Remove fractional seconds
-      const [hours, minutes, seconds] = time.split(':').map(Number);
+      const time = duration.split(".")[0]; // Remove fractional seconds
+      const [hours, minutes, seconds] = time.split(":").map(Number);
 
       if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
       } else {
-        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
       }
     } catch {
-      return '00:00'; // Fallback for invalid duration
+      return "00:00"; // Fallback for invalid duration
     }
   };
 
@@ -96,7 +123,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
     if (!content) return false;
 
     // Check if this content has been viewed already
-    const viewedContent = localStorage.getItem('viewed-content') || '{}';
+    const viewedContent = localStorage.getItem("viewed-content") || "{}";
     const viewedContentObj = JSON.parse(viewedContent);
     if (viewedContentObj[content.fileName]) {
       return false;
@@ -104,7 +131,8 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
 
     const createdAt = new Date(content.createdAt);
     const now = new Date();
-    const diffInHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+    const diffInHours =
+      (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
     return diffInHours <= 1; // Content is considered recent if created within the last hour
   };
 
@@ -112,10 +140,10 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
   const markAsViewed = () => {
     if (!content) return;
 
-    const viewedContent = localStorage.getItem('viewed-content') || '{}';
+    const viewedContent = localStorage.getItem("viewed-content") || "{}";
     const viewedContentObj = JSON.parse(viewedContent);
     viewedContentObj[content.fileName] = true;
-    localStorage.setItem('viewed-content', JSON.stringify(viewedContentObj));
+    localStorage.setItem("viewed-content", JSON.stringify(viewedContentObj));
   };
 
   const handleUpload = () => {
@@ -130,12 +158,12 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
             Game: content?.game,
             Title: title,
             Description: "", // TODO: implement description
-            Visibility: visibility // TODO: implement description
+            Visibility: visibility, // TODO: implement description
           };
 
-          sendMessageToBackend('UploadContent', parameters);
+          sendMessageToBackend("UploadContent", parameters);
         }}
-      />
+      />,
     );
   };
 
@@ -144,7 +172,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
       FileName: content!.fileName,
     };
 
-    sendMessageToBackend('CreateAiClip', parameters)
+    sendMessageToBackend("CreateAiClip", parameters);
   };
 
   const handleDelete = () => {
@@ -153,15 +181,33 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
       ContentType: type,
     };
 
-    sendMessageToBackend('DeleteContent', parameters)
+    sendMessageToBackend("DeleteContent", parameters);
+  };
+
+  const handleRename = () => {
+    openModal(
+      <RenameModal
+        content={content!}
+        onClose={closeModal}
+        onRename={(newName) => {
+          const parameters: any = {
+            FileName: content!.fileName,
+            ContentType: type,
+            Title: newName,
+          };
+
+          sendMessageToBackend("RenameContent", parameters);
+        }}
+      />,
+    );
   };
 
   const handleOpenFileLocation = () => {
     const parameters: any = {
-      FilePath: content!.filePath
+      FilePath: content!.filePath,
     };
 
-    sendMessageToBackend('OpenFileLocation', parameters)
+    sendMessageToBackend("OpenFileLocation", parameters);
   };
 
   return (
@@ -184,24 +230,56 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
         <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
           {formattedDuration}
         </span>
-        {isRecent() && (type === 'Session' || type === 'Buffer') && showNewBadgeOnVideos && (
-          <span className="absolute top-2 left-2 badge badge-primary badge-sm text-base-300 opacity-90">
-            NEW
-          </span>
-        )}
+        {isRecent() &&
+          (type === "Session" || type === "Buffer") &&
+          showNewBadgeOnVideos && (
+            <span className="absolute top-2 left-2 badge badge-primary badge-sm text-base-300 opacity-90">
+              NEW
+            </span>
+          )}
       </figure>
 
       <div className="card-body gap-1.5 pt-2">
         <div className="flex justify-between items-center">
-          <h2 className="card-title truncate">{content!.title || (content!.game || 'Untitled')}</h2>
-          <div className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
-            <label 
-              tabIndex={0} 
+          <h2 className="card-title truncate">
+            {content!.title || content!.game || "Untitled"}
+          </h2>
+          <div
+            className="dropdown dropdown-end"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <label
+              tabIndex={0}
               className="btn btn-ghost btn-sm btn-circle p-1 hover:bg-white/20 active:bg-white/20"
             >
-              <svg fill="#e5e7eb" height={20} width={20} version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32.055 32.055"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <path d="M3.968,12.061C1.775,12.061,0,13.835,0,16.027c0,2.192,1.773,3.967,3.968,3.967c2.189,0,3.966-1.772,3.966-3.967 C7.934,13.835,6.157,12.061,3.968,12.061z M16.233,12.061c-2.188,0-3.968,1.773-3.968,3.965c0,2.192,1.778,3.967,3.968,3.967 s3.97-1.772,3.97-3.967C20.201,13.835,18.423,12.061,16.233,12.061z M28.09,12.061c-2.192,0-3.969,1.774-3.969,3.967 c0,2.19,1.774,3.965,3.969,3.965c2.188,0,3.965-1.772,3.965-3.965S30.278,12.061,28.09,12.061z"></path> </g> </g></svg>
+              <svg
+                fill="#e5e7eb"
+                height={20}
+                width={20}
+                version="1.1"
+                id="Capa_1"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 32.055 32.055"
+              >
+                <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                <g
+                  id="SVGRepo_tracerCarrier"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                ></g>
+                <g id="SVGRepo_iconCarrier">
+                  {" "}
+                  <g>
+                    {" "}
+                    <path d="M3.968,12.061C1.775,12.061,0,13.835,0,16.027c0,2.192,1.773,3.967,3.968,3.967c2.189,0,3.966-1.772,3.966-3.967 C7.934,13.835,6.157,12.061,3.968,12.061z M16.233,12.061c-2.188,0-3.968,1.773-3.968,3.965c0,2.192,1.778,3.967,3.968,3.967 s3.97-1.772,3.97-3.967C20.201,13.835,18.423,12.061,16.233,12.061z M28.09,12.061c-2.192,0-3.969,1.774-3.969,3.967 c0,2.19,1.774,3.965,3.969,3.965c2.188,0,3.965-1.772,3.965-3.965S30.278,12.061,28.09,12.061z"></path>{" "}
+                  </g>{" "}
+                </g>
+              </svg>
             </label>
-            <ul tabIndex={0} className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2 shadow">
+            <ul
+              tabIndex={0}
+              className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2 shadow"
+            >
               {(type === "Clip" || type === "Highlight") && (
                 <li>
                   <a
@@ -217,25 +295,30 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
                   </a>
                 </li>
               )}
-              {(type === "Session") && enableAi && (
+              {type === "Session" && enableAi && (
                 <li>
                   {(() => {
                     // Get authentication status
                     const { session } = useAuth();
                     const isLoggedIn = !!session;
 
-                    const hasBookmarks = content?.bookmarks && content.bookmarks.length > 0;
+                    const hasBookmarks =
+                      content?.bookmarks && content.bookmarks.length > 0;
                     const isProcessing = Object.values(aiProgress).some(
-                      progress => progress.content.fileName === content?.fileName && progress.status === 'processing'
+                      (progress) =>
+                        progress.content.fileName === content?.fileName &&
+                        progress.status === "processing",
                     );
-                    const isDisabled = !hasBookmarks || isProcessing || !isLoggedIn;
+                    const isDisabled =
+                      !hasBookmarks || isProcessing || !isLoggedIn;
 
                     return (
                       <a
-                        className={`flex w-full items-center gap-2 px-4 py-3 ${isDisabled
-                            ? 'text-gray-400 cursor-not-allowed'
-                            : 'text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20'
-                          } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+                        className={`flex w-full items-center gap-2 px-4 py-3 ${
+                          isDisabled
+                            ? "text-gray-400 cursor-not-allowed"
+                            : "text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20"
+                        } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
                         onClick={() => {
                           // Only proceed if there are bookmarks, user is logged in, and no processing
                           if (hasBookmarks && !isProcessing && isLoggedIn) {
@@ -248,19 +331,32 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
                         <HiOutlineSparkles size="20" />
                         <span>
                           {isProcessing
-                            ? 'Generating AI Clip...'
-                            : (!isLoggedIn
-                              ? 'Log In to Create AI Clip'
-                              : (hasBookmarks ? 'Create AI Highlight' : 'No Highlights')
-                            )
-                          }
+                            ? "Generating AI Clip..."
+                            : !isLoggedIn
+                              ? "Log In to Create AI Clip"
+                              : hasBookmarks
+                                ? "Create AI Highlight"
+                                : "No Highlights"}
                         </span>
                       </a>
                     );
                   })()}
                 </li>
               )}
+              <li>
+                <a
+                  className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
+                  onClick={() => {
+                    // I don't know why it doesn't hide by itself?
+                    (document.activeElement as HTMLElement).blur();
 
+                    handleRename();
+                  }}
+                >
+                  <MdDriveFileRenameOutline size="20" />
+                  <span>Rename</span>
+                </a>
+              </li>
               <li>
                 <a
                   className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
@@ -293,7 +389,10 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
           </div>
         </div>
         <p className="text-sm text-gray-200 flex items-center justify-between w-full">
-          <span>{content!.fileSize} &bull; {new Date(content!.createdAt).toLocaleDateString()}</span>
+          <span>
+            {content!.fileSize} &bull;{" "}
+            {new Date(content!.createdAt).toLocaleDateString()}
+          </span>
           {content!.uploadId && (
             <div className="flex absolute right-3 gap-0 pr-1">
               <span
@@ -304,11 +403,11 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
                   navigator.clipboard.writeText(url);
 
                   // Show tooltip
-                  const tooltip = e.currentTarget.querySelector('.tooltip');
+                  const tooltip = e.currentTarget.querySelector(".tooltip");
                   if (tooltip) {
-                    tooltip.classList.remove('hidden');
+                    tooltip.classList.remove("hidden");
                     setTimeout(() => {
-                      tooltip.classList.add('hidden');
+                      tooltip.classList.add("hidden");
                     }, 1000);
                   }
                 }}
@@ -322,8 +421,8 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
                 className="btn btn-ghost btn-sm btn-circle hover:bg-white/20 active:bg-white/20"
                 onClick={(e) => {
                   e.stopPropagation();
-                  sendMessageToBackend('OpenInBrowser', {
-                    Url: `https://segra.tv/video/${content!.uploadId}`
+                  sendMessageToBackend("OpenInBrowser", {
+                    Url: `https://segra.tv/video/${content!.uploadId}`,
                   });
                 }}
               >
@@ -332,7 +431,6 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
             </div>
           )}
         </p>
-
       </div>
     </div>
   );

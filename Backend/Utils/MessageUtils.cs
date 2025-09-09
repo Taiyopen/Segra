@@ -213,6 +213,11 @@ namespace Segra.Backend.Utils
                             await HandleDeleteBookmark(deleteBookmarkParameterElement);
                             Log.Information("DeleteBookmark command received.");
                             break;
+                        case "RenameContent":
+                            root.TryGetProperty("Parameters", out JsonElement renameContentParameterElement);
+                            await HandleRenameContent(renameContentParameterElement);
+                            Log.Information("RenameContent command received.");
+                            break;
                         default:
                             Log.Information($"Unknown method: {method}");
                             break;
@@ -1060,6 +1065,78 @@ namespace Segra.Backend.Utils
             }
 
             return message;
+        }
+
+        private static async Task HandleRenameContent(JsonElement message)
+        {
+            try
+            {
+                Log.Information($"Handling RenameContent with message: {message}");
+
+                // Extract FileName, ContentType, and NewName from the message
+                if (message.TryGetProperty("FileName", out JsonElement fileNameElement) &&
+                    message.TryGetProperty("ContentType", out JsonElement contentTypeElement) &&
+                    message.TryGetProperty("Title", out JsonElement titleElement))
+                {
+                    string fileName = fileNameElement.GetString()!;
+                    string contentTypeStr = contentTypeElement.GetString()!;
+                    string newTitle = titleElement.GetString()!;
+
+                    // Parse the content type
+                    if (!Enum.TryParse(contentTypeStr, true, out Content.ContentType contentType))
+                    {
+                        Log.Error($"Invalid ContentType provided: {contentTypeStr}");
+                        return;
+                    }
+
+                    // Construct metadata file path
+                    string metadataFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".metadata", contentType.ToString().ToLower() + "s");
+                    string metadataFilePath = Path.Combine(metadataFolderPath, $"{fileName}.json");
+
+                    // Check if metadata file exists
+                    if (!File.Exists(metadataFilePath))
+                    {
+                        Log.Error($"Metadata file not found: {metadataFilePath}");
+                        return;
+                    }
+
+                    // Read and deserialize the metadata
+                    string metadataJson = File.ReadAllText(metadataFilePath);
+                    var content = JsonSerializer.Deserialize<Content>(metadataJson);
+
+                    if (content == null)
+                    {
+                        Log.Error($"Failed to deserialize metadata: {metadataFilePath}");
+                        return;
+                    }
+
+                    // Update the title
+                    content.Title = newTitle;
+
+                    // Serialize and save the updated metadata
+                    string updatedMetadataJson = JsonSerializer.Serialize(content, new JsonSerializerOptions
+                    {
+                        WriteIndented = true
+                    });
+
+                    File.WriteAllText(metadataFilePath, updatedMetadataJson);
+                    Log.Information($"Updated title for {fileName} to '{newTitle}' in metadata file: {metadataFilePath}");
+
+                    // Reload content from disk to update in-memory state
+                    SettingsUtils.LoadContentFromFolderIntoState(true);
+
+                    // Refresh the content in the frontend
+                    await SendSettingsToFrontend("Renamed content");
+                }
+                else
+                {
+                    Log.Error("FileName, ContentType, or Title property not found in RenameContent message.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error handling RenameContent: {ex.Message}");
+            }
         }
     }
 }
