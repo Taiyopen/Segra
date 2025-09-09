@@ -45,6 +45,7 @@
 4. Click `Uninstall`
 
 ## 🤝 Contributing  
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, dependencies, and dev workflow.
 Help improve Segra by:  
 - Report bugs or suggest features  
 - Submit pull requests
