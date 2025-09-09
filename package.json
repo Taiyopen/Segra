@@ -14,7 +14,9 @@
     "Frontend/**/*.{ts,tsx,js,jsx,css,md,json,html}": [
       "cd Frontend && bunx prettier --write",
       "cd Frontend && bunx eslint --fix"
+    ],
+    "**/*.cs": [
+      "dotnet format --exclude libobs-sharp --include"
     ]
   }
 }
-

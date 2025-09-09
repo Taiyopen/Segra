@@ -1,4 +1,4 @@
-﻿using NAudio.CoreAudioApi.Interfaces;
+using NAudio.CoreAudioApi.Interfaces;
 using NAudio.CoreAudioApi;
 
 namespace Segra.Backend.Audio

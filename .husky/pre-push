@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Verify C# code is formatted per .editorconfig
+if command -v dotnet >/dev/null 2>&1; then
+  echo "Running dotnet format check..."
+  dotnet format --no-restore --verify-no-changes Segra.sln --exclude libobs-sharp || {
+    echo "dotnet format found issues. Run 'dotnet format' to fix." >&2
+    exit 1
+  }
+else
+  echo "dotnet CLI not found; skipping C# format check" >&2
+fi

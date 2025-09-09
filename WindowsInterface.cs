@@ -1,4 +1,4 @@
-﻿using Segra.Backend.Utils;
+using Segra.Backend.Utils;
 
 namespace Segra
 {
