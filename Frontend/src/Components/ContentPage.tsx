@@ -1,13 +1,13 @@
-import { useSettings } from "../Context/SettingsContext";
-import ContentCard from "./ContentCard";
-import { useSelectedVideo } from "../Context/SelectedVideoContext";
-import { Content, ContentType } from "../Models/types";
-import { useScroll } from "../Context/ScrollContext";
-import { useLayoutEffect, useRef, useState, useMemo } from "react";
-import { IconType } from "react-icons";
-import { MdUploadFile } from "react-icons/md";
-import { sendMessageToBackend } from "../Utils/MessageUtils";
-import ContentFilters, { SortOption } from "./ContentFilters";
+import { useSettings } from '../Context/SettingsContext';
+import ContentCard from './ContentCard';
+import { useSelectedVideo } from '../Context/SelectedVideoContext';
+import { Content, ContentType } from '../Models/types';
+import { useScroll } from '../Context/ScrollContext';
+import { useLayoutEffect, useRef, useState, useMemo } from 'react';
+import { IconType } from 'react-icons';
+import { MdUploadFile } from 'react-icons/md';
+import { sendMessageToBackend } from '../Utils/MessageUtils';
+import ContentFilters, { SortOption } from './ContentFilters';
 
 interface ContentPageProps {
   contentType: ContentType;
@@ -35,9 +35,7 @@ export default function ContentPage({
   const isSettingScroll = useRef(false);
 
   // Get content items of the specified type
-  const contentItems = state.content.filter(
-    (video) => video.type === contentType,
-  );
+  const contentItems = state.content.filter((video) => video.type === contentType);
 
   // Filter and sort state
   const [selectedGames, setSelectedGames] = useState<string[]>(() => {
@@ -52,9 +50,9 @@ export default function ContentPage({
   const [sortOption, setSortOption] = useState<SortOption>(() => {
     try {
       const saved = localStorage.getItem(`${sectionId}-sort`);
-      return saved ? JSON.parse(saved) : "newest";
+      return saved ? JSON.parse(saved) : 'newest';
     } catch {
-      return "newest";
+      return 'newest';
     }
   });
 
@@ -76,24 +74,18 @@ export default function ContentPage({
     // Apply sorting
     filtered.sort((a, b) => {
       switch (sortOption) {
-        case "newest":
-          return (
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-        case "oldest":
-          return (
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
-        case "size":
+        case 'newest':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'size':
           return (b.fileSizeKb ?? 0) - (a.fileSizeKb ?? 0);
-        case "duration": {
+        case 'duration': {
           const toSecs = (dur: string) =>
-            dur
-              .split(":")
-              .reduce((acc, t) => 60 * acc + (parseInt(t, 10) || 0), 0);
+            dur.split(':').reduce((acc, t) => 60 * acc + (parseInt(t, 10) || 0), 0);
           return toSecs(b.duration) - toSecs(a.duration);
         }
-        case "game": {
+        case 'game': {
           const byGame = a.game.localeCompare(b.game);
           return byGame !== 0
             ? byGame
@@ -127,13 +119,13 @@ export default function ContentPage({
   useLayoutEffect(() => {
     // Type-safe access to scroll positions
     const position =
-      sectionId === "clips"
+      sectionId === 'clips'
         ? scrollPositions.clips
-        : sectionId === "highlights"
+        : sectionId === 'highlights'
           ? scrollPositions.highlights
-          : sectionId === "replayBuffer"
+          : sectionId === 'replayBuffer'
             ? scrollPositions.replayBuffer
-            : sectionId === "sessions"
+            : sectionId === 'sessions'
               ? scrollPositions.sessions
               : 0;
 
@@ -161,14 +153,14 @@ export default function ContentPage({
 
         // Type-safe scroll position update
         const pageKey =
-          sectionId === "clips"
-            ? "clips"
-            : sectionId === "highlights"
-              ? "highlights"
-              : sectionId === "replayBuffer"
-                ? "replayBuffer"
-                : sectionId === "sessions"
-                  ? "sessions"
+          sectionId === 'clips'
+            ? 'clips'
+            : sectionId === 'highlights'
+              ? 'highlights'
+              : sectionId === 'replayBuffer'
+                ? 'replayBuffer'
+                : sectionId === 'sessions'
+                  ? 'sessions'
                   : null;
 
         if (pageKey) {
@@ -191,10 +183,10 @@ export default function ContentPage({
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold">{title}</h1>
         <div className="flex items-center gap-2">
-          {(sectionId === "sessions" || sectionId === "replayBuffer") && (
+          {(sectionId === 'sessions' || sectionId === 'replayBuffer') && (
             <button
               className="btn btn-sm no-animation btn-secondary border border-base-400 h-8 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300"
-              onClick={() => sendMessageToBackend("ImportFile", { sectionId })}
+              onClick={() => sendMessageToBackend('ImportFile', { sectionId })}
             >
               <MdUploadFile size={16} />
               Import

@@ -38,9 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Notify backend about logout
       sendMessageToBackend('Logout');
 
-      console.log("User signed out manually");
+      console.log('User signed out manually');
     } catch (err) {
-      console.error("Sign out error:", err);
+      console.error('Sign out error:', err);
       setAuthError(err instanceof Error ? err.message : 'Sign out failed');
     }
   };
@@ -54,7 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (code) {
           setIsAuthenticating(true);
-          const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
+          const {
+            data: { session },
+            error,
+          } = await supabase.auth.exchangeCodeForSession(code);
 
           if (error) throw error;
 
@@ -65,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .single();
 
           if (profileError && profileError.code === 'PGRST116') {
-            console.error("Profile error, user may not have a profile:", profileError);
+            console.error('Profile error, user may not have a profile:', profileError);
             handleSignOut();
             setAuthError('Please register at Segra.tv before logging into the app.');
           }
@@ -85,43 +88,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen for auth state changes
   useEffect(() => {
-    console.log("Auth initialization starting, hasInitialized:", hasInitialized);
+    console.log('Auth initialization starting, hasInitialized:', hasInitialized);
 
     // Only initialize once
     if (hasInitialized) return;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        console.log("Auth state changed:", event, !!currentSession);
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      console.log('Auth state changed:', event, !!currentSession);
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
 
-        if (event === 'SIGNED_IN' && currentSession) {
-          console.log("User signed in, sending login to backend");
-          // Send login credentials to backend
-          sendMessageToBackend("Login", {
-            accessToken: currentSession.access_token,
-            refreshToken: currentSession.refresh_token
-          });
-        } else if (event === 'SIGNED_OUT') {
-          console.log("User signed out, sending logout to backend");
-          sendMessageToBackend('Logout');
-        }
+      if (event === 'SIGNED_IN' && currentSession) {
+        console.log('User signed in, sending login to backend');
+        // Send login credentials to backend
+        sendMessageToBackend('Login', {
+          accessToken: currentSession.access_token,
+          refreshToken: currentSession.refresh_token,
+        });
+      } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out, sending logout to backend');
+        sendMessageToBackend('Logout');
       }
-    );
+    });
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      console.log("Initial session retrieved:", !!initialSession);
+      console.log('Initial session retrieved:', !!initialSession);
       setSession(initialSession);
       setUser(initialSession?.user ?? null);
 
       // If there's an initial session, send the credentials to the backend
       if (initialSession) {
-        console.log("Sending initial login credentials to backend");
-        sendMessageToBackend("Login", {
+        console.log('Sending initial login credentials to backend');
+        sendMessageToBackend('Login', {
           accessToken: initialSession.access_token,
-          refreshToken: initialSession.refresh_token
+          refreshToken: initialSession.refresh_token,
         });
       }
 
@@ -139,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authError,
     isAuthenticating,
     clearAuthError: () => setAuthError(null),
-    signOut: handleSignOut
+    signOut: handleSignOut,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

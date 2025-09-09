@@ -1,10 +1,15 @@
 import { useSettings } from '../Context/SettingsContext';
 import { Content } from '../Models/types';
-import { sendMessageToBackend } from '../Utils/MessageUtils'
+import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { useAuth } from '../Hooks/useAuth.tsx';
 import { useModal } from '../Context/ModalContext';
 import UploadModal from './UploadModal';
-import { MdOutlineFileUpload, MdOutlineInsertDriveFile, MdDeleteOutline, MdOutlineLink } from 'react-icons/md';
+import {
+  MdOutlineFileUpload,
+  MdOutlineInsertDriveFile,
+  MdDeleteOutline,
+  MdOutlineLink,
+} from 'react-icons/md';
 import { HiOutlineSparkles } from 'react-icons/hi';
 import { useAiHighlights } from '../Context/AiHighlightsContext';
 import { FiExternalLink } from 'react-icons/fi';
@@ -27,17 +32,26 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
   if (isLoading) {
     // Render a skeleton card
     return (
-      <div className={type === 'Highlight'
-        ? "card card-compact shadow-xl w-full relative highlight-card"
-        : "card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-[#49515b]"
-      }>
+      <div
+        className={
+          type === 'Highlight'
+            ? 'card card-compact shadow-xl w-full relative highlight-card'
+            : 'card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-[#49515b]'
+        }
+      >
         {type === 'Highlight' && (
           <div className="absolute inset-0 rounded-lg highlight-border">
             <div className="card absolute inset-px bg-base-300 z-2">
               <figure className="relative aspect-w-16 aspect-h-9">
                 {/* Thumbnail Skeleton */}
-                <div className="skeleton w-full h-0 relative bg-base-300/70 rounded-none" style={{ paddingTop: '56.25%' }}></div>
-                <span className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full" style={{ aspectRatio: '16/9', visibility: 'hidden' }}></span>
+                <div
+                  className="skeleton w-full h-0 relative bg-base-300/70 rounded-none"
+                  style={{ paddingTop: '56.25%' }}
+                ></div>
+                <span
+                  className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full"
+                  style={{ aspectRatio: '16/9', visibility: 'hidden' }}
+                ></span>
               </figure>
               <div className="card-body text-gray-300">
                 {/* Title Skeleton */}
@@ -53,8 +67,14 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
           <>
             <figure className="relative aspect-w-16 aspect-h-9">
               {/* Thumbnail Skeleton */}
-              <div className="skeleton w-full h-0 relative bg-base-300/70 rounded-none" style={{ paddingTop: '56.25%' }}></div>
-              <span className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full" style={{ aspectRatio: '16/9', visibility: 'hidden' }}></span>
+              <div
+                className="skeleton w-full h-0 relative bg-base-300/70 rounded-none"
+                style={{ paddingTop: '56.25%' }}
+              ></div>
+              <span
+                className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full"
+                style={{ aspectRatio: '16/9', visibility: 'hidden' }}
+              ></span>
             </figure>
             <div className="card card-body bg-base-300">
               {/* Title Skeleton */}
@@ -129,13 +149,13 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
             JWT: session?.access_token,
             Game: content?.game,
             Title: title,
-            Description: "", // TODO: implement description
-            Visibility: visibility // TODO: implement description
+            Description: '', // TODO: implement description
+            Visibility: visibility, // TODO: implement description
           };
 
           sendMessageToBackend('UploadContent', parameters);
         }}
-      />
+      />,
     );
   };
 
@@ -144,7 +164,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
       FileName: content!.fileName,
     };
 
-    sendMessageToBackend('CreateAiClip', parameters)
+    sendMessageToBackend('CreateAiClip', parameters);
   };
 
   const handleDelete = () => {
@@ -153,15 +173,15 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
       ContentType: type,
     };
 
-    sendMessageToBackend('DeleteContent', parameters)
+    sendMessageToBackend('DeleteContent', parameters);
   };
 
   const handleOpenFileLocation = () => {
     const parameters: any = {
-      FilePath: content!.filePath
+      FilePath: content!.filePath,
     };
 
-    sendMessageToBackend('OpenFileLocation', parameters)
+    sendMessageToBackend('OpenFileLocation', parameters);
   };
 
   return (
@@ -175,7 +195,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
       <figure className="relative aspect-video bg-black">
         <img
           src={thumbnailPath}
-          alt={"thumbnail"}
+          alt={'thumbnail'}
           className="w-full h-full object-contain"
           loading="lazy"
           width={1600}
@@ -193,16 +213,37 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
 
       <div className="card-body gap-1.5 pt-2">
         <div className="flex justify-between items-center">
-          <h2 className="card-title truncate">{content!.title || (content!.game || 'Untitled')}</h2>
+          <h2 className="card-title truncate">{content!.title || content!.game || 'Untitled'}</h2>
           <div className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
-            <label 
-              tabIndex={0} 
+            <label
+              tabIndex={0}
               className="btn btn-ghost btn-sm btn-circle p-1 hover:bg-white/20 active:bg-white/20"
             >
-              <svg fill="#e5e7eb" height={20} width={20} version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32.055 32.055"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <path d="M3.968,12.061C1.775,12.061,0,13.835,0,16.027c0,2.192,1.773,3.967,3.968,3.967c2.189,0,3.966-1.772,3.966-3.967 C7.934,13.835,6.157,12.061,3.968,12.061z M16.233,12.061c-2.188,0-3.968,1.773-3.968,3.965c0,2.192,1.778,3.967,3.968,3.967 s3.97-1.772,3.97-3.967C20.201,13.835,18.423,12.061,16.233,12.061z M28.09,12.061c-2.192,0-3.969,1.774-3.969,3.967 c0,2.19,1.774,3.965,3.969,3.965c2.188,0,3.965-1.772,3.965-3.965S30.278,12.061,28.09,12.061z"></path> </g> </g></svg>
+              <svg
+                fill="#e5e7eb"
+                height={20}
+                width={20}
+                version="1.1"
+                id="Capa_1"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 32.055 32.055"
+              >
+                <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                  {' '}
+                  <g>
+                    {' '}
+                    <path d="M3.968,12.061C1.775,12.061,0,13.835,0,16.027c0,2.192,1.773,3.967,3.968,3.967c2.189,0,3.966-1.772,3.966-3.967 C7.934,13.835,6.157,12.061,3.968,12.061z M16.233,12.061c-2.188,0-3.968,1.773-3.968,3.965c0,2.192,1.778,3.967,3.968,3.967 s3.97-1.772,3.97-3.967C20.201,13.835,18.423,12.061,16.233,12.061z M28.09,12.061c-2.192,0-3.969,1.774-3.969,3.967 c0,2.19,1.774,3.965,3.969,3.965c2.188,0,3.965-1.772,3.965-3.965S30.278,12.061,28.09,12.061z"></path>{' '}
+                  </g>{' '}
+                </g>
+              </svg>
             </label>
-            <ul tabIndex={0} className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2 shadow">
-              {(type === "Clip" || type === "Highlight") && (
+            <ul
+              tabIndex={0}
+              className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2 shadow"
+            >
+              {(type === 'Clip' || type === 'Highlight') && (
                 <li>
                   <a
                     className="flex w-full items-center gap-2 px-4 py-3 text-primary hover:bg-primary/10 active:bg-primary/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
@@ -217,7 +258,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
                   </a>
                 </li>
               )}
-              {(type === "Session") && enableAi && (
+              {type === 'Session' && enableAi && (
                 <li>
                   {(() => {
                     // Get authentication status
@@ -226,16 +267,19 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
 
                     const hasBookmarks = content?.bookmarks && content.bookmarks.length > 0;
                     const isProcessing = Object.values(aiProgress).some(
-                      progress => progress.content.fileName === content?.fileName && progress.status === 'processing'
+                      (progress) =>
+                        progress.content.fileName === content?.fileName &&
+                        progress.status === 'processing',
                     );
                     const isDisabled = !hasBookmarks || isProcessing || !isLoggedIn;
 
                     return (
                       <a
-                        className={`flex w-full items-center gap-2 px-4 py-3 ${isDisabled
+                        className={`flex w-full items-center gap-2 px-4 py-3 ${
+                          isDisabled
                             ? 'text-gray-400 cursor-not-allowed'
                             : 'text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20'
-                          } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+                        } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
                         onClick={() => {
                           // Only proceed if there are bookmarks, user is logged in, and no processing
                           if (hasBookmarks && !isProcessing && isLoggedIn) {
@@ -249,11 +293,11 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
                         <span>
                           {isProcessing
                             ? 'Generating AI Clip...'
-                            : (!isLoggedIn
+                            : !isLoggedIn
                               ? 'Log In to Create AI Clip'
-                              : (hasBookmarks ? 'Create AI Highlight' : 'No Highlights')
-                            )
-                          }
+                              : hasBookmarks
+                                ? 'Create AI Highlight'
+                                : 'No Highlights'}
                         </span>
                       </a>
                     );
@@ -293,7 +337,9 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
           </div>
         </div>
         <p className="text-sm text-gray-200 flex items-center justify-between w-full">
-          <span>{content!.fileSize} &bull; {new Date(content!.createdAt).toLocaleDateString()}</span>
+          <span>
+            {content!.fileSize} &bull; {new Date(content!.createdAt).toLocaleDateString()}
+          </span>
           {content!.uploadId && (
             <div className="flex absolute right-3 gap-0 pr-1">
               <span
@@ -323,7 +369,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
                 onClick={(e) => {
                   e.stopPropagation();
                   sendMessageToBackend('OpenInBrowser', {
-                    Url: `https://segra.tv/video/${content!.uploadId}`
+                    Url: `https://segra.tv/video/${content!.uploadId}`,
                   });
                 }}
               >
@@ -332,7 +378,6 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
             </div>
           )}
         </p>
-
       </div>
     </div>
   );

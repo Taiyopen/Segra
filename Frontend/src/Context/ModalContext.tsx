@@ -28,12 +28,16 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   return (
     <ModalContext.Provider value={{ openModal, closeModal }}>
       {children}
-      <dialog ref={modalRef} className="modal modal-bottom sm:modal-middle" onClick={(e) => {
-        if (e.target === modalRef.current) {
-          closeModal();
-        }
-      }}>
-        <div className="modal-box max-h-[90vh] bg-base-300" onClick={e => e.stopPropagation()}>
+      <dialog
+        ref={modalRef}
+        className="modal modal-bottom sm:modal-middle"
+        onClick={(e) => {
+          if (e.target === modalRef.current) {
+            closeModal();
+          }
+        }}
+      >
+        <div className="modal-box max-h-[90vh] bg-base-300" onClick={(e) => e.stopPropagation()}>
           {modalContent}
         </div>
         <form method="dialog" className="modal-backdrop" onClick={closeModal}>

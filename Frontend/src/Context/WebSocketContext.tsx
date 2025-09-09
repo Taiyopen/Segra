@@ -22,21 +22,21 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
   // Log when the WebSocket provider mounts or session changes
   useEffect(() => {
-    console.log("WebSocketProvider: Session state changed:", !!session);
+    console.log('WebSocketProvider: Session state changed:', !!session);
   }, [session]);
 
   // We only need the onOpen and onMessage callbacks, not the returned functions
   useWebSocket('ws://localhost:5000/', {
     onOpen: () => {
       console.log('Connected to WebSocket server');
-      sendMessageToBackend("NewConnection");
+      sendMessageToBackend('NewConnection');
 
       // If we already have a session when connecting, ensure we're logged in
       if (session) {
-        console.log("WebSocket connected with active session, ensuring login state");
-        sendMessageToBackend("Login", {
+        console.log('WebSocket connected with active session, ensuring login state');
+        sendMessageToBackend('Login', {
           accessToken: session.access_token,
-          refreshToken: session.refresh_token
+          refreshToken: session.refresh_token,
         });
       }
 
@@ -49,24 +49,28 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         // Wait 1 second before showing release notes
         setTimeout(() => {
           // Dispatch a custom event that UpdateContext can listen for
-          window.dispatchEvent(new CustomEvent('show-release-notes', {
-            detail: { filterVersion: storedOldVersion }
-          }));
+          window.dispatchEvent(
+            new CustomEvent('show-release-notes', {
+              detail: { filterVersion: storedOldVersion },
+            }),
+          );
         }, 1000);
       }
     },
     onMessage: (event) => {
       try {
         const data: WebSocketMessage = JSON.parse(event.data);
-        console.log("WebSocket message received:", data);
+        console.log('WebSocket message received:', data);
 
         // Handle version check
-        if (data.method === "AppVersion" && !versionCheckHandled.current) {
+        if (data.method === 'AppVersion' && !versionCheckHandled.current) {
           versionCheckHandled.current = true;
           const backendVersion = data.content?.version;
 
           if (backendVersion && backendVersion !== __APP_VERSION__) {
-            console.log(`Version mismatch: Backend ${backendVersion}, Frontend ${__APP_VERSION__}. Reloading...`);
+            console.log(
+              `Version mismatch: Backend ${backendVersion}, Frontend ${__APP_VERSION__}. Reloading...`,
+            );
             // Store the old version before reloading
             localStorage.setItem('oldAppVersion', __APP_VERSION__);
             window.location.reload();
@@ -75,13 +79,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
 
         // Dispatch the message to all listeners
-        window.dispatchEvent(new CustomEvent('websocket-message', {
-          detail: data
-        }));
+        window.dispatchEvent(
+          new CustomEvent('websocket-message', {
+            detail: data,
+          }),
+        );
       } catch (error) {
         console.error('Failed to parse WebSocket message:', error);
       }
-    }
+    },
   });
 
   const contextValue = {
@@ -90,11 +96,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }, []),
   };
 
-  return (
-    <WebSocketContext.Provider value={contextValue}>
-      {children}
-    </WebSocketContext.Provider>
-  );
+  return <WebSocketContext.Provider value={contextValue}>{children}</WebSocketContext.Provider>;
 }
 
 export function useWebSocketContext() {

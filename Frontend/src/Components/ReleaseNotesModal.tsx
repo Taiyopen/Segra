@@ -59,10 +59,21 @@ const MarkdownComponents = {
   ul: (props: any) => <ul className="markdown-content-ul" {...props} />,
   ol: (props: any) => <ol className="markdown-content-ol" {...props} />,
   li: (props: any) => <li className="markdown-content-li" {...props} />,
-  a: (props: any) => <a className="text-primary hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
+  a: (props: any) => (
+    <a
+      className="text-primary hover:underline"
+      target="_blank"
+      rel="noopener noreferrer"
+      {...props}
+    />
+  ),
   code: (props: any) => <code className="bg-base-200 px-1 py-0.5 rounded text-sm" {...props} />,
-  pre: (props: any) => <pre className="bg-base-200 p-4 rounded-lg mb-6 overflow-x-auto" {...props} />,
-  blockquote: (props: any) => <blockquote className="border-l-4 border-primary pl-4 italic my-6" {...props} />,
+  pre: (props: any) => (
+    <pre className="bg-base-200 p-4 rounded-lg mb-6 overflow-x-auto" {...props} />
+  ),
+  blockquote: (props: any) => (
+    <blockquote className="border-l-4 border-primary pl-4 italic my-6" {...props} />
+  ),
   hr: (props: any) => <hr className="my-8 border-gray-700" {...props} />,
   img: (props: any) => <img className="markdown-content-img" {...props} />,
 };
@@ -101,7 +112,7 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
       return date.toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'long',
-        year: 'numeric'
+        year: 'numeric',
       });
     } catch (error) {
       console.error('Error formatting date:', error);
@@ -121,7 +132,7 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
 
   // Filter notes to only show those newer than the current app version if filterVersion is provided
   const filteredNotes = filterVersion
-    ? localReleaseNotes.filter(note => isVersionNewer(filterVersion, note.version))
+    ? localReleaseNotes.filter((note) => isVersionNewer(filterVersion, note.version))
     : localReleaseNotes;
 
   // Decode the base64 content for each release note
@@ -136,8 +147,7 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
         <p className="text-gray-400 text-lg">
           {filterVersion
             ? `New updates since v${filterVersion}`
-            : `You are running v${__APP_VERSION__}`
-          }
+            : `You are running v${__APP_VERSION__}`}
         </p>
         <button
           className="btn btn-circle btn-ghost absolute right-4 top-4 text-2xl hover:bg-base-100/30"
@@ -168,9 +178,7 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
                 <div className="text-primary rounded-full font-bold text-2xl inline-block">
                   Version {note.version}
                 </div>
-                <div className="text-gray-400 text-lg">
-                  {formatDate(note.releaseDate)}
-                </div>
+                <div className="text-gray-400 text-lg">{formatDate(note.releaseDate)}</div>
               </div>
 
               {/* Markdown content with custom components for larger text */}

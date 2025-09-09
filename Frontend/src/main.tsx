@@ -1,11 +1,11 @@
-import {StrictMode} from 'react';
-import {createRoot} from 'react-dom/client';
-import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {supabase} from './lib/supabase/client';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { supabase } from './lib/supabase/client';
 import './globals.css';
 import App from './App.tsx';
-import {SelectedVideoProvider} from './Context/SelectedVideoContext.tsx';
-import {AuthProvider} from './Hooks/useAuth.tsx';
+import { SelectedVideoProvider } from './Context/SelectedVideoContext.tsx';
+import { AuthProvider } from './Hooks/useAuth.tsx';
 
 // Create a React Query client
 const queryClient = new QueryClient({

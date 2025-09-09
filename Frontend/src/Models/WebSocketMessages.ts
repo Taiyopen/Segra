@@ -1,16 +1,16 @@
-import { Settings, Game } from "./types";
+import { Settings, Game } from './types';
 
 export interface ModalMessage {
   title: string;
   subtitle?: string;
   description: string;
-  type: "info" | "warning" | "error";
+  type: 'info' | 'warning' | 'error';
 }
 
 export interface UploadProgressMessage {
   fileName: string;
   progress: number;
-  status: "uploading" | "processing" | "done" | "error";
+  status: 'uploading' | 'processing' | 'done' | 'error';
   message?: string;
 }
 
@@ -18,7 +18,7 @@ export interface ImportProgressMessage {
   id: string;
   fileName: string;
   progress: number;
-  status: "importing" | "done" | "error";
+  status: 'importing' | 'done' | 'error';
   totalFiles: number;
   currentFileIndex: number;
   message?: string;
@@ -31,7 +31,7 @@ export interface SettingsMessage {
 export interface UpdateProgressMessage {
   version: string;
   progress: number;
-  status: "downloading" | "downloaded" | "ready" | "error";
+  status: 'downloading' | 'downloaded' | 'ready' | 'error';
   message: string;
 }
 
@@ -55,36 +55,30 @@ export interface WebSocketMessage<T = any> {
 }
 
 export type WebSocketMessageType =
-  | "uploadProgress"
-  | "importProgress"
-  | "settings"
-  | "UpdateProgress"
-  | "ReleaseNotes"
-  | "ShowModal"
-  | "SelectedGameExecutable";
+  | 'uploadProgress'
+  | 'importProgress'
+  | 'settings'
+  | 'UpdateProgress'
+  | 'ReleaseNotes'
+  | 'ShowModal'
+  | 'SelectedGameExecutable';
 
-export function isUpdateProgressMessage(
-  message: WebSocketMessage<any>,
-): boolean {
-  return message.method === "UpdateProgress";
+export function isUpdateProgressMessage(message: WebSocketMessage<any>): boolean {
+  return message.method === 'UpdateProgress';
 }
 
 export function isReleaseNotesMessage(message: WebSocketMessage<any>): boolean {
-  return message.method === "ReleaseNotes";
+  return message.method === 'ReleaseNotes';
 }
 
-export function isShowReleaseNotesMessage(
-  message: WebSocketMessage<any>,
-): boolean {
-  return message.method === "ShowReleaseNotes";
+export function isShowReleaseNotesMessage(message: WebSocketMessage<any>): boolean {
+  return message.method === 'ShowReleaseNotes';
 }
 
 export function isShowModalMessage(message: WebSocketMessage<any>): boolean {
-  return message.method === "ShowModal";
+  return message.method === 'ShowModal';
 }
 
-export function isSelectedGameExecutableMessage(
-  message: WebSocketMessage<any>,
-): boolean {
-  return message.method === "SelectedGameExecutable";
+export function isSelectedGameExecutableMessage(message: WebSocketMessage<any>): boolean {
+  return message.method === 'SelectedGameExecutable';
 }
