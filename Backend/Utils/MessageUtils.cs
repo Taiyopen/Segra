@@ -486,7 +486,7 @@ namespace Segra.Backend.Utils
                 if (!parameters.TryGetProperty("sectionId", out JsonElement sectionIdElement))
                 {
                     Log.Error("sectionId not found in ImportFile parameters");
-                    ShowModal("Import Error", "Missing section ID parameter", "error");
+                    _ = ShowModal("Import Error", "Missing section ID parameter", "error");
                     return;
                 }
 
@@ -503,7 +503,7 @@ namespace Segra.Backend.Utils
                         break;
                     default:
                         Log.Error($"Invalid sectionId: {sectionId}");
-                        ShowModal("Import Error", $"Invalid section ID: {sectionId}", "error");
+                        _ = ShowModal("Import Error", $"Invalid section ID: {sectionId}", "error");
                         return;
                 }
 
@@ -766,7 +766,7 @@ namespace Segra.Backend.Utils
                     Log.Warning($"Failed to send import error message: {msgEx.Message}");
                 }
 
-                ShowModal("Import Error", $"An error occurred during import: {ex.Message}", "error");
+                _ = ShowModal("Import Error", $"An error occurred during import: {ex.Message}", "error");
             }
         }
 
