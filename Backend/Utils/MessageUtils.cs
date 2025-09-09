@@ -8,6 +8,8 @@ using System.Diagnostics;
 using Segra.Backend.Services;
 using Segra.Backend.Models;
 using System.Text.RegularExpressions;
+using System.Windows.Forms;
+using System.Globalization;
 
 namespace Segra.Backend.Utils
 {
@@ -213,6 +215,11 @@ namespace Segra.Backend.Utils
                             await HandleDeleteBookmark(deleteBookmarkParameterElement);
                             Log.Information("DeleteBookmark command received.");
                             break;
+                        case "ImportFile":
+                            root.TryGetProperty("Parameters", out JsonElement importParameterElement);
+                            await HandleImportFile(importParameterElement);
+                            Log.Information("ImportFile command received.");
+                            break;
                         default:
                             Log.Information($"Unknown method: {method}");
                             break;
@@ -276,6 +283,393 @@ namespace Segra.Backend.Utils
             else
             {
                 Log.Information("Selections property not found in CreateClip message.");
+            }
+        }
+
+        private static string SmartFormatGameName(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return "Unknown";
+
+            string result = input.Trim();
+
+            // Handle Desktop special case
+            if (result.Equals("Desktop", StringComparison.OrdinalIgnoreCase))
+                return "Desktop Recording";
+
+            // First, identify and preserve potential acronyms (2-6 consecutive uppercase letters)
+            var acronymMatches = System.Text.RegularExpressions.Regex.Matches(result, @"\b[A-Z]{2,6}\b");
+            var acronymPlaceholders = new Dictionary<string, string>();
+            int placeholderIndex = 0;
+
+            foreach (System.Text.RegularExpressions.Match match in acronymMatches)
+            {
+                string placeholder = $"__ACRONYM_{placeholderIndex}__";
+                acronymPlaceholders[placeholder] = match.Value;
+                result = result.Replace(match.Value, placeholder);
+                placeholderIndex++;
+            }
+
+            // Add spaces before capital letters (CamelCase handling)
+            result = System.Text.RegularExpressions.Regex.Replace(result, @"(?<!^)(?=[A-Z][a-z])|(?<=[a-z])(?=[A-Z])", " ");
+
+            // Add spaces before numbers that follow letters
+            result = System.Text.RegularExpressions.Regex.Replace(result, @"(?<=[a-zA-Z])(?=\d)", " ");
+
+            // Add spaces after numbers that are followed by letters
+            result = System.Text.RegularExpressions.Regex.Replace(result, @"(?<=\d)(?=[a-zA-Z])", " ");
+
+            // Clean up multiple spaces
+            result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ").Trim();
+
+            // Restore acronyms
+            foreach (var placeholder in acronymPlaceholders)
+            {
+                result = result.Replace(placeholder.Key, placeholder.Value);
+            }
+
+            // Split into words for processing
+            var words = result.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var processedWords = new List<string>();
+
+            foreach (string word in words)
+            {
+                string processedWord = word;
+
+                // Keep acronyms as they are (2-6 uppercase letters)
+                if (word.Length >= 2 && word.Length <= 6 && word.All(char.IsUpper) && word.All(char.IsLetter))
+                {
+                    processedWord = word;
+                }
+                // Handle connecting words as lowercase (except if first word)
+                else if (processedWords.Count > 0 &&
+                         (word.Equals("of", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("the", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("and", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("in", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("on", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("at", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("to", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("for", StringComparison.OrdinalIgnoreCase)))
+                {
+                    processedWord = word.ToLower();
+                }
+                // Detect Roman numerals (proper patterns only)
+                else if (System.Text.RegularExpressions.Regex.IsMatch(word, @"^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                {
+                    processedWord = word.ToUpper();
+                }
+                // Regular title case for other words
+                else
+                {
+                    processedWord = char.ToUpper(word[0]) + (word.Length > 1 ? word.Substring(1).ToLower() : "");
+                }
+
+                processedWords.Add(processedWord);
+            }
+
+            return string.Join(" ", processedWords);
+        }
+
+        private static (string gameName, DateTime? extractedDate) ParseFileNameInfo(string fileName)
+        {
+            string gameName = fileName; // Fallback to original filename
+            DateTime? extractedDate = null;
+
+            // Remove common prefixes and suffixes
+            string cleanName = fileName
+                .Replace("Highlight_", "")
+                .Replace("Clip_", "")
+                .Replace("Replay_", "")
+                .Replace("Desktop_", "")
+                .Replace("DesktopRecording", "Desktop")
+                .Replace("Recording_", "");
+
+            // Date patterns to try
+            var datePatterns = new[]
+            {
+                @"(\d{4}-\d{2}-\d{2})",           // YYYY-MM-DD
+                @"(\d{2}-\d{2}-\d{4})",           // MM-DD-YYYY or DD-MM-YYYY
+                @"(\d{4}\.\d{2}\.\d{2})",         // YYYY.MM.DD
+                @"(\d{2}\.\d{2}\.\d{4})",         // MM.DD.YYYY or DD.MM.YYYY
+                @"(\d{4}_\d{2}_\d{2})",           // YYYY_MM_DD
+                @"(\d{2}_\d{2}_\d{4})"            // MM_DD_YYYY or DD_MM_YYYY
+            };
+
+            // Try to extract date
+            foreach (string pattern in datePatterns)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(cleanName, pattern);
+                if (match.Success)
+                {
+                    string dateStr = match.Groups[1].Value;
+
+                    // Try different date formats
+                    string[] formats = {
+                        "yyyy-MM-dd", "MM-dd-yyyy", "dd-MM-yyyy",
+                        "yyyy.MM.dd", "MM.dd.yyyy", "dd.MM.yyyy",
+                        "yyyy_MM_dd", "MM_dd_yyyy", "dd_MM_yyyy"
+                    };
+
+                    foreach (string format in formats)
+                    {
+                        if (DateTime.TryParseExact(dateStr, format, null, DateTimeStyles.None, out DateTime parsedDate))
+                        {
+                            extractedDate = parsedDate;
+                            break;
+                        }
+                    }
+
+                    if (extractedDate.HasValue)
+                    {
+                        // Remove the date part from the name for game detection
+                        cleanName = cleanName.Replace(dateStr, "").Trim('_', '-', '.', ' ');
+                        break;
+                    }
+                }
+            }
+
+            // Remove time patterns
+            var timePatterns = new[]
+            {
+                @"_\d{2}-\d{2}-\d{2}",    // _HH-MM-SS
+                @"_\d{2}\.\d{2}\.\d{2}",  // _HH.MM.SS
+                @"_\d{2}:\d{2}:\d{2}",    // _HH:MM:SS
+                @"\s\d{2}-\d{2}-\d{2}",   // HH-MM-SS
+                @"\s\d{2}\.\d{2}\.\d{2}", // HH.MM.SS
+                @"\s\d{2}:\d{2}:\d{2}"    // HH:MM:SS
+            };
+
+            foreach (string pattern in timePatterns)
+            {
+                cleanName = System.Text.RegularExpressions.Regex.Replace(cleanName, pattern, "");
+            }
+
+            // Clean up any remaining separators and common words
+            cleanName = cleanName
+                .Replace("_", " ")
+                .Replace("-", " ")
+                .Replace(".", " ")
+                .Trim();
+
+            // Remove common action words at the end
+            var actionWords = new[] { "Ace", "Win", "Victory", "Goal", "Clutch", "Kill", "DoubleKill", "TripleKill",
+                                    "BossFight", "Mission", "Match", "Explore", "Sabotage", "FullMatch", "Highlight",
+                                    "Clip", "Replay", "Play", "Heist", "Recording", "Build", "SoloWin" };
+
+            foreach (string action in actionWords)
+            {
+                if (cleanName.EndsWith(" " + action, StringComparison.OrdinalIgnoreCase))
+                {
+                    cleanName = cleanName.Substring(0, cleanName.Length - action.Length - 1).Trim();
+                    break;
+                }
+            }
+
+            // Smart game name parsing - use cleanName if meaningful, otherwise fallback to original fileName
+            string nameToFormat = (!string.IsNullOrWhiteSpace(cleanName) &&
+                                  !System.Text.RegularExpressions.Regex.IsMatch(cleanName, @"^[\d\s_\-\.]+$"))
+                                  ? cleanName : fileName;
+            gameName = SmartFormatGameName(nameToFormat);
+
+            return (gameName, extractedDate);
+        }
+
+        private static async Task HandleImportFile(JsonElement parameters)
+        {
+            try
+            {
+                // Extract sectionId and determine content type
+                if (!parameters.TryGetProperty("sectionId", out JsonElement sectionIdElement))
+                {
+                    Log.Error("sectionId not found in ImportFile parameters");
+                    ShowModal("Import Error", "Missing section ID parameter", "error");
+                    return;
+                }
+
+                string sectionId = sectionIdElement.GetString()!;
+                Content.ContentType contentType;
+
+                switch (sectionId)
+                {
+                    case "sessions":
+                        contentType = Content.ContentType.Session;
+                        break;
+                    case "replayBuffer":
+                        contentType = Content.ContentType.Buffer;
+                        break;
+                    default:
+                        Log.Error($"Invalid sectionId: {sectionId}");
+                        ShowModal("Import Error", $"Invalid section ID: {sectionId}", "error");
+                        return;
+                }
+
+                // Open file dialog
+                using var openFileDialog = new OpenFileDialog
+                {
+                    Filter = "MP4 Video Files (*.mp4)|*.mp4",
+                    Title = "Import MP4 Video Files",
+                    CheckFileExists = true,
+                    CheckPathExists = true,
+                    Multiselect = true
+                };
+
+                if (openFileDialog.ShowDialog() != DialogResult.OK)
+                {
+                    Log.Information("Import cancelled by user");
+                    return;
+                }
+
+                string[] selectedFiles = openFileDialog.FileNames;
+                if (selectedFiles.Length == 0)
+                {
+                    Log.Information("No files selected for import");
+                    return;
+                }
+
+                Log.Information($"Starting import of {selectedFiles.Length} file(s) to {contentType}");
+
+                // Create target directory
+                string contentFolder = Settings.Instance.ContentFolder;
+                string targetFolder = Path.Combine(contentFolder, contentType.ToString().ToLower() + "s").Replace("\\", "/");
+                Directory.CreateDirectory(targetFolder);
+
+                int importId = Guid.NewGuid().GetHashCode();
+                int importedCount = 0;
+                int failedCount = 0;
+
+                for (int i = 0; i < selectedFiles.Length; i++)
+                {
+                    string sourceFile = selectedFiles[i];
+                    string originalFileName = Path.GetFileNameWithoutExtension(sourceFile);
+                    string fileExtension = Path.GetExtension(sourceFile);
+
+                    // Validate file extension is MP4
+                    if (!fileExtension.Equals(".mp4", StringComparison.OrdinalIgnoreCase))
+                    {
+                        failedCount++;
+                        Log.Error($"Skipping {originalFileName}: Only MP4 files are allowed");
+                        continue;
+                    }
+
+                    try
+                    {
+                        // Send initial progress for current file
+                        double progressPercent = (double)i / selectedFiles.Length * 100;
+                        await SendFrontendMessage("ImportProgress", new
+                        {
+                            id = importId,
+                            progress = progressPercent,
+                            fileName = originalFileName,
+                            totalFiles = selectedFiles.Length,
+                            currentFileIndex = i + 1
+                        });
+
+                        // Generate unique filename with timestamp
+                        string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                        string targetFileName = $"{timestamp}_{originalFileName}{fileExtension}";
+                        string targetFilePath = Path.Combine(targetFolder, targetFileName).Replace("\\", "/");
+
+                        // Ensure unique filename if file already exists
+                        int counter = 1;
+                        while (File.Exists(targetFilePath))
+                        {
+                            targetFileName = $"{timestamp}_{originalFileName}_{counter}{fileExtension}";
+                            targetFilePath = Path.Combine(targetFolder, targetFileName).Replace("\\", "/");
+                            counter++;
+                        }
+
+                        Log.Information($"Importing {originalFileName} to {targetFilePath}");
+
+                        // Copy the video file to target location
+                        File.Copy(sourceFile, targetFilePath);
+
+                        // Send progress after file copy
+                        await SendFrontendMessage("ImportProgress", new
+                        {
+                            id = importId,
+                            progress = progressPercent + (25.0 / selectedFiles.Length),
+                            fileName = originalFileName,
+                            totalFiles = selectedFiles.Length,
+                            currentFileIndex = i + 1
+                        });
+
+                        // Parse game name and date from filename
+                        var (detectedGame, detectedDate) = ParseFileNameInfo(originalFileName);
+
+                        // Log detected information
+                        Log.Information($"Detected game: '{detectedGame}' from filename: '{originalFileName}'");
+                        if (detectedDate.HasValue)
+                        {
+                            Log.Information($"Detected date: {detectedDate.Value:yyyy-MM-dd} from filename: '{originalFileName}'");
+                        }
+
+                        // Create metadata file with detected game name and date
+                        ContentUtils.CreateMetadataFile(targetFilePath, contentType, detectedGame, null, detectedDate);
+
+                        // Send progress after metadata creation
+                        await SendFrontendMessage("ImportProgress", new
+                        {
+                            id = importId,
+                            progress = progressPercent + (50.0 / selectedFiles.Length),
+                            fileName = originalFileName,
+                            totalFiles = selectedFiles.Length,
+                            currentFileIndex = i + 1
+                        });
+
+                        // Create thumbnail image
+                        ContentUtils.CreateThumbnail(targetFilePath, contentType);
+
+                        // Send progress after thumbnail creation
+                        await SendFrontendMessage("ImportProgress", new
+                        {
+                            id = importId,
+                            progress = progressPercent + (75.0 / selectedFiles.Length),
+                            fileName = originalFileName,
+                            totalFiles = selectedFiles.Length,
+                            currentFileIndex = i + 1
+                        });
+
+                        // Create waveform data asynchronously
+                        _ = Task.Run(() => ContentUtils.CreateWaveformFile(targetFilePath, contentType));
+
+                        importedCount++;
+                        Log.Information($"Successfully imported {originalFileName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        failedCount++;
+                        Log.Error($"Failed to import {originalFileName}: {ex.Message}");
+                    }
+                }
+
+                // Send final progress update
+                await SendFrontendMessage("ImportProgress", new
+                {
+                    id = importId,
+                    progress = 100,
+                    fileName = "Complete",
+                    totalFiles = selectedFiles.Length,
+                    currentFileIndex = selectedFiles.Length
+                });
+
+                // Reload content list to include newly imported files
+                SettingsUtils.LoadContentFromFolderIntoState();
+
+                // Show completion modal to user
+                string completionMessage = $"Import completed: {importedCount} successful";
+                if (failedCount > 0)
+                {
+                    completionMessage += $", {failedCount} failed";
+                }
+
+                ShowModal("Import Complete", completionMessage, failedCount > 0 ? "warning" : "success");
+                Log.Information($"Import process completed: {importedCount} successful, {failedCount} failed");
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error during import process: {ex.Message}");
+                ShowModal("Import Error", $"An error occurred during import: {ex.Message}", "error");
             }
         }
 

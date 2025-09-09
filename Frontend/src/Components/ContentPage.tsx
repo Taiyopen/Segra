@@ -1,11 +1,13 @@
-import { useSettings } from '../Context/SettingsContext';
-import ContentCard from './ContentCard';
+import { useSettings } from "../Context/SettingsContext";
+import ContentCard from "./ContentCard";
 import { useSelectedVideo } from "../Context/SelectedVideoContext";
 import { Content, ContentType } from "../Models/types";
-import { useScroll } from '../Context/ScrollContext';
-import { useLayoutEffect, useRef, useState, useMemo } from 'react';
-import { IconType } from 'react-icons';
-import ContentFilters, { SortOption } from './ContentFilters';
+import { useScroll } from "../Context/ScrollContext";
+import { useLayoutEffect, useRef, useState, useMemo } from "react";
+import { IconType } from "react-icons";
+import { MdUploadFile } from "react-icons/md";
+import { sendMessageToBackend } from "../Utils/MessageUtils";
+import ContentFilters, { SortOption } from "./ContentFilters";
 
 interface ContentPageProps {
   contentType: ContentType;
@@ -24,7 +26,7 @@ export default function ContentPage({
   Icon,
   progressItems = {},
   isProgressVisible = false,
-  progressCardElement
+  progressCardElement,
 }: ContentPageProps) {
   const { state } = useSettings();
   const { setSelectedVideo } = useSelectedVideo();
@@ -33,7 +35,9 @@ export default function ContentPage({
   const isSettingScroll = useRef(false);
 
   // Get content items of the specified type
-  const contentItems = state.content.filter((video) => video.type === contentType);
+  const contentItems = state.content.filter(
+    (video) => video.type === contentType,
+  );
 
   // Filter and sort state
   const [selectedGames, setSelectedGames] = useState<string[]>(() => {
@@ -56,7 +60,7 @@ export default function ContentPage({
 
   // Get unique games for filter dropdown
   const uniqueGames = useMemo(() => {
-    const games = contentItems.map(item => item.game);
+    const games = contentItems.map((item) => item.game);
     return [...new Set(games)].sort();
   }, [contentItems]);
 
@@ -66,26 +70,34 @@ export default function ContentPage({
 
     // Apply game filter
     if (selectedGames.length > 0) {
-      filtered = filtered.filter(item => selectedGames.includes(item.game));
+      filtered = filtered.filter((item) => selectedGames.includes(item.game));
     }
 
     // Apply sorting
     filtered.sort((a, b) => {
       switch (sortOption) {
         case "newest":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
         case "oldest":
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          return (
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
         case "size":
           return (b.fileSizeKb ?? 0) - (a.fileSizeKb ?? 0);
         case "duration": {
           const toSecs = (dur: string) =>
-            dur.split(":").reduce((acc, t) => 60 * acc + (parseInt(t, 10) || 0), 0);
+            dur
+              .split(":")
+              .reduce((acc, t) => 60 * acc + (parseInt(t, 10) || 0), 0);
           return toSecs(b.duration) - toSecs(a.duration);
         }
         case "game": {
           const byGame = a.game.localeCompare(b.game);
-          return byGame !== 0 ? byGame : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return byGame !== 0
+            ? byGame
+            : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
         default:
           return 0;
@@ -114,10 +126,16 @@ export default function ContentPage({
   // Restore scroll position on mount
   useLayoutEffect(() => {
     // Type-safe access to scroll positions
-    const position = sectionId === 'clips' ? scrollPositions.clips :
-      sectionId === 'highlights' ? scrollPositions.highlights :
-        sectionId === 'replayBuffer' ? scrollPositions.replayBuffer :
-          sectionId === 'sessions' ? scrollPositions.sessions : 0;
+    const position =
+      sectionId === "clips"
+        ? scrollPositions.clips
+        : sectionId === "highlights"
+          ? scrollPositions.highlights
+          : sectionId === "replayBuffer"
+            ? scrollPositions.replayBuffer
+            : sectionId === "sessions"
+              ? scrollPositions.sessions
+              : 0;
 
     if (containerRef.current && position > 0) {
       isSettingScroll.current = true;
@@ -128,7 +146,7 @@ export default function ContentPage({
     }
   }, []); // Only run on mount
 
-    const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Save scroll position when scrolling
   const handleScroll = () => {
@@ -142,10 +160,16 @@ export default function ContentPage({
         if (currentPos === undefined) return;
 
         // Type-safe scroll position update
-        const pageKey = sectionId === 'clips' ? 'clips' :
-          sectionId === 'highlights' ? 'highlights' :
-            sectionId === 'replayBuffer' ? 'replayBuffer' :
-              sectionId === 'sessions' ? 'sessions' : null;
+        const pageKey =
+          sectionId === "clips"
+            ? "clips"
+            : sectionId === "highlights"
+              ? "highlights"
+              : sectionId === "replayBuffer"
+                ? "replayBuffer"
+                : sectionId === "sessions"
+                  ? "sessions"
+                  : null;
 
         if (pageKey) {
           setScrollPosition(pageKey, currentPos);
@@ -162,20 +186,32 @@ export default function ContentPage({
     <div
       ref={containerRef}
       className="p-5 space-y-6 overflow-y-auto h-full bg-base-200 overflow-x-hidden"
-      onScroll={handleScroll}>
+      onScroll={handleScroll}
+    >
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold">{title}</h1>
-        <ContentFilters
-          uniqueGames={uniqueGames}
-          onGameFilterChange={handleGameFilterChange}
-          onSortChange={handleSortChange}
-          sectionId={sectionId}
-          selectedGames={selectedGames}
-          sortOption={sortOption}
-        />
+        <div className="flex items-center gap-2">
+          {(sectionId === "sessions" || sectionId === "replayBuffer") && (
+            <button
+              className="btn btn-sm no-animation btn-secondary border border-base-400 h-8 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300"
+              onClick={() => sendMessageToBackend("ImportFile", { sectionId })}
+            >
+              <MdUploadFile size={16} />
+              Import
+            </button>
+          )}
+          <ContentFilters
+            uniqueGames={uniqueGames}
+            onGameFilterChange={handleGameFilterChange}
+            onSortChange={handleSortChange}
+            sectionId={sectionId}
+            selectedGames={selectedGames}
+            sortOption={sortOption}
+          />
+        </div>
       </div>
 
-      {(contentItems.length > 0 || hasProgress) ? (
+      {contentItems.length > 0 || hasProgress ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {/* Show progress card if applicable */}
           {isProgressVisible && progressCardElement}
