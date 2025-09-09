@@ -477,6 +477,8 @@ namespace Segra.Backend.Utils
 
         private static async Task HandleImportFile(JsonElement parameters)
         {
+            int importId = Guid.NewGuid().GetHashCode();
+
             try
             {
                 // Extract sectionId and determine content type
@@ -534,7 +536,6 @@ namespace Segra.Backend.Utils
                 string targetFolder = Path.Combine(contentFolder, contentType.ToString().ToLower() + "s").Replace("\\", "/");
                 Directory.CreateDirectory(targetFolder);
 
-                int importId = Guid.NewGuid().GetHashCode();
                 int importedCount = 0;
                 int failedCount = 0;
 
@@ -556,14 +557,22 @@ namespace Segra.Backend.Utils
                     {
                         // Send initial progress for current file
                         double progressPercent = (double)i / selectedFiles.Length * 100;
-                        await SendFrontendMessage("ImportProgress", new
+                        try
                         {
-                            id = importId,
-                            progress = progressPercent,
-                            fileName = originalFileName,
-                            totalFiles = selectedFiles.Length,
-                            currentFileIndex = i + 1
-                        });
+                            await SendFrontendMessage("ImportProgress", new
+                            {
+                                id = importId,
+                                progress = progressPercent,
+                                fileName = originalFileName,
+                                totalFiles = selectedFiles.Length,
+                                currentFileIndex = i + 1,
+                                status = "importing"
+                            });
+                        }
+                        catch (Exception msgEx)
+                        {
+                            Log.Warning($"Failed to send import progress message: {msgEx.Message}");
+                        }
 
                         // Generate unique filename with timestamp
                         string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
@@ -585,14 +594,22 @@ namespace Segra.Backend.Utils
                         File.Copy(sourceFile, targetFilePath);
 
                         // Send progress after file copy
-                        await SendFrontendMessage("ImportProgress", new
+                        try
                         {
-                            id = importId,
-                            progress = progressPercent + (25.0 / selectedFiles.Length),
-                            fileName = originalFileName,
-                            totalFiles = selectedFiles.Length,
-                            currentFileIndex = i + 1
-                        });
+                            await SendFrontendMessage("ImportProgress", new
+                            {
+                                id = importId,
+                                progress = progressPercent + (25.0 / selectedFiles.Length),
+                                fileName = originalFileName,
+                                totalFiles = selectedFiles.Length,
+                                currentFileIndex = i + 1,
+                                status = "importing"
+                            });
+                        }
+                        catch (Exception msgEx)
+                        {
+                            Log.Warning($"Failed to send import progress message: {msgEx.Message}");
+                        }
 
                         // Parse game name and date from filename
                         var (detectedGame, detectedDate) = ParseFileNameInfo(originalFileName);
@@ -608,27 +625,43 @@ namespace Segra.Backend.Utils
                         ContentUtils.CreateMetadataFile(targetFilePath, contentType, detectedGame, null, detectedDate);
 
                         // Send progress after metadata creation
-                        await SendFrontendMessage("ImportProgress", new
+                        try
                         {
-                            id = importId,
-                            progress = progressPercent + (50.0 / selectedFiles.Length),
-                            fileName = originalFileName,
-                            totalFiles = selectedFiles.Length,
-                            currentFileIndex = i + 1
-                        });
+                            await SendFrontendMessage("ImportProgress", new
+                            {
+                                id = importId,
+                                progress = progressPercent + (50.0 / selectedFiles.Length),
+                                fileName = originalFileName,
+                                totalFiles = selectedFiles.Length,
+                                currentFileIndex = i + 1,
+                                status = "importing"
+                            });
+                        }
+                        catch (Exception msgEx)
+                        {
+                            Log.Warning($"Failed to send import progress message: {msgEx.Message}");
+                        }
 
                         // Create thumbnail image
                         ContentUtils.CreateThumbnail(targetFilePath, contentType);
 
                         // Send progress after thumbnail creation
-                        await SendFrontendMessage("ImportProgress", new
+                        try
                         {
-                            id = importId,
-                            progress = progressPercent + (75.0 / selectedFiles.Length),
-                            fileName = originalFileName,
-                            totalFiles = selectedFiles.Length,
-                            currentFileIndex = i + 1
-                        });
+                            await SendFrontendMessage("ImportProgress", new
+                            {
+                                id = importId,
+                                progress = progressPercent + (75.0 / selectedFiles.Length),
+                                fileName = originalFileName,
+                                totalFiles = selectedFiles.Length,
+                                currentFileIndex = i + 1,
+                                status = "importing"
+                            });
+                        }
+                        catch (Exception msgEx)
+                        {
+                            Log.Warning($"Failed to send import progress message: {msgEx.Message}");
+                        }
 
                         // Create waveform data asynchronously
                         _ = Task.Run(() => ContentUtils.CreateWaveformFile(targetFilePath, contentType));
@@ -640,35 +673,77 @@ namespace Segra.Backend.Utils
                     {
                         failedCount++;
                         Log.Error($"Failed to import {originalFileName}: {ex.Message}");
+
+                        // Send error progress update
+                        double progressPercent = (double)i / selectedFiles.Length * 100;
+                        try
+                        {
+                            await SendFrontendMessage("ImportProgress", new
+                            {
+                                id = importId,
+                                progress = progressPercent + (100.0 / selectedFiles.Length),
+                                fileName = originalFileName,
+                                totalFiles = selectedFiles.Length,
+                                currentFileIndex = i + 1,
+                                status = "error",
+                                message = $"Failed to import: {ex.Message}"
+                            });
+                        }
+                        catch (Exception msgEx)
+                        {
+                            Log.Warning($"Failed to send import error progress message: {msgEx.Message}");
+                        }
                     }
                 }
 
                 // Send final progress update
-                await SendFrontendMessage("ImportProgress", new
+                try
                 {
-                    id = importId,
-                    progress = 100,
-                    fileName = "Complete",
-                    totalFiles = selectedFiles.Length,
-                    currentFileIndex = selectedFiles.Length
-                });
+                    await SendFrontendMessage("ImportProgress", new
+                    {
+                        id = importId,
+                        progress = 100,
+                        fileName = importedCount > 0 ? "Finished" : "Failed",
+                        totalFiles = selectedFiles.Length,
+                        currentFileIndex = selectedFiles.Length,
+                        status = importedCount > 0 ? "done" : "error",
+                        message = $"Completed: {importedCount} successful, {failedCount} failed"
+                    });
+                }
+                catch (Exception msgEx)
+                {
+                    Log.Warning($"Failed to send final import progress message: {msgEx.Message}");
+                }
 
                 // Reload content list to include newly imported files
                 SettingsUtils.LoadContentFromFolderIntoState();
 
-                // Show completion modal to user
-                string completionMessage = $"Import completed: {importedCount} successful";
-                if (failedCount > 0)
-                {
-                    completionMessage += $", {failedCount} failed";
-                }
-
-                ShowModal("Import Complete", completionMessage, failedCount > 0 ? "warning" : "success");
+                // No need for completion modal since progress cards show completion status
                 Log.Information($"Import process completed: {importedCount} successful, {failedCount} failed");
             }
             catch (Exception ex)
             {
                 Log.Error($"Error during import process: {ex.Message}");
+
+                // Send error progress update for the entire import process
+                try
+                {
+                    await SendFrontendMessage("ImportProgress", new
+                    {
+                        id = importId,
+                        progress = 0,
+                        fileName = "Import Failed",
+                        totalFiles = 0,
+                        currentFileIndex = 0,
+                        status = "error",
+                        message = $"Import process failed: {ex.Message}"
+                    });
+                }
+                catch (Exception msgEx)
+                {
+                    Log.Warning($"Failed to send import error message: {msgEx.Message}");
+                }
+
                 ShowModal("Import Error", $"An error occurred during import: {ex.Message}", "error");
             }
         }
