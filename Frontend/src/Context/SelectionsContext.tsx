@@ -10,6 +10,7 @@ export interface Selection {
 	isLoading: boolean;
 	fileName: string;
 	game?: string;
+	title?: string;
 }
 
 interface SelectionsContextType {

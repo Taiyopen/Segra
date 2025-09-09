@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Serilog;
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Segra.Backend.Models;
 using static Segra.Backend.Utils.GeneralUtils;
@@ -157,7 +158,7 @@ namespace Segra.Backend.Utils
             SafeDelete(concatFilePath);
 
             // Finalization
-            ContentUtils.CreateMetadataFile(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip, selections.FirstOrDefault()?.Game!);
+            ContentUtils.CreateMetadataFile(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip, selections.FirstOrDefault()?.Game!, null, selections.FirstOrDefault()?.Title);
             ContentUtils.CreateThumbnail(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip);
             _ = Task.Run(() => ContentUtils.CreateWaveformFile(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip));
             SettingsUtils.LoadContentFromFolderIntoState();

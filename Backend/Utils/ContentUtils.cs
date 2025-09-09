@@ -7,7 +7,7 @@ namespace Segra.Backend.Utils
 {
     internal class ContentUtils
     {
-        public static void CreateMetadataFile(string filePath, Content.ContentType type, string game, List<Bookmark>? bookmarks = null)
+        public static void CreateMetadataFile(string filePath, Content.ContentType type, string game, List<Bookmark>? bookmarks = null, string? title = null)
         {
             bookmarks ??= new List<Bookmark>();
 
@@ -64,7 +64,7 @@ namespace Segra.Backend.Utils
                 var metadataContent = new Content
                 {
                     Type = type,
-                    Title = string.Empty,
+                    Title = title ?? string.Empty,
                     Game = game,
                     Bookmarks = bookmarks,
                     FileName = contentFileName,

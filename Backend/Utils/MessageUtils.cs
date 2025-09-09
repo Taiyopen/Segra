@@ -20,6 +20,7 @@ namespace Segra.Backend.Utils
         public double EndTime { get; set; }
         public required string FileName { get; set; }
         public required string Game { get; set; }
+        public string Title { get; set; } = string.Empty;
     }
 
     public static class MessageUtils
@@ -254,7 +255,8 @@ namespace Segra.Backend.Utils
                         selectionElement.TryGetProperty("endTime", out JsonElement endTimeElement) &&
                         selectionElement.TryGetProperty("fileName", out JsonElement fileNameElement) &&
                         selectionElement.TryGetProperty("type", out JsonElement videoTypeElement) &&
-                        selectionElement.TryGetProperty("game", out JsonElement gameElement))
+                        selectionElement.TryGetProperty("game", out JsonElement gameElement) &&
+                        selectionElement.TryGetProperty("title", out JsonElement titleElement))
                     {
                         long id = idElement.GetInt64();
                         double startTime = startTimeElement.GetDouble();
@@ -262,6 +264,7 @@ namespace Segra.Backend.Utils
                         string fileName = fileNameElement.GetString()!;
                         string type = videoTypeElement.GetString()!;
                         string game = gameElement.GetString()!;
+                        string title = titleElement.GetString() ?? string.Empty;
 
                         // Create a new Selection instance with all required properties.
                         selections.Add(new Selection
@@ -271,7 +274,8 @@ namespace Segra.Backend.Utils
                             StartTime = startTime,
                             EndTime = endTime,
                             FileName = fileName,
-                            Game = game
+                            Game = game,
+                            Title = title
                         });
                     }
                 }
