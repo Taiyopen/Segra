@@ -221,6 +221,7 @@ namespace Segra.Backend.Utils
                             root.TryGetProperty("Parameters", out JsonElement renameContentParameterElement);
                             await HandleRenameContent(renameContentParameterElement);
                             Log.Information("RenameContent command received.");
+                            break;
                         case "ImportFile":
                             root.TryGetProperty("Parameters", out JsonElement importParameterElement);
                             await HandleImportFile(importParameterElement);
@@ -494,7 +495,7 @@ namespace Segra.Backend.Utils
                 if (!parameters.TryGetProperty("sectionId", out JsonElement sectionIdElement))
                 {
                     Log.Error("sectionId not found in ImportFile parameters");
-                    ShowModal("Import Error", "Missing section ID parameter", "error");
+                    await ShowModal("Import Error", "Missing section ID parameter", "error");
                     return;
                 }
 
@@ -511,7 +512,7 @@ namespace Segra.Backend.Utils
                         break;
                     default:
                         Log.Error($"Invalid sectionId: {sectionId}");
-                        ShowModal("Import Error", $"Invalid section ID: {sectionId}", "error");
+                        await ShowModal("Import Error", $"Invalid section ID: {sectionId}", "error");
                         return;
                 }
 
@@ -652,7 +653,7 @@ namespace Segra.Backend.Utils
                         }
 
                         // Create metadata file with detected game name and date
-                        ContentUtils.CreateMetadataFile(targetFilePath, contentType, detectedGame, null, detectedDate);
+                        ContentUtils.CreateMetadataFile(targetFilePath, contentType, detectedGame, null, null, detectedDate);
 
                         // Send progress after metadata creation
                         try
@@ -774,7 +775,7 @@ namespace Segra.Backend.Utils
                     Log.Warning($"Failed to send import error message: {msgEx.Message}");
                 }
 
-                ShowModal("Import Error", $"An error occurred during import: {ex.Message}", "error");
+                await ShowModal("Import Error", $"An error occurred during import: {ex.Message}", "error");
             }
         }
 
