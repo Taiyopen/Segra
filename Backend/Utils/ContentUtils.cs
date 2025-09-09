@@ -7,7 +7,7 @@ namespace Segra.Backend.Utils
 {
     internal class ContentUtils
     {
-        public static void CreateMetadataFile(string filePath, Content.ContentType type, string game, List<Bookmark>? bookmarks = null)
+        public static void CreateMetadataFile(string filePath, Content.ContentType type, string game, List<Bookmark>? bookmarks = null, DateTime? createdAt = null)
         {
             bookmarks ??= new List<Bookmark>();
 
@@ -71,7 +71,7 @@ namespace Segra.Backend.Utils
                     FilePath = filePath,
                     FileSize = displaySize,
                     FileSizeKb = sizeKb,
-                    CreatedAt = DateTime.Now,
+                    CreatedAt = createdAt ?? DateTime.Now,
                     Duration = GetVideoDuration(filePath),
                     AudioTrackNames = trackNames
                 };
