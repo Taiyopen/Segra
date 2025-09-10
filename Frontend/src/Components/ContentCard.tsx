@@ -4,9 +4,11 @@ import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { useAuth } from '../Hooks/useAuth.tsx';
 import { useModal } from '../Context/ModalContext';
 import UploadModal from './UploadModal';
+import RenameModal from './RenameModal';
 import {
   MdOutlineFileUpload,
   MdOutlineInsertDriveFile,
+  MdDriveFileRenameOutline,
   MdDeleteOutline,
   MdOutlineLink,
 } from 'react-icons/md';
@@ -176,6 +178,24 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
     sendMessageToBackend('DeleteContent', parameters);
   };
 
+  const handleRename = () => {
+    openModal(
+      <RenameModal
+        content={content!}
+        onClose={closeModal}
+        onRename={(newName) => {
+          const parameters: any = {
+            FileName: content!.fileName,
+            ContentType: type,
+            Title: newName,
+          };
+
+          sendMessageToBackend('RenameContent', parameters);
+        }}
+      />,
+    );
+  };
+
   const handleOpenFileLocation = () => {
     const parameters: any = {
       FilePath: content!.filePath,
@@ -304,7 +324,20 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
                   })()}
                 </li>
               )}
+              <li>
+                <a
+                  className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
+                  onClick={() => {
+                    // I don't know why it doesn't hide by itself?
+                    (document.activeElement as HTMLElement).blur();
 
+                    handleRename();
+                  }}
+                >
+                  <MdDriveFileRenameOutline size="20" />
+                  <span>Rename</span>
+                </a>
+              </li>
               <li>
                 <a
                   className="flex w-full items-center gap-2 px-4 py-3 text-white hover:bg-white/5 active:bg-base-200/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"

@@ -611,6 +611,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       isLoading: true,
       fileName: video.fileName,
       game: video.game,
+      title: video.title,
     };
     addSelection(newSelection);
     // Kick off thumbnail generation; uses latest state and guards against stale overwrites
@@ -631,6 +632,7 @@ export default function VideoComponent({ video }: { video: Content }) {
         type: s.type,
         fileName: s.fileName,
         game: s.game,
+        title: s.title,
         startTime: s.startTime,
         endTime: s.endTime,
       })),
