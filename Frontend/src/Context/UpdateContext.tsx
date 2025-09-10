@@ -1,5 +1,12 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { isUpdateProgressMessage, isReleaseNotesMessage, ReleaseNote, isShowReleaseNotesMessage, isShowModalMessage, ModalMessage } from '../Models/WebSocketMessages';
+import {
+  isUpdateProgressMessage,
+  isReleaseNotesMessage,
+  ReleaseNote,
+  isShowReleaseNotesMessage,
+  isShowModalMessage,
+  ModalMessage,
+} from '../Models/WebSocketMessages';
 import { useModal } from './ModalContext';
 import ReleaseNotesModal from '../Components/ReleaseNotesModal';
 import GenericModal from '../Components/GenericModal';
@@ -84,14 +91,14 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
     // Listen for WebSocket messages
     window.addEventListener('websocket-message', handleWebSocketMessage as EventListener);
-    
+
     // Listen for the custom show-release-notes event
     const handleShowReleaseNotes = (event: CustomEvent<any>) => {
       if (event.detail && event.detail.filterVersion) {
         openReleaseNotesModal(event.detail.filterVersion);
       }
     };
-    
+
     window.addEventListener('show-release-notes', handleShowReleaseNotes as EventListener);
 
     return () => {
@@ -110,12 +117,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   };
 
   const openReleaseNotesModal = (filterVersion: string | null = __APP_VERSION__) => {
-    openModal(
-      <ReleaseNotesModal
-        onClose={closeModal}
-        filterVersion={filterVersion}
-      />
-    );
+    openModal(<ReleaseNotesModal onClose={closeModal} filterVersion={filterVersion} />);
   };
 
   const openGenericModal = (modalData: ModalMessage) => {
@@ -126,19 +128,21 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         description={modalData.description}
         type={modalData.type}
         onClose={closeModal}
-      />
+      />,
     );
   };
 
   return (
-    <UpdateContext.Provider value={{
-      updateInfo,
-      releaseNotes,
-      openReleaseNotesModal,
-      openModal: openGenericModal,
-      clearUpdateInfo,
-      checkForUpdates
-    }}>
+    <UpdateContext.Provider
+      value={{
+        updateInfo,
+        releaseNotes,
+        openReleaseNotesModal,
+        openModal: openGenericModal,
+        clearUpdateInfo,
+        checkForUpdates,
+      }}
+    >
       {children}
     </UpdateContext.Provider>
   );

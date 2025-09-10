@@ -24,13 +24,13 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
       if (data.method === 'UploadProgress') {
         const { title, fileName, progress, status, message } = data.content;
-        setUploads(prev => ({
+        setUploads((prev) => ({
           ...prev,
-          [fileName]: { title, fileName, progress, status, message }
+          [fileName]: { title, fileName, progress, status, message },
         }));
 
         if (status === 'done' || status === 'error') {
-          setUploads(prev => {
+          setUploads((prev) => {
             const newUploads = { ...prev };
             delete newUploads[fileName];
             return newUploads;
@@ -47,7 +47,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeUpload = (fileName: string) => {
-    setUploads(prev => {
+    setUploads((prev) => {
       const newUploads = { ...prev };
       delete newUploads[fileName];
       return newUploads;
@@ -55,9 +55,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <UploadContext.Provider value={{ uploads, removeUpload }}>
-      {children}
-    </UploadContext.Provider>
+    <UploadContext.Provider value={{ uploads, removeUpload }}>{children}</UploadContext.Provider>
   );
 }
 

@@ -50,7 +50,12 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
     <>
       <div className="bg-base-300">
         <div className="modal-header">
-          <button className="btn btn-sm btn-circle btn-ghost absolute right-4 top-2" onClick={onClose}>✕</button>
+          <button
+            className="btn btn-sm btn-circle btn-ghost absolute right-4 top-2"
+            onClick={onClose}
+          >
+            ✕
+          </button>
         </div>
         <div className="modal-body">
           <div className="w-full aspect-video mb-4 mt-4">
@@ -96,7 +101,6 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
               <span className="label-text text-base-content">Open in browser after upload</span>
             </label>
           </div>
-
         </div>
         <div className="modal-action mt-6">
           <button

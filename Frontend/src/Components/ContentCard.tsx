@@ -41,23 +41,23 @@ export default function ContentCard({
     return (
       <div
         className={
-          type === "Highlight"
-            ? "card card-compact shadow-xl w-full relative highlight-card"
-            : "card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-[#49515b]"
+          type === 'Highlight'
+            ? 'card card-compact shadow-xl w-full relative highlight-card'
+            : 'card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-[#49515b]'
         }
       >
-        {type === "Highlight" && (
+        {type === 'Highlight' && (
           <div className="absolute inset-0 rounded-lg highlight-border">
             <div className="card absolute inset-px bg-base-300 z-2">
               <figure className="relative aspect-w-16 aspect-h-9">
                 {/* Thumbnail Skeleton */}
                 <div
                   className="skeleton w-full h-0 relative bg-base-300/70 rounded-none"
-                  style={{ paddingTop: "56.25%" }}
+                  style={{ paddingTop: '56.25%' }}
                 ></div>
                 <span
                   className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full"
-                  style={{ aspectRatio: "16/9", visibility: "hidden" }}
+                  style={{ aspectRatio: '16/9', visibility: 'hidden' }}
                 ></span>
               </figure>
               <div className="card-body text-gray-300">
@@ -76,11 +76,11 @@ export default function ContentCard({
               {/* Thumbnail Skeleton */}
               <div
                 className="skeleton w-full h-0 relative bg-base-300/70 rounded-none"
-                style={{ paddingTop: "56.25%" }}
+                style={{ paddingTop: '56.25%' }}
               ></div>
               <span
                 className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full"
-                style={{ aspectRatio: "16/9", visibility: "hidden" }}
+                style={{ aspectRatio: '16/9', visibility: 'hidden' }}
               ></span>
             </figure>
             <div className="card card-body bg-base-300">
@@ -157,7 +157,7 @@ export default function ContentCard({
             JWT: session?.access_token,
             Game: content?.game,
             Title: title,
-            Description: "", // TODO: implement description
+            Description: '', // TODO: implement description
             Visibility: visibility, // TODO: implement description
           };
 
@@ -172,7 +172,7 @@ export default function ContentCard({
       FileName: content!.fileName,
     };
 
-    sendMessageToBackend("CreateAiClip", parameters);
+    sendMessageToBackend('CreateAiClip', parameters);
   };
 
   const handleDelete = () => {
@@ -180,8 +180,7 @@ export default function ContentCard({
       FileName: content!.fileName,
       ContentType: type,
     };
-
-    sendMessageToBackend("DeleteContent", parameters);
+    sendMessageToBackend('DeleteContent', parameters);
   };
 
   const handleRename = () => {
@@ -196,10 +195,11 @@ export default function ContentCard({
             Title: newName,
           };
 
-          sendMessageToBackend("RenameContent", parameters);
+          sendMessageToBackend('RenameContent', parameters);
         }}
       />,
     );
+
   };
 
   const handleOpenFileLocation = () => {
@@ -207,7 +207,7 @@ export default function ContentCard({
       FilePath: content!.filePath,
     };
 
-    sendMessageToBackend("OpenFileLocation", parameters);
+    sendMessageToBackend('OpenFileLocation', parameters);
   };
 
   return (
@@ -221,7 +221,7 @@ export default function ContentCard({
       <figure className="relative aspect-video bg-black">
         <img
           src={thumbnailPath}
-          alt={"thumbnail"}
+          alt={'thumbnail'}
           className="w-full h-full object-contain"
           loading="lazy"
           width={1600}
@@ -242,12 +242,13 @@ export default function ContentCard({
       <div className="card-body gap-1.5 pt-2">
         <div className="flex justify-between items-center">
           <h2 className="card-title truncate">
-            {content!.title || content!.game || "Untitled"}
+            {content!.title || content!.game || 'Untitled'}
           </h2>
           <div
             className="dropdown dropdown-end"
             onClick={(e) => e.stopPropagation()}
           >
+
             <label
               tabIndex={0}
               className="btn btn-ghost btn-sm btn-circle p-1 hover:bg-white/20 active:bg-white/20"
@@ -262,17 +263,13 @@ export default function ContentCard({
                 viewBox="0 0 32.055 32.055"
               >
                 <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
-                <g
-                  id="SVGRepo_tracerCarrier"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                ></g>
+                <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
                 <g id="SVGRepo_iconCarrier">
-                  {" "}
+                  {' '}
                   <g>
-                    {" "}
-                    <path d="M3.968,12.061C1.775,12.061,0,13.835,0,16.027c0,2.192,1.773,3.967,3.968,3.967c2.189,0,3.966-1.772,3.966-3.967 C7.934,13.835,6.157,12.061,3.968,12.061z M16.233,12.061c-2.188,0-3.968,1.773-3.968,3.965c0,2.192,1.778,3.967,3.968,3.967 s3.97-1.772,3.97-3.967C20.201,13.835,18.423,12.061,16.233,12.061z M28.09,12.061c-2.192,0-3.969,1.774-3.969,3.967 c0,2.19,1.774,3.965,3.969,3.965c2.188,0,3.965-1.772,3.965-3.965S30.278,12.061,28.09,12.061z"></path>{" "}
-                  </g>{" "}
+                    {' '}
+                    <path d="M3.968,12.061C1.775,12.061,0,13.835,0,16.027c0,2.192,1.773,3.967,3.968,3.967c2.189,0,3.966-1.772,3.966-3.967 C7.934,13.835,6.157,12.061,3.968,12.061z M16.233,12.061c-2.188,0-3.968,1.773-3.968,3.965c0,2.192,1.778,3.967,3.968,3.967 s3.97-1.772,3.97-3.967C20.201,13.835,18.423,12.061,16.233,12.061z M28.09,12.061c-2.192,0-3.969,1.774-3.969,3.967 c0,2.19,1.774,3.965,3.969,3.965c2.188,0,3.965-1.772,3.965-3.965S30.278,12.061,28.09,12.061z"></path>{' '}
+                  </g>{' '}
                 </g>
               </svg>
             </label>
@@ -280,7 +277,7 @@ export default function ContentCard({
               tabIndex={0}
               className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2 shadow"
             >
-              {(type === "Clip" || type === "Highlight") && (
+              {(type === 'Clip' || type === 'Highlight') && (
                 <li>
                   <a
                     className="flex w-full items-center gap-2 px-4 py-3 text-primary hover:bg-primary/10 active:bg-primary/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
@@ -295,7 +292,7 @@ export default function ContentCard({
                   </a>
                 </li>
               )}
-              {type === "Session" && enableAi && (
+              {type === 'Session' && enableAi && (
                 <li>
                   {(() => {
                     // Get authentication status
@@ -307,7 +304,7 @@ export default function ContentCard({
                     const isProcessing = Object.values(aiProgress).some(
                       (progress) =>
                         progress.content.fileName === content?.fileName &&
-                        progress.status === "processing",
+                        progress.status === 'processing',
                     );
                     const isDisabled =
                       !hasBookmarks || isProcessing || !isLoggedIn;
@@ -316,8 +313,8 @@ export default function ContentCard({
                       <a
                         className={`flex w-full items-center gap-2 px-4 py-3 ${
                           isDisabled
-                            ? "text-gray-400 cursor-not-allowed"
-                            : "text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20"
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-purple-400 hover:bg-purple-500/10 active:bg-purple-500/20'
                         } rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
                         onClick={() => {
                           // Only proceed if there are bookmarks, user is logged in, and no processing
@@ -331,12 +328,12 @@ export default function ContentCard({
                         <HiOutlineSparkles size="20" />
                         <span>
                           {isProcessing
-                            ? "Generating AI Clip..."
+                            ? 'Generating AI Clip...'
                             : !isLoggedIn
-                              ? "Log In to Create AI Clip"
+                              ? 'Log In to Create AI Clip'
                               : hasBookmarks
-                                ? "Create AI Highlight"
-                                : "No Highlights"}
+                                ? 'Create AI Highlight'
+                                : 'No Highlights'}
                         </span>
                       </a>
                     );
@@ -390,8 +387,9 @@ export default function ContentCard({
         </div>
         <p className="text-sm text-gray-200 flex items-center justify-between w-full">
           <span>
-            {content!.fileSize} &bull;{" "}
+            {content!.fileSize} &bull;{' '}
             {new Date(content!.createdAt).toLocaleDateString()}
+
           </span>
           {content!.uploadId && (
             <div className="flex absolute right-3 gap-0 pr-1">
@@ -421,7 +419,7 @@ export default function ContentCard({
                 className="btn btn-ghost btn-sm btn-circle hover:bg-white/20 active:bg-white/20"
                 onClick={(e) => {
                   e.stopPropagation();
-                  sendMessageToBackend("OpenInBrowser", {
+                  sendMessageToBackend('OpenInBrowser', {
                     Url: `https://segra.tv/video/${content!.uploadId}`,
                   });
                 }}

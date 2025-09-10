@@ -34,7 +34,7 @@ export default function DropdownSelect({
   align = 'end',
   size = 'md',
 }: DropdownSelectProps) {
-  const selected = items.find(i => i.value === value);
+  const selected = items.find((i) => i.value === value);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -85,8 +85,7 @@ export default function DropdownSelect({
     };
   }, []);
 
-  const sizeBtn =
-    size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '';
+  const sizeBtn = size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : '';
 
   return (
     <div
@@ -99,10 +98,7 @@ export default function DropdownSelect({
         type="button"
         aria-expanded={isOpen}
         disabled={disabled}
-        className={
-          buttonClassName ??
-          `btn border-base-400 w-full justify-between ${sizeBtn}`
-        }
+        className={buttonClassName ?? `btn border-base-400 w-full justify-between ${sizeBtn}`}
         onMouseDown={(e) => {
           e.preventDefault();
           if (disabled) return;

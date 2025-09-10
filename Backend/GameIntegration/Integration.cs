@@ -1,4 +1,4 @@
-﻿namespace Segra.Backend
+namespace Segra.Backend
 {
     public abstract class Integration
     {

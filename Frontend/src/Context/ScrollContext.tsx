@@ -23,7 +23,7 @@ export function ScrollProvider({ children }: { children: React.ReactNode }) {
   });
 
   const setScrollPosition = (page: keyof ScrollPositions, position: number) => {
-    setScrollPositions(prev => ({
+    setScrollPositions((prev) => ({
       ...prev,
       [page]: position,
     }));

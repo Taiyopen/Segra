@@ -2,7 +2,6 @@ import React from 'react';
 import { MdError } from 'react-icons/md';
 
 const UnavailableDeviceCard: React.FC = () => {
-
   return (
     <div className="mb-4 px-2">
       <div className="bg-error bg-opacity-20 border border-base-400 border-opacity-75 rounded-lg px-3 py-3 cursor-default">

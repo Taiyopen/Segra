@@ -7,105 +7,108 @@ type SettingsContextType = Settings;
 type SettingsUpdateContextType = (newSettings: Partial<Settings>, fromBackend?: boolean) => void;
 
 const SettingsContext = createContext<SettingsContextType>(initialSettings);
-const SettingsUpdateContext = createContext<SettingsUpdateContextType>(() => { });
+const SettingsUpdateContext = createContext<SettingsUpdateContextType>(() => {});
 
 export function useSettings(): SettingsContextType {
-	return useContext(SettingsContext);
+  return useContext(SettingsContext);
 }
 
 export function useSettingsUpdater(): SettingsUpdateContextType {
-	return useContext(SettingsUpdateContext);
+  return useContext(SettingsUpdateContext);
 }
 
 interface SettingsProviderProps {
-	children: ReactNode;
+  children: ReactNode;
 }
 
 export function SettingsProvider({ children }: SettingsProviderProps) {
-	const STORAGE_KEY = 'segra.settings.v1';
+  const STORAGE_KEY = 'segra.settings.v1';
 
-	const loadCachedSettings = (): Settings | null => {
-		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
-			if (!raw) return null;
-			const cached = JSON.parse(raw);
+  const loadCachedSettings = (): Settings | null => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const cached = JSON.parse(raw);
 
-			// Merge cached settings with defaults
-			const revived: Settings = {
-				...initialSettings,
-				...cached,
-				state: {
-					...initialState,
-					...cached.state,
-				},
-			};
+      // Merge cached settings with defaults
+      const revived: Settings = {
+        ...initialSettings,
+        ...cached,
+        state: {
+          ...initialState,
+          ...cached.state,
+        },
+      };
 
-			// Do not restore ongoing recording/preRecording or hasLoadedObs from cache
-			revived.state.recording = undefined;
-			revived.state.preRecording = undefined;
-			revived.state.hasLoadedObs = false;
+      // Do not restore ongoing recording/preRecording or hasLoadedObs from cache
+      revived.state.recording = undefined;
+      revived.state.preRecording = undefined;
+      revived.state.hasLoadedObs = false;
 
-			return revived;
-		} catch {
-			return null;
-		}
-	};
+      return revived;
+    } catch {
+      return null;
+    }
+  };
 
-	const saveCachedSettings = (value: Settings) => {
-		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-		} catch {
-			// ignore caching errors
-		}
-	};
+  const saveCachedSettings = (value: Settings) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    } catch {
+      // ignore caching errors
+    }
+  };
 
-	const [settings, setSettings] = useState<Settings>(() => loadCachedSettings() ?? initialSettings);
-	useWebSocketContext();
+  const [settings, setSettings] = useState<Settings>(() => loadCachedSettings() ?? initialSettings);
+  useWebSocketContext();
 
-	useEffect(() => {
-		const handleWebSocketMessage = (event: CustomEvent<any>) => {
-			const data = event.detail;
+  useEffect(() => {
+    const handleWebSocketMessage = (event: CustomEvent<any>) => {
+      const data = event.detail;
 
-			if (data.method === 'Settings') {
-				updateSettings(data.content, true);
-			}
-		};
+      if (data.method === 'Settings') {
+        updateSettings(data.content, true);
+      }
+    };
 
-		window.addEventListener('websocket-message', handleWebSocketMessage as EventListener);
+    window.addEventListener('websocket-message', handleWebSocketMessage as EventListener);
 
-		return () => {
-			window.removeEventListener('websocket-message', handleWebSocketMessage as EventListener);
-		};
-	}, []);
+    return () => {
+      window.removeEventListener('websocket-message', handleWebSocketMessage as EventListener);
+    };
+  }, []);
 
-	const updateSettings = useCallback<SettingsUpdateContextType>((newSettings, fromBackend = false) => {
-		setSettings((prev) => {
-			const updatedSettings: Settings = {
-				...prev,
-				...newSettings,
-				state: {
-					...prev.state,
-					...newSettings.state,
-				},
-			};
+  const updateSettings = useCallback<SettingsUpdateContextType>(
+    (newSettings, fromBackend = false) => {
+      setSettings((prev) => {
+        const updatedSettings: Settings = {
+          ...prev,
+          ...newSettings,
+          state: {
+            ...prev.state,
+            ...newSettings.state,
+          },
+        };
 
-			// Persist stable settings for faster startup rendering before backend connects
-			saveCachedSettings(updatedSettings);
+        // Persist stable settings for faster startup rendering before backend connects
+        saveCachedSettings(updatedSettings);
 
-			// Only send UpdateSettings to backend if the change is from the frontend
-			if (!fromBackend) {
-				sendMessageToBackend('UpdateSettings', updatedSettings);
-			}
+        // Only send UpdateSettings to backend if the change is from the frontend
+        if (!fromBackend) {
+          sendMessageToBackend('UpdateSettings', updatedSettings);
+        }
 
-			return updatedSettings;
-		});
-	}, []);
+        return updatedSettings;
+      });
+    },
+    [],
+  );
 
-	return (
-		<SettingsContext.Provider value={settings}>
-			<SettingsUpdateContext.Provider value={updateSettings}>
-				{children}
-			</SettingsUpdateContext.Provider>
-		</SettingsContext.Provider>
-	);
+  return (
+    <SettingsContext.Provider value={settings}>
+      <SettingsUpdateContext.Provider value={updateSettings}>
+        {children}
+      </SettingsUpdateContext.Provider>
+    </SettingsContext.Provider>
+  );
 }

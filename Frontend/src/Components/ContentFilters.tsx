@@ -1,7 +1,14 @@
-import { useEffect } from "react";
-import { MdFilterList, MdSort, MdOutlineAccessTime, MdOutlineStorage, MdOutlineTimer, MdOutlineGamepad } from "react-icons/md";
+import { useEffect } from 'react';
+import {
+  MdFilterList,
+  MdSort,
+  MdOutlineAccessTime,
+  MdOutlineStorage,
+  MdOutlineTimer,
+  MdOutlineGamepad,
+} from 'react-icons/md';
 
-export type SortOption = "newest" | "oldest" | "size" | "duration" | "game";
+export type SortOption = 'newest' | 'oldest' | 'size' | 'duration' | 'game';
 
 export interface ContentFiltersProps {
   uniqueGames: string[];
@@ -20,7 +27,6 @@ export default function ContentFilters({
   selectedGames,
   sortOption,
 }: ContentFiltersProps) {
-
   // Persist changes to localStorage
   useEffect(() => {
     try {
@@ -48,21 +54,23 @@ export default function ContentFilters({
     // Close the dropdown by blurring the active element (DaisyUI closes on blur)
     try {
       (document.activeElement as HTMLElement)?.blur();
-    } catch {/* no-op */ }
+    } catch {
+      /* no-op */
+    }
   };
 
   const getSortLabel = (option: SortOption): string => {
     switch (option) {
-      case "newest":
-        return "Newest";
-      case "oldest":
-        return "Oldest";
-      case "size":
-        return "Size";
-      case "duration":
-        return "Duration";
-      case "game":
-        return "Game";
+      case 'newest':
+        return 'Newest';
+      case 'oldest':
+        return 'Oldest';
+      case 'size':
+        return 'Size';
+      case 'duration':
+        return 'Duration';
+      case 'game':
+        return 'Game';
     }
   };
 
@@ -70,16 +78,17 @@ export default function ContentFilters({
     <div className="flex items-center space-x-2">
       {/* Filter dropdown */}
       <div className="dropdown dropdown-end">
-        <button
-          className="btn btn-sm no-animation btn-secondary border border-base-400 h-8 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300"
-        >
+        <button className="btn btn-sm no-animation btn-secondary border border-base-400 h-8 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300">
           <MdFilterList size={16} />
           Filter
           {selectedGames.length > 0 && (
             <span className="badge badge-sm badge-primary">{selectedGames.length}</span>
           )}
         </button>
-        <div className="dropdown-content bg-base-300 border border-base-400 rounded-box z-999 w-64 p-3 mt-1 shadow" tabIndex={0}>
+        <div
+          className="dropdown-content bg-base-300 border border-base-400 rounded-box z-999 w-64 p-3 mt-1 shadow"
+          tabIndex={0}
+        >
           <div className="flex justify-between items-center mb-1">
             <h3 className="font-medium">Filter by Game</h3>
             {selectedGames.length > 0 && (
@@ -112,18 +121,20 @@ export default function ContentFilters({
 
       {/* Sort dropdown */}
       <div className="dropdown dropdown-end">
-        <button
-          className="btn btn-sm no-animation btn-secondary border border-base-400 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300 h-8"
-        >
+        <button className="btn btn-sm no-animation btn-secondary border border-base-400 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300 h-8">
           <MdSort size={16} />
           {getSortLabel(sortOption)}
         </button>
-        <ul className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-56 p-2 mt-1 shadow" tabIndex={0}>
+        <ul
+          className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-56 p-2 mt-1 shadow"
+          tabIndex={0}
+        >
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "newest" ? "text-primary" : "text-white"
-                } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
-              onClick={() => handleSortChange("newest")}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === 'newest' ? 'text-primary' : 'text-white'
+              } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange('newest')}
             >
               <MdOutlineAccessTime size="20" />
               <span>Newest</span>
@@ -131,9 +142,10 @@ export default function ContentFilters({
           </li>
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "oldest" ? "text-primary" : "text-white"
-                } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
-              onClick={() => handleSortChange("oldest")}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === 'oldest' ? 'text-primary' : 'text-white'
+              } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange('oldest')}
             >
               <MdOutlineAccessTime size="20" />
               <span>Oldest</span>
@@ -141,9 +153,10 @@ export default function ContentFilters({
           </li>
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "size" ? "text-primary" : "text-white"
-                } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
-              onClick={() => handleSortChange("size")}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === 'size' ? 'text-primary' : 'text-white'
+              } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange('size')}
             >
               <MdOutlineStorage size="20" />
               <span>Size</span>
@@ -151,9 +164,10 @@ export default function ContentFilters({
           </li>
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "duration" ? "text-primary" : "text-white"
-                } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
-              onClick={() => handleSortChange("duration")}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === 'duration' ? 'text-primary' : 'text-white'
+              } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange('duration')}
             >
               <MdOutlineTimer size="20" />
               <span>Duration</span>
@@ -161,9 +175,10 @@ export default function ContentFilters({
           </li>
           <li>
             <a
-              className={`flex w-full items-center gap-2 px-4 py-3 ${sortOption === "game" ? "text-primary" : "text-white"
-                } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
-              onClick={() => handleSortChange("game")}
+              className={`flex w-full items-center gap-2 px-4 py-3 ${
+                sortOption === 'game' ? 'text-primary' : 'text-white'
+              } hover:bg-white/5 active:text-primary! active:bg-white/5! rounded-lg transition-all duration-200 hover:pl-5 outline-none`}
+              onClick={() => handleSortChange('game')}
             >
               <MdOutlineGamepad size="20" />
               <span>Game A–Z</span>

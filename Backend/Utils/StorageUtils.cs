@@ -1,4 +1,4 @@
-﻿using Segra.Backend.Models;
+using Segra.Backend.Models;
 using Serilog;
 
 namespace Segra.Backend.Utils

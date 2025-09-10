@@ -5,7 +5,6 @@ interface UploadCardProps {
 }
 
 export default function UploadCard({ upload }: UploadCardProps) {
-
   const getStatusText = () => {
     switch (upload.status) {
       case 'uploading':
@@ -31,9 +30,7 @@ export default function UploadCard({ upload }: UploadCardProps) {
           {/* Upload Details */}
           <div className="min-w-0 flex-1">
             <div className="text-gray-200 text-sm font-medium truncate">{getStatusText()}</div>
-            <div className="text-gray-400 text-xs truncate">
-              {upload.title}
-            </div>
+            <div className="text-gray-400 text-xs truncate">{upload.title}</div>
           </div>
         </div>
       </div>

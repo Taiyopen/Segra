@@ -64,7 +64,10 @@ const AiContentCard: React.FC<AiContentCardProps> = ({ progress }) => {
       <div className="absolute inset-0 rounded-lg highlight-border">
         <div className="card absolute inset-px bg-base-300 z-2">
           <figure className="relative aspect-w-16 aspect-h-9">
-            <div className="w-full h-0 relative bg-base-300/70 rounded-none" style={{ paddingTop: '56.25%' }}>
+            <div
+              className="w-full h-0 relative bg-base-300/70 rounded-none"
+              style={{ paddingTop: '56.25%' }}
+            >
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-base-200">
                 <HiOutlineSparkles className="w-12 h-12 text-purple-400 animate-pulse mb-2" />
                 <p className="text-sm font-medium text-white/80">Generating AI Clip</p>
@@ -74,7 +77,7 @@ const AiContentCard: React.FC<AiContentCardProps> = ({ progress }) => {
                       className="h-full bg-white/80 rounded-full"
                       style={{
                         width: `${animatedProgress}%`,
-                        transition: 'width 1.2s ease-out'
+                        transition: 'width 1.2s ease-out',
                       }}
                     ></div>
                   </div>
@@ -86,9 +89,7 @@ const AiContentCard: React.FC<AiContentCardProps> = ({ progress }) => {
             </div>
           </figure>
           <div className="card-body text-gray-300">
-            <h2 className="card-title">
-              {progress.content.game}
-            </h2>
+            <h2 className="card-title">{progress.content.game}</h2>
             <p className="text-sm text-gray-400">{progress.message}</p>
           </div>
         </div>

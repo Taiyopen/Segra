@@ -21,7 +21,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
   const listTitle = listType === 'whitelist' ? 'Allow List' : 'Block List';
   const listDescription =
     listType === 'whitelist'
-      ? 'If Segra doesn\'t auto-detect a game, add its executable here to force detection.'
+      ? "If Segra doesn't auto-detect a game, add its executable here to force detection."
       : 'Add game executables here to prevent Segra from recording or detecting them.';
   const emptyListLabel = listType === 'whitelist' ? 'allow list' : 'block list';
 
@@ -55,14 +55,13 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
 
     const newGame: Game = {
       name: newGameName.trim(),
-      path: newGamePath.trim()
+      path: newGamePath.trim(),
     };
 
     // Send to backend
-    sendMessageToBackend(
-      listType === 'whitelist' ? 'AddToWhitelist' : 'AddToBlacklist',
-      { game: newGame }
-    );
+    sendMessageToBackend(listType === 'whitelist' ? 'AddToWhitelist' : 'AddToBlacklist', {
+      game: newGame,
+    });
 
     // Reset form
     setNewGameName('');
@@ -71,10 +70,9 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
   };
 
   const handleRemoveGame = (game: Game) => {
-    sendMessageToBackend(
-      listType === 'whitelist' ? 'RemoveFromWhitelist' : 'RemoveFromBlacklist',
-      { game }
-    );
+    sendMessageToBackend(listType === 'whitelist' ? 'RemoveFromWhitelist' : 'RemoveFromBlacklist', {
+      game,
+    });
   };
 
   return (
@@ -97,7 +95,10 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
             <tbody>
               {gameList.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="text-center text-gray-500 py-4 border-b border-base-200">
+                  <td
+                    colSpan={3}
+                    className="text-center text-gray-500 py-4 border-b border-base-200"
+                  >
                     No games in {emptyListLabel}
                   </td>
                 </tr>
@@ -128,7 +129,14 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
             className="btn btn-sm btn-secondary border-base-400 hover:border-base-400"
             onClick={handleSelectExecutable}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-5 h-5 mr-1"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
             Add Game

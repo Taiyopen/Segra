@@ -40,13 +40,9 @@ export default function UpdateCard() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">
-                {updateInfo.status === 'downloading'
-                  ? 'Update in Progress'
-                  : 'Update Available'}
+                {updateInfo.status === 'downloading' ? 'Update in Progress' : 'Update Available'}
               </h3>
-              <p className="text-xs text-gray-400">
-                Version {updateInfo.version}
-              </p>
+              <p className="text-xs text-gray-400">Version {updateInfo.version}</p>
             </div>
           </div>
         </div>
@@ -58,13 +54,15 @@ export default function UpdateCard() {
             className="btn btn-sm btn-secondary no-animation border-custom border-opacity-75 hover:border-custom hover:border-opacity-75 hover:bg-base-200"
             onClick={handleInstallClick}
           >
-            <FaDownload />Install Now
+            <FaDownload />
+            Install Now
           </button>
           <button
             className="btn btn-sm btn-secondary no-animation border-custom border-opacity-75 hover:border-custom hover:border-opacity-75 hover:bg-base-200"
             onClick={() => openReleaseNotesModal(__APP_VERSION__)}
           >
-            <SiGithub />Release Notes
+            <SiGithub />
+            Release Notes
           </button>
         </div>
       </div>

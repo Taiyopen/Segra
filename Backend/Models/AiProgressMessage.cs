@@ -1,4 +1,4 @@
-﻿namespace Segra.Backend.Models
+namespace Segra.Backend.Models
 {
     public class AiProgressMessage
     {
