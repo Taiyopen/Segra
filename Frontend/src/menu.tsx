@@ -41,7 +41,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   const settingsRef = useRef<HTMLButtonElement>(null);
 
   // State to store the indicator position
-  const [indicatorPosition, setIndicatorPosition] = useState({ top: 0 });
+  const [indicatorPosition, setIndicatorPosition] = useState({ top: 12 });
 
   // Update indicator position when selected menu changes
   useEffect(() => {
@@ -99,8 +99,6 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
     <div className="bg-base-300 w-56 h-screen flex flex-col border-r border-custom">
       {/* Menu Items */}
       <div className="flex flex-col space-y-2 px-4 text-left py-2 relative mt-2">
-        {' '}
-        {/* Added relative positioning */}
         {/* Selection indicator rectangle */}
         <div
           className="absolute w-1.5 bg-primary rounded-r transition-all duration-200 ease-in-out"
@@ -112,7 +110,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         />
         <button
           ref={sessionsRef}
-          className={`btn btn-secondary ${selectedMenu === 'Full Sessions' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
+          className={`btn btn-secondary ${selectedMenu === 'Full Sessions' ? 'text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
           onMouseDown={() => onSelectMenu('Full Sessions')}
         >
           <MdOutlinePlayCircleOutline className="w-6 h-6" />
@@ -120,7 +118,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         </button>
         <button
           ref={replayRef}
-          className={`btn btn-secondary ${selectedMenu === 'Replay Buffer' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
+          className={`btn btn-secondary ${selectedMenu === 'Replay Buffer' ? 'text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
           onMouseDown={() => onSelectMenu('Replay Buffer')}
         >
           <MdReplay30 className="w-6 h-6" />
@@ -128,7 +126,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         </button>
         <button
           ref={clipsRef}
-          className={`btn btn-secondary ${selectedMenu === 'Clips' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
+          className={`btn btn-secondary ${selectedMenu === 'Clips' ? 'text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
           onMouseDown={() => onSelectMenu('Clips')}
         >
           <MdOutlineContentCut className="w-6 h-6" />
@@ -136,7 +134,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         </button>
         <button
           ref={highlightsRef}
-          className={`btn btn-secondary ${selectedMenu === 'Highlights' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
+          className={`btn btn-secondary ${selectedMenu === 'Highlights' ? 'text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
           onMouseDown={() => onSelectMenu('Highlights')}
         >
           <div className="relative w-6 h-6 flex items-center justify-center">
@@ -150,7 +148,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         </button>
         <button
           ref={settingsRef}
-          className={`btn btn-secondary ${selectedMenu === 'Settings' ? 'bg-base-300 text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
+          className={`btn btn-secondary ${selectedMenu === 'Settings' ? 'text-primary' : ''} w-full justify-start border-base-400 hover:border-base-400 hover:text-primary hover:border-opacity-75 py-3 text-gray-300`}
           onMouseDown={() => onSelectMenu('Settings')}
         >
           <MdOutlineSettings className="w-6 h-6" />
