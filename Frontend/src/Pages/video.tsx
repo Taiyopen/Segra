@@ -611,7 +611,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       isLoading: true,
       fileName: video.fileName,
       game: video.game,
-      title: video.title
+      title: video.title,
     };
     addSelection(newSelection);
     // Kick off thumbnail generation; uses latest state and guards against stale overwrites
@@ -633,33 +633,6 @@ export default function VideoComponent({ video }: { video: Content }) {
         fileName: s.fileName,
         game: s.game,
         title: s.title,
-        startTime: s.startTime,
-        endTime: s.endTime,
-      }))
-    };
-    sendMessageToBackend('CreateClip', params);
-  };
-
-    };
-    addSelection(newSelection);
-    // Kick off thumbnail generation; uses latest state and guards against stale overwrites
-    refreshSelectionThumbnail(newSelection);
-  };
-
-  // Create a clip from current selections
-  const handleCreateClip = () => {
-    if (selections.length === 0) {
-      setShowNoSegmentsIndicator(true);
-      setTimeout(() => setShowNoSegmentsIndicator(false), 2000);
-      return;
-    }
-
-    const params = {
-      Selections: selections.map((s) => ({
-        id: s.id,
-        type: s.type,
-        fileName: s.fileName,
-        game: s.game,
         startTime: s.startTime,
         endTime: s.endTime,
       })),
