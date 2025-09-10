@@ -791,17 +791,25 @@ namespace Segra.Backend.Utils
                 using var httpClient = new HttpClient();
                 using var formData = new MultipartFormDataContent();
 
+                int lastSentProgress = 0;
                 void ProgressHandler(long sent, long total)
                 {
-                    int progress = (int)((sent / (double)total) * 100);
-                    _ = SendFrontendMessage("UploadProgress", new
+                    if (total <= 0) return;
+                    int progress = (int)(sent / (double)total * 100);
+                    if (progress >= 100) return;
+
+                    if (progress % 10 == 0 && progress != lastSentProgress)
                     {
-                        title,
-                        fileName,
-                        progress,
-                        status = "uploading",
-                        message = $"Uploading... {progress}%"
-                    });
+                        lastSentProgress = progress;
+                        _ = SendFrontendMessage("UploadProgress", new
+                        {
+                            title,
+                            fileName,
+                            progress,
+                            status = "uploading",
+                            message = $"Uploading... {progress}%"
+                        });
+                    }
                 }
 
                 var fileContent = new ProgressableStreamContent(fileBytes, "application/octet-stream", ProgressHandler);

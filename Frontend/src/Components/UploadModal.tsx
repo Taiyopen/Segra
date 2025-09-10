@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Content } from '../Models/types';
 import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
 import { useAuth } from '../Hooks/useAuth.tsx';
@@ -19,9 +19,16 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
   const [titleError, setTitleError] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
+  // Focus on title input when modal opens (hacky but works)
   useEffect(() => {
-    titleInputRef.current?.focus();
-  }, []);
+    const timer = setTimeout(() => {
+      const el = titleInputRef.current;
+      if (!el) return;
+      el.focus();
+      el.select();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [video.fileName]);
 
   const handleUpload = () => {
     if (!title.trim()) {
@@ -51,14 +58,14 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
       <div className="bg-base-300">
         <div className="modal-header">
           <button
-            className="btn btn-sm btn-circle btn-ghost absolute right-4 top-2"
+            className="btn btn-circle btn-ghost absolute right-4 top-1 z-10 text-lg hover:bg-white/10"
             onClick={onClose}
           >
             ✕
           </button>
         </div>
-        <div className="modal-body">
-          <div className="w-full aspect-video mb-4 mt-4">
+        <div className="modal-body pt-8">
+          <div className="w-full aspect-video mb-4">
             <video
               src={getVideoPath()}
               autoPlay
@@ -81,16 +88,16 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
                 setTitleError(false);
               }}
               onKeyDown={handleKeyPress}
-              className={`input input-bordered bg-base-300 w-full ${titleError ? 'input-error' : ''}`}
+              className={`input input-bordered bg-base-300 w-full focus:outline-none ${titleError ? 'input-error' : ''}`}
             />
             {titleError && (
-              <label className="label">
+              <label className="label mt-1">
                 <span className="label-text-alt text-error">Title is required</span>
               </label>
             )}
           </div>
 
-          <div className="form-control mt-2">
+          <div className="form-control mt-4">
             <label className="label cursor-pointer justify-start gap-2">
               <input
                 type="checkbox"

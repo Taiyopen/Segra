@@ -891,6 +891,7 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     openModal(
       <UploadModal
+        key={`${Math.random()}`}
         video={video}
         onClose={closeModal}
         onUpload={(title, visibility) => {

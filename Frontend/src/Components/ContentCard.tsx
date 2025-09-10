@@ -144,6 +144,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
   const handleUpload = () => {
     openModal(
       <UploadModal
+        key={`${Math.random()}`}
         video={content!}
         onClose={closeModal}
         onUpload={(title, visibility) => {
