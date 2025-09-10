@@ -1384,7 +1384,7 @@ export default function Settings() {
             <label className="label">
               <span className="label-text text-base-content">Output Devices</span>
             </label>
-            <div className="bg-base-200 rounded-lg p-2 max-h-48 border border-base-400">
+            <div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-visible overflow-x-hidden border border-base-400">
               {/* Warning for unavailable devices */}
               {hasUnavailableOutputDevices && (
                 <div className="text-warning text-xs mb-2 flex items-center">
