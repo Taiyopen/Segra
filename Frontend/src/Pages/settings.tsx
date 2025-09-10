@@ -861,7 +861,7 @@ export default function Settings() {
             <span className="flex items-center gap-1 text-base-content">Separate audio tracks</span>
           </label>
         </div>
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between mt-3">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -1629,7 +1629,7 @@ export default function Settings() {
       </div>
 
       {/* Game Detection */}
-      <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
+      <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
         <h2 className="text-xl font-semibold mb-2">Game Detection</h2>
         <p className="text-sm opacity-80 mb-4">
           Segra auto-detects most games. If a game isn’t detected, add its executable to the Allow
@@ -1646,9 +1646,9 @@ export default function Settings() {
       </div>
 
       {/* UI Settings */}
-      <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom mb-6">
+      <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
         <h2 className="text-xl font-semibold mb-4">Segra</h2>
-        <div className="bg-base-200 px-4 py-2 rounded-lg space-y-1 border border-custom">
+        <div className="bg-base-200 px-4 py-2 rounded-lg space-y-3 border border-custom">
           <div className="form-control">
             <label className="label px-0 text-base-content">Sound Effects Volume</label>
             <div className="flex items-center gap-2">
@@ -1680,7 +1680,7 @@ export default function Settings() {
               </span>
             </div>
           </div>
-          <div className="form-control pt-2">
+          <div className="form-control">
             <label className="label cursor-pointer justify-start gap-2 px-0">
               <input
                 type="checkbox"
@@ -1690,7 +1690,7 @@ export default function Settings() {
                 className="checkbox checkbox-sm checkbox-primary"
               />
               <span className="flex items-center gap-1 text-base-content">
-                Show<span className="badge badge-primary badge-sm text-base-300">NEW</span>badge on
+                Show<span className="badge badge-primary badge-sm text-base-300 mx-1">NEW</span>badge on
                 new sessions and replay buffers
               </span>
             </label>
