@@ -17,6 +17,8 @@
 		<RootNamespace>Segra</RootNamespace>
 		<EnableWindowsTargeting>true</EnableWindowsTargeting>
 		<SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 	</PropertyGroup>
 
 	<ItemGroup>
