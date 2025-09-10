@@ -2,15 +2,15 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 import { ContentType } from '../Models/types';
 
 export interface Selection {
-	id: number;
-	type: ContentType;
-	startTime: number;
-	endTime: number;
-	thumbnailDataUrl?: string;
-	isLoading: boolean;
-	fileName: string;
-	game?: string;
-	title?: string;
+  id: number;
+  type: ContentType;
+  startTime: number;
+  endTime: number;
+  thumbnailDataUrl?: string;
+  isLoading: boolean;
+  fileName: string;
+  game?: string;
+  title?: string;
 }
 
 interface SelectionsContextType {
