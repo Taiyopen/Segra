@@ -1,22 +1,22 @@
-import { useSettings } from "../Context/SettingsContext";
-import { Content } from "../Models/types";
-import { sendMessageToBackend } from "../Utils/MessageUtils";
-import { useAuth } from "../Hooks/useAuth.tsx";
-import { useModal } from "../Context/ModalContext";
-import UploadModal from "./UploadModal";
-import RenameModal from "./RenameModal";
+import { useSettings } from '../Context/SettingsContext';
+import { Content } from '../Models/types';
+import { sendMessageToBackend } from '../Utils/MessageUtils';
+import { useAuth } from '../Hooks/useAuth.tsx';
+import { useModal } from '../Context/ModalContext';
+import UploadModal from './UploadModal';
+import RenameModal from './RenameModal';
 import {
   MdOutlineFileUpload,
   MdOutlineInsertDriveFile,
   MdDriveFileRenameOutline,
   MdDeleteOutline,
   MdOutlineLink,
-} from "react-icons/md";
-import { HiOutlineSparkles } from "react-icons/hi";
-import { useAiHighlights } from "../Context/AiHighlightsContext";
-import { FiExternalLink } from "react-icons/fi";
+} from 'react-icons/md';
+import { HiOutlineSparkles } from 'react-icons/hi';
+import { useAiHighlights } from '../Context/AiHighlightsContext';
+import { FiExternalLink } from 'react-icons/fi';
 
-type VideoType = "Session" | "Buffer" | "Clip" | "Highlight";
+type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight';
 
 interface VideoCardProps {
   content?: Content; // Optional for skeleton cards
@@ -25,12 +25,7 @@ interface VideoCardProps {
   isLoading?: boolean; // Indicates if this is a loading (skeleton) card
 }
 
-export default function ContentCard({
-  content,
-  type,
-  onClick,
-  isLoading,
-}: VideoCardProps) {
+export default function ContentCard({ content, type, onClick, isLoading }: VideoCardProps) {
   const { contentFolder, enableAi, showNewBadgeOnVideos } = useSettings();
   const { session } = useAuth();
   const { openModal, closeModal } = useModal();
@@ -70,7 +65,7 @@ export default function ContentCard({
           </div>
         )}
 
-        {type !== "Highlight" && (
+        {type !== 'Highlight' && (
           <>
             <figure className="relative aspect-w-16 aspect-h-9">
               {/* Thumbnail Skeleton */}
@@ -102,16 +97,16 @@ export default function ContentCard({
 
   const formatDuration = (duration: string): string => {
     try {
-      const time = duration.split(".")[0]; // Remove fractional seconds
-      const [hours, minutes, seconds] = time.split(":").map(Number);
+      const time = duration.split('.')[0]; // Remove fractional seconds
+      const [hours, minutes, seconds] = time.split(':').map(Number);
 
       if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
       } else {
-        return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
       }
     } catch {
-      return "00:00"; // Fallback for invalid duration
+      return '00:00'; // Fallback for invalid duration
     }
   };
 
@@ -123,7 +118,7 @@ export default function ContentCard({
     if (!content) return false;
 
     // Check if this content has been viewed already
-    const viewedContent = localStorage.getItem("viewed-content") || "{}";
+    const viewedContent = localStorage.getItem('viewed-content') || '{}';
     const viewedContentObj = JSON.parse(viewedContent);
     if (viewedContentObj[content.fileName]) {
       return false;
@@ -131,8 +126,7 @@ export default function ContentCard({
 
     const createdAt = new Date(content.createdAt);
     const now = new Date();
-    const diffInHours =
-      (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+    const diffInHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
     return diffInHours <= 1; // Content is considered recent if created within the last hour
   };
 
@@ -140,10 +134,10 @@ export default function ContentCard({
   const markAsViewed = () => {
     if (!content) return;
 
-    const viewedContent = localStorage.getItem("viewed-content") || "{}";
+    const viewedContent = localStorage.getItem('viewed-content') || '{}';
     const viewedContentObj = JSON.parse(viewedContent);
     viewedContentObj[content.fileName] = true;
-    localStorage.setItem("viewed-content", JSON.stringify(viewedContentObj));
+    localStorage.setItem('viewed-content', JSON.stringify(viewedContentObj));
   };
 
   const handleUpload = () => {
@@ -161,7 +155,7 @@ export default function ContentCard({
             Visibility: visibility, // TODO: implement description
           };
 
-          sendMessageToBackend("UploadContent", parameters);
+          sendMessageToBackend('UploadContent', parameters);
         }}
       />,
     );
@@ -180,6 +174,7 @@ export default function ContentCard({
       FileName: content!.fileName,
       ContentType: type,
     };
+
     sendMessageToBackend('DeleteContent', parameters);
   };
 
@@ -199,7 +194,6 @@ export default function ContentCard({
         }}
       />,
     );
-
   };
 
   const handleOpenFileLocation = () => {
@@ -230,25 +224,17 @@ export default function ContentCard({
         <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
           {formattedDuration}
         </span>
-        {isRecent() &&
-          (type === "Session" || type === "Buffer") &&
-          showNewBadgeOnVideos && (
-            <span className="absolute top-2 left-2 badge badge-primary badge-sm text-base-300 opacity-90">
-              NEW
-            </span>
-          )}
+        {isRecent() && (type === 'Session' || type === 'Buffer') && showNewBadgeOnVideos && (
+          <span className="absolute top-2 left-2 badge badge-primary badge-sm text-base-300 opacity-90">
+            NEW
+          </span>
+        )}
       </figure>
 
       <div className="card-body gap-1.5 pt-2">
         <div className="flex justify-between items-center">
-          <h2 className="card-title truncate">
-            {content!.title || content!.game || 'Untitled'}
-          </h2>
-          <div
-            className="dropdown dropdown-end"
-            onClick={(e) => e.stopPropagation()}
-          >
-
+          <h2 className="card-title truncate">{content!.title || content!.game || 'Untitled'}</h2>
+          <div className="dropdown dropdown-end" onClick={(e) => e.stopPropagation()}>
             <label
               tabIndex={0}
               className="btn btn-ghost btn-sm btn-circle p-1 hover:bg-white/20 active:bg-white/20"
@@ -299,15 +285,13 @@ export default function ContentCard({
                     const { session } = useAuth();
                     const isLoggedIn = !!session;
 
-                    const hasBookmarks =
-                      content?.bookmarks && content.bookmarks.length > 0;
+                    const hasBookmarks = content?.bookmarks && content.bookmarks.length > 0;
                     const isProcessing = Object.values(aiProgress).some(
                       (progress) =>
                         progress.content.fileName === content?.fileName &&
                         progress.status === 'processing',
                     );
-                    const isDisabled =
-                      !hasBookmarks || isProcessing || !isLoggedIn;
+                    const isDisabled = !hasBookmarks || isProcessing || !isLoggedIn;
 
                     return (
                       <a
@@ -387,9 +371,7 @@ export default function ContentCard({
         </div>
         <p className="text-sm text-gray-200 flex items-center justify-between w-full">
           <span>
-            {content!.fileSize} &bull;{' '}
-            {new Date(content!.createdAt).toLocaleDateString()}
-
+            {content!.fileSize} &bull; {new Date(content!.createdAt).toLocaleDateString()}
           </span>
           {content!.uploadId && (
             <div className="flex absolute right-3 gap-0 pr-1">
@@ -401,11 +383,11 @@ export default function ContentCard({
                   navigator.clipboard.writeText(url);
 
                   // Show tooltip
-                  const tooltip = e.currentTarget.querySelector(".tooltip");
+                  const tooltip = e.currentTarget.querySelector('.tooltip');
                   if (tooltip) {
-                    tooltip.classList.remove("hidden");
+                    tooltip.classList.remove('hidden');
                     setTimeout(() => {
-                      tooltip.classList.add("hidden");
+                      tooltip.classList.add('hidden');
                     }, 1000);
                   }
                 }}
