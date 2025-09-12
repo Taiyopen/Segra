@@ -76,7 +76,7 @@ namespace Segra.Backend.Services
                             switch (keybind.Action)
                             {
                                 case KeybindAction.CreateBookmark:
-                                    if (recording != null && Settings.Instance.RecordingMode == RecordingMode.Session)
+                                    if (recording != null && (Settings.Instance.RecordingMode == RecordingMode.Session || Settings.Instance.RecordingMode == RecordingMode.Hybrid))
                                     {
                                         Log.Information("Saving bookmark...");
                                         recording.Bookmarks.Add(new Bookmark
@@ -89,7 +89,7 @@ namespace Segra.Backend.Services
                                     break;
 
                                 case KeybindAction.SaveReplayBuffer:
-                                    if (recording != null && Settings.Instance.RecordingMode == RecordingMode.Buffer)
+                                    if (recording != null && (Settings.Instance.RecordingMode == RecordingMode.Buffer || Settings.Instance.RecordingMode == RecordingMode.Hybrid))
                                     {
                                         Log.Information("Saving replay buffer...");
                                         Task.Run(Utils.OBSUtils.SaveReplayBuffer);

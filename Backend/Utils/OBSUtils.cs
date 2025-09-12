@@ -34,18 +34,14 @@ namespace Segra.Backend.Utils
         {
             signalOutputStop = true;
         };
-
         static signal_callback_t replaySavedCallback = (data, cd) =>
         {
             replaySaved = true;
             Log.Information("Replay buffer saved callback received");
         };
-
-        // Variable to store the replay buffer path extracted from logs
         private static string? _lastReplayBufferPath;
         private static signal_callback_t? hookedCallback;
         private static signal_callback_t? unhookedCallback;
-
         private static bool _isGameCaptureHooked = false;
 
         public static bool SaveReplayBuffer()
@@ -312,12 +308,15 @@ namespace Segra.Backend.Utils
         {
             Settings.Instance.State.PreRecording = new PreRecording { Game = name, Status = "Waiting to start" };
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
+            bool isSessionMode = Settings.Instance.RecordingMode == RecordingMode.Session;
+            bool isHybridMode = Settings.Instance.RecordingMode == RecordingMode.Hybrid;
 
             string fileName = Path.GetFileName(exePath);
 
-            if ((isReplayBufferMode && bufferOutput != IntPtr.Zero) || (!isReplayBufferMode && output != IntPtr.Zero))
+            // Prevent starting if any output is already active
+            if (bufferOutput != IntPtr.Zero || output != IntPtr.Zero)
             {
-                Log.Information($"{(isReplayBufferMode ? "Replay buffer" : "Recording")} is already in progress.");
+                Log.Information("A recording or replay buffer is already in progress.");
                 Settings.Instance.State.PreRecording = null;
                 return false;
             }
@@ -345,20 +344,40 @@ namespace Segra.Backend.Utils
             obs_data_set_string(videoSourceSettings, "capture_mode", "any_fullscreen");
             gameCaptureSource = obs_source_create("game_capture", "gameplay", videoSourceSettings, IntPtr.Zero);
             obs_data_release(videoSourceSettings);
-            obs_set_output_source(0, gameCaptureSource);
 
-            // If display capture is enabled, start a timer to check if game capture hooks within 90 seconds
-            if (Settings.Instance.EnableDisplayRecording)
+            if (gameCaptureSource == IntPtr.Zero)
             {
-                StartGameCaptureHookTimeoutTimer();
+                Log.Warning("Game Capture source not available. Falling back to Display Capture.");
+                if (Settings.Instance.EnableDisplayRecording)
+                {
+                    AddMonitorCapture();
+                    if (displaySource != IntPtr.Zero)
+                    {
+                        obs_set_output_source(0, displaySource);
+                    }
+                }
+                else
+                {
+                    _ = Task.Run(() => ShowModal("Game Capture unavailable", "Game Capture plugin not found. Enable Display Recording in settings to proceed.", "warning"));
+                }
             }
+            else
+            {
+                obs_set_output_source(0, gameCaptureSource);
 
-            // Connect to 'hooked' and 'unhooked' signals for game capture
-            IntPtr signalHandler = obs_source_get_signal_handler(gameCaptureSource);
-            hookedCallback = new signal_callback_t(OnGameCaptureHooked);
-            unhookedCallback = new signal_callback_t(OnGameCaptureUnhooked);
-            signal_handler_connect(signalHandler, "hooked", hookedCallback, IntPtr.Zero);
-            signal_handler_connect(signalHandler, "unhooked", unhookedCallback, IntPtr.Zero);
+                // If display capture is enabled, start a timer to check if game capture hooks within 90 seconds
+                if (Settings.Instance.EnableDisplayRecording)
+                {
+                    StartGameCaptureHookTimeoutTimer();
+                }
+
+                // Connect to 'hooked' and 'unhooked' signals for game capture
+                IntPtr signalHandler = obs_source_get_signal_handler(gameCaptureSource);
+                hookedCallback = new signal_callback_t(OnGameCaptureHooked);
+                unhookedCallback = new signal_callback_t(OnGameCaptureUnhooked);
+                signal_handler_connect(signalHandler, "hooked", hookedCallback, IntPtr.Zero);
+                signal_handler_connect(signalHandler, "unhooked", unhookedCallback, IntPtr.Zero);
+            }
 
             if (!startManually)
             {
@@ -379,7 +398,7 @@ namespace Segra.Backend.Utils
             Task.Delay(1000).Wait();
 
             // If display recording is disabled, wait for game capture to hook
-            if (!Settings.Instance.EnableDisplayRecording)
+            if (!Settings.Instance.EnableDisplayRecording && gameCaptureSource != IntPtr.Zero)
             {
                 bool hooked = WaitUntilGameCaptureHooks(startManually ? 90000 : 10000);
                 if (!hooked)
@@ -393,7 +412,7 @@ namespace Segra.Backend.Utils
             }
 
             // Add monitor capture if enabled and game capture has not hooked yet
-            if (Settings.Instance.EnableDisplayRecording && !_isGameCaptureHooked)
+            if (Settings.Instance.EnableDisplayRecording && !_isGameCaptureHooked && gameCaptureSource != IntPtr.Zero)
             {
                 AddMonitorCapture();
             }
@@ -441,8 +460,8 @@ namespace Segra.Backend.Utils
             Log.Information($"Using encoder: {Settings.Instance.Codec!.FriendlyName} ({Settings.Instance.Codec.InternalEncoderId})");
             string encoderId = Settings.Instance.Codec!.InternalEncoderId;
             videoEncoder = obs_video_encoder_create(encoderId, "Segra Recorder", videoEncoderSettings, IntPtr.Zero);
-            obs_data_release(videoEncoderSettings);
             obs_encoder_set_video(videoEncoder, obs_get_video());
+            obs_data_release(videoEncoderSettings);
 
             if (Settings.Instance.InputDevices != null && Settings.Instance.InputDevices.Count > 0)
             {
@@ -552,71 +571,61 @@ namespace Segra.Backend.Utils
                 obs_encoder_set_audio(enc, obs_get_audio());
                 audioEncoders.Add(enc);
             }
+            
 
-            // Determine content type and paths based on recording mode
-            Content.ContentType contentType = Settings.Instance.RecordingMode == RecordingMode.Buffer
-                ? Content.ContentType.Buffer
-                : Content.ContentType.Session;
+            // Paths for session recordings and buffer
+            string sessionDir = Settings.Instance.ContentFolder + "/sessions";
+            string bufferDir = Settings.Instance.ContentFolder + "/buffers";
+            if (!Directory.Exists(sessionDir)) Directory.CreateDirectory(sessionDir);
+            if (!Directory.Exists(bufferDir)) Directory.CreateDirectory(bufferDir);
 
-            string videoPath = Settings.Instance.ContentFolder + "/" + contentType.ToString().ToLower() + "s";
-            if (!Directory.Exists(videoPath))
-                Directory.CreateDirectory(videoPath);
+            string? videoOutputPath = null; // only set for session/hybrid session output
 
-            // Might be null if recording mode is Buffer
-            string? videoOutputPath = null;
-
-            if (isReplayBufferMode)
+            // Configure outputs depending on mode
+            if (isReplayBufferMode || isHybridMode)
             {
-                // Set up replay buffer output
                 IntPtr bufferOutputSettings = obs_data_create();
-                obs_data_set_string(bufferOutputSettings, "directory", videoPath);
+                obs_data_set_string(bufferOutputSettings, "directory", bufferDir);
                 obs_data_set_string(bufferOutputSettings, "format", "%CCYY-%MM-%DD_%hh-%mm-%ss");
                 obs_data_set_string(bufferOutputSettings, "extension", "mp4");
-                // Set replay buffer duration and max size from settings
                 obs_data_set_int(bufferOutputSettings, "max_time_sec", (uint)Settings.Instance.ReplayBufferDuration);
                 obs_data_set_int(bufferOutputSettings, "max_size_mb", (uint)Settings.Instance.ReplayBufferMaxSize);
-                // Enable the number of audio tracks used (bitmask)
                 uint bufferTracksMask = trackCount == 0 ? 0u : (1u << trackCount) - 1u;
                 obs_data_set_int(bufferOutputSettings, "tracks", bufferTracksMask);
 
                 bufferOutput = obs_output_create("replay_buffer", "replay_buffer_output", bufferOutputSettings, IntPtr.Zero);
                 obs_data_release(bufferOutputSettings);
 
-                // Set encoders for replay buffer
                 obs_output_set_video_encoder(bufferOutput, videoEncoder);
                 for (int t = 0; t < audioEncoders.Count; t++)
                 {
                     obs_output_set_audio_encoder(bufferOutput, audioEncoders[t], (uint)t);
                 }
 
-                // Set up signal handlers for replay buffer
                 IntPtr bufferOutputHandler = obs_output_get_signal_handler(bufferOutput);
                 signal_handler_connect(bufferOutputHandler, "stop", outputStopCallback, IntPtr.Zero);
                 signal_handler_connect(bufferOutputHandler, "saved", replaySavedCallback, IntPtr.Zero);
             }
-            else
-            {
-                videoOutputPath = $"{Settings.Instance.ContentFolder}/{contentType.ToString().ToLower()}s/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
 
-                // Set up standard recording output
+            if (isSessionMode || isHybridMode)
+            {
+                videoOutputPath = $"{sessionDir}/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
+
                 IntPtr outputSettings = obs_data_create();
                 obs_data_set_string(outputSettings, "path", videoOutputPath);
                 obs_data_set_string(outputSettings, "format_name", "mp4");
-                // Enable the number of audio tracks used
                 uint recordTracksMask = trackCount == 0 ? 0u : (1u << trackCount) - 1u;
                 obs_data_set_int(outputSettings, "tracks", recordTracksMask);
 
                 output = obs_output_create("ffmpeg_muxer", "simple_output", outputSettings, IntPtr.Zero);
                 obs_data_release(outputSettings);
 
-                // Set encoders for standard recording
                 obs_output_set_video_encoder(output, videoEncoder);
                 for (int t = 0; t < audioEncoders.Count; t++)
                 {
                     obs_output_set_audio_encoder(output, audioEncoders[t], (uint)t);
                 }
 
-                // Set up signal handler for standard recording
                 signal_handler_connect(obs_output_get_signal_handler(output), "stop", outputStopCallback, IntPtr.Zero);
             }
 
@@ -625,46 +634,36 @@ namespace Segra.Backend.Utils
 
             _ = Task.Run(() => PlaySound("start", 50));
 
-            bool outputStarted;
-            if (isReplayBufferMode)
+            if (output != IntPtr.Zero)
             {
-                // Start replay buffer
-                outputStarted = obs_output_start(bufferOutput);
-                if (!outputStarted)
+                if (!obs_output_start(output))
+                {
+                    string error = obs_output_get_last_error(output);
+                    Log.Error($"Failed to start recording: {error}");
+                    Task.Run(() => ShowModal("Recording failed", "Failed to start recording. Check the log for more details.", "error"));
+                    Task.Run(() => PlaySound("error", 500));
+                    Settings.Instance.State.PreRecording = null;
+                    StopRecording();
+                    return false;
+                }
+
+                Log.Information("Session recording started successfully");
+            }
+
+            if (bufferOutput != IntPtr.Zero)
+            {
+                if (!obs_output_start(bufferOutput))
                 {
                     string error = obs_output_get_last_error(bufferOutput);
                     Log.Error($"Failed to start replay buffer: {error}");
-                    Task.Run(() => ShowModal("Replay buffer failed", $"Failed to start replay buffer. Check the log for more details.", "error"));
-                    Task.Run(() => PlaySound("error"));
-
-                    Settings.Instance.State.Recording = null;
+                    Task.Run(() => ShowModal("Replay buffer failed", "Failed to start replay buffer. Check the log for more details.", "error"));
+                    Task.Run(() => PlaySound("error", 500));
                     Settings.Instance.State.PreRecording = null;
-                    GameDetectionService.PreventRetryRecording = true;
                     StopRecording();
                     return false;
                 }
 
                 Log.Information("Replay buffer started successfully");
-            }
-            else
-            {
-                // Start standard recording
-                outputStarted = obs_output_start(output);
-                if (!outputStarted)
-                {
-                    string error = obs_output_get_last_error(output);
-                    Log.Error($"Failed to start recording: {error}");
-                    Task.Run(() => ShowModal("Recording failed", $"Failed to start recording. Check the log for more details.", "error"));
-                    Task.Run(() => PlaySound("error"));
-
-                    Settings.Instance.State.Recording = null;
-                    Settings.Instance.State.PreRecording = null;
-                    GameDetectionService.PreventRetryRecording = true;
-                    StopRecording();
-                    return false;
-                }
-
-                Log.Information("Recording started successfully");
             }
 
             string? gameImage = GameIconUtils.ExtractIconAsBase64(exePath);
@@ -719,6 +718,7 @@ namespace Segra.Backend.Utils
         public static void StopRecording()
         {
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
+            bool isHybridMode = Settings.Instance.RecordingMode == RecordingMode.Hybrid;
 
             if (isReplayBufferMode && bufferOutput != IntPtr.Zero)
             {
@@ -757,7 +757,7 @@ namespace Segra.Backend.Utils
                 // Reload content list
                 SettingsUtils.LoadContentFromFolderIntoState(false);
             }
-            else if (!isReplayBufferMode && output != IntPtr.Zero)
+            else if (!isReplayBufferMode && !isHybridMode && output != IntPtr.Zero)
             {
                 // Stop standard recording
                 if (Settings.Instance.State.Recording != null)
@@ -808,6 +808,73 @@ namespace Segra.Backend.Utils
                     Log.Information($"End Time: {Settings.Instance.State.Recording.EndTime}");
                     Log.Information($"Duration: {Settings.Instance.State.Recording.Duration}");
                     Log.Information($"File Path: {Settings.Instance.State.Recording.FilePath}");
+                }
+
+                SettingsUtils.LoadContentFromFolderIntoState(false);
+            }
+            else if (isHybridMode)
+            {
+                if (Settings.Instance.State.Recording != null)
+                    Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
+
+                // Stop replay buffer first if running
+                if (bufferOutput != IntPtr.Zero)
+                {
+                    signalOutputStop = false;
+                    obs_output_stop(bufferOutput);
+                    int attempts = 0;
+                    while (!signalOutputStop && attempts < 300)
+                    {
+                        Thread.Sleep(100);
+                        attempts++;
+                    }
+                    if (!signalOutputStop)
+                    {
+                        Log.Warning("Hybrid: Failed to stop replay buffer. Forcing stop.");
+                        obs_output_force_stop(bufferOutput);
+                    }
+                    else
+                    {
+                        Log.Information("Hybrid: Replay buffer stopped.");
+                    }
+                }
+
+                // Stop session recording
+                if (output != IntPtr.Zero)
+                {
+                    signalOutputStop = false;
+                    obs_output_stop(output);
+                    int attempts2 = 0;
+                    while (!signalOutputStop && attempts2 < 300)
+                    {
+                        Thread.Sleep(100);
+                        attempts2++;
+                    }
+                    if (!signalOutputStop)
+                    {
+                        Log.Warning("Hybrid: Failed to stop recording. Forcing stop.");
+                        obs_output_force_stop(output);
+                    }
+                    else
+                    {
+                        Log.Information("Hybrid: Recording stopped.");
+                    }
+                }
+
+                Thread.Sleep(200);
+
+                DisposeOutput();
+                DisposeSources();
+                DisposeEncoders();
+
+                _ = GameIntegrationService.Shutdown();
+                KeybindCaptureService.Stop();
+
+                if (Settings.Instance.State.Recording != null && Settings.Instance.State.Recording.FilePath != null)
+                {
+                    ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
+                    ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+                    Task.Run(() => ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session));
                 }
 
                 SettingsUtils.LoadContentFromFolderIntoState(false);

@@ -517,7 +517,7 @@ export default function Settings() {
                 <br />
                 • Full game integration features
                 <br />
-                • Access to AI-generated clips
+                • Access to AI-generated highlights
                 <br />• Access to Bookmarks
               </div>
             </div>
@@ -547,17 +547,49 @@ export default function Settings() {
             </div>
           </div>
         </div>
+        <div className="mt-6">
+          <div
+            className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${
+              settings.recordingMode == 'Hybrid' ? 'border-primary' : 'border-base-400'
+            } ${
+              settings.state.recording || settings.state.preRecording != null
+                ? 'opacity-60 cursor-not-allowed'
+                : 'cursor-pointer hover:bg-opacity-80'
+            }`}
+            onClick={() =>
+              !settings.state.recording &&
+              !settings.state.preRecording &&
+              updateSettings({ recordingMode: 'Hybrid' })
+            }
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="text-lg font-semibold">Hybrid (Session + Buffer)</div>
+              <span className="badge badge-primary badge-sm text-base-300">Beta</span>
+            </div>
+            <div className="text-sm text-left text-base-content">
+              <p className="mb-2">
+                Record the full session while keeping a replay buffer. Save short highlights with a
+                hotkey without stopping the session.
+              </p>
+              <div className="text-xs text-base-content text-opacity-70">
+                • Clip without ending the session recording
+                <br />• Full game integration features
+                <br />• Access to AI-generated highlights
+                <br />• Access to Bookmarks
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
       {/* Video Settings */}
       <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
         <h2 className="text-xl font-semibold mb-4">Video Settings</h2>
 
         {/* Replay Buffer Settings - Only show when Replay Buffer mode is selected */}
         <AnimatePresence>
-          {settings.recordingMode === 'Buffer' && (
+          {(settings.recordingMode === 'Buffer' || settings.recordingMode === 'Hybrid') && (
             <motion.div
-              className="bg-base-300 rounded-lg border border-custom"
+              className="bg-base-300 rounded-lg border border-custom mb-4"
               initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
               animate={{
                 opacity: 1,
@@ -1805,3 +1837,5 @@ export default function Settings() {
     </div>
   );
 }
+
+

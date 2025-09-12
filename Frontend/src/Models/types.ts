@@ -1,6 +1,6 @@
 export type ContentType = 'Session' | 'Buffer' | 'Clip' | 'Highlight';
 
-export type RecordingMode = 'Session' | 'Buffer';
+export type RecordingMode = 'Session' | 'Buffer' | 'Hybrid';
 
 export interface Content {
   type: ContentType;

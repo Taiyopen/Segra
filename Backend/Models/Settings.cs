@@ -1191,7 +1191,8 @@ namespace Segra.Backend.Models
     public enum RecordingMode
     {
         Session,
-        Buffer
+        Buffer,
+        Hybrid
     }
 
     public class Game
