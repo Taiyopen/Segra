@@ -177,7 +177,7 @@ export default function ContentPage({
   return (
     <div
       ref={containerRef}
-      className="p-5 space-y-6 overflow-y-auto h-full bg-base-200 overflow-x-hidden"
+      className="p-5 space-y-6 overflow-y-scroll h-full bg-base-200 overflow-x-hidden"
       onScroll={handleScroll}
     >
       <div className="flex justify-between items-center mb-4">

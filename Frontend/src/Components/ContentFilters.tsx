@@ -82,22 +82,17 @@ export default function ContentFilters({
           <MdFilterList size={16} />
           Filter
           {selectedGames.length > 0 && (
-            <span className="badge badge-sm badge-primary">{selectedGames.length}</span>
+            <span className="badge badge-sm badge-primary text-base-300">{selectedGames.length}</span>
           )}
         </button>
         <div
           className="dropdown-content bg-base-300 border border-base-400 rounded-box z-999 w-64 p-3 mt-1 shadow"
           tabIndex={0}
         >
-          <div className="flex justify-between items-center mb-1">
-            <h3 className="font-medium">Filter by Game</h3>
-            {selectedGames.length > 0 && (
-              <button className="text-xs text-primary hover:underline" onClick={clearFilters}>
-                Clear all
-              </button>
-            )}
-          </div>
-          <div className="max-h-60 overflow-y-auto mt-1 border-t border-base-content/10 pt-1">
+          <button className={`text-sm ml-2 mb-2 ${selectedGames.length > 0 ? 'text-primary cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`} onClick={clearFilters}>
+            Clear all
+          </button>
+          <div className="max-h-60 overflow-y-auto">
             {uniqueGames.length > 0 ? (
               uniqueGames.map((game) => (
                 <div key={game} className="form-control">
@@ -108,7 +103,7 @@ export default function ContentFilters({
                       checked={selectedGames.includes(game)}
                       onChange={() => toggleGameSelection(game)}
                     />
-                    <span className="label-text">{game}</span>
+                    <span className="label-text text-sm">{game}</span>
                   </label>
                 </div>
               ))
