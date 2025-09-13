@@ -1,6 +1,7 @@
 import { useSettings } from '../Context/SettingsContext';
 import { Content } from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
+import { openFileLocation } from '../Utils/FileUtils';
 import { useAuth } from '../Hooks/useAuth.tsx';
 import { useModal } from '../Context/ModalContext';
 import UploadModal from './UploadModal';
@@ -198,13 +199,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
     );
   };
 
-  const handleOpenFileLocation = () => {
-    const parameters: any = {
-      FilePath: content!.filePath,
-    };
-
-    sendMessageToBackend('OpenFileLocation', parameters);
-  };
+  const handleOpenFileLocation = () => openFileLocation(content!.filePath);
 
   return (
     <div

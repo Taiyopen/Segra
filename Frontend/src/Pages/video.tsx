@@ -2,6 +2,8 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Content, BookmarkType, Selection, Bookmark } from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
+import { openFileLocation } from '../Utils/FileUtils';
+import { useSelectedVideo } from '../Context/SelectedVideoContext';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useAuth } from '../Hooks/useAuth.tsx';
@@ -28,6 +30,7 @@ import {
   MdVolumeDown,
   MdFullscreen,
   MdFullscreenExit,
+  MdArrowBack,
 } from 'react-icons/md';
 import { IoSkull, IoAdd, IoRemove } from 'react-icons/io5';
 import SelectionCard from '../Components/SelectionCard';
@@ -39,6 +42,52 @@ const timeStringToSeconds = (timeStr: string): number => {
   const [hours, minutes, seconds] = time.split(':').map(Number);
   return hours * 3600 + minutes * 60 + seconds + (milliseconds ? Number(`0.${milliseconds}`) : 0);
 };
+
+function TopInfoBar({ video }: { video: Content }) {
+  const { setSelectedVideo } = useSelectedVideo();
+  const created = new Date(video.createdAt);
+  const isValidDate = !isNaN(created.getTime());
+  const locale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase() || '';
+  const isUS = locale.includes('-us');
+  const createdDateStr = !isValidDate ? video.createdAt : 
+    isUS ? 
+      created.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) :
+      `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}-${String(created.getDate()).padStart(2, '0')}`;
+  
+  const createdTimeStr = !isValidDate ? '' : 
+    created.toLocaleTimeString(isUS ? 'en-US' : undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: isUS,
+    });
+    
+  return (
+    <div className="flex items-center gap-2 bg-base-300 border border-custom rounded-lg px-2 py-1 mb-2 text-xs leading-tight text-gray-300">
+      <button
+        className="btn btn-ghost btn-xs text-gray-300 hover:text-gray-200 min-h-0 h-6 px-1"
+        onClick={() => setSelectedVideo(null)}
+        aria-label="Back"
+      >
+        <MdArrowBack className="w-4 h-4" />
+      </button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span>Created: {createdDateStr}{createdTimeStr ? ` ${createdTimeStr}` : ''}</span>
+        <span>•</span>
+        <span>Size: {video.fileSize}</span>
+        <span>•</span>
+        <span>
+          Location:{' '}
+          <button
+            className="text-gray-300 hover:underline cursor-pointer hover:text-gray-200"
+            onClick={() => openFileLocation(video.filePath)}
+          >
+            {video.filePath}
+          </button>
+        </span>
+      </div>
+    </div>
+  );
+}
 
 // Fetches a video thumbnail from the backend for a specific timestamp
 const fetchThumbnailAtTime = async (videoPath: string, timeInSeconds: number): Promise<string> => {
@@ -1021,6 +1070,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     <DndProvider backend={HTML5Backend}>
       <div className="flex w-full h-full bg-base-200 overflow-hidden" ref={containerRef}>
         <div className="flex-1 p-4 w-full lg:w-3/4">
+          <TopInfoBar video={video} />
           <div
             className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen overflow-hidden bg-black' : 'relative'} ${!controlsVisible && isPointerInPlayer ? 'cursor-none' : ''}`}
             ref={playerContainerRef}
@@ -1039,7 +1089,7 @@ export default function VideoComponent({ video }: { video: Content }) {
           >
             <video
               autoPlay
-              className={`block relative ${isFullscreen ? 'w-full h-full' : 'rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)] md:max-h-[calc(100vh-200px)]'}`}
+              className={`block relative ${isFullscreen ? 'w-full h-full' : 'rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)]'} ${video.type === 'Highlight' || video.type === 'Clip' ? 'md:max-h-[calc(100vh-230px)]' : 'md:max-h-[calc(100vh-200px)]'} `}
               src={getVideoPath()}
               ref={videoRef}
               onClick={togglePlayPause}
@@ -1162,7 +1212,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
                     style={{ left: `${leftPos}px` }}
                     onClick={() => {
-                      const seekTo = Math.max(0, timeInSeconds - 3);
+                      const seekTo = Math.max(0, timeInSeconds - 5);
                       setCurrentTime(seekTo);
                       if (videoRef.current) {
                         videoRef.current.currentTime = seekTo;
