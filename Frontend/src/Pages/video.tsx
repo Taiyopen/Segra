@@ -1161,6 +1161,13 @@ export default function VideoComponent({ video }: { video: Content }) {
                     className="tooltip absolute bottom-0 transform -translate-x-1/2 cursor-pointer z-10 flex flex-col items-center text-[#25272e]"
                     data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
                     style={{ left: `${leftPos}px` }}
+                    onClick={() => {
+                      const seekTo = Math.max(0, timeInSeconds - 3);
+                      setCurrentTime(seekTo);
+                      if (videoRef.current) {
+                        videoRef.current.currentTime = seekTo;
+                      }
+                    }}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       handleDeleteBookmark(bookmark.id);
