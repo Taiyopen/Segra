@@ -169,6 +169,10 @@ export default function VideoComponent({ video }: { video: Content }) {
   // Computed values
   const basePixelsPerSecond = duration > 0 ? containerWidth / duration : 0;
   const pixelsPerSecond = basePixelsPerSecond * zoom;
+
+  // Make sure bookmarks are only shown when we have valid duration and zoom
+  // Prevents weird positioning on initial load
+  const bookmarksReady = duration > 0 && pixelsPerSecond > 0;
   const sortedSelections = [...selections].sort((a, b) => a.startTime - b.startTime);
   const selectionsRef = useRef(selections);
   useEffect(() => {
@@ -1200,36 +1204,38 @@ export default function VideoComponent({ video }: { video: Content }) {
                 overflow: 'hidden',
               }}
             >
-              {filteredBookmarks.map((bookmark, index) => {
-                const timeInSeconds = timeStringToSeconds(bookmark.time);
-                const leftPos = timeInSeconds * pixelsPerSecond;
-                const Icon = iconMapping[bookmark.type as BookmarkType] || IoSkull;
+              {bookmarksReady
+                ? filteredBookmarks.map((bookmark, index) => {
+                    const timeInSeconds = timeStringToSeconds(bookmark.time);
+                    const leftPos = timeInSeconds * pixelsPerSecond;
+                    const Icon = iconMapping[bookmark.type as BookmarkType] || IoSkull;
 
-                return (
-                  <div
-                    key={`bookmark-${bookmark.id ?? index}`}
-                    className="tooltip absolute bottom-0 transform -translate-x-1/2 cursor-pointer z-10 flex flex-col items-center text-[#25272e]"
-                    data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
-                    style={{ left: `${leftPos}px` }}
-                    onClick={() => {
-                      const seekTo = Math.max(0, timeInSeconds - 5);
-                      setCurrentTime(seekTo);
-                      if (videoRef.current) {
-                        videoRef.current.currentTime = seekTo;
-                      }
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      handleDeleteBookmark(bookmark.id);
-                    }}
-                  >
-                    <div className="bg-[#EFAF2B] w-[26px] h-[26px] rounded-full flex items-center justify-center mb-0">
-                      <Icon size={16} />
-                    </div>
-                    <div className="w-[2px] h-[16px] bg-[#EFAF2B]" />
-                  </div>
-                );
-              })}
+                    return (
+                      <div
+                        key={`bookmark-${bookmark.id ?? index}`}
+                        className="tooltip absolute bottom-0 transform -translate-x-1/2 cursor-pointer z-10 flex flex-col items-center text-[#25272e]"
+                        data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
+                        style={{ left: `${leftPos}px` }}
+                        onClick={() => {
+                          const seekTo = Math.max(0, timeInSeconds - (bookmark.type == BookmarkType.Manual ? 10 : 5));
+                          setCurrentTime(seekTo);
+                          if (videoRef.current) {
+                            videoRef.current.currentTime = seekTo;
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          handleDeleteBookmark(bookmark.id);
+                        }}
+                      >
+                        <div className="bg-[#EFAF2B] w-[26px] h-[26px] rounded-full flex items-center justify-center mb-0">
+                          <Icon size={16} />
+                        </div>
+                        <div className="w-[2px] h-[16px] bg-[#EFAF2B]" />
+                      </div>
+                    );
+                  })
+                : null}
               {minorTicks.map((tickTime, index) => {
                 if (tickTime >= duration) return null;
                 const leftPos = tickTime * pixelsPerSecond;
