@@ -622,11 +622,12 @@ export default function Settings() {
                   animate={{ opacity: 1, transition: { delay: 0.2 } }}
                 >
                   {/* Buffer Duration */}
-                  <div className="form-control">
-                    <label className="label text-base-content">
+                  <div className="form-control w-full">
+                    <label htmlFor="replayBufferDuration" className="label text-base-content px-0 !block mb-1">
                       <span className="label-text">Buffer Duration (seconds)</span>
                     </label>
                     <input
+                      id="replayBufferDuration"
                       type="number"
                       name="replayBufferDuration"
                       value={localReplayBufferDuration}
@@ -639,7 +640,7 @@ export default function Settings() {
                       disabled={
                         settings.state.recording != null || settings.state.preRecording != null
                       }
-                      className={`input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80`}
+                      className={`input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80 w-full`}
                     />
                     <div className="help-text-container">
                       <span className="text-xs text-base-content/60 mt-1">
@@ -649,11 +650,12 @@ export default function Settings() {
                   </div>
 
                   {/* Buffer Max Size */}
-                  <div className="form-control">
-                    <label className="label text-base-content">
+                  <div className="form-control w-full">
+                    <label htmlFor="replayBufferMaxSize" className="label text-base-content px-0 !block mb-1">
                       <span className="label-text">Maximum Size (MB)</span>
                     </label>
                     <input
+                      id="replayBufferMaxSize"
                       type="number"
                       name="replayBufferMaxSize"
                       value={localReplayBufferMaxSize}
@@ -666,7 +668,7 @@ export default function Settings() {
                       disabled={
                         settings.state.recording != null || settings.state.preRecording != null
                       }
-                      className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80"
+                      className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80 w-full"
                     />
                     <div className="help-text-container">
                       <span className="text-xs text-base-content/60 mt-1">
@@ -1837,5 +1839,4 @@ export default function Settings() {
     </div>
   );
 }
-
 
