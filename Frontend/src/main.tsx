@@ -5,6 +5,7 @@ import { supabase } from './lib/supabase/client';
 import './globals.css';
 import App from './App.tsx';
 import { SelectedVideoProvider } from './Context/SelectedVideoContext.tsx';
+import { SelectedMenuProvider } from './Context/SelectedMenuContext';
 import { AuthProvider } from './Hooks/useAuth.tsx';
 
 // Create a React Query client
@@ -29,7 +30,9 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SelectedVideoProvider>
-          <App />
+          <SelectedMenuProvider>
+            <App />
+          </SelectedMenuProvider>
         </SelectedVideoProvider>
       </AuthProvider>
     </QueryClientProvider>

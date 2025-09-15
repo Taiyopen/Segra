@@ -8,6 +8,7 @@ import Highlights from './Pages/highlights';
 import { SettingsProvider } from './Context/SettingsContext';
 import Video from './Pages/video';
 import { useSelectedVideo } from './Context/SelectedVideoContext';
+import { useSelectedMenu } from './Context/SelectedMenuContext';
 import { themeChange } from 'theme-change';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { DndProvider } from 'react-dnd';
@@ -37,7 +38,7 @@ function App() {
   }, []);
 
   const { selectedVideo, setSelectedVideo } = useSelectedVideo();
-  const [selectedMenu, setSelectedMenu] = useState('Full Sessions');
+  const { selectedMenu, setSelectedMenu } = useSelectedMenu();
 
   const handleMenuSelection = (menu: any) => {
     setSelectedVideo(null);
