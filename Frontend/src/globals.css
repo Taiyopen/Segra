@@ -20,6 +20,7 @@
   --color-success: #36d399;
   --color-warning: #ffd481;
   --color-error: #f87272;
+  --color-primary-content: var(--color-base-100);
   --card-p: 1rem;
   /* DaisyUI v5 tokens – matcha v4-defaults */
   --radius-box: 1rem; /* v4: --rounded-box: 1rem */
