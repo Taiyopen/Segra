@@ -32,10 +32,10 @@ import {
   MdFullscreenExit,
   MdArrowBack,
 } from 'react-icons/md';
-import { IoSkull, IoAdd, IoRemove, IoSettingsSharp } from 'react-icons/io5';
+import { IoSkull, IoAdd, IoRemove } from 'react-icons/io5';
 import SelectionCard from '../Components/SelectionCard';
 import WaveSurfer from 'wavesurfer.js';
-import { TbZoomIn, TbZoomOut, TbZoomReset } from 'react-icons/tb';
+import { TbZoomIn, TbZoomOut } from 'react-icons/tb';
 
 // Converts time string in format "HH:MM:SS.mmm" to seconds
 const timeStringToSeconds = (timeStr: string): number => {
@@ -43,6 +43,9 @@ const timeStringToSeconds = (timeStr: string): number => {
   const [hours, minutes, seconds] = time.split(':').map(Number);
   return hours * 3600 + minutes * 60 + seconds + (milliseconds ? Number(`0.${milliseconds}`) : 0);
 };
+
+const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 1.5, 2] as const;
+const formatPlaybackRateLabel = (rate: number) => `${rate}x`;
 
 function TopInfoBar({ video }: { video: Content }) {
   const { setSelectedVideo } = useSelectedVideo();
@@ -59,10 +62,10 @@ function TopInfoBar({ video }: { video: Content }) {
   const createdTimeStr = !isValidDate
     ? ''
     : created.toLocaleTimeString(isUS ? 'en-US' : undefined, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: isUS,
-      });
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: isUS,
+    });
 
   return (
     <div className="flex items-center gap-2 px-2 py-1 mb-2 text-xs leading-tight text-gray-300 border rounded-lg bg-base-300 border-custom">
@@ -131,6 +134,8 @@ export default function VideoComponent({ video }: { video: Content }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const latestDraggedSelectionRef = useRef<Selection | null>(null);
+  const speedButtonRef = useRef<HTMLButtonElement | null>(null);
+  const speedDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Video state
   const [currentTime, setCurrentTime] = useState(0);
@@ -141,6 +146,7 @@ export default function VideoComponent({ video }: { video: Content }) {
   const [videoScale, setVideoScale] = useState(1);
   const [videoTranslate, setVideoTranslate] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const videoPanStartRef = useRef<{ x: number; y: number } | null>(null);
   const videoLastPointerRef = useRef<number | null>(null);
   const panMovedRef = useRef(false);
@@ -149,6 +155,32 @@ export default function VideoComponent({ video }: { video: Content }) {
   useEffect(() => {
     videoScaleRef.current = videoScale;
   }, [videoScale]);
+
+  // Close speed menu when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!showSpeedMenu) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!speedDropdownRef.current?.contains(event.target as Node)) {
+        setShowSpeedMenu(false);
+        speedButtonRef.current?.blur();
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowSpeedMenu(false);
+        speedButtonRef.current?.blur();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showSpeedMenu]);
 
   // Clamp translation so the video remains at least partially visible
   const clampTranslate = (t: { x: number; y: number }) => {
@@ -193,32 +225,45 @@ export default function VideoComponent({ video }: { video: Content }) {
 
   const clampVideoScale = (s: number) => Math.min(Math.max(s, 1), 4);
 
-  // Wheel zoom handler for the video element (use Ctrl/Meta to activate)
-  const onVideoWheel = (e: React.WheelEvent) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
-    e.preventDefault();
-    const el = e.currentTarget as HTMLElement;
-    const rect = el.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
+  // Change video scale, optionally focusing on a specific point, otherwise center
+  const applyVideoScale = (desiredScale: number, focusPoint?: { x: number; y: number }) => {
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
 
-    const oldScale = videoScaleRef.current || 1;
-    const factor = e.deltaY < 0 ? 1.12 : 0.9;
-    const newScale = clampVideoScale(oldScale * factor);
-    const ratio = newScale / oldScale;
+    const previousScale = videoScaleRef.current || 1;
+    const nextScale = clampVideoScale(desiredScale);
+    if (previousScale === nextScale) return;
 
+    const cx = focusPoint?.x ?? videoEl.clientWidth / 2;
+    const cy = focusPoint?.y ?? videoEl.clientHeight / 2;
+    const ratio = nextScale / previousScale;
+
+    videoScaleRef.current = nextScale;
+    setVideoScale(nextScale);
     setVideoTranslate((prev) => {
+      if (nextScale === 1) {
+        return { x: 0, y: 0 };
+      }
+
       const x = prev.x - (cx - prev.x) * (ratio - 1);
       const y = prev.y - (cy - prev.y) * (ratio - 1);
       return clampTranslate({ x, y });
     });
-
-    setVideoScale(newScale);
-    videoScaleRef.current = newScale;
   };
 
-  // Player Settings Modal
-  const [showSettings, setShowSettings] = useState(false);
+  // Wheel zoom handler for the video element (use Ctrl/Meta to activate)
+  const onVideoWheel = (e: React.WheelEvent) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const videoEl = e.currentTarget;
+    const rect = videoEl.getBoundingClientRect();
+    const currentScale = videoScaleRef.current || 1;
+    const localX = (e.clientX - rect.left) / currentScale;
+    const localY = (e.clientY - rect.top) / currentScale;
+    const factor = e.deltaY < 0 ? 1.12 : 0.9;
+
+    applyVideoScale(currentScale * factor, { x: localX, y: localY });
+  };
 
   // Container state
   const [containerWidth, setContainerWidth] = useState(0);
@@ -242,6 +287,13 @@ export default function VideoComponent({ video }: { video: Content }) {
   const [isPointerInPlayer, setIsPointerInPlayer] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  useEffect(() => {
+    if (!controlsVisible) {
+      setShowSpeedMenu(false);
+      speedButtonRef.current?.blur();
+    }
+  }, [controlsVisible]);
+
   // Interaction state
   const [isDragging, setIsDragging] = useState(false);
   const [isInteracting, setIsInteracting] = useState(false);
@@ -260,6 +312,15 @@ export default function VideoComponent({ video }: { video: Content }) {
     direction: 'start' | 'end';
     startClientX: number;
   } | null>(null);
+
+  const isHighlightOrClip = video.type === 'Highlight' || video.type === 'Clip';
+  const videoWrapperClassName = [
+    'block relative w-full',
+    isFullscreen ? 'h-full' : 'rounded-lg overflow-hidden aspect-video max-h-[calc(100vh-100px)]',
+    !isFullscreen && (isHighlightOrClip ? 'md:max-h-[calc(100vh-230px)]' : 'md:max-h-[calc(100vh-200px)]'),
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   // Computed values
   const basePixelsPerSecond = duration > 0 ? containerWidth / duration : 0;
@@ -493,12 +554,6 @@ export default function VideoComponent({ video }: { video: Content }) {
       window.removeEventListener('wheel', preventPageZoom);
     };
   }, []);
-
-  useEffect(() => {
-    if (!controlsVisible) {
-      setShowSettings(false);
-    }
-  }, [controlsVisible]);
 
   // Create refs to track zoom state
   const wheelZoomRef = useRef(zoom);
@@ -734,7 +789,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       body.style.overflow = '';
     }
     setVideoTranslate({ x: 0, y: 0 });
-    setVideoScale(1);
+    applyVideoScale(1);
     return () => {
       el.style.overflow = '';
       body.style.overflow = '';
@@ -1268,9 +1323,7 @@ export default function VideoComponent({ video }: { video: Content }) {
               setControlsVisible(false);
             }}
           >
-            <div
-              className={`block relative ${isFullscreen ? 'w-full h-full' : 'rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)]'} ${video.type === 'Highlight' || video.type === 'Clip' ? 'md:max-h-[calc(100vh-230px)]' : 'md:max-h-[calc(100vh-200px)]'} `}
-            >
+            <div className={videoWrapperClassName}>
               <video
                 autoPlay
                 className="w-full h-full"
@@ -1298,7 +1351,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             >
               <button
                 onClick={togglePlayPause}
-                className="text-white transition-colors hover:text-accent"
+                className="text-white transition-colors cursor-pointer hover:text-accent"
                 aria-label={isPlaying ? 'Pause' : 'Play'}
               >
                 {isPlaying ? <MdPause className="w-6 h-6" /> : <MdPlayArrow className="w-6 h-6" />}
@@ -1332,14 +1385,14 @@ export default function VideoComponent({ video }: { video: Content }) {
               <div className="flex items-center gap-2 ml-2">
                 <button
                   onClick={toggleMute}
-                  className="text-white transition-colors hover:text-accent"
+                  className="text-white transition-colors cursor-pointer hover:text-accent"
                   aria-label={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted || volume === 0 ? (
                     <MdVolumeOff className="w-6 h-6" />
-                  ) : volume < 0.33 ? (
+                  ) : volume < 0.20 ? (
                     <MdVolumeMute className="w-6 h-6" />
-                  ) : volume < 0.67 ? (
+                  ) : volume < 0.70 ? (
                     <MdVolumeDown className="w-6 h-6" />
                   ) : (
                     <MdVolumeUp className="w-6 h-6" />
@@ -1360,77 +1413,81 @@ export default function VideoComponent({ video }: { video: Content }) {
                 />
               </div>
 
-              <button
-                className="relative ml-2 text-white transition-colors cursor-pointer hover:text-accent"
-                aria-label="Settings"
-                onClick={() => setShowSettings((prev) => !prev)}
-              >
-                <IoSettingsSharp className="size-4" />
-
-                <div
-                  className={`absolute right-0 z-50 w-54 transition-all duration-300 border rounded-md shadow-lg bottom-8 bg-base-300 border-base-400 flex flex-col gap-2 p-2 ${showSettings ? 'opacity-100 mb-0' : 'opacity-0 pointer-events-none -mb-3'}`}
-                  onClick={(e) => e.stopPropagation()}
+              <div className="flex items-center gap-2 ml-2">
+                <button
+                  onClick={() => {
+                    const current = videoScaleRef.current || 1;
+                    applyVideoScale(current - 0.5);
+                  }}
+                  disabled={videoScale <= 1}
+                  className="flex items-center justify-center w-8 h-8 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Zoom out"
                 >
-                  <div className="flex items-center justify-between gap-2 px-2 py-1 text-white/50 hover:text-white">
-                    <span>Zoom</span>
-                    <div className="flex overflow-hidden border rounded-md border-base-400">
-                      <button
-                        onClick={() => {
-                          setVideoScale((prev) => prev - 0.5);
-                        }}
-                        disabled={videoScale <= 1}
-                        className="px-2 py-1 hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <TbZoomOut className="size-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setVideoScale(1);
-                          setVideoTranslate({ x: 0, y: 0 });
-                        }}
-                        className="px-2 py-1 hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <TbZoomReset className="size-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setVideoScale((prev) => prev + 0.5);
-                        }}
-                        disabled={videoScale >= 10}
-                        className="px-2 py-1 hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <TbZoomIn className="size-4" />
-                      </button>
+                  <TbZoomOut className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    const current = videoScaleRef.current || 1;
+                    applyVideoScale(current + 0.5);
+                  }}
+                  disabled={videoScale >= 4}
+                  className="flex items-center justify-center w-8 h-8 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Zoom in"
+                >
+                  <TbZoomIn className="w-4 h-4" />
+                </button>
+                <div className="relative" ref={speedDropdownRef}>
+                  <button
+                    ref={speedButtonRef}
+                    type="button"
+                    className="flex items-center justify-center gap-1 px-2 py-1 text-sm font-medium text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20"
+                    aria-label="Change playback speed"
+                    aria-haspopup="menu"
+                    aria-expanded={showSpeedMenu}
+                    onClick={() => {
+                      if (showSpeedMenu) {
+                        setShowSpeedMenu(false);
+                        speedButtonRef.current?.blur();
+                      } else {
+                        setShowSpeedMenu(true);
+                      }
+                    }}
+                  >
+                    <span>{formatPlaybackRateLabel(playbackRate)}</span>
+                  </button>
+                  {showSpeedMenu && (
+                    <div className="absolute right-0 bottom-full z-50 mb-2 border rounded-md shadow-lg bg-black/70 border-base-400">
+                      <div className="flex flex-col">
+                        {PLAYBACK_SPEEDS.map((speed) => {
+                          const isActive = speed === playbackRate;
+                          return (
+                            <button
+                              key={speed}
+                              role="menuitemradio"
+                              aria-checked={isActive}
+                              onClick={() => {
+                                setPlaybackRateForPlayer(speed);
+                                setShowSpeedMenu(false);
+                                speedButtonRef.current?.blur();
+                              }}
+                              className={`flex w-full items-center justify-center px-3 py-1 cursor-pointer text-sm transition-colors ${isActive ? 'text-white bg-accent/20' : 'text-white/80 hover:text-white hover:bg-accent/10'}`}
+                            >
+                              <span>{formatPlaybackRateLabel(speed)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 px-2 py-1 text-white/50 hover:text-white">
-                    <label htmlFor="playback-speed-select">Speed</label>
-                    <select
-                      id="playback-speed-select"
-                      aria-label="Playback speed"
-                      value={playbackRate.toString()}
-                      onChange={(e) => setPlaybackRateForPlayer(parseFloat(e.target.value))}
-                      className="w-24 text-white select select-sm bg-base-200"
-                      style={{
-                        outline: 'none',
-                      }}
-                    >
-                      <option value="0.25">0.25x</option>
-                      <option value="0.5">0.5x</option>
-                      <option value="1">1x</option>
-                      <option value="1.5">1.5x</option>
-                      <option value="2">2x</option>
-                    </select>
-                  </div>
+                  )}
                 </div>
-              </button>
+              </div>
 
               <button
                 onClick={toggleFullscreen}
                 onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
                 onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
                 onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                className="ml-2 text-white transition-colors hover:text-accent"
+                className="ml-2 text-white cursor-pointer transition-colors hover:text-accent"
                 aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
               >
                 {isFullscreen ? (
@@ -1460,38 +1517,38 @@ export default function VideoComponent({ video }: { video: Content }) {
             >
               {bookmarksReady
                 ? filteredBookmarks.map((bookmark, index) => {
-                    const timeInSeconds = timeStringToSeconds(bookmark.time);
-                    const leftPos = timeInSeconds * pixelsPerSecond;
-                    const Icon = iconMapping[bookmark.type as BookmarkType] || IoSkull;
+                  const timeInSeconds = timeStringToSeconds(bookmark.time);
+                  const leftPos = timeInSeconds * pixelsPerSecond;
+                  const Icon = iconMapping[bookmark.type as BookmarkType] || IoSkull;
 
-                    return (
-                      <div
-                        key={`bookmark-${bookmark.id ?? index}`}
-                        className="tooltip absolute bottom-0 transform -translate-x-1/2 cursor-pointer z-10 flex flex-col items-center text-[#25272e]"
-                        data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
-                        style={{ left: `${leftPos}px` }}
-                        onClick={() => {
-                          const seekTo = Math.max(
-                            0,
-                            timeInSeconds - (bookmark.type == BookmarkType.Manual ? 10 : 5),
-                          );
-                          setCurrentTime(seekTo);
-                          if (videoRef.current) {
-                            videoRef.current.currentTime = seekTo;
-                          }
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          handleDeleteBookmark(bookmark.id);
-                        }}
-                      >
-                        <div className="bg-[#EFAF2B] w-[26px] h-[26px] rounded-full flex items-center justify-center mb-0">
-                          <Icon size={16} />
-                        </div>
-                        <div className="w-[2px] h-[16px] bg-[#EFAF2B]" />
+                  return (
+                    <div
+                      key={`bookmark-${bookmark.id ?? index}`}
+                      className="tooltip absolute bottom-0 transform -translate-x-1/2 cursor-pointer z-10 flex flex-col items-center text-[#25272e]"
+                      data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
+                      style={{ left: `${leftPos}px` }}
+                      onClick={() => {
+                        const seekTo = Math.max(
+                          0,
+                          timeInSeconds - (bookmark.type == BookmarkType.Manual ? 10 : 5),
+                        );
+                        setCurrentTime(seekTo);
+                        if (videoRef.current) {
+                          videoRef.current.currentTime = seekTo;
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        handleDeleteBookmark(bookmark.id);
+                      }}
+                    >
+                      <div className="bg-[#EFAF2B] w-[26px] h-[26px] rounded-full flex items-center justify-center mb-0">
+                        <Icon size={16} />
                       </div>
-                    );
-                  })
+                      <div className="w-[2px] h-[16px] bg-[#EFAF2B]" />
+                    </div>
+                  );
+                })
                 : null}
               {minorTicks.map((tickTime, index) => {
                 if (tickTime >= duration) return null;
@@ -1657,9 +1714,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                         <button
                           key={type}
                           onClick={() => toggleBookmarkType(type)}
-                          className={`btn btn-sm btn-secondary border-none transition-colors join-item ${
-                            selectedBookmarkTypes.has(type) ? 'text-accent' : 'text-gray-400'
-                          }`}
+                          className={`btn btn-sm btn-secondary border-none transition-colors join-item ${selectedBookmarkTypes.has(type) ? 'text-accent' : 'text-gray-400'}`}
                         >
                           {React.createElement(iconMapping[type] || IoSkull, {
                             className: 'w-6 h-6',
