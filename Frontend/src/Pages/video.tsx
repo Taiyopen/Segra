@@ -32,9 +32,10 @@ import {
   MdFullscreenExit,
   MdArrowBack,
 } from 'react-icons/md';
-import { IoSkull, IoAdd, IoRemove } from 'react-icons/io5';
+import { IoSkull, IoAdd, IoRemove, IoSettingsSharp } from 'react-icons/io5';
 import SelectionCard from '../Components/SelectionCard';
 import WaveSurfer from 'wavesurfer.js';
+import { TbZoomIn, TbZoomOut, TbZoomReset } from 'react-icons/tb';
 
 // Converts time string in format "HH:MM:SS.mmm" to seconds
 const timeStringToSeconds = (timeStr: string): number => {
@@ -49,36 +50,41 @@ function TopInfoBar({ video }: { video: Content }) {
   const isValidDate = !isNaN(created.getTime());
   const locale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase() || '';
   const isUS = locale.includes('-us');
-  const createdDateStr = !isValidDate ? video.createdAt : 
-    isUS ? 
-      created.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) :
-      `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}-${String(created.getDate()).padStart(2, '0')}`;
-  
-  const createdTimeStr = !isValidDate ? '' : 
-    created.toLocaleTimeString(isUS ? 'en-US' : undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: isUS,
-    });
-    
+  const createdDateStr = !isValidDate
+    ? video.createdAt
+    : isUS
+      ? created.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })
+      : `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}-${String(created.getDate()).padStart(2, '0')}`;
+
+  const createdTimeStr = !isValidDate
+    ? ''
+    : created.toLocaleTimeString(isUS ? 'en-US' : undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: isUS,
+      });
+
   return (
-    <div className="flex items-center gap-2 bg-base-300 border border-custom rounded-lg px-2 py-1 mb-2 text-xs leading-tight text-gray-300">
+    <div className="flex items-center gap-2 px-2 py-1 mb-2 text-xs leading-tight text-gray-300 border rounded-lg bg-base-300 border-custom">
       <button
-        className="btn btn-ghost btn-xs text-gray-300 hover:text-gray-200 min-h-0 h-6 px-1"
+        className="h-6 min-h-0 px-1 text-gray-300 btn btn-ghost btn-xs hover:text-gray-200"
         onClick={() => setSelectedVideo(null)}
         aria-label="Back"
       >
         <MdArrowBack className="w-4 h-4" />
       </button>
-      <div className="flex items-center gap-2 flex-wrap">
-        <span>Created: {createdDateStr}{createdTimeStr ? ` ${createdTimeStr}` : ''}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span>
+          Created: {createdDateStr}
+          {createdTimeStr ? ` ${createdTimeStr}` : ''}
+        </span>
         <span>•</span>
         <span>Size: {video.fileSize}</span>
         <span>•</span>
         <span>
           Location:{' '}
           <button
-            className="text-gray-300 hover:underline cursor-pointer hover:text-gray-200"
+            className="text-gray-300 cursor-pointer hover:underline hover:text-gray-200"
             onClick={() => openFileLocation(video.filePath)}
           >
             {video.filePath}
@@ -130,6 +136,91 @@ export default function VideoComponent({ video }: { video: Content }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [zoom, setZoom] = useState(1);
+
+  // Scale and pan state for zooming into the video element itself
+  const [videoScale, setVideoScale] = useState(1);
+  const [videoTranslate, setVideoTranslate] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const videoPanStartRef = useRef<{ x: number; y: number } | null>(null);
+  const videoLastPointerRef = useRef<number | null>(null);
+  const panMovedRef = useRef(false);
+  const videoScaleRef = useRef<number>(videoScale);
+
+  useEffect(() => {
+    videoScaleRef.current = videoScale;
+  }, [videoScale]);
+
+  // Clamp translation so the video remains at least partially visible
+  const clampTranslate = (t: { x: number; y: number }) => {
+    const el = playerContainerRef.current;
+    const vid = videoRef.current;
+    if (!el || !vid) return t;
+    const vw = el.clientWidth;
+    const vh = el.clientHeight;
+    const sw = vid.clientWidth * videoScaleRef.current;
+    const sh = vid.clientHeight * videoScaleRef.current;
+
+    // Horizontal clamp: if video wider than container, allow panning between left and right edges.
+    // Otherwise center horizontally.
+    let minX: number;
+    let maxX: number;
+    if (sw > vw) {
+      minX = vw - sw; // video right edge aligns with container right
+      maxX = 0; // video left edge aligns with container left
+    } else {
+      // center
+      minX = maxX = (vw - sw) / 2;
+    }
+
+    // Vertical clamp: enforce the requested rules.
+    // - when panning down, if top of video moves below top of parent, clip to top (y <= 0)
+    // - when panning up, if bottom of video moves above bottom of parent, clip to bottom (y >= vh - sh)
+    let minY: number;
+    let maxY: number;
+    if (sh > vh) {
+      minY = vh - sh; // bottom of video aligned with bottom of parent
+      maxY = 0; // top of video aligned with top of parent
+    } else {
+      // center vertically
+      minY = maxY = (vh - sh) / 2;
+    }
+
+    return {
+      x: Math.max(minX, Math.min(maxX, t.x)),
+      y: Math.max(minY, Math.min(maxY, t.y)),
+    };
+  };
+
+  const clampVideoScale = (s: number) => Math.min(Math.max(s, 1), 4);
+
+  // Wheel zoom handler for the video element (use Ctrl/Meta to activate)
+  const onVideoWheel = (e: React.WheelEvent) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+
+    const oldScale = videoScaleRef.current || 1;
+    const factor = e.deltaY < 0 ? 1.12 : 0.9;
+    const newScale = clampVideoScale(oldScale * factor);
+    const ratio = newScale / oldScale;
+
+    setVideoTranslate((prev) => {
+      const x = prev.x - (cx - prev.x) * (ratio - 1);
+      const y = prev.y - (cy - prev.y) * (ratio - 1);
+      return clampTranslate({ x, y });
+    });
+
+    setVideoScale(newScale);
+    videoScaleRef.current = newScale;
+  };
+
+  // Player Settings Modal
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Container state
   const [containerWidth, setContainerWidth] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [showNoSegmentsIndicator, setShowNoSegmentsIndicator] = useState(false);
@@ -141,6 +232,10 @@ export default function VideoComponent({ video }: { video: Content }) {
   const [isMuted, setIsMuted] = useState(() => {
     // Initialize muted state from localStorage or default to false
     return localStorage.getItem('segra-muted') === 'true';
+  });
+  const [playbackRate, setPlaybackRate] = useState(() => {
+    const saved = localStorage.getItem('segra-playbackRate');
+    return saved ? parseFloat(saved) : 1;
   });
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsHideTimeoutRef = useRef<number | null>(null);
@@ -231,6 +326,8 @@ export default function VideoComponent({ video }: { video: Content }) {
     // Apply saved volume and muted state on load
     vid.volume = volume;
     vid.muted = isMuted;
+    // Apply saved playback rate
+    vid.playbackRate = playbackRate;
 
     const onLoadedMetadata = () => {
       setDuration(vid.duration);
@@ -250,10 +347,19 @@ export default function VideoComponent({ video }: { video: Content }) {
       }
     };
 
+    const onRateChange = () => {
+      if (vid) {
+        const r = vid.playbackRate || 1;
+        setPlaybackRate(r);
+        localStorage.setItem('segra-playbackRate', r.toString());
+      }
+    };
+
     vid.addEventListener('loadedmetadata', onLoadedMetadata);
     vid.addEventListener('play', onPlay);
     vid.addEventListener('pause', onPause);
     vid.addEventListener('volumechange', onVolumeChange);
+    vid.addEventListener('ratechange', onRateChange);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -329,6 +435,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       vid.removeEventListener('play', onPlay);
       vid.removeEventListener('pause', onPause);
       vid.removeEventListener('volumechange', onVolumeChange);
+      vid.removeEventListener('ratechange', onRateChange);
       window.removeEventListener('keydown', handleKeyDown, keyOptions as any);
     };
   }, [volume, isMuted, isFullscreen]);
@@ -365,16 +472,33 @@ export default function VideoComponent({ video }: { video: Content }) {
     if (scrollContainerRef.current) {
       setContainerWidth(scrollContainerRef.current.clientWidth);
     }
+
     const handleResize = () => {
       if (scrollContainerRef.current) {
         setContainerWidth(scrollContainerRef.current.clientWidth);
       }
     };
+
+    const preventPageZoom = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+      }
+    };
+
     window.addEventListener('resize', handleResize);
+    window.addEventListener('wheel', preventPageZoom, { passive: false });
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('wheel', preventPageZoom);
     };
   }, []);
+
+  useEffect(() => {
+    if (!controlsVisible) {
+      setShowSettings(false);
+    }
+  }, [controlsVisible]);
 
   // Create refs to track zoom state
   const wheelZoomRef = useRef(zoom);
@@ -533,6 +657,50 @@ export default function VideoComponent({ video }: { video: Content }) {
     localStorage.setItem('segra-muted', el.muted.toString());
   };
 
+  // Pointer handlers for panning the video when zoomed
+  const onVideoPointerDown = (e: React.PointerEvent) => {
+    if (videoScaleRef.current <= 1) return;
+    (e.target as Element).setPointerCapture(e.pointerId);
+    setIsPanning(true);
+    // Reset pan-moved flag for this gesture
+    panMovedRef.current = false;
+    videoPanStartRef.current = { x: e.clientX - videoTranslate.x, y: e.clientY - videoTranslate.y };
+    videoLastPointerRef.current = e.pointerId;
+  };
+
+  const onVideoPointerMove = (e: React.PointerEvent) => {
+    if (!isPanning || !videoPanStartRef.current) return;
+    const start = videoPanStartRef.current;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    // If movement exceeds a small threshold, mark this gesture as a pan so we can suppress click
+    if (Math.hypot(dx, dy) > 4) panMovedRef.current = true;
+    setVideoTranslate((_prev) => clampTranslate({ x: dx, y: dy }));
+  };
+
+  const onVideoPointerUp = (e: React.PointerEvent) => {
+    try {
+      (e.target as Element).releasePointerCapture?.(e.pointerId);
+    } catch (err) {
+      // ignore pointer release errors
+      // console.debug('pointer release error', err);
+    }
+    setIsPanning(false);
+    videoPanStartRef.current = null;
+    videoLastPointerRef.current = null;
+  };
+
+  // Click handler for the video element which suppresses clicks that are actually pans
+  const onVideoClick = (e: React.MouseEvent) => {
+    if (panMovedRef.current) {
+      // This click is the end of a pan gesture — ignore it and reset the flag
+      panMovedRef.current = false;
+      e.stopPropagation();
+      return;
+    }
+    togglePlayPause();
+  };
+
   // Toggle video play/pause state
   const togglePlayPause = () => {
     handlePlayPause();
@@ -565,6 +733,8 @@ export default function VideoComponent({ video }: { video: Content }) {
       el.style.overflow = '';
       body.style.overflow = '';
     }
+    setVideoTranslate({ x: 0, y: 0 });
+    setVideoScale(1);
     return () => {
       el.style.overflow = '';
       body.style.overflow = '';
@@ -1070,10 +1240,17 @@ export default function VideoComponent({ video }: { video: Content }) {
     }
   };
 
+  const setPlaybackRateForPlayer = (rate: number) => {
+    const r = Math.max(0.25, Math.min(2, rate));
+    if (videoRef.current) videoRef.current.playbackRate = r;
+    setPlaybackRate(r);
+    localStorage.setItem('segra-playbackRate', r.toString());
+  };
+
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="flex w-full h-full bg-base-200 overflow-hidden" ref={containerRef}>
-        <div className="flex-1 p-4 w-full lg:w-3/4">
+      <div className="flex w-full h-full overflow-hidden bg-base-200" ref={containerRef}>
+        <div className="flex-1 w-full p-4 lg:w-3/4">
           <TopInfoBar video={video} />
           <div
             className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen overflow-hidden bg-black' : 'relative'} ${!controlsVisible && isPointerInPlayer ? 'cursor-none' : ''}`}
@@ -1091,31 +1268,43 @@ export default function VideoComponent({ video }: { video: Content }) {
               setControlsVisible(false);
             }}
           >
-            <video
-              autoPlay
+            <div
               className={`block relative ${isFullscreen ? 'w-full h-full' : 'rounded-lg w-full overflow-hidden aspect-video max-h-[calc(100vh-100px)]'} ${video.type === 'Highlight' || video.type === 'Clip' ? 'md:max-h-[calc(100vh-230px)]' : 'md:max-h-[calc(100vh-200px)]'} `}
-              src={getVideoPath()}
-              ref={videoRef}
-              onClick={togglePlayPause}
-              onDoubleClick={toggleFullscreen}
-              style={{
-                backgroundColor: 'black',
-                objectFit: isFullscreen ? ('contain' as const) : undefined,
-              }}
-            />
+            >
+              <video
+                autoPlay
+                className="w-full h-full"
+                src={getVideoPath()}
+                ref={videoRef}
+                onClick={onVideoClick}
+                onDoubleClick={toggleFullscreen}
+                onPointerDown={onVideoPointerDown}
+                onPointerMove={onVideoPointerMove}
+                onPointerUp={onVideoPointerUp}
+                onWheel={onVideoWheel}
+                style={{
+                  backgroundColor: 'black',
+                  objectFit: isFullscreen ? ('contain' as const) : undefined,
+                  transform: `translate(${videoTranslate.x}px, ${videoTranslate.y}px) scale(${videoScale})`,
+                  transformOrigin: '0 0',
+                  touchAction: videoScale > 1 ? 'none' : undefined,
+                  cursor: videoScale > 1 && isPanning ? 'grabbing' : undefined,
+                }}
+              />
+            </div>
 
             <div
-              className={`absolute left-4 right-4 bottom-4 bg-black/70 rounded-lg px-3 py-2 flex items-center gap-3 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
+              className={`absolute left-4 right-4 bottom-4 bg-black/70 rounded-lg px-3 py-2 flex items-center gap-3 transition-opacity duration-300 select-none ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
             >
               <button
                 onClick={togglePlayPause}
-                className="text-white hover:text-accent transition-colors"
+                className="text-white transition-colors hover:text-accent"
                 aria-label={isPlaying ? 'Pause' : 'Play'}
               >
                 {isPlaying ? <MdPause className="w-6 h-6" /> : <MdPlayArrow className="w-6 h-6" />}
               </button>
 
-              <span className="text-xs tabular-nums text-white/90 w-12 text-right">
+              <span className="w-12 text-xs text-right tabular-nums text-white/90">
                 {formatTime(currentTime)}
               </span>
 
@@ -1136,14 +1325,14 @@ export default function VideoComponent({ video }: { video: Content }) {
                 className="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-accent"
               />
 
-              <span className="text-xs tabular-nums text-white/90 w-12">
+              <span className="w-12 text-xs tabular-nums text-white/90">
                 {formatTime(duration)}
               </span>
 
               <div className="flex items-center gap-2 ml-2">
                 <button
                   onClick={toggleMute}
-                  className="text-white hover:text-accent transition-colors"
+                  className="text-white transition-colors hover:text-accent"
                   aria-label={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted || volume === 0 ? (
@@ -1172,11 +1361,76 @@ export default function VideoComponent({ video }: { video: Content }) {
               </div>
 
               <button
+                className="relative ml-2 text-white transition-colors cursor-pointer hover:text-accent"
+                aria-label="Settings"
+                onClick={() => setShowSettings((prev) => !prev)}
+              >
+                <IoSettingsSharp className="size-4" />
+
+                <div
+                  className={`absolute right-0 z-50 w-54 transition-all duration-300 border rounded-md shadow-lg bottom-8 bg-base-300 border-base-400 flex flex-col gap-2 p-2 ${showSettings ? 'opacity-100 mb-0' : 'opacity-0 pointer-events-none -mb-3'}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between gap-2 px-2 py-1 text-white/50 hover:text-white">
+                    <span>Zoom</span>
+                    <div className="flex overflow-hidden border rounded-md border-base-400">
+                      <button
+                        onClick={() => {
+                          setVideoScale((prev) => prev - 0.5);
+                        }}
+                        disabled={videoScale <= 1}
+                        className="px-2 py-1 hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <TbZoomOut className="size-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setVideoScale(1);
+                          setVideoTranslate({ x: 0, y: 0 });
+                        }}
+                        className="px-2 py-1 hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <TbZoomReset className="size-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setVideoScale((prev) => prev + 0.5);
+                        }}
+                        disabled={videoScale >= 10}
+                        className="px-2 py-1 hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <TbZoomIn className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 px-2 py-1 text-white/50 hover:text-white">
+                    <label htmlFor="playback-speed-select">Speed</label>
+                    <select
+                      id="playback-speed-select"
+                      aria-label="Playback speed"
+                      value={playbackRate.toString()}
+                      onChange={(e) => setPlaybackRateForPlayer(parseFloat(e.target.value))}
+                      className="w-24 text-white select select-sm bg-base-200"
+                      style={{
+                        outline: 'none',
+                      }}
+                    >
+                      <option value="0.25">0.25x</option>
+                      <option value="0.5">0.5x</option>
+                      <option value="1">1x</option>
+                      <option value="1.5">1.5x</option>
+                      <option value="2">2x</option>
+                    </select>
+                  </div>
+                </div>
+              </button>
+
+              <button
                 onClick={toggleFullscreen}
                 onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
                 onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
                 onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                className="text-white hover:text-accent transition-colors ml-2"
+                className="ml-2 text-white transition-colors hover:text-accent"
                 aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
               >
                 {isFullscreen ? (
@@ -1188,7 +1442,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             </div>
           </div>
           <div
-            className="timeline-wrapper mt-2 relative overflow-x-scroll overflow-y-hidden w-full select-none"
+            className="relative w-full mt-2 overflow-x-scroll overflow-y-hidden select-none timeline-wrapper"
             ref={scrollContainerRef}
             onMouseMove={(e) => {
               handleSelectionDrag(e);
@@ -1217,7 +1471,10 @@ export default function VideoComponent({ video }: { video: Content }) {
                         data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
                         style={{ left: `${leftPos}px` }}
                         onClick={() => {
-                          const seekTo = Math.max(0, timeInSeconds - (bookmark.type == BookmarkType.Manual ? 10 : 5));
+                          const seekTo = Math.max(
+                            0,
+                            timeInSeconds - (bookmark.type == BookmarkType.Manual ? 10 : 5),
+                          );
                           setCurrentTime(seekTo);
                           if (videoRef.current) {
                             videoRef.current.currentTime = seekTo;
@@ -1255,7 +1512,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                 return (
                   <div
                     key={`major-${index}`}
-                    className="absolute bottom-0 text-center text-white select-none -translate-x-1/2 whitespace-nowrap"
+                    className="absolute bottom-0 text-center text-white -translate-x-1/2 select-none whitespace-nowrap"
                     style={{
                       left: `${leftPos}px`,
                     }}
@@ -1318,7 +1575,7 @@ export default function VideoComponent({ video }: { video: Content }) {
               })}
               {resizingSelectionId == null && (
                 <div
-                  className="marker absolute top-0 left-0 w-1 h-full rounded-sm -translate-x-1/2 cursor-pointer shadow bg-accent z-10"
+                  className="absolute top-0 left-0 z-10 w-1 h-full -translate-x-1/2 rounded-sm shadow cursor-pointer marker bg-accent"
                   style={{ left: `${currentTime * pixelsPerSecond}px` }}
                   onMouseDown={handleMarkerDragStart}
                 />
@@ -1327,16 +1584,16 @@ export default function VideoComponent({ video }: { video: Content }) {
           </div>
           <div className="flex items-center justify-between gap-4 py-1">
             <div className="flex items-center gap-3">
-              <div className="flex items-center join bg-base-300 rounded-lg border border-custom">
+              <div className="flex items-center border rounded-lg join bg-base-300 border-custom">
                 <button
                   onClick={() => skipTime(-10)}
-                  className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent join-item"
+                  className="h-10 text-gray-400 btn btn-sm btn-secondary hover:text-accent join-item"
                 >
                   <MdReplay10 className="w-6 h-6" />
                 </button>
                 <button
                   onClick={handlePlayPause}
-                  className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent join-item"
+                  className="h-10 text-gray-400 btn btn-sm btn-secondary hover:text-accent join-item"
                   data-tip={isPlaying ? 'Pause' : 'Play'}
                 >
                   {isPlaying ? (
@@ -1347,7 +1604,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                 </button>
                 <button
                   onClick={() => skipTime(10)}
-                  className="btn btn-sm btn-secondary h-10 text-gray-400 hover:text-accent join-item"
+                  className="h-10 text-gray-400 btn btn-sm btn-secondary hover:text-accent join-item"
                   data-tip="Forward 10s"
                 >
                   <MdForward10 className="w-6 h-6" />
@@ -1355,7 +1612,7 @@ export default function VideoComponent({ video }: { video: Content }) {
               </div>
               {(video.type === 'Clip' || video.type === 'Highlight') && (
                 <button
-                  className="btn btn-sm btn-secondary border-custom hover:border-custom h-10 px-6 text-gray-400 hover:text-accent flex items-center"
+                  className="flex items-center h-10 px-6 text-gray-400 btn btn-sm btn-secondary border-custom hover:border-custom hover:text-accent"
                   onClick={handleUpload}
                   disabled={
                     uploads[video.fileName + '.mp4']?.status === 'uploading' ||
@@ -1395,7 +1652,7 @@ export default function VideoComponent({ video }: { video: Content }) {
               {(video.type === 'Session' || video.type === 'Buffer') && (
                 <>
                   {availableBookmarkTypes.length > 0 && (
-                    <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 join border border-custom">
+                    <div className="flex items-center h-10 gap-0 px-0 border rounded-lg bg-base-300 join border-custom">
                       {availableBookmarkTypes.map((type) => (
                         <button
                           key={type}
@@ -1411,10 +1668,10 @@ export default function VideoComponent({ video }: { video: Content }) {
                       ))}
                     </div>
                   )}
-                  <div className="flex items-center gap-2 bg-base-300 rounded-lg">
+                  <div className="flex items-center gap-2 rounded-lg bg-base-300">
                     <button
                       onClick={handleAddBookmark}
-                      className="btn btn-sm btn-secondary border-custom hover:border-custom h-10 text-gray-400 hover:text-accent"
+                      className="h-10 text-gray-400 btn btn-sm btn-secondary border-custom hover:border-custom hover:text-accent"
                     >
                       <MdBookmarkAdd className="w-6 h-6" />
                     </button>
@@ -1422,7 +1679,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                 </>
               )}
 
-              <div className="flex items-center gap-1 bg-base-300 px-0 rounded-lg h-10 border border-custom">
+              <div className="flex items-center h-10 gap-1 px-0 border rounded-lg bg-base-300 border-custom">
                 <button
                   onClick={() => handleZoomChange(false)}
                   className="btn btn-sm btn-secondary disabled:opacity-100 disabled:bg-base-300"
@@ -1445,8 +1702,8 @@ export default function VideoComponent({ video }: { video: Content }) {
           </div>
         </div>
         {(video.type === 'Session' || video.type === 'Buffer') && (
-          <div className="bg-base-300 text-neutral-content w-52 2xl:w-72 flex flex-col h-full pl-4 pr-1 pt-4 border-l border-custom">
-            <div className="overflow-y-scroll flex-1  mt-1 p-1">
+          <div className="flex flex-col h-full pt-4 pl-4 pr-1 border-l bg-base-300 text-neutral-content w-52 2xl:w-72 border-custom">
+            <div className="flex-1 p-1 mt-1 overflow-y-scroll">
               {selections.map((sel, index) => (
                 <SelectionCard
                   key={sel.id}
@@ -1461,7 +1718,7 @@ export default function VideoComponent({ video }: { video: Content }) {
               ))}
             </div>
             <div className="flex items-center justify-between my-3 mr-3">
-              <label className="cursor-pointer flex items-center">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   name="clipClearSelectionsAfterCreatingClip"
@@ -1471,12 +1728,12 @@ export default function VideoComponent({ video }: { video: Content }) {
                   }
                   className="checkbox checkbox-sm checkbox-accent"
                 />
-                <span className="text-sm ml-2">Auto-Clear Selections</span>
+                <span className="ml-2 text-sm">Auto-Clear Selections</span>
               </label>
             </div>
-            <div className="flex items-center gap-0 bg-base-300 px-0 rounded-lg h-10 mb-2 mr-3 tooltip">
+            <div className="flex items-center h-10 gap-0 px-0 mb-2 mr-3 rounded-lg bg-base-300 tooltip">
               <button
-                className="btn btn-sm btn-secondary border border-custom disabled:border-custom hover:border-custom h-10 text-gray-400 hover:text-accent w-full py-0"
+                className="w-full h-10 py-0 text-gray-400 border btn btn-sm btn-secondary border-custom disabled:border-custom hover:border-custom hover:text-accent"
                 onClick={clearAllSelections}
                 disabled={selections.length === 0}
               >
