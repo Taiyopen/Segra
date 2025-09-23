@@ -284,6 +284,7 @@ export default function VideoComponent({ video }: { video: Content }) {
   });
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsHideTimeoutRef = useRef<number | null>(null);
+  const isPointerOverControlsRef = useRef(false);
   const [isPointerInPlayer, setIsPointerInPlayer] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -563,14 +564,41 @@ export default function VideoComponent({ video }: { video: Content }) {
     wheelZoomRef.current = zoom;
   }, [zoom]);
 
+  // TODO: refactor
   const showControlsTemporarily = () => {
     setControlsVisible(true);
+
     if (controlsHideTimeoutRef.current) {
       clearTimeout(controlsHideTimeoutRef.current);
+      controlsHideTimeoutRef.current = null;
     }
+
+    if (isPointerOverControlsRef.current) {
+      return;
+    }
+
     controlsHideTimeoutRef.current = window.setTimeout(() => {
-      setControlsVisible(false);
+      if (!isPointerOverControlsRef.current) {
+        setControlsVisible(false);
+      }
+      controlsHideTimeoutRef.current = null;
     }, 2500);
+  };
+
+  const handleControlsMouseEnter = () => {
+    isPointerOverControlsRef.current = true;
+
+    if (controlsHideTimeoutRef.current) {
+      clearTimeout(controlsHideTimeoutRef.current);
+      controlsHideTimeoutRef.current = null;
+    }
+
+    setControlsVisible(true);
+  };
+
+  const handleControlsMouseLeave = () => {
+    isPointerOverControlsRef.current = false;
+    showControlsTemporarily();
   };
 
   // Handle timeline zooming with mouse wheel
@@ -1316,6 +1344,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             }}
             onMouseLeave={() => {
               setIsPointerInPlayer(false);
+              isPointerOverControlsRef.current = false;
               if (controlsHideTimeoutRef.current) {
                 clearTimeout(controlsHideTimeoutRef.current);
                 controlsHideTimeoutRef.current = null;
@@ -1348,6 +1377,8 @@ export default function VideoComponent({ video }: { video: Content }) {
 
             <div
               className={`absolute left-4 right-4 bottom-4 bg-black/70 rounded-lg px-3 py-2 flex items-center gap-3 transition-opacity duration-300 select-none ${controlsVisible ? 'opacity-100' : 'opacity-0'}`}
+              onMouseEnter={handleControlsMouseEnter}
+              onMouseLeave={handleControlsMouseLeave}
             >
               <button
                 onClick={togglePlayPause}
@@ -1413,14 +1444,14 @@ export default function VideoComponent({ video }: { video: Content }) {
                 />
               </div>
 
-              <div className="flex items-center gap-2 ml-2">
+              <div className="flex items-center gap-2 ml-3">
                 <button
                   onClick={() => {
                     const current = videoScaleRef.current || 1;
                     applyVideoScale(current - 0.5);
                   }}
                   disabled={videoScale <= 1}
-                  className="flex items-center justify-center w-8 h-8 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Zoom out"
                 >
                   <TbZoomOut className="w-4 h-4" />
@@ -1431,7 +1462,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     applyVideoScale(current + 0.5);
                   }}
                   disabled={videoScale >= 4}
-                  className="flex items-center justify-center w-8 h-8 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Zoom in"
                 >
                   <TbZoomIn className="w-4 h-4" />
@@ -1440,7 +1471,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                   <button
                     ref={speedButtonRef}
                     type="button"
-                    className="flex items-center justify-center gap-1 px-2 py-1 text-sm font-medium text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20"
+                    className="flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20"
                     aria-label="Change playback speed"
                     aria-haspopup="menu"
                     aria-expanded={showSpeedMenu}
