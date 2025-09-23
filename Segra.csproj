@@ -1,116 +1,112 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<OutputType>WinExe</OutputType>
-		<TargetFramework>net9.0-windows10.0.17763.0</TargetFramework>
-		<Platforms>x64</Platforms>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<DefineConstants>DEBUG;TRACE;WINDOWS</DefineConstants>
-		<UseWindowsForms>true</UseWindowsForms>
-    	<!-- Generate embedded file manifest when using the Photino.NET StaticFileServer -->
-		<GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<PackageIcon>icon.png</PackageIcon>
-		<ApplicationIcon>icon.ico</ApplicationIcon>
-		<AssemblyName>Segra</AssemblyName>
-		<RootNamespace>Segra</RootNamespace>
-		<EnableWindowsTargeting>true</EnableWindowsTargeting>
-		<SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
-		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-	</PropertyGroup>
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.17763.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DefineConstants>DEBUG;TRACE;WINDOWS</DefineConstants>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Generate embedded file manifest when using the Photino.NET StaticFileServer -->
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageIcon>icon.png</PackageIcon>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <AssemblyName>Segra</AssemblyName>
+    <RootNamespace>Segra</RootNamespace>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
 
-	<ItemGroup>
-		<PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="9.0.8" />
-		<PackageReference Include="NAudio" Version="2.2.1" />
-		<PackageReference Include="Photino.NET" Version="4.0.16" />
-		<PackageReference Include="Photino.NET.Server" Version="4.0.12" />
-		<PackageReference Include="Serilog" Version="4.3.0" />
-		<PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
-		<PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
-		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-		<PackageReference Include="Supabase" Version="1.1.1" />
-		<PackageReference Include="System.Management" Version="9.0.8" />
-		<PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.2" />
-		<PackageReference Include="Velopack" Version="0.0.1298" />
-		<PackageReference Include="Vortice.DirectX" Version="3.6.2" />
-	</ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="9.0.8" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Photino.NET" Version="4.0.16" />
+    <PackageReference Include="Photino.NET.Server" Version="4.0.12" />
+    <PackageReference Include="Serilog" Version="4.3.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Supabase" Version="1.1.1" />
+    <PackageReference Include="System.Management" Version="9.0.8" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.2" />
+    <PackageReference Include="Velopack" Version="0.0.1298" />
+    <PackageReference Include="Vortice.DirectX" Version="3.6.2" />
+  </ItemGroup>
 
-	<ItemGroup>
-		<EmbeddedResource Include="Resources\**" />
-	</ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\**" />
+  </ItemGroup>
 
-	<ItemGroup>
-	  <Compile Remove="libobs-sharp\libobs-sharp.example\**" />
-	  <Compile Remove="UserInterface\**" />
-	  <EmbeddedResource Remove="libobs-sharp\libobs-sharp.example\**" />
-	  <EmbeddedResource Remove="UserInterface\**" />
-	  <None Remove="libobs-sharp\libobs-sharp.example\**" />
-	  <None Remove="UserInterface\**" />
-	</ItemGroup>
+  <!-- Exclude libobs-sharp sources and include as a project instead -->
+  <ItemGroup>
+    <Compile Remove="libobs-sharp\**\*.cs" />
+    <None Include="libobs-sharp\**\*.cs" />
+  </ItemGroup>
 
-	<ItemGroup>
-	  <EmbeddedResource Remove="Resources\error.wav" />
-	  <EmbeddedResource Remove="Resources\start.wav" />
-	</ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="libobs-sharp\libobs-sharp\libobs-sharp.csproj" />
+  </ItemGroup>
 
-	<ItemGroup>
-	  <None Remove="Resources\app.png" />
-	  <None Remove="Resources\icon.ico" />
-	</ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Remove="Resources\error.wav" />
+    <EmbeddedResource Remove="Resources\start.wav" />
+  </ItemGroup>
 
-	<ItemGroup>
-	  <Folder Include="Frontend\public\" />
-	  <Folder Include="Frontend\src\lib\supabase\" />
-	  <Folder Include="Frontend\src\Hooks\" />
-	</ItemGroup>
+  <ItemGroup>
+    <None Remove="Resources\app.png" />
+    <None Remove="Resources\icon.ico" />
+  </ItemGroup>
 
-	<ItemGroup>
-	  <None Include=".github\workflows\build-pre-release.yml" />
-	  <None Include=".github\workflows\finalize-release.yml" />
-	  <None Include="C:\Users\admin\Downloads\icon.png">
-	    <Pack>True</Pack>
-	    <PackagePath>\</PackagePath>
-	  </None>
-	</ItemGroup>
+  <ItemGroup>
+    <Folder Include="Frontend\public\" />
+    <Folder Include="Frontend\src\lib\supabase\" />
+    <Folder Include="Frontend\src\Hooks\" />
+  </ItemGroup>
 
-	<ItemGroup>
-		<Content Include="icon.ico">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-	</ItemGroup>
+  <ItemGroup>
+    <None Include=".github\workflows\build-pre-release.yml" />
+    <None Include=".github\workflows\finalize-release.yml" />
+  </ItemGroup>
 
-	<ItemGroup>
-	  <Compile Update="Properties\Resources.Designer.cs">
-	    <DesignTime>True</DesignTime>
-	    <AutoGen>True</AutoGen>
-	    <DependentUpon>Resources.resx</DependentUpon>
-	  </Compile>
-	  <Compile Update="Properties\Settings.Designer.cs">
-	    <DesignTimeSharedInput>True</DesignTimeSharedInput>
-	    <AutoGen>True</AutoGen>
-	    <DependentUpon>Settings.settings</DependentUpon>
-	  </Compile>
-	</ItemGroup>
+  <ItemGroup>
+    <Content Include="icon.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 
-	<ItemGroup>
-	  <EmbeddedResource Update="Properties\Resources.resx">
-	    <Generator>ResXFileCodeGenerator</Generator>
-	    <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-	  </EmbeddedResource>
-	</ItemGroup>
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+  </ItemGroup>
 
-	<ItemGroup>
-	  <None Update="Properties\Settings.settings">
-	    <Generator>SettingsSingleFileGenerator</Generator>
-	    <LastGenOutput>Settings.Designer.cs</LastGenOutput>
-	  </None>
-	</ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
 
-	<ItemGroup>
-		<Content Include="wwwroot\**\*">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</Content>
-	</ItemGroup>
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="wwwroot\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

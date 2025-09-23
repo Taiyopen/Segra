@@ -384,6 +384,12 @@
           "System.Reactive": "6.0.0",
           "System.Threading.Channels": "8.0.0"
         }
+      },
+      "libobs-sharp": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "[7.0.1, )"
+        }
       }
     }
   }
