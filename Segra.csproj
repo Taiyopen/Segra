@@ -8,6 +8,17 @@
     <Nullable>enable</Nullable>
     <DefineConstants>DEBUG;TRACE;WINDOWS</DefineConstants>
     <UseWindowsForms>true</UseWindowsForms>
+
+    <!-- Needed to prevent duplicate attributes -->
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
+    <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
+    <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
+    <GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>
+    <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
+    <GenerateAssemblyTitleAttribute>false</GenerateAssemblyTitleAttribute>
+    <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
+
     <!-- Generate embedded file manifest when using the Photino.NET StaticFileServer -->
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
