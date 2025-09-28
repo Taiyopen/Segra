@@ -1338,8 +1338,15 @@ namespace Segra.Backend.Utils
 
                 // This should already be deleted on reinstall, but just in case
                 if (Settings.Instance.PendingOBSUpdate) {
-                    Directory.Delete(Path.Combine(currentDirectory, "data"), true);
-                    Directory.Delete(Path.Combine(currentDirectory, "obs-plugins"), true);
+                    string dataPath = Path.Combine(currentDirectory, "data");
+                    if (Directory.Exists(dataPath)) {
+                        Directory.Delete(dataPath, true);
+                    }
+
+                    string obsPluginsPath = Path.Combine(currentDirectory, "obs-plugins");
+                    if (Directory.Exists(obsPluginsPath)) {
+                        Directory.Delete(obsPluginsPath, true);
+                    }
                 }
 
                 try {

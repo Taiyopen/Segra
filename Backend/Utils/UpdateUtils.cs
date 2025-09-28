@@ -168,14 +168,6 @@ namespace Segra.Backend.Utils
 
                 string targetVersion = target.Version.ToString();
 
-                await MessageUtils.SendFrontendMessage("UpdateProgress", new
-                {
-                    version = targetVersion,
-                    progress = 0,
-                    status = "downloading",
-                    message = $"Starting repair download for version {targetVersion}..."
-                });
-
                 var updateInfo = new UpdateInfo(target, isDowngrade: false);
 
                 await UpdateManager.DownloadUpdatesAsync(
@@ -184,14 +176,6 @@ namespace Segra.Backend.Utils
                     ct);
 
                 LatestUpdateInfo = updateInfo;
-
-                await MessageUtils.SendFrontendMessage("UpdateProgress", new
-                {
-                    version = targetVersion,
-                    progress = 100,
-                    status = "ready",
-                    message = $"Repair package for {targetVersion} is ready. Applying now..."
-                });
 
                 Log.Information($"Applying force reinstall of {targetVersion}");
                 UpdateManager.ApplyUpdatesAndRestart(updateInfo.TargetFullRelease);
