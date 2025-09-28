@@ -1694,7 +1694,62 @@ export default function Settings() {
       {/* UI Settings */}
       <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
         <h2 className="text-xl font-semibold mb-4">Segra</h2>
-        <div className="bg-base-200 px-4 py-2 rounded-lg space-y-3 border border-custom">
+        <div className="bg-base-200 px-4 py-3 rounded-lg space-y-3 border border-custom">
+          <div className="flex items-center">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="runOnStartup"
+                checked={settings.runOnStartup}
+                onChange={(e) => updateSettings({ runOnStartup: e.target.checked })}
+                className="checkbox checkbox-primary checkbox-sm"
+              />
+              <span className="font-medium cursor-pointer">Run on Startup</span>
+            </label>
+          </div>
+          <div className="form-control">
+            <label className="label cursor-pointer justify-start gap-2 px-0">
+              <input
+                type="checkbox"
+                name="showGameBackground"
+                checked={settings.showGameBackground}
+                onChange={(e) => updateSettings({ showGameBackground: e.target.checked })}
+                className="checkbox checkbox-sm checkbox-primary"
+              />
+              <span className="flex items-center gap-1 text-base-content">
+                Show game cover while recording <CloudBadge side="right" />
+              </span>
+            </label>
+          </div>
+          <div className="form-control">
+            <label className="label cursor-pointer justify-start gap-2 px-0">
+              <input
+                type="checkbox"
+                name="showAudioWaveformInTimeline"
+                checked={settings.showAudioWaveformInTimeline}
+                onChange={(e) => updateSettings({ showAudioWaveformInTimeline: e.target.checked })}
+                className="checkbox checkbox-sm checkbox-primary"
+              />
+              <span className="flex items-center gap-1 text-base-content">
+                Show audio waveform in video timeline
+              </span>
+            </label>
+          </div>
+          <div className="form-control">
+            <label className="label cursor-pointer justify-start gap-2 px-0">
+              <input
+                type="checkbox"
+                name="showNewBadgeOnVideos"
+                checked={settings.showNewBadgeOnVideos}
+                onChange={(e) => updateSettings({ showNewBadgeOnVideos: e.target.checked })}
+                className="checkbox checkbox-sm checkbox-primary"
+              />
+              <span className="flex items-center gap-1 text-base-content">
+                Show<span className="badge badge-primary badge-sm text-base-300 mx-1">NEW</span>badge on
+                new sessions and replay buffers
+              </span>
+            </label>
+          </div>
           <div className="form-control">
             <label className="label px-0 text-base-content">Sound Effects Volume</label>
             <div className="flex items-center gap-2">
@@ -1726,49 +1781,6 @@ export default function Settings() {
               </span>
             </div>
           </div>
-          <div className="form-control">
-            <label className="label cursor-pointer justify-start gap-2 px-0">
-              <input
-                type="checkbox"
-                name="showNewBadgeOnVideos"
-                checked={settings.showNewBadgeOnVideos}
-                onChange={(e) => updateSettings({ showNewBadgeOnVideos: e.target.checked })}
-                className="checkbox checkbox-sm checkbox-primary"
-              />
-              <span className="flex items-center gap-1 text-base-content">
-                Show<span className="badge badge-primary badge-sm text-base-300 mx-1">NEW</span>badge on
-                new sessions and replay buffers
-              </span>
-            </label>
-          </div>
-          <div className="form-control">
-            <label className="label cursor-pointer justify-start gap-2 px-0">
-              <input
-                type="checkbox"
-                name="showGameBackground"
-                checked={settings.showGameBackground}
-                onChange={(e) => updateSettings({ showGameBackground: e.target.checked })}
-                className="checkbox checkbox-sm checkbox-primary"
-              />
-              <span className="flex items-center gap-1 text-base-content">
-                Show game cover while recording <CloudBadge side="right" />
-              </span>
-            </label>
-          </div>
-          <div className="form-control">
-            <label className="label cursor-pointer justify-start gap-2 px-0">
-              <input
-                type="checkbox"
-                name="showAudioWaveformInTimeline"
-                checked={settings.showAudioWaveformInTimeline}
-                onChange={(e) => updateSettings({ showAudioWaveformInTimeline: e.target.checked })}
-                className="checkbox checkbox-sm checkbox-primary"
-              />
-              <span className="flex items-center gap-1 text-base-content">
-                Show audio waveform in video timeline
-              </span>
-            </label>
-          </div>
         </div>
       </div>
 
@@ -1777,14 +1789,13 @@ export default function Settings() {
         <h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
         <div className="bg-base-200 p-4 rounded-lg space-y-4 border border-custom">
           <div className="flex items-center justify-between">
-            <div className="flex flex-row items-center">
-              <div className="flex-none mr-2">
+            <div className="flex flex-col">
+              <div className="mb-1">
                 <span className="text-base-content">Update Channel</span>
               </div>
-              <div className="flex-none w-28">
+              <div className="w-28">
                 <DropdownSelect
                   size="sm"
-                  buttonClassName="btn btn-sm h-8 min-h-0 border-base-400 w-full justify-between"
                   items={[
                     { value: 'stable', label: 'Stable' },
                     { value: 'beta', label: 'Beta' },
@@ -1817,17 +1828,32 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="flex items-center">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="runOnStartup"
-                checked={settings.runOnStartup}
-                onChange={(e) => updateSettings({ runOnStartup: e.target.checked })}
-                className="checkbox checkbox-primary checkbox-sm"
-              />
-              <span className="font-medium cursor-pointer">Run on Startup</span>
-            </label>
+          {/* OBS Version Selection */}
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <div className="mb-1">
+                <span className="text-base-content">OBS Version</span>
+              </div>
+              <div className="w-48">
+                <DropdownSelect
+                  size="sm"
+                  items={[
+                    { value: '', label: 'Automatic' },
+                    ...settings.state.availableOBSVersions
+                      .sort((a, b) => {
+                        // Sort by version number descending
+                        return b.version.localeCompare(a.version, undefined, { numeric: true });
+                      })
+                      .map(v => ({
+                        value: v.version,
+                        label: `${v.version}${v.isBeta ? ' (Beta)' : ''}`
+                      }))
+                  ]}
+                  value={settings.selectedOBSVersion || ''}
+                  onChange={(val) => updateSettings({ selectedOBSVersion: val || null })}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

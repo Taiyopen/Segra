@@ -127,6 +127,87 @@ namespace Segra.Backend.Utils
             }
         }
 
+        public static async Task<bool> ForceReinstallCurrentVersionAsync(CancellationToken ct = default)
+        {
+            try
+            {
+                Models.Settings.Instance.State.IsCheckingForUpdates = true;
+
+                bool useBetaChannel = Models.Settings.Instance.ReceiveBetaUpdates;
+                UpdateManager = new UpdateManager(useBetaChannel ? BetaSource : Source);
+                var current = UpdateManager.CurrentVersion;
+
+                if (current == null)
+                {
+                    Log.Warning("Force reinstall aborted: not an installed build (no CurrentVersion).");
+                    return false;
+                }
+
+                string appId = UpdateManager.AppId;
+                string channel = VelopackRuntimeInfo.SystemOs.GetOsShortName();
+
+                var updateSource = useBetaChannel ? BetaSource : Source;
+
+                var feed = await updateSource.GetReleaseFeed(
+                    logger: null,
+                    appId: appId,
+                    channel: channel,
+                    stagingId: null);
+
+                var target = feed.Assets
+                    .Where(a => a.PackageId == appId)
+                    .Where(a => a.Version == current)
+                    .OrderByDescending(a => a.Type)
+                    .FirstOrDefault();
+
+                if (target == null)
+                {
+                    Log.Error($"Force reinstall failed: version {current} not found in feed '{channel}'.");
+                    return false;
+                }
+
+                string targetVersion = target.Version.ToString();
+
+                await MessageUtils.SendFrontendMessage("UpdateProgress", new
+                {
+                    version = targetVersion,
+                    progress = 0,
+                    status = "downloading",
+                    message = $"Starting repair download for version {targetVersion}..."
+                });
+
+                var updateInfo = new UpdateInfo(target, isDowngrade: false);
+
+                await UpdateManager.DownloadUpdatesAsync(
+                    updateInfo,
+                    progress => SendUpdateProgressToFrontend(targetVersion, progress),
+                    ct);
+
+                LatestUpdateInfo = updateInfo;
+
+                await MessageUtils.SendFrontendMessage("UpdateProgress", new
+                {
+                    version = targetVersion,
+                    progress = 100,
+                    status = "ready",
+                    message = $"Repair package for {targetVersion} is ready. Applying now..."
+                });
+
+                Log.Information($"Applying force reinstall of {targetVersion}");
+                UpdateManager.ApplyUpdatesAndRestart(updateInfo.TargetFullRelease);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Force reinstall failed");
+                return false;
+            }
+            finally
+            {
+                Models.Settings.Instance.State.IsCheckingForUpdates = false;
+            }
+        }
+
         public static async Task GetReleaseNotes()
         {
             try
