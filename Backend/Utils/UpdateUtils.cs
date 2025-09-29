@@ -137,22 +137,24 @@ namespace Segra.Backend.Utils
                 UpdateManager = new UpdateManager(useBetaChannel ? BetaSource : Source);
                 var current = UpdateManager.CurrentVersion;
 
-                if (current == null)
+                if (current == null || UpdateManager == null)
                 {
                     Log.Warning("Force reinstall aborted: not an installed build (no CurrentVersion).");
                     return false;
                 }
 
-                string appId = UpdateManager.AppId;
+                string? appId = UpdateManager.AppId;
                 string channel = VelopackRuntimeInfo.SystemOs.GetOsShortName();
 
                 var updateSource = useBetaChannel ? BetaSource : Source;
 
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type
                 var feed = await updateSource.GetReleaseFeed(
                     logger: null,
                     appId: appId,
                     channel: channel,
                     stagingId: null);
+#pragma warning restore CS8625
 
                 var target = feed.Assets
                     .Where(a => a.PackageId == appId)

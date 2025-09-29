@@ -572,7 +572,6 @@ namespace Segra.Backend.Utils
                 obs_encoder_set_audio(enc, obs_get_audio());
                 audioEncoders.Add(enc);
             }
-            
 
             // Paths for session recordings and buffer
             string sessionDir = Settings.Instance.ContentFolder + "/sessions";
@@ -1247,13 +1246,13 @@ namespace Segra.Backend.Utils
             // Determine which version to download
             string? selectedVersion = Settings.Instance.SelectedOBSVersion;
             Models.OBSVersion? versionToDownload = null;
-            
+
             // If a specific version is selected, try to find it
             if (!string.IsNullOrEmpty(selectedVersion))
             {
                 versionToDownload = Settings.Instance.State.AvailableOBSVersions
                     .FirstOrDefault(v => v.Version == selectedVersion);
-                    
+
                 if (versionToDownload == null)
                 {
                     Log.Warning($"Selected OBS version {selectedVersion} not found in available versions. Using latest stable version.");
@@ -1267,43 +1266,43 @@ namespace Segra.Backend.Utils
                     .Where(v => !v.IsBeta)
                     .OrderByDescending(v => v.Version)
                     .FirstOrDefault();
-                
+
                 Log.Information($"Using latest stable OBS version: {versionToDownload?.Version}");
             }
-            
+
             // Download the selected or latest version
             if (versionToDownload != null)
             {
                 Log.Information($"Using OBS version: {versionToDownload.Version}");
                 string metadataUrl = versionToDownload.Url; // This is the GitHub metadata URL
-                
+
                 using (var httpClient = new HttpClient())
                 {
                     // First, fetch the metadata from GitHub
                     httpClient.DefaultRequestHeaders.Add("User-Agent", "Segra");
                     httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3.json");
-                    
+
                     Log.Information($"Fetching metadata for OBS version {versionToDownload.Version} from {metadataUrl}");
                     var response = await httpClient.GetAsync(metadataUrl);
-                    
+
                     if (!response.IsSuccessStatusCode)
                     {
                         Log.Error($"Failed to fetch metadata from {metadataUrl}. Status: {response.StatusCode}");
                         throw new Exception($"Failed to fetch file metadata: {response.ReasonPhrase}");
                     }
-                    
+
                     var jsonResponse = await response.Content.ReadAsStringAsync();
                     var metadata = System.Text.Json.JsonSerializer.Deserialize<GitHubFileMetadata>(jsonResponse);
-                    
+
                     if (metadata?.DownloadUrl == null)
                     {
                         Log.Error("Download URL not found in the API response.");
                         throw new Exception("Invalid API response: Missing download URL.");
                     }
-                    
+
                     string remoteHash = metadata.Sha;
                     string actualDownloadUrl = metadata.DownloadUrl;
-                    
+
                     // Check if we already have the file with the correct hash
                     if (!isUpdate && File.Exists(zipPath) && File.Exists(localHashPath))
                     {
@@ -1319,37 +1318,41 @@ namespace Segra.Backend.Utils
                             needsDownload = true;
                         }
                     }
-                    
+
                     // If this is an update or we need to download, proceed with download
                     if (needsDownload)
                     {
                         Log.Information($"Downloading OBS version {versionToDownload.Version}");
-                        
+
                         httpClient.DefaultRequestHeaders.Clear();
                         var zipBytes = await httpClient.GetByteArrayAsync(actualDownloadUrl);
                         await File.WriteAllBytesAsync(zipPath, zipBytes);
-                        
+
                         // Save the hash for future reference
                         await File.WriteAllTextAsync(localHashPath, remoteHash);
-                        
+
                         Log.Information("Download complete");
                     }
                 }
 
                 // This should already be deleted on reinstall, but just in case
-                if (Settings.Instance.PendingOBSUpdate) {
+                if (Settings.Instance.PendingOBSUpdate)
+                {
                     string dataPath = Path.Combine(currentDirectory, "data");
-                    if (Directory.Exists(dataPath)) {
+                    if (Directory.Exists(dataPath))
+                    {
                         Directory.Delete(dataPath, true);
                     }
 
                     string obsPluginsPath = Path.Combine(currentDirectory, "obs-plugins");
-                    if (Directory.Exists(obsPluginsPath)) {
+                    if (Directory.Exists(obsPluginsPath))
+                    {
                         Directory.Delete(obsPluginsPath, true);
                     }
                 }
 
-                try {
+                try
+                {
                     ZipFile.ExtractToDirectory(zipPath, currentDirectory, true);
 
                     if (Settings.Instance.PendingOBSUpdate)
@@ -1358,7 +1361,9 @@ namespace Segra.Backend.Utils
                         Settings.Instance.PendingOBSUpdate = false;
                         SettingsUtils.SaveSettings();
                     }
-                } catch (Exception ex) {
+                }
+                catch (Exception ex)
+                {
                     Log.Error($"Failed to extract OBS: {ex.Message}");
                     await ShowModal("OBS Update", "Failed to apply OBS update. Please try again.", "error");
                     throw;
@@ -1367,7 +1372,7 @@ namespace Segra.Backend.Utils
                 Log.Information("OBS setup complete");
                 return;
             }
-            
+
             // If we somehow got here without a version to download, log an error
             Log.Error("No OBS versions available from API. This should not happen.");
         }

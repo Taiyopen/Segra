@@ -368,16 +368,22 @@ namespace Segra.Backend.Utils
             string arguments = $"-y -ss {startTime.ToString(CultureInfo.InvariantCulture)} -t {duration.ToString(CultureInfo.InvariantCulture)} " +
                              $"-i \"{inputFilePath}\" -c:v {videoCodec} -preset {settings.ClipPreset} -crf {settings.ClipQualityCrf} {fpsArg} " +
                              $"-c:a aac -b:a {settings.ClipAudioQuality} -movflags +faststart \"{outputFilePath}\"";
-
+            Log.Information("Extracting clip");
+            Log.Information($"FFmpeg arguments: {arguments}");
             await RunFFmpegProcess(clipId, ffmpegPath, arguments, duration, progressCallback);
         }
 
         private static async Task RunFFmpegProcess(int clipId, string ffmpegPath, string arguments, double? totalDuration, Action<double> progressCallback)
         {
+            Log.Information($"[Clip {clipId}] Starting FFmpeg process");
+            Log.Information($"[Clip {clipId}] FFmpeg path: {ffmpegPath}");
+            Log.Information($"[Clip {clipId}] FFmpeg arguments: {arguments}");
+
             var processStartInfo = new ProcessStartInfo
             {
                 FileName = ffmpegPath,
                 Arguments = arguments,
+                RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -385,9 +391,22 @@ namespace Segra.Backend.Utils
 
             using (var process = new Process { StartInfo = processStartInfo })
             {
+                // Handle standard output (non-blocking)
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Log.Information($"[Clip {clipId}] FFmpeg stdout: {e.Data}");
+                    }
+                };
+
+                // Handle standard error (non-blocking)
                 process.ErrorDataReceived += (sender, e) =>
                 {
                     if (string.IsNullOrEmpty(e.Data)) return;
+
+                    // Log all FFmpeg stderr output
+                    Log.Information($"[Clip {clipId}] FFmpeg stderr: {e.Data}");
 
                     try
                     {
@@ -398,13 +417,14 @@ namespace Segra.Backend.Utils
                             if (timeMatch.Success)
                             {
                                 var ts = TimeSpan.Parse(timeMatch.Groups[1].Value, CultureInfo.InvariantCulture);
-                                progressCallback?.Invoke(ts.TotalSeconds / totalDuration.Value);
+                                var progress = ts.TotalSeconds / totalDuration.Value;
+                                progressCallback?.Invoke(progress);
                             }
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Silently ignore any parsing errors to prevent exceptions
+                        Log.Warning($"[Clip {clipId}] Failed to parse FFmpeg progress: {ex.Message}");
                     }
                 };
 
@@ -420,8 +440,15 @@ namespace Segra.Backend.Utils
                     }
 
                     process.Start();
+                    Log.Information($"[Clip {clipId}] FFmpeg process started (PID: {process.Id})");
+                    
+                    // Begin async reading of both streams to prevent buffer blocking
+                    process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
+                    
                     await process.WaitForExitAsync();
+
+                    Log.Information($"[Clip {clipId}] FFmpeg process completed with exit code: {process.ExitCode}");
 
                     lock (ProcessLock)
                     {
@@ -434,10 +461,16 @@ namespace Segra.Backend.Utils
                             }
                         }
                     }
+
+                    if (process.ExitCode != 0)
+                    {
+                        Log.Error($"[Clip {clipId}] FFmpeg process failed with exit code: {process.ExitCode}");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"Error in FFmpeg process: {ex.Message}");
+                    Log.Error($"[Clip {clipId}] Error in FFmpeg process: {ex.Message}");
+                    Log.Error($"[Clip {clipId}] Stack trace: {ex.StackTrace}");
 
                     lock (ProcessLock)
                     {
@@ -454,6 +487,7 @@ namespace Segra.Backend.Utils
             }
 
             // Always make sure we report completion
+            Log.Information($"[Clip {clipId}] Reporting final progress: 100%");
             progressCallback?.Invoke(1.0);
         }
 

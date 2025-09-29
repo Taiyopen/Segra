@@ -28,6 +28,7 @@ namespace Segra
         private static Mutex? singleInstanceMutex;
         private static Thread? pipeServerThread;
         private static string? appUrl;
+        private const long maxFileSizeBytes = 10 * 1024 * 1024; // 10MB
 
         [STAThread]
         static void Main(string[] args)
@@ -67,17 +68,7 @@ namespace Segra
                 Directory.CreateDirectory(logDirectory);
             }
 
-            Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Debug()
-                .WriteTo.Console()
-                .WriteTo.Debug()
-                .WriteTo.File(
-                    path: LogFilePath,
-                    fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB per file
-                    rollOnFileSizeLimit: true,            // Roll to a new file when size is reached
-                    retainedFileCountLimit: 1             // Keep only the latest log file
-                )
-                .CreateLogger();
+            ConfigureLogging();
 
             // Get the current version
             var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
@@ -242,6 +233,61 @@ namespace Segra
                     singleInstanceMutex.ReleaseMutex();
                     singleInstanceMutex.Dispose();
                 }
+            }
+        }
+
+        public static void ConfigureLogging()
+        {
+            PurgeOldLogs();
+
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Console()
+                .WriteTo.Debug()
+                .WriteTo.File(
+                    path: LogFilePath,
+                    fileSizeLimitBytes: maxFileSizeBytes,
+                    rollOnFileSizeLimit: false,
+                    shared: true
+                )
+                .CreateLogger();
+        }
+
+        private static void PurgeOldLogs()
+        {
+            try
+            {
+                var logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra");
+                
+                if (!Directory.Exists(logDirectory))
+                    return;
+
+                var logFiles = Directory.GetFiles(logDirectory, "*.log");
+                
+                if (logFiles.Length == 0)
+                    return;
+
+                // Get the first .log file found
+                var logFilePath = logFiles[0];
+                var fileInfo = new FileInfo(logFilePath);
+
+                if (!fileInfo.Exists || fileInfo.Length <= maxFileSizeBytes)
+                    return;
+
+                var lines = File.ReadAllLines(logFilePath).ToList();
+                var targetSize = (long)(maxFileSizeBytes * 0.9);
+                var avgLineSize = fileInfo.Length / lines.Count;
+                var linesToKeep = (int)(targetSize / avgLineSize);
+
+                if (linesToKeep < lines.Count)
+                {
+                    var recentLines = lines.Skip(lines.Count - linesToKeep).ToList();
+                    File.WriteAllLines(logFilePath, recentLines);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error purging logs: {ex.Message}");
             }
         }
 
