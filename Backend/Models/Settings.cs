@@ -25,6 +25,8 @@ namespace Segra.Backend.Models
         private int _cqLevel = 20;
         private string _encoder = "gpu";
         private Codec? _codec = null; // Set in SelectDefaultCodec()
+        private string? _selectedOBSVersion = null; // null means automatic (latest non-beta)
+        private bool _pendingOBSUpdate = false;
         private int _storageLimit = 100;
         private List<DeviceSetting> _inputDevices = new List<DeviceSetting>();
         private List<DeviceSetting> _outputDevices = new List<DeviceSetting>();
@@ -643,6 +645,34 @@ namespace Segra.Backend.Models
             }
         }
 
+        [JsonPropertyName("selectedOBSVersion")]
+        public string? SelectedOBSVersion
+        {
+            get => _selectedOBSVersion;
+            set
+            {
+                if (_selectedOBSVersion != value)
+                {
+                    _selectedOBSVersion = value;
+                    SendToFrontend("Selected OBS version changed");
+                }
+            }
+        }
+
+        [JsonPropertyName("pendingOBSUpdate")]
+        public bool PendingOBSUpdate
+        {
+            get => _pendingOBSUpdate;
+            set
+            {
+                if (_pendingOBSUpdate != value)
+                {
+                    _pendingOBSUpdate = value;
+                    SendToFrontend("Pending OBS update changed");
+                }
+            }
+        }
+
         [JsonPropertyName("keybindings")]
         public List<Keybind> Keybindings
         {
@@ -760,6 +790,7 @@ namespace Segra.Backend.Models
         private List<AudioDevice> _outputDevices = [];
         private List<Display> _displays = [];
         private List<Codec> _codecs = [];
+        private List<OBSVersion> _availableOBSVersions = [];
         private bool _isCheckingForUpdates = false;
 
         private AudioDeviceWatcher? _deviceWatcher;
@@ -909,6 +940,20 @@ namespace Segra.Backend.Models
                 {
                     _codecs = value;
                     SendToFrontend("State update: Codecs");
+                }
+            }
+        }
+
+        [JsonPropertyName("availableOBSVersions")]
+        public List<OBSVersion> AvailableOBSVersions
+        {
+            get => _availableOBSVersions;
+            set
+            {
+                if (_availableOBSVersions != value)
+                {
+                    _availableOBSVersions = value;
+                    SendToFrontend("State update: AvailableOBSVersions");
                 }
             }
         }

@@ -16,6 +16,15 @@ export interface Content {
   uploadId?: string;
 }
 
+export interface OBSVersion {
+  version: string;
+  isBeta: boolean;
+  availableSince?: string;
+  supportsFrom?: string;
+  supportsTo?: string;
+  url: string;
+}
+
 export interface State {
   gpuVendor: GpuVendor;
   preRecording?: PreRecording;
@@ -26,6 +35,7 @@ export interface State {
   outputDevices: AudioDevice[];
   displays: Display[];
   codecs: Codec[];
+  availableOBSVersions: OBSVersion[];
   isCheckingForUpdates: boolean;
 }
 
@@ -166,6 +176,7 @@ export interface Settings {
   forceMonoInputSources: boolean;
   enableDisplayRecording: boolean;
   selectedDisplay: Display | null;
+  selectedOBSVersion: string | null; // null means automatic (latest non-beta)
   enableAi: boolean;
   autoGenerateHighlights: boolean;
   runOnStartup: boolean;
@@ -201,6 +212,7 @@ export const initialState: State = {
   outputDevices: [],
   displays: [],
   codecs: [],
+  availableOBSVersions: [],
   isCheckingForUpdates: false,
 };
 
@@ -223,6 +235,7 @@ export const initialSettings: Settings = {
   forceMonoInputSources: false,
   enableDisplayRecording: true,
   selectedDisplay: null, // Default to null (auto-select)
+  selectedOBSVersion: null, // null means automatic (latest non-beta)
   enableAi: true,
   autoGenerateHighlights: true,
   runOnStartup: false,

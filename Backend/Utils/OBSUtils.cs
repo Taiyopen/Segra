@@ -10,6 +10,7 @@ using static LibObs.Obs;
 using static Segra.Backend.Utils.GeneralUtils;
 using size_t = System.UIntPtr;
 using static Segra.Backend.Utils.MessageUtils;
+using System.Net.Http.Json;
 
 namespace Segra.Backend.Utils
 {
@@ -1173,15 +1174,63 @@ namespace Segra.Backend.Utils
                 bufferOutput = IntPtr.Zero;
             }
         }
+        public static async Task AvailableOBSVersionsAsync()
+        {
+            try
+            {
+                string url = "https://segra.tv/api/obs/versions";
+                List<Models.OBSVersion>? response = null;
+                using (HttpClient client = new())
+                {
+                    try
+                    {
+                        response = await client.GetFromJsonAsync<List<Models.OBSVersion>>(url);
+                        if (response != null)
+                        {
+                            Log.Information($"Available OBS versions: {string.Join(", ", response.Select(v => v.Version))}");
+                        }
+                        else
+                        {
+                            Log.Warning("Received null OBS versions list from API");
+                            response = new List<Models.OBSVersion>();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"Error parsing OBS versions from API: {ex.Message}");
+                        response = new List<Models.OBSVersion>();
+                    }
+                }
 
-        private static async Task CheckIfExistsOrDownloadAsync()
+                SettingsUtils.SetAvailableOBSVersions(response);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Failed to get available OBS versions: {ex.Message}");
+            }
+        }
+
+        public static async Task CheckIfExistsOrDownloadAsync(bool isUpdate = false)
         {
             Log.Information("Checking if OBS is installed");
+
+            // Ensure we have the latest available versions
+            await AvailableOBSVersionsAsync();
+
+            if (isUpdate)
+            {
+                // We need to reinstall the Segra app to apply the update, because all OBS resources are placed in the app directory
+                Settings.Instance.PendingOBSUpdate = true;
+                SettingsUtils.SaveSettings();
+                await UpdateUtils.ForceReinstallCurrentVersionAsync();
+                await ShowModal("OBS Update", "Please restart Segra to apply the update.");
+                return;
+            }
 
             string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
             string dllPath = Path.Combine(currentDirectory, "obs.dll");
 
-            if (File.Exists(dllPath))
+            if (File.Exists(dllPath) && !isUpdate && !Settings.Instance.PendingOBSUpdate)
             {
                 Log.Information("OBS is installed");
                 return;
@@ -1192,69 +1241,135 @@ namespace Segra.Backend.Utils
             Directory.CreateDirectory(appDataDir); // Ensure directory exists
 
             string zipPath = Path.Combine(appDataDir, "obs.zip");
-            string apiUrl = "https://api.github.com/repos/Segergren/Segra/contents/obs.zip?ref=main";
             string localHashPath = Path.Combine(appDataDir, "obs.hash");
             bool needsDownload = true;
 
-            using (var httpClient = new HttpClient())
+            // Determine which version to download
+            string? selectedVersion = Settings.Instance.SelectedOBSVersion;
+            Models.OBSVersion? versionToDownload = null;
+            
+            // If a specific version is selected, try to find it
+            if (!string.IsNullOrEmpty(selectedVersion))
             {
-                httpClient.DefaultRequestHeaders.Add("User-Agent", "Segra");
-                httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3.json");
-
-                Log.Information("Fetching file metadata...");
-
-                var response = await httpClient.GetAsync(apiUrl);
-
-                if (!response.IsSuccessStatusCode)
+                versionToDownload = Settings.Instance.State.AvailableOBSVersions
+                    .FirstOrDefault(v => v.Version == selectedVersion);
+                    
+                if (versionToDownload == null)
                 {
-                    Log.Error($"Failed to fetch metadata from {apiUrl}. Status: {response.StatusCode}");
-                    throw new Exception($"Failed to fetch file metadata: {response.ReasonPhrase}");
-                }
-
-                var jsonResponse = await response.Content.ReadAsStringAsync();
-                var metadata = System.Text.Json.JsonSerializer.Deserialize<GitHubFileMetadata>(jsonResponse);
-
-                if (metadata?.DownloadUrl == null)
-                {
-                    Log.Error("Download URL not found in the API response.");
-                    throw new Exception("Invalid API response: Missing download URL.");
-                }
-
-                string remoteHash = metadata.Sha;
-
-                // Check if we already have the file with the correct hash
-                if (File.Exists(zipPath) && File.Exists(localHashPath))
-                {
-                    string localHash = await File.ReadAllTextAsync(localHashPath);
-                    if (localHash == remoteHash)
-                    {
-                        Log.Information("Found existing obs.zip with matching hash. Skipping download.");
-                        needsDownload = false;
-                    }
-                    else
-                    {
-                        Log.Information("Found existing obs.zip but hash doesn't match. Downloading new version.");
-                    }
-                }
-
-                if (needsDownload)
-                {
-                    Log.Information("Downloading OBS...");
-
-                    httpClient.DefaultRequestHeaders.Clear();
-                    var zipBytes = await httpClient.GetByteArrayAsync(metadata.DownloadUrl);
-                    await File.WriteAllBytesAsync(zipPath, zipBytes);
-
-                    // Save the hash for future reference
-                    await File.WriteAllTextAsync(localHashPath, remoteHash);
-
-                    Log.Information("Download complete");
+                    Log.Warning($"Selected OBS version {selectedVersion} not found in available versions. Using latest stable version.");
                 }
             }
 
-            Log.Information("Extracting OBS...");
-            ZipFile.ExtractToDirectory(zipPath, currentDirectory, true);
-            Log.Information("OBS setup complete");
+            // If no specific version was selected or found, use the latest non-beta version
+            if (versionToDownload == null)
+            {
+                versionToDownload = Settings.Instance.State.AvailableOBSVersions
+                    .Where(v => !v.IsBeta)
+                    .OrderByDescending(v => v.Version)
+                    .FirstOrDefault();
+                
+                Log.Information($"Using latest stable OBS version: {versionToDownload?.Version}");
+            }
+            
+            // Download the selected or latest version
+            if (versionToDownload != null)
+            {
+                Log.Information($"Using OBS version: {versionToDownload.Version}");
+                string metadataUrl = versionToDownload.Url; // This is the GitHub metadata URL
+                
+                using (var httpClient = new HttpClient())
+                {
+                    // First, fetch the metadata from GitHub
+                    httpClient.DefaultRequestHeaders.Add("User-Agent", "Segra");
+                    httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3.json");
+                    
+                    Log.Information($"Fetching metadata for OBS version {versionToDownload.Version} from {metadataUrl}");
+                    var response = await httpClient.GetAsync(metadataUrl);
+                    
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        Log.Error($"Failed to fetch metadata from {metadataUrl}. Status: {response.StatusCode}");
+                        throw new Exception($"Failed to fetch file metadata: {response.ReasonPhrase}");
+                    }
+                    
+                    var jsonResponse = await response.Content.ReadAsStringAsync();
+                    var metadata = System.Text.Json.JsonSerializer.Deserialize<GitHubFileMetadata>(jsonResponse);
+                    
+                    if (metadata?.DownloadUrl == null)
+                    {
+                        Log.Error("Download URL not found in the API response.");
+                        throw new Exception("Invalid API response: Missing download URL.");
+                    }
+                    
+                    string remoteHash = metadata.Sha;
+                    string actualDownloadUrl = metadata.DownloadUrl;
+                    
+                    // Check if we already have the file with the correct hash
+                    if (!isUpdate && File.Exists(zipPath) && File.Exists(localHashPath))
+                    {
+                        string localHash = await File.ReadAllTextAsync(localHashPath);
+                        if (localHash == remoteHash)
+                        {
+                            Log.Information("Found existing obs.zip with matching hash. Skipping download.");
+                            needsDownload = false;
+                        }
+                        else
+                        {
+                            Log.Information("Found existing obs.zip but hash doesn't match. Downloading new version.");
+                            needsDownload = true;
+                        }
+                    }
+                    
+                    // If this is an update or we need to download, proceed with download
+                    if (needsDownload)
+                    {
+                        Log.Information($"Downloading OBS version {versionToDownload.Version}");
+                        
+                        httpClient.DefaultRequestHeaders.Clear();
+                        var zipBytes = await httpClient.GetByteArrayAsync(actualDownloadUrl);
+                        await File.WriteAllBytesAsync(zipPath, zipBytes);
+                        
+                        // Save the hash for future reference
+                        await File.WriteAllTextAsync(localHashPath, remoteHash);
+                        
+                        Log.Information("Download complete");
+                    }
+                }
+
+                // This should already be deleted on reinstall, but just in case
+                if (Settings.Instance.PendingOBSUpdate) {
+                    string dataPath = Path.Combine(currentDirectory, "data");
+                    if (Directory.Exists(dataPath)) {
+                        Directory.Delete(dataPath, true);
+                    }
+
+                    string obsPluginsPath = Path.Combine(currentDirectory, "obs-plugins");
+                    if (Directory.Exists(obsPluginsPath)) {
+                        Directory.Delete(obsPluginsPath, true);
+                    }
+                }
+
+                try {
+                    ZipFile.ExtractToDirectory(zipPath, currentDirectory, true);
+
+                    if (Settings.Instance.PendingOBSUpdate)
+                    {
+                        await ShowModal("OBS Update", $"OBS update to {versionToDownload.Version} applied successfully.");
+                        Settings.Instance.PendingOBSUpdate = false;
+                        SettingsUtils.SaveSettings();
+                    }
+                } catch (Exception ex) {
+                    Log.Error($"Failed to extract OBS: {ex.Message}");
+                    await ShowModal("OBS Update", "Failed to apply OBS update. Please try again.", "error");
+                    throw;
+                }
+
+                Log.Information("OBS setup complete");
+                return;
+            }
+            
+            // If we somehow got here without a version to download, log an error
+            Log.Error("No OBS versions available from API. This should not happen.");
         }
 
         private class GitHubFileMetadata
@@ -1409,5 +1524,15 @@ namespace Segra.Backend.Utils
 
             return selectedCodec;
         }
+    }
+
+    internal class OBSVersion
+    {
+        public required string Version { get; set; }
+        public bool IsBeta { get; set; }
+        public string? AvailableSince { get; set; }
+        public string? SupportsFrom { get; set; }
+        public string? SupportsTo { get; set; }
+        public required string Url { get; set; }
     }
 }

@@ -173,7 +173,7 @@ namespace Segra.Backend.Utils
 
                 Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
                 Settings.Instance.State.GpuVendor = GeneralUtils.DetectGpuVendor();
-
+                 
                 Log.Information("Settings loaded from {0}", SettingsFilePath);
 
                 Settings.Instance.EndBulkUpdateAndSaveSettings();
@@ -551,7 +551,7 @@ namespace Segra.Backend.Utils
                 _ = Task.Run(UpdateUtils.GetReleaseNotes);
             }
 
-            // Update EnableRunOnStartup
+            // Update RunOnStartup
             if (settings.RunOnStartup != updatedSettings.RunOnStartup)
             {
                 Log.Information($"RunOnStartup changed from '{settings.RunOnStartup}' to '{updatedSettings.RunOnStartup}'");
@@ -559,12 +559,25 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update SelectedOBSVersion
+            if (settings.SelectedOBSVersion != updatedSettings.SelectedOBSVersion)
+            {
+                Log.Information($"SelectedOBSVersion changed from '{settings.SelectedOBSVersion ?? "Automatic"}' to '{updatedSettings.SelectedOBSVersion ?? "Automatic"}'");
+                settings.SelectedOBSVersion = updatedSettings.SelectedOBSVersion;
+                hasChanges = true;
+
+                // If we're changing OBS version, check if we need to download it
+                if (OBSUtils.IsInitialized)
+                {
+                    _ = Task.Run(() => OBSUtils.CheckIfExistsOrDownloadAsync(true));
+                }
+            }
+
             // Update Keybindings
             if (updatedSettings.Keybindings != null && !settings.Keybindings.SequenceEqual(updatedSettings.Keybindings))
             {
                 Log.Information("Keybindings updated");
                 settings.Keybindings = updatedSettings.Keybindings;
-                hasChanges = true;
             }
 
             // Only save settings and send to frontend if changes were actually made
@@ -719,7 +732,28 @@ namespace Segra.Backend.Utils
         private static bool IsMetadataFile(string filePath)
         {
             // Check if the file is a metadata file
-            return Path.GetExtension(filePath).Equals(".json", StringComparison.OrdinalIgnoreCase);
+            return Path.GetExtension(filePath).Equals(".json", StringComparison.OrdinalIgnoreCase) &&
+                   !Path.GetFileName(filePath).StartsWith(".");
+        }
+
+        public static void SetAvailableOBSVersions(List<Models.OBSVersion> versions)
+        {
+            if (versions == null || versions.Count == 0)
+            {
+                Log.Warning("Received empty OBS versions list");
+                return;
+            }
+
+            Log.Information($"Setting {versions.Count} available OBS versions");
+            Settings.Instance.State.AvailableOBSVersions = versions;
+
+            // If the selected version is not in the list anymore, reset it to null (automatic)
+            if (!string.IsNullOrEmpty(Settings.Instance.SelectedOBSVersion) &&
+                !versions.Any(v => v.Version == Settings.Instance.SelectedOBSVersion))
+            {
+                Log.Warning($"Selected OBS version {Settings.Instance.SelectedOBSVersion} is no longer available, resetting to automatic");
+                Settings.Instance.SelectedOBSVersion = null;
+            }
         }
     }
 }
