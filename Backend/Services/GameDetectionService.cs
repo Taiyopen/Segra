@@ -246,7 +246,14 @@ namespace Segra.Backend.Services
                 }
             }
 
-            // 3. Check if the game is in the games.json list
+            // 3. Check if the file path contains blacklisted text
+            if (ContainsBlacklistedTextInFilePath(exePath))
+            {
+                Log.Information($"Blocked executable with blacklisted path text: {exePath}");
+                return false;
+            }
+
+            // 4. Check if the game is in the games.json list
             bool isKnownGame = GameUtils.IsGameExePath(exePath);
             if (isKnownGame)
             {
@@ -255,14 +262,14 @@ namespace Segra.Backend.Services
                 return true;
             }
 
-            // Check for anticheat in file description and log window information
+            // 5. Check for anticheat in file description and log window information
             if (IsAntiCheatClient(exePath))
             {
                 Log.Information($"Detected anticheat client for this executable, will not record");
                 return false;
             }
 
-            // 4. If not in any list, use the default Steam detection
+            // 6. If not in any list, use the default Steam detection
             bool isSteamGame = exePath.Replace("\\", "/").Contains("/steamapps/common/", StringComparison.OrdinalIgnoreCase);
             if (isSteamGame)
             {
@@ -270,6 +277,22 @@ namespace Segra.Backend.Services
             }
 
             return isSteamGame;
+        }
+
+        private static bool ContainsBlacklistedTextInFilePath(string exePath)
+        {
+            string[] blacklistedPathTexts = ["wallpaper_engine"];
+
+            foreach (var text in blacklistedPathTexts)
+            {
+                if (exePath.Contains(text, StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Information($"Blocked executable with blacklisted path text '{text}': {exePath}");
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsAntiCheatClient(string exePath)
