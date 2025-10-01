@@ -1201,7 +1201,43 @@ namespace Segra.Backend.Utils
                     }
                 }
 
-                SettingsUtils.SetAvailableOBSVersions(response);
+                // Filter versions based on current Segra version compatibility
+                if (response != null && response.Count > 0)
+                {
+                    // Get the current Segra version
+                    NuGet.Versioning.SemanticVersion currentVersion;
+                    if (UpdateUtils.UpdateManager.CurrentVersion != null)
+                    {
+                        currentVersion = NuGet.Versioning.SemanticVersion.Parse(UpdateUtils.UpdateManager.CurrentVersion.ToString());
+                    }
+                    else
+                    {
+                        // Running in local development, use a high version to ensure we get the latest stable version
+                        currentVersion = NuGet.Versioning.SemanticVersion.Parse("9.9.9");
+                        Log.Warning("Could not get current version from UpdateManager, using default version for OBS compatibility check");
+                    }
+
+                    // Filter to only compatible versions
+                    List<Models.OBSVersion> compatibleVersions = response.Where(v => {
+                        // SupportsFrom: null or empty means no lower limit
+                        bool supportsFrom = string.IsNullOrEmpty(v.SupportsFrom) || 
+                                          (NuGet.Versioning.SemanticVersion.TryParse(v.SupportsFrom, out var minVersion) && 
+                                           currentVersion >= minVersion);
+                        
+                        // SupportsTo: null or empty means no upper limit
+                        bool supportsTo = v.SupportsTo == null || 
+                                        string.IsNullOrEmpty(v.SupportsTo) ||
+                                        (NuGet.Versioning.SemanticVersion.TryParse(v.SupportsTo, out var maxVersion) && 
+                                         currentVersion <= maxVersion);
+                        
+                        return supportsFrom && supportsTo;
+                    }).ToList();
+
+                    Log.Information($"Compatible OBS versions for Segra {currentVersion}: {string.Join(", ", compatibleVersions.Select(v => v.Version))}");
+                    response = compatibleVersions;
+                }
+
+                SettingsUtils.SetAvailableOBSVersions(response ?? new List<Models.OBSVersion>());
             }
             catch (Exception ex)
             {
