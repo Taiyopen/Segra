@@ -187,7 +187,10 @@ export interface Settings {
   clipClearSelectionsAfterCreatingClip: boolean;
   clipShowInBrowserAfterUpload: boolean; // Open browser after upload
   clipEncoder: ClipEncoder;
-  clipQualityCrf: number; // 17 (High) to 28 (Low)
+  clipQualityCrf: number; // CPU: 17 (High) to 28 (Low)
+  clipQualityCq: number; // NVENC: 0 (High) to 51 (Low)
+  clipQualityQp: number; // AMF: 0 (High) to 51 (Low)
+  clipQualityIcq: number; // QSV: 1 (High) to 51 (Low)
   clipCodec: ClipCodec;
   clipFps: ClipFPS;
   clipAudioQuality: ClipAudioQuality;
@@ -247,6 +250,9 @@ export const initialSettings: Settings = {
   clipShowInBrowserAfterUpload: false, // Default to not opening browser after upload
   clipEncoder: 'cpu',
   clipQualityCrf: 23,
+  clipQualityCq: 23,
+  clipQualityQp: 23,
+  clipQualityIcq: 23,
   clipCodec: 'h264',
   clipFps: 0,
   clipAudioQuality: '128k',

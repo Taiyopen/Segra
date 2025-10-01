@@ -157,6 +157,9 @@ export default function Settings() {
       'crfValue',
       'cqLevel',
       'clipQualityCrf',
+      'clipQualityCq',
+      'clipQualityQp',
+      'clipQualityIcq',
       'clipFps',
     ];
 
@@ -1090,30 +1093,113 @@ export default function Settings() {
             />
           </div>
 
-          {/* Quality (CRF) - New Dropdown */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text text-base-content">Quality (CRF)</span>
-            </label>
-            <DropdownSelect
-              items={[
-                { value: '17', label: '17 (Highest Quality)' },
-                { value: '18', label: '18' },
-                { value: '19', label: '19' },
-                { value: '20', label: '20 (High Quality)' },
-                { value: '21', label: '21' },
-                { value: '22', label: '22' },
-                { value: '23', label: '23 (Normal Quality)' },
-                { value: '24', label: '24' },
-                { value: '25', label: '25' },
-                { value: '26', label: '26 (Low Quality)' },
-                { value: '27', label: '27' },
-                { value: '28', label: '28 (Lowest Quality)' },
-              ]}
-              value={String(settings.clipQualityCrf)}
-              onChange={(val) => updateSettings({ clipQualityCrf: Number(val) })}
-            />
-          </div>
+          {/* Quality Control - Different for CPU vs GPU */}
+          {settings.clipEncoder === 'cpu' ? (
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text text-base-content">Quality (CRF)</span>
+              </label>
+              <DropdownSelect
+                items={[
+                  { value: '17', label: '17 (Highest Quality)' },
+                  { value: '18', label: '18' },
+                  { value: '19', label: '19' },
+                  { value: '20', label: '20 (High Quality)' },
+                  { value: '21', label: '21' },
+                  { value: '22', label: '22' },
+                  { value: '23', label: '23 (Normal Quality)' },
+                  { value: '24', label: '24' },
+                  { value: '25', label: '25' },
+                  { value: '26', label: '26 (Low Quality)' },
+                  { value: '27', label: '27' },
+                  { value: '28', label: '28 (Lowest Quality)' },
+                ]}
+                value={String(settings.clipQualityCrf)}
+                onChange={(val) => updateSettings({ clipQualityCrf: Number(val) })}
+              />
+            </div>
+          ) : (
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text text-base-content">
+                  Quality (
+                  {settings.state.gpuVendor === GpuVendor.Nvidia
+                    ? 'CQ'
+                    : settings.state.gpuVendor === GpuVendor.AMD
+                      ? 'QP'
+                      : settings.state.gpuVendor === GpuVendor.Intel
+                        ? 'ICQ'
+                        : 'CQ'}
+                  )
+                </span>
+              </label>
+              <DropdownSelect
+                items={
+                  settings.state.gpuVendor === GpuVendor.Nvidia
+                    ? [
+                        { value: '0', label: '0 (Highest Quality)' },
+                        { value: '10', label: '10' },
+                        { value: '15', label: '15' },
+                        { value: '20', label: '20 (High Quality)' },
+                        { value: '23', label: '23 (Normal Quality)' },
+                        { value: '26', label: '26' },
+                        { value: '30', label: '30 (Low Quality)' },
+                        { value: '35', label: '35' },
+                        { value: '40', label: '40' },
+                        { value: '45', label: '45' },
+                        { value: '51', label: '51 (Lowest Quality)' },
+                      ]
+                    : settings.state.gpuVendor === GpuVendor.AMD
+                      ? [
+                          { value: '0', label: '0 (Highest Quality)' },
+                          { value: '10', label: '10' },
+                          { value: '15', label: '15' },
+                          { value: '20', label: '20 (High Quality)' },
+                          { value: '23', label: '23 (Normal Quality)' },
+                          { value: '26', label: '26' },
+                          { value: '30', label: '30 (Low Quality)' },
+                          { value: '35', label: '35' },
+                          { value: '40', label: '40' },
+                          { value: '45', label: '45' },
+                          { value: '51', label: '51 (Lowest Quality)' },
+                        ]
+                      : settings.state.gpuVendor === GpuVendor.Intel
+                        ? [
+                            { value: '1', label: '1 (Highest Quality)' },
+                            { value: '10', label: '10' },
+                            { value: '15', label: '15' },
+                            { value: '20', label: '20 (High Quality)' },
+                            { value: '23', label: '23 (Normal Quality)' },
+                            { value: '26', label: '26' },
+                            { value: '30', label: '30 (Low Quality)' },
+                            { value: '35', label: '35' },
+                            { value: '40', label: '40' },
+                            { value: '45', label: '45' },
+                            { value: '51', label: '51 (Lowest Quality)' },
+                          ]
+                        : [{ value: '23', label: '23 (Normal Quality)' }]
+                }
+                value={String(
+                  settings.state.gpuVendor === GpuVendor.Nvidia
+                    ? settings.clipQualityCq
+                    : settings.state.gpuVendor === GpuVendor.AMD
+                      ? settings.clipQualityQp
+                      : settings.state.gpuVendor === GpuVendor.Intel
+                        ? settings.clipQualityIcq
+                        : settings.clipQualityCq,
+                )}
+                onChange={(val) => {
+                  if (settings.state.gpuVendor === GpuVendor.Nvidia) {
+                    updateSettings({ clipQualityCq: Number(val) });
+                  } else if (settings.state.gpuVendor === GpuVendor.AMD) {
+                    updateSettings({ clipQualityQp: Number(val) });
+                  } else if (settings.state.gpuVendor === GpuVendor.Intel) {
+                    updateSettings({ clipQualityIcq: Number(val) });
+                  }
+                }}
+              />
+            </div>
+          )}
 
           {/* Codec */}
           <div className="form-control">
@@ -1124,8 +1210,8 @@ export default function Settings() {
               items={[
                 { value: 'h264', label: 'H.264' },
                 { value: 'h265', label: 'H.265' },
-                ...(settings.state.codecs.find((c) => c.internalEncoderId.includes('av1')) &&
-                settings.clipEncoder === 'gpu'
+                ...(settings.clipEncoder === 'gpu' &&
+                settings.state.codecs.find((c) => c.internalEncoderId.includes('av1'))
                   ? [{ value: 'av1', label: 'AV1' }]
                   : []),
               ]}

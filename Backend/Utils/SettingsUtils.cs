@@ -256,6 +256,30 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update ClipQualityCq (NVENC)
+            if (settings.ClipQualityCq != updatedSettings.ClipQualityCq)
+            {
+                Log.Information($"ClipQualityCq changed from '{settings.ClipQualityCq}' to '{updatedSettings.ClipQualityCq}'");
+                settings.ClipQualityCq = updatedSettings.ClipQualityCq;
+                hasChanges = true;
+            }
+
+            // Update ClipQualityQp (AMF)
+            if (settings.ClipQualityQp != updatedSettings.ClipQualityQp)
+            {
+                Log.Information($"ClipQualityQp changed from '{settings.ClipQualityQp}' to '{updatedSettings.ClipQualityQp}'");
+                settings.ClipQualityQp = updatedSettings.ClipQualityQp;
+                hasChanges = true;
+            }
+
+            // Update ClipQualityIcq (QSV)
+            if (settings.ClipQualityIcq != updatedSettings.ClipQualityIcq)
+            {
+                Log.Information($"ClipQualityIcq changed from '{settings.ClipQualityIcq}' to '{updatedSettings.ClipQualityIcq}'");
+                settings.ClipQualityIcq = updatedSettings.ClipQualityIcq;
+                hasChanges = true;
+            }
+
             // Update ClipCodec
             if (settings.ClipCodec != updatedSettings.ClipCodec && !hasAutoSelectedClipCodec)
             {

@@ -49,6 +49,9 @@ namespace Segra.Backend.Models
         private bool _clipShowInBrowserAfterUpload = false;
         private string _clipEncoder = "cpu";
         private int _clipQualityCrf = 23;
+        private int _clipQualityCq = 23; // NVENC CQ value (0-51)
+        private int _clipQualityQp = 23; // AMF QP value (0-51)
+        private int _clipQualityIcq = 23; // QSV ICQ value (1-51)
         private string _clipCodec = "h264";
         private int _clipFps = 0; // 0 for 'Original'
         private string _clipAudioQuality = "128k";
@@ -521,6 +524,45 @@ namespace Segra.Backend.Models
                 if (_clipQualityCrf != value)
                 {
                     _clipQualityCrf = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("clipQualityCq")]
+        public int ClipQualityCq
+        {
+            get => _clipQualityCq;
+            set
+            {
+                if (_clipQualityCq != value)
+                {
+                    _clipQualityCq = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("clipQualityQp")]
+        public int ClipQualityQp
+        {
+            get => _clipQualityQp;
+            set
+            {
+                if (_clipQualityQp != value)
+                {
+                    _clipQualityQp = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("clipQualityIcq")]
+        public int ClipQualityIcq
+        {
+            get => _clipQualityIcq;
+            set
+            {
+                if (_clipQualityIcq != value)
+                {
+                    _clipQualityIcq = value;
                 }
             }
         }

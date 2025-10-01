@@ -221,6 +221,9 @@ namespace Segra.Backend.Utils
 
                 var currentSettings = Settings.Instance;
                 string videoCodecAi;
+                string qualityArgsAi = "";
+                string presetArgsAi = "";
+                
                 if (currentSettings.ClipEncoder.Equals("gpu", StringComparison.OrdinalIgnoreCase))
                 {
                     GpuVendor gpuVendor = DetectGpuVendor();
@@ -228,31 +231,70 @@ namespace Segra.Backend.Utils
                     switch (gpuVendor)
                     {
                         case GpuVendor.Nvidia:
-                            videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_nvenc" : "h264_nvenc";
+                            if (currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                                videoCodecAi = "hevc_nvenc";
+                            else if (currentSettings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
+                                videoCodecAi = "av1_nvenc";
+                            else
+                                videoCodecAi = "h264_nvenc";
+                            
+                            qualityArgsAi = $"-cq {currentSettings.ClipQualityCq}";
+                            presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                             break;
+                            
                         case GpuVendor.AMD:
-                            videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_amf" : "h264_amf";
+                            if (currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                                videoCodecAi = "hevc_amf";
+                            else if (currentSettings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
+                                videoCodecAi = "av1_amf";
+                            else
+                                videoCodecAi = "h264_amf";
+                            
+                            qualityArgsAi = $"-qp_i {currentSettings.ClipQualityQp} -qp_p {currentSettings.ClipQualityQp}";
+                            presetArgsAi = $"-quality {currentSettings.ClipPreset}";
                             break;
+                            
                         case GpuVendor.Intel:
-                            videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "hevc_qsv" : "h264_qsv";
+                            if (currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                                videoCodecAi = "hevc_qsv";
+                            else if (currentSettings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
+                                videoCodecAi = "av1_qsv";
+                            else
+                                videoCodecAi = "h264_qsv";
+                            
+                            qualityArgsAi = $"-global_quality {currentSettings.ClipQualityIcq}";
+                            presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                             break;
+                            
                         default:
                             // Fall back to CPU encoding if GPU vendor is unknown
                             Log.Warning("Unknown GPU vendor detected for AI clip, falling back to CPU encoding");
-                            videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "libx265" : "libx264";
+                            if (currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                                videoCodecAi = "libx265";
+                            else
+                                videoCodecAi = "libx264";
+                            
+                            qualityArgsAi = $"-crf {currentSettings.ClipQualityCrf}";
+                            presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                             break;
                     }
                 }
                 else
                 {
-                    videoCodecAi = currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase) ? "libx265" : "libx264";
+                    if (currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                        videoCodecAi = "libx265";
+                    else
+                        videoCodecAi = "libx264";
+                    
+                    qualityArgsAi = $"-crf {currentSettings.ClipQualityCrf}";
+                    presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                 }
 
                 string fpsArgAi = currentSettings.ClipFps > 0 ? $"-r {currentSettings.ClipFps}" : "";
 
                 string reencodeArguments =
                     $"-y -i \"{tempFilePath}\" " +
-                    $"-c:v {videoCodecAi} -preset {currentSettings.ClipPreset} -crf {currentSettings.ClipQualityCrf} {fpsArgAi} " +
+                    $"-c:v {videoCodecAi} {presetArgsAi} {qualityArgsAi} {fpsArgAi} " +
                     $"-c:a aac -b:a {currentSettings.ClipAudioQuality} -movflags +faststart \"{outputFilePath}\"";
 
                 await RunFFmpegProcessSimple(ffmpegPath, reencodeArguments);
@@ -313,6 +355,8 @@ namespace Segra.Backend.Utils
             var settings = Settings.Instance;
 
             string videoCodec;
+            string qualityArgs;
+            string presetArgs;
             if (settings.ClipEncoder.Equals("gpu", StringComparison.OrdinalIgnoreCase))
             {
                 // GPU encoder uses hardware-accelerated codecs based on GPU vendor
@@ -324,26 +368,41 @@ namespace Segra.Backend.Utils
                         if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
                             videoCodec = "hevc_nvenc";
                         else if (settings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "av1_nvenc"; // NVIDIA AV1 encoder
+                            videoCodec = "av1_nvenc";
                         else
                             videoCodec = "h264_nvenc";
+
+                        // NVENC uses -cq for quality control and specific presets
+                        qualityArgs = $"-cq {settings.ClipQualityCq}";
+                        presetArgs = $"-preset {settings.ClipPreset}";
                         break;
+
                     case GpuVendor.AMD:
                         if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
                             videoCodec = "hevc_amf";
                         else if (settings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "av1_amf"; // AMD AV1 encoder
+                            videoCodec = "av1_amf";
                         else
                             videoCodec = "h264_amf";
+
+                        // AMF uses -qp_i, -qp_p for quality control
+                        qualityArgs = $"-qp_i {settings.ClipQualityQp} -qp_p {settings.ClipQualityQp}";
+                        presetArgs = $"-quality {settings.ClipPreset}";
                         break;
+
                     case GpuVendor.Intel:
                         if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
                             videoCodec = "hevc_qsv";
                         else if (settings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "av1_qsv"; // Intel AV1 encoder
+                            videoCodec = "av1_qsv";
                         else
                             videoCodec = "h264_qsv";
+
+                        // QSV uses -global_quality for ICQ mode
+                        qualityArgs = $"-global_quality {settings.ClipQualityIcq}";
+                        presetArgs = $"-preset {settings.ClipPreset}";
                         break;
+
                     default:
                         // Fall back to CPU encoding if GPU vendor is unknown
                         Log.Warning("Unknown GPU vendor detected, falling back to CPU encoding");
@@ -351,6 +410,10 @@ namespace Segra.Backend.Utils
                             videoCodec = "libx265";
                         else
                             videoCodec = "libx264";
+
+                        // CPU codecs use -crf and standard presets
+                        qualityArgs = $"-crf {settings.ClipQualityCrf}";
+                        presetArgs = $"-preset {settings.ClipPreset}";
                         break;
                 }
             }
@@ -361,12 +424,16 @@ namespace Segra.Backend.Utils
                     videoCodec = "libx265";
                 else
                     videoCodec = "libx264";
+
+                // CPU codecs use -crf and standard presets
+                qualityArgs = $"-crf {settings.ClipQualityCrf}";
+                presetArgs = $"-preset {settings.ClipPreset}";
             }
 
             string fpsArg = settings.ClipFps > 0 ? $"-r {settings.ClipFps}" : "";
 
             string arguments = $"-y -ss {startTime.ToString(CultureInfo.InvariantCulture)} -t {duration.ToString(CultureInfo.InvariantCulture)} " +
-                             $"-i \"{inputFilePath}\" -c:v {videoCodec} -preset {settings.ClipPreset} -crf {settings.ClipQualityCrf} {fpsArg} " +
+                             $"-i \"{inputFilePath}\" -c:v {videoCodec} {presetArgs} {qualityArgs} {fpsArg} " +
                              $"-c:a aac -b:a {settings.ClipAudioQuality} -movflags +faststart \"{outputFilePath}\"";
             Log.Information("Extracting clip");
             Log.Information($"FFmpeg arguments: {arguments}");
