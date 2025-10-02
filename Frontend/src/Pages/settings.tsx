@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { themeChange } from 'theme-change';
-import { AudioDevice, GpuVendor, KeybindAction, ClipFPS, ClipPreset } from '../Models/types';
+import { AudioDevice, GpuVendor, KeybindAction, ClipFPS, ClipPreset, Settings as SettingsType } from '../Models/types';
 import { supabase } from '../lib/supabase/client';
 import { FaDiscord } from 'react-icons/fa';
 import { useAuth } from '../Hooks/useAuth.tsx';
@@ -1082,11 +1082,15 @@ export default function Settings() {
               ]}
               value={settings.clipEncoder}
               onChange={(val) => {
-                const newSettings: any = { clipEncoder: val };
+                const newSettings: Partial<SettingsType> = { clipEncoder: val as 'cpu' | 'gpu' };
                 if (val === 'cpu' && settings.clipEncoder !== 'cpu') {
-                  newSettings.clipPreset = 'veryfast';
+                  newSettings.clipPreset = 'veryfast' as ClipPreset;
+                  // CPU doesn't support AV1, switch to H.264
+                  if (settings.clipCodec === 'av1') {
+                    newSettings.clipCodec = 'h264';
+                  }
                 } else if (val === 'gpu' && settings.clipEncoder !== 'gpu') {
-                  newSettings.clipPreset = 'medium';
+                  newSettings.clipPreset = 'medium' as ClipPreset;
                 }
                 updateSettings(newSettings);
               }}
@@ -1216,7 +1220,23 @@ export default function Settings() {
                   : []),
               ]}
               value={settings.clipCodec}
-              onChange={(val) => updateSettings({ clipCodec: val as 'h264' | 'h265' | 'av1' })}
+              onChange={(val) => {
+                const newCodec = val as 'h264' | 'h265' | 'av1';
+                const updates: Partial<SettingsType> = { clipCodec: newCodec };
+                
+                // Auto-adjust preset when switching to/from AV1 on NVIDIA
+                if (settings.state.gpuVendor === GpuVendor.Nvidia) {
+                  if (newCodec === 'av1' && !['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'].includes(settings.clipPreset)) {
+                    // Switching to AV1, set default AV1 preset
+                    updates.clipPreset = 'p4' as ClipPreset;
+                  } else if (newCodec !== 'av1' && ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'].includes(settings.clipPreset)) {
+                    // Switching from AV1 to H.264/H.265, set default preset
+                    updates.clipPreset = 'hq' as ClipPreset;
+                  }
+                }
+                
+                updateSettings(updates);
+              }}
               disabled={!settings.state.hasLoadedObs}
             />
           </div>
@@ -1284,6 +1304,18 @@ export default function Settings() {
                 }
                 switch (settings.state.gpuVendor) {
                   case GpuVendor.Nvidia:
+                    // AV1 NVENC uses different presets (p1-p7)
+                    if (settings.clipCodec === 'av1') {
+                      return [
+                        { value: 'p1', label: 'P1 (Fastest)' },
+                        { value: 'p2', label: 'P2' },
+                        { value: 'p3', label: 'P3' },
+                        { value: 'p4', label: 'P4 (Balanced)' },
+                        { value: 'p5', label: 'P5' },
+                        { value: 'p6', label: 'P6' },
+                        { value: 'p7', label: 'P7 (Slowest/Best Quality)' },
+                      ];
+                    }
                     return [
                       { value: 'slow', label: 'Slow' },
                       { value: 'medium', label: 'Medium' },

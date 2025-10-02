@@ -143,7 +143,8 @@ export type GpuClipPreset =
   | 'llhp'
   | 'lossless'
   | 'losslesshp';
-export type ClipPreset = CpuClipPreset | GpuClipPreset;
+export type Av1NvencPreset = 'p1' | 'p2' | 'p3' | 'p4' | 'p5' | 'p6' | 'p7';
+export type ClipPreset = CpuClipPreset | GpuClipPreset | Av1NvencPreset;
 
 export interface Settings {
   theme:
