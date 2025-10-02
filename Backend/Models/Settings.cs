@@ -696,7 +696,6 @@ namespace Segra.Backend.Models
                 if (_selectedOBSVersion != value)
                 {
                     _selectedOBSVersion = value;
-                    SendToFrontend("Selected OBS version changed");
                 }
             }
         }
