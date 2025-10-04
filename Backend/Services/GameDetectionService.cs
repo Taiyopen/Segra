@@ -7,6 +7,7 @@ using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -252,7 +253,6 @@ namespace Segra.Backend.Services
             // 3. Check if the file path contains blacklisted text
             if (ContainsBlacklistedTextInFilePath(exePath))
             {
-                Log.Information($"Blocked executable with blacklisted path text: {exePath}");
                 return false;
             }
 
@@ -286,12 +286,19 @@ namespace Segra.Backend.Services
                 Log.Information($"Detected EA game at {exePath}, will record");
             }
 
-            return isSteamGame || isEAGame;
+            // 8. If not in any list, use Epic Games detection
+            bool isEpicGame = exePath.Replace("\\", "/").Contains("/Epic Games/", StringComparison.OrdinalIgnoreCase);
+            if (isEpicGame)
+            {
+                Log.Information($"Detected Epic game at {exePath}, will record");
+            }
+
+            return isSteamGame || isEAGame || isEpicGame;
         }
 
         private static bool ContainsBlacklistedTextInFilePath(string exePath)
         {
-            string[] blacklistedPathTexts = ["wallpaper_engine"];
+            string[] blacklistedPathTexts = ["wallpaper_engine", "launcher"];
 
             foreach (var text in blacklistedPathTexts)
             {
@@ -486,6 +493,10 @@ namespace Segra.Backend.Services
             string? eaName = AttemptEAGamesLookup(exePath);
             if (!string.IsNullOrEmpty(eaName)) return eaName;
 
+            // Then try Epic Games lookup
+            string? epicName = AttemptEpicGamesLookup(exePath);
+            if (!string.IsNullOrEmpty(epicName)) return epicName;
+
             // Fall back to filename
             return Path.GetFileNameWithoutExtension(exePath);
         }
@@ -531,6 +542,61 @@ namespace Segra.Backend.Services
                 string folderName = afterEAGames.Split('/')[0];
 
                 return string.IsNullOrEmpty(folderName) ? null : folderName;
+            }
+            catch { return null; }
+        }
+
+        private static string? AttemptEpicGamesLookup(string exeFilePath)
+        {
+            try
+            {
+                // Epic Games manifests are stored in ProgramData
+                string manifestsDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                    "Epic", "EpicGamesLauncher", "Data", "Manifests"
+                );
+
+                if (!Directory.Exists(manifestsDir)) return null;
+
+                // Normalize the exe path for comparison
+                string normalizedExePath = Path.GetFullPath(exeFilePath).Replace("\\", "/").ToLowerInvariant();
+
+                // Scan all .item manifest files
+                foreach (string manifestFile in Directory.GetFiles(manifestsDir, "*.item"))
+                {
+                    try
+                    {
+                        string jsonContent = File.ReadAllText(manifestFile);
+                        using JsonDocument doc = JsonDocument.Parse(jsonContent);
+                        JsonElement root = doc.RootElement;
+
+                        // Get InstallLocation and DisplayName
+                        if (root.TryGetProperty("InstallLocation", out JsonElement installLocationElement) &&
+                            root.TryGetProperty("DisplayName", out JsonElement displayNameElement))
+                        {
+                            string? installLocation = installLocationElement.GetString();
+                            string? displayName = displayNameElement.GetString();
+
+                            if (!string.IsNullOrEmpty(installLocation) && !string.IsNullOrEmpty(displayName))
+                            {
+                                string normalizedInstallLocation = Path.GetFullPath(installLocation).Replace("\\", "/").ToLowerInvariant();
+
+                                // Check if the exe path starts with the install location
+                                if (normalizedExePath.StartsWith(normalizedInstallLocation))
+                                {
+                                    return displayName;
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Skip invalid manifest files
+                        continue;
+                    }
+                }
+
+                return null;
             }
             catch { return null; }
         }
