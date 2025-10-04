@@ -62,13 +62,11 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const [settings, setSettings] = useState<Settings>(() => loadCachedSettings() ?? initialSettings);
   useWebSocketContext();
 
-  const shouldSendToBackendRef = useRef(false);
-  const pendingSettingsRef = useRef<Settings | null>(null);
+  // Track pending backend updates
+  const pendingBackendUpdateRef = useRef<Settings | null>(null);
 
   const updateSettings = useCallback<SettingsUpdateContextType>(
     (newSettings, fromBackend = false) => {
-      shouldSendToBackendRef.current = !fromBackend;
-      
       setSettings((prev) => {
         const updatedSettings: Settings = {
           ...prev,
@@ -82,23 +80,29 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         // Persist stable settings for faster startup rendering before backend connects
         saveCachedSettings(updatedSettings);
         
-        // Store for sending to backend after state update
-        if (shouldSendToBackendRef.current) {
-          pendingSettingsRef.current = updatedSettings;
+        // Queue for backend update if this change originated from frontend
+        if (!fromBackend) {
+          pendingBackendUpdateRef.current = updatedSettings;
         }
 
         return updatedSettings;
       });
-      
-      // Send to backend OUTSIDE of setSettings callback to avoid React Strict Mode double-invocation
-      if (shouldSendToBackendRef.current && pendingSettingsRef.current) {
-        sendMessageToBackend('UpdateSettings', pendingSettingsRef.current);
-        pendingSettingsRef.current = null;
-        shouldSendToBackendRef.current = false;
-      }
     },
     [],
   );
+
+  // Send pending updates to backend after React finishes state updates
+  useEffect(() => {
+    if (pendingBackendUpdateRef.current !== null) {
+      const settingsToSend = pendingBackendUpdateRef.current;
+      pendingBackendUpdateRef.current = null;
+      
+      // Send to backend on next tick to ensure state update is complete
+      queueMicrotask(() => {
+        sendMessageToBackend('UpdateSettings', settingsToSend);
+      });
+    }
+  }, [settings]);
 
   useEffect(() => {
     const handleWebSocketMessage = (event: CustomEvent<any>) => {
