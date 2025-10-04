@@ -293,7 +293,14 @@ namespace Segra.Backend.Services
                 Log.Information($"Detected Epic game at {exePath}, will record");
             }
 
-            return isSteamGame || isEAGame || isEpicGame;
+            // 9. If not in any list, use Ubisoft Games detection
+            bool isUbisoftGame = exePath.Replace("\\", "/").Contains("/Ubisoft/", StringComparison.OrdinalIgnoreCase);
+            if (isUbisoftGame)
+            {
+                Log.Information($"Detected Ubisoft game at {exePath}, will record");
+            }
+
+            return isSteamGame || isEAGame || isEpicGame || isUbisoftGame;
         }
 
         private static bool ContainsBlacklistedTextInFilePath(string exePath)
@@ -497,6 +504,10 @@ namespace Segra.Backend.Services
             string? epicName = AttemptEpicGamesLookup(exePath);
             if (!string.IsNullOrEmpty(epicName)) return epicName;
 
+            // Then try Ubisoft Games lookup
+            string? ubisoftName = AttemptUbisoftGamesLookup(exePath);
+            if (!string.IsNullOrEmpty(ubisoftName)) return ubisoftName;
+
             // Fall back to filename
             return Path.GetFileNameWithoutExtension(exePath);
         }
@@ -594,6 +605,27 @@ namespace Segra.Backend.Services
                         // Skip invalid manifest files
                         continue;
                     }
+                }
+
+                return null;
+            }
+            catch { return null; }
+        }
+
+        private static string? AttemptUbisoftGamesLookup(string exeFilePath)
+        {
+            try
+            {
+                // Ubisoft Connect doesn't have easily accessible manifest files
+                // Instead, use the File Description from the EXE metadata
+                if (!File.Exists(exeFilePath)) return null;
+
+                FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(exeFilePath);
+                string? fileDescription = versionInfo.FileDescription;
+
+                if (!string.IsNullOrEmpty(fileDescription))
+                {
+                    return fileDescription;
                 }
 
                 return null;
