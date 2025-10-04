@@ -674,7 +674,7 @@ namespace Segra.Backend.Utils
                         }
 
                         // Create thumbnail image
-                        ContentUtils.CreateThumbnail(targetFilePath, contentType);
+                        await ContentUtils.CreateThumbnail(targetFilePath, contentType);
 
                         // Send progress after thumbnail creation
                         try

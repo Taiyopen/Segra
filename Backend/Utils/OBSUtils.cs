@@ -45,7 +45,7 @@ namespace Segra.Backend.Utils
         private static signal_callback_t? unhookedCallback;
         private static bool _isGameCaptureHooked = false;
 
-        public static bool SaveReplayBuffer()
+        public static async Task<bool> SaveReplayBuffer()
         {
             // Check if replay buffer is active before trying to save
             if (bufferOutput == IntPtr.Zero || !obs_output_active(bufferOutput))
@@ -119,8 +119,8 @@ namespace Segra.Backend.Utils
 
             // Create metadata for the buffer recording
             ContentUtils.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game);
-            ContentUtils.CreateThumbnail(savedPath, Content.ContentType.Buffer);
-            Task.Run(() => ContentUtils.CreateWaveformFile(savedPath, Content.ContentType.Buffer));
+            await ContentUtils.CreateThumbnail(savedPath, Content.ContentType.Buffer);
+            ContentUtils.CreateWaveformFile(savedPath, Content.ContentType.Buffer);
 
             // Reload content list to include the new buffer file
             SettingsUtils.LoadContentFromFolderIntoState(true);
@@ -388,7 +388,7 @@ namespace Segra.Backend.Utils
                     Settings.Instance.State.Recording = null;
                     Settings.Instance.State.PreRecording = null;
                     _ = MessageUtils.SendSettingsToFrontend("Game did not start within the timeout period");
-                    StopRecording();
+                    _ = Task.Run(StopRecording);
                     return false;
                 }
             }
@@ -407,7 +407,7 @@ namespace Segra.Backend.Utils
                     Settings.Instance.State.Recording = null;
                     Settings.Instance.State.PreRecording = null;
                     _ = MessageUtils.SendSettingsToFrontend("Game did not hook within the timeout period");
-                    StopRecording();
+                    _ = Task.Run(StopRecording);
                     return false;
                 }
             }
@@ -643,7 +643,7 @@ namespace Segra.Backend.Utils
                     Task.Run(() => ShowModal("Recording failed", "Failed to start recording. Check the log for more details.", "error"));
                     Task.Run(() => PlaySound("error", 500));
                     Settings.Instance.State.PreRecording = null;
-                    StopRecording();
+                    _ = Task.Run(StopRecording);
                     return false;
                 }
 
@@ -659,7 +659,7 @@ namespace Segra.Backend.Utils
                     Task.Run(() => ShowModal("Replay buffer failed", "Failed to start replay buffer. Check the log for more details.", "error"));
                     Task.Run(() => PlaySound("error", 500));
                     Settings.Instance.State.PreRecording = null;
-                    StopRecording();
+                    _ = Task.Run(StopRecording);
                     return false;
                 }
 
@@ -715,7 +715,7 @@ namespace Segra.Backend.Utils
             obs_set_output_source(1, displaySource);
         }
 
-        public static void StopRecording()
+        public static async Task StopRecording()
         {
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
             bool isHybridMode = Settings.Instance.RecordingMode == RecordingMode.Hybrid;
@@ -800,8 +800,8 @@ namespace Segra.Backend.Utils
                 if (Settings.Instance.State.Recording != null && Settings.Instance.State.Recording.FilePath != null)
                 {
                     ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
-                    ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
-                    Task.Run(() => ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session));
+                    await ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+                    ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
 
                     Log.Information($"Recording details:");
                     Log.Information($"Start Time: {Settings.Instance.State.Recording.StartTime}");
@@ -873,8 +873,8 @@ namespace Segra.Backend.Utils
                 if (Settings.Instance.State.Recording != null && Settings.Instance.State.Recording.FilePath != null)
                 {
                     ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
-                    ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
-                    Task.Run(() => ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session));
+                    await ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+                    ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
                 }
 
                 SettingsUtils.LoadContentFromFolderIntoState(false);
@@ -888,7 +888,7 @@ namespace Segra.Backend.Utils
                 Settings.Instance.State.PreRecording = null;
             }
 
-            Task.Run(StorageUtils.EnsureStorageBelowLimit);
+            StorageUtils.EnsureStorageBelowLimit();
 
             // Reset hooked executable file name
             hookedExecutableFileName = null;
@@ -910,7 +910,7 @@ namespace Segra.Backend.Utils
             if (Settings.Instance.EnableAi && AuthService.IsAuthenticated() && Settings.Instance.AutoGenerateHighlights && !isReplayBufferMode)
             {
                 string fileName = Path.GetFileNameWithoutExtension(filePath);
-                Task.Run(() => AiService.AnalyzeVideo(fileName));
+                _ = AiService.AnalyzeVideo(fileName);
             }
         }
 

@@ -174,7 +174,7 @@ namespace Segra.Backend.Services
                 if (fileNameWithExtension == Settings.Instance.State.Recording?.FileName)
                 {
                     Log.Information($"[OnTrackedProcessExited] Confirmed that PID {pid} is no longer running. Stopping recording.");
-                    OBSUtils.StopRecording();
+                    _ = Task.Run(OBSUtils.StopRecording);
                 }
             }
             catch (Exception ex)

@@ -90,7 +90,7 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static async void CreateThumbnail(string filePath, Content.ContentType type)
+        public static async Task CreateThumbnail(string filePath, Content.ContentType type)
         {
             try
             {
