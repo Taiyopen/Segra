@@ -223,7 +223,7 @@ namespace Segra.Backend.Services
             }
         }
 
-        private static bool ShouldRecordGame(string exePath)
+        private static bool ShouldRecordGame(string exePath, bool isPeriodicCheck = false)
         {
             if (string.IsNullOrEmpty(exePath) || Settings.Instance.State.Recording != null || Settings.Instance.State.PreRecording != null) return false;
 
@@ -266,7 +266,7 @@ namespace Segra.Backend.Services
             }
 
             // 5. Check for anticheat in file description and log window information
-            if (IsAntiCheatClient(exePath))
+            if (IsAntiCheatClient(exePath, isPeriodicCheck))
             {
                 Log.Information($"Detected anticheat client for this executable, will not record");
                 return false;
@@ -305,7 +305,7 @@ namespace Segra.Backend.Services
             return false;
         }
 
-        private static bool IsAntiCheatClient(string exePath)
+        private static bool IsAntiCheatClient(string exePath, bool isPeriodicCheck)
         {
             try
             {
@@ -320,7 +320,10 @@ namespace Segra.Backend.Services
                 {
                     FileVersionInfo fileInfo = FileVersionInfo.GetVersionInfo(exePath);
                     fileDescription = fileInfo.FileDescription ?? string.Empty;
-                    Log.Information($"File description: '{fileDescription}' for {exePath}");
+
+                    // Prevent logging file description for periodic checks (to avoid spamming and for security concerns)
+                    if (!isPeriodicCheck)
+                        Log.Information($"File description: '{fileDescription}' for {exePath}");
 
                     // Check for blacklisted words in file description
                     if (!string.IsNullOrEmpty(fileDescription))
@@ -444,7 +447,7 @@ namespace Segra.Backend.Services
                 }
 
                 // Check if the foreground process is a game we should record
-                if (ShouldRecordGame(foregroundExePath))
+                if (ShouldRecordGame(foregroundExePath, true))
                 {
                     string processName = "Unknown";
                     try
@@ -526,7 +529,7 @@ namespace Segra.Backend.Services
                 // For example: "C:/Program Files/EA Games/EA SPORTS FC 26/game.exe" -> "EA SPORTS FC 26"
                 string afterEAGames = splitAroundEAGames[1];
                 string folderName = afterEAGames.Split('/')[0];
-                
+
                 return string.IsNullOrEmpty(folderName) ? null : folderName;
             }
             catch { return null; }
