@@ -138,7 +138,6 @@ namespace Segra.Backend.Models
 
                 if (hasChanged || Instance.State.Content.Count == 0)
                 {
-                    SendToFrontend("Content folder changed");
                     SettingsUtils.LoadContentFromFolderIntoState();
                     if (Instance != null && !Instance._isBulkUpdating)
                     {
@@ -322,7 +321,6 @@ namespace Segra.Backend.Models
                 if (_enableAi != value)
                 {
                     _enableAi = value;
-                    SendToFrontend("Enable AI changed");
                 }
             }
         }
@@ -376,7 +374,6 @@ namespace Segra.Backend.Models
                 if (_recordingMode != value)
                 {
                     _recordingMode = value;
-                    SendToFrontend("Recording mode changed");
                 }
             }
         }
@@ -391,8 +388,8 @@ namespace Segra.Backend.Models
                 _whitelist = value;
                 if (hasChanged && !_isBulkUpdating)
                 {
-                    SendToFrontend("Whitelist changed");
                     SettingsUtils.SaveSettings();
+                    SendToFrontend("Whitelist changed");
                 }
             }
         }
@@ -407,8 +404,8 @@ namespace Segra.Backend.Models
                 _blacklist = value;
                 if (hasChanged && !_isBulkUpdating)
                 {
-                    SendToFrontend("Blacklist changed");
                     SettingsUtils.SaveSettings();
+                    SendToFrontend("Blacklist changed");
                 }
             }
         }
@@ -422,7 +419,6 @@ namespace Segra.Backend.Models
                 if (_replayBufferDuration != value)
                 {
                     _replayBufferDuration = value;
-                    SendToFrontend("Replay buffer duration changed");
                 }
             }
         }
@@ -436,7 +432,6 @@ namespace Segra.Backend.Models
                 if (_replayBufferMaxSize != value)
                 {
                     _replayBufferMaxSize = value;
-                    SendToFrontend("Replay buffer max size changed");
                 }
             }
         }
@@ -456,7 +451,6 @@ namespace Segra.Backend.Models
                 if (_forceMonoInputSources != value)
                 {
                     _forceMonoInputSources = value;
-                    SendToFrontend("Force mono input sources changed");
                 }
             }
         }
@@ -467,12 +461,7 @@ namespace Segra.Backend.Models
             get => _auth;
             set
             {
-                bool hasChanged = Instance._auth.Jwt != value.Jwt || Instance._auth.RefreshToken != value.RefreshToken;
                 _auth = value;
-                if (hasChanged)
-                {
-                    SendToFrontend("Auth changed");
-                }
             }
         }
 
@@ -628,7 +617,6 @@ namespace Segra.Backend.Models
                 if (_soundEffectsVolume != value)
                 {
                     _soundEffectsVolume = value;
-                    SendToFrontend("Sound effects volume changed");
                 }
             }
         }
@@ -655,7 +643,6 @@ namespace Segra.Backend.Models
                 if (_showGameBackground != value)
                 {
                     _showGameBackground = value;
-                    SendToFrontend("Show game background setting changed");
                 }
             }
         }
@@ -669,7 +656,6 @@ namespace Segra.Backend.Models
                 if (_showAudioWaveformInTimeline != value)
                 {
                     _showAudioWaveformInTimeline = value;
-                    SendToFrontend("Show audio waveform setting changed");
                 }
             }
         }
@@ -709,7 +695,6 @@ namespace Segra.Backend.Models
                 if (_pendingOBSUpdate != value)
                 {
                     _pendingOBSUpdate = value;
-                    SendToFrontend("Pending OBS update changed");
                 }
             }
         }
@@ -721,7 +706,7 @@ namespace Segra.Backend.Models
             set
             {
                 _keybindings = value ?? GetDefaultKeybindings();
-                
+
                 // Ensure all default actions exist
                 foreach (var defaultKeybind in GetDefaultKeybindings())
                 {
