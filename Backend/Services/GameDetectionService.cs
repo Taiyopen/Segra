@@ -276,7 +276,14 @@ namespace Segra.Backend.Services
                 Log.Information($"Detected Steam game at {exePath}, will record");
             }
 
-            return isSteamGame;
+            // 7. If not in any list, use EA Games detection
+            bool isEAGame = exePath.Replace("\\", "/").Contains("/EA Games/", StringComparison.OrdinalIgnoreCase);
+            if (isEAGame)
+            {
+                Log.Information($"Detected EA game at {exePath}, will record");
+            }
+
+            return isSteamGame || isEAGame;
         }
 
         private static bool ContainsBlacklistedTextInFilePath(string exePath)
@@ -469,6 +476,10 @@ namespace Segra.Backend.Services
             string? steamName = AttemptSteamAcfLookup(exePath);
             if (!string.IsNullOrEmpty(steamName)) return steamName;
 
+            // Then try EA Games lookup
+            string? eaName = AttemptEAGamesLookup(exePath);
+            if (!string.IsNullOrEmpty(eaName)) return eaName;
+
             // Fall back to filename
             return Path.GetFileNameWithoutExtension(exePath);
         }
@@ -496,6 +507,24 @@ namespace Segra.Backend.Services
                     if (acfDir.Equals(folder, StringComparison.OrdinalIgnoreCase)) return acfName;
                 }
                 return null;
+            }
+            catch { return null; }
+        }
+
+        private static string? AttemptEAGamesLookup(string exeFilePath)
+        {
+            try
+            {
+                string normalized = exeFilePath.Replace("\\", "/");
+                var splitAroundEAGames = Regex.Split(normalized, "/EA Games/", RegexOptions.IgnoreCase);
+                if (splitAroundEAGames.Length < 2) return null;
+
+                // Extract the folder name after "EA Games/"
+                // For example: "C:/Program Files/EA Games/EA SPORTS FC 26/game.exe" -> "EA SPORTS FC 26"
+                string afterEAGames = splitAroundEAGames[1];
+                string folderName = afterEAGames.Split('/')[0];
+                
+                return string.IsNullOrEmpty(folderName) ? null : folderName;
             }
             catch { return null; }
         }
