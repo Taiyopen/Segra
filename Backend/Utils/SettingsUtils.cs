@@ -436,6 +436,7 @@ namespace Segra.Backend.Utils
 
             // Update Encoder
             bool hasAutoSelectedCodec = false;
+            bool hasAutoSelectedRateControl = false;
             if (settings.Encoder != updatedSettings.Encoder)
             {
                 Log.Information($"Encoder changed from '{settings.Encoder}' to '{updatedSettings.Encoder}'");
@@ -448,6 +449,20 @@ namespace Segra.Backend.Utils
                     Log.Information($"Automatically changing codec to '{newCodec.FriendlyName}' based on encoder change");
                     settings.Codec = newCodec;
                     hasAutoSelectedCodec = true;
+                }
+
+                // Ensure CRF is only used with CPU encoder; if user switches to GPU, switch to CQP
+                if (settings.Encoder == "gpu" && settings.RateControl == "CRF")
+                {
+                    Log.Information($"Automatically changing RateControl from 'CRF' to 'CQP' because encoder is GPU");
+                    settings.RateControl = "CQP";
+                    hasAutoSelectedRateControl = true;
+                }
+                else if (settings.Encoder == "cpu" && settings.RateControl == "CQP")
+                {
+                    Log.Information($"Automatically changing RateControl from 'CQP' to 'CRF' because encoder is CPU");
+                    settings.RateControl = "CRF";
+                    hasAutoSelectedRateControl = true;
                 }
 
                 hasChanges = true;
@@ -501,7 +516,7 @@ namespace Segra.Backend.Utils
             }
 
             // Update RateControl
-            if (settings.RateControl != updatedSettings.RateControl)
+            if (settings.RateControl != updatedSettings.RateControl && !hasAutoSelectedRateControl)
             {
                 Log.Information($"RateControl changed from '{settings.RateControl}' to '{updatedSettings.RateControl}'");
                 settings.RateControl = updatedSettings.RateControl;

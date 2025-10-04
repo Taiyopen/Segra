@@ -204,8 +204,8 @@ namespace Segra.Backend.Utils
                             break;
                         case "UpdateSettings":
                             root.TryGetProperty("Parameters", out JsonElement settingsParameterElement);
-                            SettingsUtils.HandleUpdateSettings(settingsParameterElement);
                             Log.Information("UpdateSettings command received.");
+                            SettingsUtils.HandleUpdateSettings(settingsParameterElement);
                             break;
                         case "AddBookmark":
                             root.TryGetProperty("Parameters", out JsonElement bookmarkParameterElement);
@@ -1553,7 +1553,8 @@ namespace Segra.Backend.Utils
         [
             "accesstoken",
             "refreshtoken",
-            "jwt"
+            "jwt",
+            "state"
         ];
 
         private static string RedactSensitiveInfo(string message)
@@ -1563,11 +1564,85 @@ namespace Segra.Backend.Utils
 
             foreach (var prop in SensitiveProperties)
             {
-                var pattern = $"\"{prop}\":\"([^\"]+)\"";
-                message = Regex.Replace(message, pattern, $"\"{prop}\":\"-REDACTED-\"", RegexOptions.IgnoreCase);
+                // Redact string values: "prop":"value"
+                var stringPattern = $"\"{prop}\":\"([^\"]+)\"";
+                message = Regex.Replace(message, stringPattern, $"\"{prop}\":\"-REDACTED-\"", RegexOptions.IgnoreCase);
+                
+                // Redact object/array values: "prop":{...} or "prop":[...]
+                // Find the property and then skip to the matching closing brace/bracket
+                var propPattern = $"\"{prop}\":";
+                var index = message.IndexOf($"\"{prop}\":", StringComparison.OrdinalIgnoreCase);
+                
+                while (index >= 0)
+                {
+                    var valueStart = index + propPattern.Length;
+                    if (valueStart < message.Length)
+                    {
+                        var firstChar = message[valueStart];
+                        if (firstChar == '{' || firstChar == '[')
+                        {
+                            var endIndex = FindMatchingBracket(message, valueStart);
+                            if (endIndex > valueStart)
+                            {
+                                var before = message.Substring(0, index);
+                                var after = message.Substring(endIndex + 1);
+                                message = before + $"\"{prop}\":\"-REDACTED-\"" + after;
+                            }
+                        }
+                    }
+                    
+                    // Find next occurrence
+                    index = message.IndexOf($"\"{prop}\":", index + 1, StringComparison.OrdinalIgnoreCase);
+                }
             }
 
             return message;
+        }
+
+        private static int FindMatchingBracket(string text, int startIndex)
+        {
+            var openChar = text[startIndex];
+            var closeChar = openChar == '{' ? '}' : ']';
+            var depth = 1;
+            var inString = false;
+            var escaped = false;
+
+            for (int i = startIndex + 1; i < text.Length; i++)
+            {
+                var c = text[i];
+
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+
+                if (c == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (!inString)
+                {
+                    if (c == openChar)
+                        depth++;
+                    else if (c == closeChar)
+                    {
+                        depth--;
+                        if (depth == 0)
+                            return i;
+                    }
+                }
+            }
+
+            return -1; // No matching bracket found
         }
 
         private static async Task HandleRenameContent(JsonElement message)
