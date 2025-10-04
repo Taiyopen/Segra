@@ -168,7 +168,16 @@ namespace Segra.Backend.Utils
                     string formattedMessage = MarshalUtils.GetLogMessage(msg, args);
 
                     if (formattedMessage.Contains("capture stopped"))
+                    {
                         _isGameCaptureHooked = false;
+
+                        // Check if any output is still active
+                        if (output != IntPtr.Zero || bufferOutput != IntPtr.Zero)
+                        {
+                            Log.Warning("Capture stopped. Stopping recording.");
+                            _ = Task.Run(StopRecording);
+                        }
+                    }
 
                     if (formattedMessage.Contains("attempting to hook fullscreen process"))
                     {
