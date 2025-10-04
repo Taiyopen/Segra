@@ -720,17 +720,14 @@ namespace Segra.Backend.Models
             get => _keybindings;
             set
             {
-                if (value == null || !_keybindings.SequenceEqual(value))
+                _keybindings = value ?? GetDefaultKeybindings();
+                
+                // Ensure all default actions exist
+                foreach (var defaultKeybind in GetDefaultKeybindings())
                 {
-                    _keybindings = value ?? new List<Keybind>();
-                    // Check for each default keybind action and add it if missing
-                    foreach (var defaultKeybind in GetDefaultKeybindings())
+                    if (!_keybindings.Any(k => k.Action == defaultKeybind.Action))
                     {
-                        if (!_keybindings.Any(k => k.Action == defaultKeybind.Action))
-                        {
-                            _keybindings.Add(defaultKeybind);
-                            Log.Information($"Added missing keybind for action {defaultKeybind.Action}");
-                        }
+                        _keybindings.Add(defaultKeybind);
                     }
                 }
             }

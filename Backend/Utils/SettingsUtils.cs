@@ -613,10 +613,10 @@ namespace Segra.Backend.Utils
             }
 
             // Update Keybindings
-            if (updatedSettings.Keybindings != null && !settings.Keybindings.SequenceEqual(updatedSettings.Keybindings))
+            if (updatedSettings.Keybindings != null)
             {
-                Log.Information("Keybindings updated");
                 settings.Keybindings = updatedSettings.Keybindings;
+                hasChanges = true;
             }
 
             // Only save settings and send to frontend if changes were actually made

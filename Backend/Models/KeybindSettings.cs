@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Segra.Backend.Models
 {
-    public class Keybind : IEquatable<Keybind>
+    public class Keybind
     {
         [JsonPropertyName("action")]
         [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -19,33 +19,6 @@ namespace Segra.Backend.Models
             Keys = keys;
             Action = action;
             Enabled = enabled;
-        }
-
-        public bool Equals(Keybind? other)
-        {
-            if (other == null) return false;
-
-            return Action == other.Action &&
-                   Enabled == other.Enabled &&
-                   Keys.SequenceEqual(other.Keys);
-        }
-
-        public override bool Equals(object? obj)
-        {
-            if (obj is Keybind keybind)
-            {
-                return Equals(keybind);
-            }
-            return false;
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(
-                Action,
-                Enabled,
-                Keys.Aggregate(0, (hash, key) => hash ^ key.GetHashCode())
-            );
         }
     }
 
