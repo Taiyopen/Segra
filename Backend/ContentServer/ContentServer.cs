@@ -1,7 +1,7 @@
 using Serilog;
-using System.Diagnostics;
 using System.Net;
 using System.Web;
+using Segra.Backend.Utils;
 
 namespace Segra.Backend.ContentServer
 {
@@ -98,10 +98,9 @@ namespace Segra.Backend.ContentServer
                         timeSeconds = 0.0;
                     }
 
-                    string ffmpegPath = "ffmpeg.exe";
-                    if (!File.Exists(ffmpegPath))
+                    if (!FFmpegUtils.FFmpegExists())
                     {
-                        Log.Error("FFmpeg executable not found: {FfmpegPath}", ffmpegPath);
+                        Log.Error("FFmpeg executable not found: {FfmpegPath}", FFmpegUtils.GetFFmpegPath());
                         response.StatusCode = (int)HttpStatusCode.InternalServerError;
                         using (var writer = new StreamWriter(response.OutputStream))
                         {
@@ -110,44 +109,20 @@ namespace Segra.Backend.ContentServer
                         return;
                     }
 
-                    string timeString = timeSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    string ffmpegArgs = $"-y -ss {timeString} -i \"{input}\" -frames:v 1 -vf scale=320:-1 -f image2pipe -vcodec mjpeg -q:v 20 pipe:1";
-
-                    var processInfo = new ProcessStartInfo
-                    {
-                        FileName = ffmpegPath,
-                        Arguments = ffmpegArgs,
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        CreateNoWindow = true
-                    };
-
                     byte[] jpegBytes;
-                    using (var ffmpegProcess = new Process { StartInfo = processInfo })
+                    try
                     {
-                        ffmpegProcess.Start();
-
-                        // Read the image bytes from stdout.
-                        using (var ms = new MemoryStream())
+                        jpegBytes = FFmpegUtils.GenerateThumbnail(input, timeSeconds).Result;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("FFmpeg error: {Message}", ex.Message);
+                        response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                        using (var writer = new StreamWriter(response.OutputStream))
                         {
-                            ffmpegProcess.StandardOutput.BaseStream.CopyTo(ms);
-                            jpegBytes = ms.ToArray();
+                            writer.Write($"FFmpeg error:\n{ex.Message}");
                         }
-
-                        // Read any error messages
-                        string ffmpegStdErr = ffmpegProcess.StandardError.ReadToEnd();
-                        ffmpegProcess.WaitForExit();
-                        if (ffmpegProcess.ExitCode != 0)
-                        {
-                            Log.Error("FFmpeg error (exit={ExitCode}). Stderr={StdErr}", ffmpegProcess.ExitCode, ffmpegStdErr);
-                            response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                            using (var writer = new StreamWriter(response.OutputStream))
-                            {
-                                writer.Write($"FFmpeg error:\n{ffmpegStdErr}");
-                            }
-                            return;
-                        }
+                        return;
                     }
 
                     // Serve the image directly from memory

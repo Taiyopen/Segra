@@ -90,7 +90,7 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static void CreateThumbnail(string filePath, Content.ContentType type)
+        public static async void CreateThumbnail(string filePath, Content.ContentType type)
         {
             try
             {
@@ -108,76 +108,14 @@ namespace Segra.Backend.Utils
                 // Define the output thumbnail file path
                 string thumbnailFilePath = Path.Combine(thumbnailsFolderPath, $"{contentFileName}.jpeg");
 
-                // Locate the bundled FFmpeg executable
-                string ffmpegPath = "ffmpeg.exe";
-                if (!File.Exists(ffmpegPath))
+                if (!FFmpegUtils.FFmpegExists())
                 {
-                    Log.Information("FFmpeg binary not found in Resources/FFmpeg!");
+                    Log.Information("FFmpeg binary not found!");
                     return;
                 }
 
-                // Ensure the duration is available
-                TimeSpan duration = GetVideoDuration(filePath);
-
-                if (duration == TimeSpan.Zero)
-                {
-                    // Handle the case where the duration is not available
-                    throw new Exception("Video duration is not available.");
-                }
-
-                // Calculate the midpoint
-                TimeSpan midpoint = TimeSpan.FromTicks(duration.Ticks / 2);
-
-                string midpointTime = midpoint.ToString(@"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture);
-
-                // FFmpeg arguments to extract a thumbnail at 5 seconds
-                string ffmpegArgs = $"-ss {midpointTime} -i \"{filePath}\" -vf \"scale=720:-1\" -qscale:v 9 -vframes 1 \"{thumbnailFilePath}\"";
-
-                // Run FFmpeg as a process
-                ProcessStartInfo processInfo = new ProcessStartInfo
-                {
-                    FileName = ffmpegPath,
-                    Arguments = ffmpegArgs,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using (Process process = new Process { StartInfo = processInfo })
-                {
-                    var errorBuilder = new System.Text.StringBuilder();
-                    process.ErrorDataReceived += (s, e) => { if (e.Data != null) errorBuilder.AppendLine(e.Data); };
-
-                    // Continuously drain stdout to avoid deadlocks
-                    var outputReadTask = new Task(() =>
-                    {
-                        using (var reader = process.StandardOutput)
-                        {
-                            while (!reader.EndOfStream)
-                            {
-                                reader.ReadLine();
-                            }
-                        }
-                    });
-
-                    process.Start();
-                    process.BeginErrorReadLine();
-                    outputReadTask.Start();
-
-                    process.WaitForExit();
-                    outputReadTask.Wait(1000);
-
-                    if (process.ExitCode != 0)
-                    {
-                        Log.Error($"FFmpeg error: {errorBuilder}");
-                        Log.Error("Thumbnail generation failed.");
-                    }
-                    else
-                    {
-                        Log.Information($"Thumbnail successfully created at: {thumbnailFilePath}");
-                    }
-                }
+                await FFmpegUtils.CreateThumbnailFile(filePath, thumbnailFilePath);
+                Log.Information($"Thumbnail successfully created at: {thumbnailFilePath}");
             }
             catch (Exception ex)
             {
@@ -185,15 +123,13 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static void CreateWaveformFile(string videoFilePath, Content.ContentType type)
+        public static async void CreateWaveformFile(string videoFilePath, Content.ContentType type)
         {
-            string ffmpegPath = "ffmpeg.exe";
-
             try
             {
-                if (!File.Exists(ffmpegPath))
+                if (!FFmpegUtils.FFmpegExists())
                 {
-                    Log.Error($"FFmpeg executable not found at: {ffmpegPath}");
+                    Log.Error($"FFmpeg executable not found at: {FFmpegUtils.GetFFmpegPath()}");
                     return;
                 }
                 if (!File.Exists(videoFilePath))
@@ -218,50 +154,7 @@ namespace Segra.Backend.Utils
 
                 // Decode audio to raw mono 16-bit PCM at a modest sample rate for efficiency
                 int sampleRate = 11025;
-                string ffmpegArgs = $"-i \"{videoFilePath}\" -vn -ac 1 -ar {sampleRate} -f s16le -acodec pcm_s16le \"{tempPcmPath}\"";
-
-                var processInfo = new ProcessStartInfo
-                {
-                    FileName = ffmpegPath,
-                    Arguments = ffmpegArgs,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using (var process = new Process { StartInfo = processInfo })
-                {
-                    var errorBuilder = new System.Text.StringBuilder();
-                    process.ErrorDataReceived += (s, e) => { if (e.Data != null) errorBuilder.AppendLine(e.Data); };
-
-                    // Simple task to continuously read stdout to prevent buffer filling
-                    var outputReadTask = new Task(() =>
-                    {
-                        using (var reader = process.StandardOutput)
-                        {
-                            while (!reader.EndOfStream)
-                            {
-                                reader.ReadLine();
-                            }
-                        }
-                    });
-
-                    process.Start();
-                    process.BeginErrorReadLine();
-                    outputReadTask.Start();
-
-                    process.WaitForExit();
-
-                    // Give the output task a moment to finish
-                    outputReadTask.Wait(1000);
-
-                    if (process.ExitCode != 0)
-                    {
-                        Log.Error($"FFmpeg error while extracting PCM: {errorBuilder}");
-                        return;
-                    }
-                }
+                await FFmpegUtils.ExtractPcmAudio(videoFilePath, tempPcmPath, sampleRate);
 
                 if (!File.Exists(tempPcmPath))
                 {
@@ -346,39 +239,9 @@ namespace Segra.Backend.Utils
 
         public static TimeSpan GetVideoDuration(string videoFilePath)
         {
-            string ffmpegPath = "ffmpeg.exe";
-
             try
             {
-                if (!File.Exists(ffmpegPath))
-                    throw new FileNotFoundException($"FFmpeg executable not found at: {ffmpegPath}");
-                if (!File.Exists(videoFilePath))
-                    throw new FileNotFoundException($"Video file not found at: {videoFilePath}");
-
-                var processStartInfo = new ProcessStartInfo
-                {
-                    FileName = ffmpegPath,
-                    Arguments = $"-i \"{videoFilePath}\"",
-                    RedirectStandardError = true, // FFmpeg outputs metadata to standard error
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using (var process = new Process { StartInfo = processStartInfo })
-                {
-                    process.Start();
-                    string output = process.StandardError.ReadToEnd();
-                    process.WaitForExit();
-
-                    // Extract duration from FFmpeg output
-                    string? durationLine = ExtractDuration(output);
-                    if (TimeSpan.TryParse(durationLine, out var duration))
-                    {
-                        return duration;
-                    }
-
-                    throw new Exception("Unable to parse duration from FFmpeg output.");
-                }
+                return FFmpegUtils.GetVideoDuration(videoFilePath).Result;
             }
             catch (Exception ex)
             {
@@ -503,21 +366,5 @@ namespace Segra.Backend.Utils
             }
         }
 
-        private static string? ExtractDuration(string ffmpegOutput)
-        {
-            // Look for a line like: "Duration: 00:02:34.56, start: 0.000000, bitrate: 128 kb/s"
-            const string durationKeyword = "Duration: ";
-            int startIndex = ffmpegOutput.IndexOf(durationKeyword);
-            if (startIndex != -1)
-            {
-                startIndex += durationKeyword.Length;
-                int endIndex = ffmpegOutput.IndexOf(",", startIndex);
-                if (endIndex != -1)
-                {
-                    return ffmpegOutput.Substring(startIndex, endIndex - startIndex).Trim();
-                }
-            }
-            return null;
-        }
     }
 }

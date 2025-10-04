@@ -71,11 +71,10 @@ namespace Segra.Backend.Utils
             Directory.CreateDirectory(outputFolder);
 
             List<string> tempClipFiles = new List<string>();
-            string ffmpegPath = "ffmpeg.exe";
 
-            if (!File.Exists(ffmpegPath))
+            if (!FFmpegUtils.FFmpegExists())
             {
-                Log.Error($"FFmpeg executable not found at path: {ffmpegPath}");
+                Log.Error($"FFmpeg executable not found at path: {FFmpegUtils.GetFFmpegPath()}");
                 return;
             }
 
@@ -92,7 +91,7 @@ namespace Segra.Backend.Utils
                 string tempFileName = Path.Combine(Path.GetTempPath(), $"clip{Guid.NewGuid()}.mp4");
                 double clipDuration = selection.EndTime - selection.StartTime;
 
-                await ExtractClip(id, inputFilePath, tempFileName, selection.StartTime, selection.EndTime, ffmpegPath, progress =>
+                await ExtractClip(id, inputFilePath, tempFileName, selection.StartTime, selection.EndTime, progress =>
                 {
                     double currentProgress = (processedDuration + (progress * clipDuration)) / totalDuration * 100;
                     if (updateFrontend)
@@ -141,7 +140,7 @@ namespace Segra.Backend.Utils
                 _ = MessageUtils.SendFrontendMessage("AiProgress", aiProgressMessage);
             }
 
-            await RunFFmpegProcess(id, ffmpegPath,
+            await FFmpegUtils.RunWithProgress(id,
                 $"-y -f concat -safe 0 -i \"{concatFilePath}\" -c copy -movflags +faststart \"{outputFilePath}\"",
                 totalDuration,
                 progress =>
@@ -192,10 +191,9 @@ namespace Segra.Backend.Utils
             string outputFileName = $"{content.FileName}_{bookmark.Type}_{bookmark.Id}.mp4";
             string outputFilePath = Path.Combine(aiOutputFolder, outputFileName).Replace("\\", "/");
 
-            string ffmpegPath = "ffmpeg.exe";
-            if (!File.Exists(ffmpegPath))
+            if (!FFmpegUtils.FFmpegExists())
             {
-                Log.Error($"FFmpeg executable not found at path: {ffmpegPath}");
+                Log.Error($"FFmpeg executable not found at path: {FFmpegUtils.GetFFmpegPath()}");
                 return null;
             }
 
@@ -209,7 +207,7 @@ namespace Segra.Backend.Utils
                 $"-i \"{inputFilePath}\" " +
                 $"-c copy -movflags +faststart \"{tempFilePath}\"";
 
-            await RunFFmpegProcessSimple(ffmpegPath, copyArguments);
+            await FFmpegUtils.RunSimple(copyArguments);
 
             var fileInfo = new FileInfo(tempFilePath);
             const long oneGB = 1L << 30; // 1GB in bytes
@@ -297,7 +295,7 @@ namespace Segra.Backend.Utils
                     $"-c:v {videoCodecAi} {presetArgsAi} {qualityArgsAi} {fpsArgAi} " +
                     $"-c:a aac -b:a {currentSettings.ClipAudioQuality} -movflags +faststart \"{outputFilePath}\"";
 
-                await RunFFmpegProcessSimple(ffmpegPath, reencodeArguments);
+                await FFmpegUtils.RunSimple(reencodeArguments);
 
                 // After re-encode is done, we no longer need the temp file and the compressed file is already at the final output path
                 SafeDelete(tempFilePath);
@@ -349,7 +347,7 @@ namespace Segra.Backend.Utils
 
 
         private static async Task ExtractClip(int clipId, string inputFilePath, string outputFilePath, double startTime, double endTime,
-                            string ffmpegPath, Action<double> progressCallback)
+                            Action<double> progressCallback)
         {
             double duration = endTime - startTime;
             var settings = Settings.Instance;
@@ -437,188 +435,9 @@ namespace Segra.Backend.Utils
                              $"-c:a aac -b:a {settings.ClipAudioQuality} -movflags +faststart \"{outputFilePath}\"";
             Log.Information("Extracting clip");
             Log.Information($"FFmpeg arguments: {arguments}");
-            await RunFFmpegProcess(clipId, ffmpegPath, arguments, duration, progressCallback);
+            await FFmpegUtils.RunWithProgress(clipId, arguments, duration, progressCallback);
         }
 
-        private static async Task RunFFmpegProcess(int clipId, string ffmpegPath, string arguments, double? totalDuration, Action<double> progressCallback)
-        {
-            Log.Information($"[Clip {clipId}] Starting FFmpeg process");
-            Log.Information($"[Clip {clipId}] FFmpeg path: {ffmpegPath}");
-            Log.Information($"[Clip {clipId}] FFmpeg arguments: {arguments}");
-
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = ffmpegPath,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-
-            using (var process = new Process { StartInfo = processStartInfo })
-            {
-                // Handle standard output (non-blocking)
-                process.OutputDataReceived += (sender, e) =>
-                {
-                    if (!string.IsNullOrEmpty(e.Data))
-                    {
-                        Log.Information($"[Clip {clipId}] FFmpeg stdout: {e.Data}");
-                    }
-                };
-
-                // Handle standard error (non-blocking)
-                process.ErrorDataReceived += (sender, e) =>
-                {
-                    if (string.IsNullOrEmpty(e.Data)) return;
-
-                    // Log all FFmpeg stderr output
-                    Log.Information($"[Clip {clipId}] FFmpeg stderr: {e.Data}");
-
-                    try
-                    {
-                        // Only try to parse time if we have total duration
-                        if (totalDuration.HasValue)
-                        {
-                            var timeMatch = Regex.Match(e.Data, @"time=(\d+:\d+:\d+\.\d+)");
-                            if (timeMatch.Success)
-                            {
-                                var ts = TimeSpan.Parse(timeMatch.Groups[1].Value, CultureInfo.InvariantCulture);
-                                var progress = ts.TotalSeconds / totalDuration.Value;
-                                progressCallback?.Invoke(progress);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning($"[Clip {clipId}] Failed to parse FFmpeg progress: {ex.Message}");
-                    }
-                };
-
-                try
-                {
-                    lock (ProcessLock)
-                    {
-                        if (!ActiveFFmpegProcesses.ContainsKey(clipId))
-                        {
-                            ActiveFFmpegProcesses[clipId] = new List<Process>();
-                        }
-                        ActiveFFmpegProcesses[clipId].Add(process);
-                    }
-
-                    process.Start();
-                    Log.Information($"[Clip {clipId}] FFmpeg process started (PID: {process.Id})");
-                    
-                    // Begin async reading of both streams to prevent buffer blocking
-                    process.BeginOutputReadLine();
-                    process.BeginErrorReadLine();
-                    
-                    await process.WaitForExitAsync();
-
-                    Log.Information($"[Clip {clipId}] FFmpeg process completed with exit code: {process.ExitCode}");
-
-                    lock (ProcessLock)
-                    {
-                        if (ActiveFFmpegProcesses.ContainsKey(clipId))
-                        {
-                            ActiveFFmpegProcesses[clipId].Remove(process);
-                            if (ActiveFFmpegProcesses[clipId].Count == 0)
-                            {
-                                ActiveFFmpegProcesses.Remove(clipId);
-                            }
-                        }
-                    }
-
-                    if (process.ExitCode != 0)
-                    {
-                        Log.Error($"[Clip {clipId}] FFmpeg process failed with exit code: {process.ExitCode}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"[Clip {clipId}] Error in FFmpeg process: {ex.Message}");
-                    Log.Error($"[Clip {clipId}] Stack trace: {ex.StackTrace}");
-
-                    lock (ProcessLock)
-                    {
-                        if (ActiveFFmpegProcesses.ContainsKey(clipId))
-                        {
-                            ActiveFFmpegProcesses[clipId].Remove(process);
-                            if (ActiveFFmpegProcesses[clipId].Count == 0)
-                            {
-                                ActiveFFmpegProcesses.Remove(clipId);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Always make sure we report completion
-            Log.Information($"[Clip {clipId}] Reporting final progress: 100%");
-            progressCallback?.Invoke(1.0);
-        }
-
-        private static async Task RunFFmpegProcessSimple(string ffmpegPath, string arguments)
-        {
-            Log.Information("Running simple ffmpeg with arguments: " + arguments);
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = ffmpegPath,
-                Arguments = arguments,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-
-            using (var process = new Process { StartInfo = processStartInfo })
-            {
-                try
-                {
-                    Log.Information("Starting process...");
-                    process.Start();
-
-                    var readErrorTask = Task.Run(async () =>
-                    {
-                        while (!process.StandardError.EndOfStream)
-                        {
-                            await process.StandardError.ReadLineAsync();
-                        }
-                    });
-
-                    var readOutputTask = Task.Run(async () =>
-                    {
-                        while (!process.StandardOutput.EndOfStream)
-                        {
-                            await process.StandardOutput.ReadLineAsync();
-                        }
-                    });
-
-                    Log.Information("Waiting for process to complete...");
-
-                    // Wait for the process to exit
-                    await process.WaitForExitAsync();
-
-                    // Now that the process has exited, we can safely wait for the read tasks to complete
-                    // Use a timeout to prevent hanging if there's an issue
-                    await Task.WhenAll(
-                        Task.WhenAny(readErrorTask, Task.Delay(1000)),
-                        Task.WhenAny(readOutputTask, Task.Delay(1000))
-                    );
-
-                    Log.Information("Process completed with exit code: " + process.ExitCode);
-
-                    if (process.ExitCode != 0)
-                    {
-                        Log.Error($"FFmpeg process exited with non-zero exit code: {process.ExitCode}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"Error in FFmpeg process: {ex.Message}");
-                }
-            }
-        }
 
         public static void CancelClip(int clipId)
         {
