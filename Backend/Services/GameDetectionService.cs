@@ -145,6 +145,9 @@ namespace Segra.Backend.Services
                 int pid = Convert.ToInt32(processObj["Handle"]);
                 string exePath = ResolveProcessPath(pid);
 
+                // We can't resolve the path, so it's most likely not a game
+                if (string.IsNullOrEmpty(exePath)) return;
+
                 Log.Information($"[OnProcessStarted] Application started: PID {pid}, Path: {exePath}");
                 if (ShouldRecordGame(exePath))
                 {
