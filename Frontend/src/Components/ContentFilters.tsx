@@ -78,7 +78,7 @@ export default function ContentFilters({
     <div className="flex items-center space-x-2">
       {/* Filter dropdown */}
       <div className="dropdown dropdown-end">
-        <button className="btn btn-sm no-animation btn-secondary border border-base-400 h-8 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300">
+        <button disabled={uniqueGames.length === 0} className={`btn btn-sm no-animation btn-secondary border border-base-400 h-8 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300 ${uniqueGames.length === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
           <MdFilterList size={16} />
           Filter
           {selectedGames.length > 0 && (
@@ -116,7 +116,7 @@ export default function ContentFilters({
 
       {/* Sort dropdown */}
       <div className="dropdown dropdown-end">
-        <button className="btn btn-sm no-animation btn-secondary border border-base-400 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300 h-8">
+        <button disabled={uniqueGames.length === 0} className={`btn btn-sm no-animation btn-secondary border border-base-400 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300 h-8 ${uniqueGames.length === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
           <MdSort size={16} />
           {getSortLabel(sortOption)}
         </button>
