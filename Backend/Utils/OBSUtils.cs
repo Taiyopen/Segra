@@ -410,7 +410,7 @@ namespace Segra.Backend.Utils
             // If display recording is disabled, wait for game capture to hook
             if (!Settings.Instance.EnableDisplayRecording && gameCaptureSource != IntPtr.Zero)
             {
-                bool hooked = WaitUntilGameCaptureHooks(startManually ? 90000 : 10000);
+                bool hooked = WaitUntilGameCaptureHooks(startManually ? 90000 : 30000);
                 if (!hooked)
                 {
                     Settings.Instance.State.Recording = null;
@@ -1016,7 +1016,7 @@ namespace Segra.Backend.Utils
             return true;
         }
 
-        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 10000)
+        private static bool WaitUntilGameCaptureHooks(int timeoutMs = 30000)
         {
             int elapsed = 0;
             const int step = 100;
