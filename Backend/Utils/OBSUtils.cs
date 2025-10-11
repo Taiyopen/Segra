@@ -44,6 +44,8 @@ namespace Segra.Backend.Utils
         private static signal_callback_t? hookedCallback;
         private static signal_callback_t? unhookedCallback;
         private static bool _isGameCaptureHooked = false;
+        private static readonly SemaphoreSlim _stopRecordingSemaphore = new SemaphoreSlim(1, 1);
+        private static bool _isStoppingOrStopped = false;
 
         public static async Task<bool> SaveReplayBuffer()
         {
@@ -167,7 +169,7 @@ namespace Segra.Backend.Utils
                 {
                     string formattedMessage = MarshalUtils.GetLogMessage(msg, args);
 
-                    if (formattedMessage.Contains("capture stopped"))
+                    if (formattedMessage.Contains("capture window no longer exists, terminating capture"))
                     {
                         _isGameCaptureHooked = false;
 
@@ -331,6 +333,8 @@ namespace Segra.Backend.Utils
                 return false;
             }
 
+            // Reset the stopping flag when starting a new recording
+            _isStoppingOrStopped = false;
             signalOutputStop = false;
 
             // Note: According to docs, audio settings cannot be reconfigured after initialization
@@ -726,200 +730,219 @@ namespace Segra.Backend.Utils
 
         public static async Task StopRecording()
         {
-            bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
-            bool isHybridMode = Settings.Instance.RecordingMode == RecordingMode.Hybrid;
-
-            if (isReplayBufferMode && bufferOutput != IntPtr.Zero)
+            // Prevent race conditions when multiple callers try to stop recording simultaneously
+            await _stopRecordingSemaphore.WaitAsync();
+            try
             {
-                // Stop replay buffer
-                signalOutputStop = false;
-                obs_output_stop(bufferOutput);
-
-                int attempts = 0;
-                while (!signalOutputStop && attempts < 300)
+                // Check if already stopping or stopped
+                if (_isStoppingOrStopped)
                 {
-                    Thread.Sleep(100);
-                    attempts++;
+                    Log.Information("StopRecording called but already stopping or stopped.");
+                    return;
                 }
 
-                if (!signalOutputStop)
+                // Mark as stopping to prevent concurrent stop attempts
+                _isStoppingOrStopped = true;
+
+                bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
+                bool isHybridMode = Settings.Instance.RecordingMode == RecordingMode.Hybrid;
+
+                if (isReplayBufferMode && bufferOutput != IntPtr.Zero)
                 {
-                    Log.Warning("Failed to stop replay buffer. Forcing stop.");
-                    obs_output_force_stop(bufferOutput);
-                }
-                else
-                {
-                    Log.Information("Replay buffer stopped.");
-                }
-
-                Thread.Sleep(200);
-
-                DisposeOutput();
-                DisposeSources();
-                DisposeEncoders();
-
-                Log.Information("Replay buffer stopped and disposed.");
-
-                _ = GameIntegrationService.Shutdown();
-                KeybindCaptureService.Stop();
-
-                // Reload content list
-                SettingsUtils.LoadContentFromFolderIntoState(false);
-            }
-            else if (!isReplayBufferMode && !isHybridMode && output != IntPtr.Zero)
-            {
-                // Stop standard recording
-                if (Settings.Instance.State.Recording != null)
-                    Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
-
-                signalOutputStop = false;
-                obs_output_stop(output);
-
-                int attempts = 0;
-                while (!signalOutputStop && attempts < 300)
-                {
-                    Thread.Sleep(100);
-                    attempts++;
-                }
-
-                if (!signalOutputStop)
-                {
-                    Log.Warning("Failed to stop recording. Forcing stop.");
-                    obs_output_force_stop(output);
-                }
-                else
-                {
-                    Log.Information("Output stopped.");
-                }
-
-                Thread.Sleep(200);
-
-                DisposeOutput();
-                DisposeSources();
-                DisposeEncoders();
-
-                output = IntPtr.Zero;
-
-                Log.Information("Recording stopped.");
-
-                _ = GameIntegrationService.Shutdown();
-                KeybindCaptureService.Stop();
-
-                // Might be null or empty if the recording failed to start
-                if (Settings.Instance.State.Recording != null && Settings.Instance.State.Recording.FilePath != null)
-                {
-                    ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
-                    await ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
-                    ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
-
-                    Log.Information($"Recording details:");
-                    Log.Information($"Start Time: {Settings.Instance.State.Recording.StartTime}");
-                    Log.Information($"End Time: {Settings.Instance.State.Recording.EndTime}");
-                    Log.Information($"Duration: {Settings.Instance.State.Recording.Duration}");
-                    Log.Information($"File Path: {Settings.Instance.State.Recording.FilePath}");
-                }
-
-                SettingsUtils.LoadContentFromFolderIntoState(false);
-            }
-            else if (isHybridMode)
-            {
-                if (Settings.Instance.State.Recording != null)
-                    Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
-
-                // Stop replay buffer first if running
-                if (bufferOutput != IntPtr.Zero)
-                {
+                    // Stop replay buffer
                     signalOutputStop = false;
                     obs_output_stop(bufferOutput);
+
                     int attempts = 0;
                     while (!signalOutputStop && attempts < 300)
                     {
                         Thread.Sleep(100);
                         attempts++;
                     }
+
                     if (!signalOutputStop)
                     {
-                        Log.Warning("Hybrid: Failed to stop replay buffer. Forcing stop.");
+                        Log.Warning("Failed to stop replay buffer. Forcing stop.");
                         obs_output_force_stop(bufferOutput);
                     }
                     else
                     {
-                        Log.Information("Hybrid: Replay buffer stopped.");
+                        Log.Information("Replay buffer stopped.");
                     }
-                }
 
-                // Stop session recording
-                if (output != IntPtr.Zero)
+                    Thread.Sleep(200);
+
+                    DisposeOutput();
+                    DisposeSources();
+                    DisposeEncoders();
+
+                    Log.Information("Replay buffer stopped and disposed.");
+
+                    _ = GameIntegrationService.Shutdown();
+                    KeybindCaptureService.Stop();
+
+                    // Reload content list
+                    SettingsUtils.LoadContentFromFolderIntoState(false);
+                }
+                else if (!isReplayBufferMode && !isHybridMode && output != IntPtr.Zero)
                 {
+                    // Stop standard recording
+                    if (Settings.Instance.State.Recording != null)
+                        Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
+
                     signalOutputStop = false;
                     obs_output_stop(output);
-                    int attempts2 = 0;
-                    while (!signalOutputStop && attempts2 < 300)
+
+                    int attempts = 0;
+                    while (!signalOutputStop && attempts < 300)
                     {
                         Thread.Sleep(100);
-                        attempts2++;
+                        attempts++;
                     }
+
                     if (!signalOutputStop)
                     {
-                        Log.Warning("Hybrid: Failed to stop recording. Forcing stop.");
+                        Log.Warning("Failed to stop recording. Forcing stop.");
                         obs_output_force_stop(output);
                     }
                     else
                     {
-                        Log.Information("Hybrid: Recording stopped.");
+                        Log.Information("Output stopped.");
                     }
+
+                    Thread.Sleep(200);
+
+                    DisposeOutput();
+                    DisposeSources();
+                    DisposeEncoders();
+
+                    output = IntPtr.Zero;
+
+                    Log.Information("Recording stopped.");
+
+                    _ = GameIntegrationService.Shutdown();
+                    KeybindCaptureService.Stop();
+
+                    // Might be null or empty if the recording failed to start
+                    if (Settings.Instance.State.Recording != null && Settings.Instance.State.Recording.FilePath != null)
+                    {
+                        ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
+                        await ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+                        ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+
+                        Log.Information($"Recording details:");
+                        Log.Information($"Start Time: {Settings.Instance.State.Recording.StartTime}");
+                        Log.Information($"End Time: {Settings.Instance.State.Recording.EndTime}");
+                        Log.Information($"Duration: {Settings.Instance.State.Recording.Duration}");
+                        Log.Information($"File Path: {Settings.Instance.State.Recording.FilePath}");
+                    }
+
+                    SettingsUtils.LoadContentFromFolderIntoState(false);
                 }
-
-                Thread.Sleep(200);
-
-                DisposeOutput();
-                DisposeSources();
-                DisposeEncoders();
-
-                _ = GameIntegrationService.Shutdown();
-                KeybindCaptureService.Stop();
-
-                if (Settings.Instance.State.Recording != null && Settings.Instance.State.Recording.FilePath != null)
+                else if (isHybridMode)
                 {
-                    ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
-                    await ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
-                    ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+                    if (Settings.Instance.State.Recording != null)
+                        Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
+
+                    // Stop replay buffer first if running
+                    if (bufferOutput != IntPtr.Zero)
+                    {
+                        signalOutputStop = false;
+                        obs_output_stop(bufferOutput);
+                        int attempts = 0;
+                        while (!signalOutputStop && attempts < 300)
+                        {
+                            Thread.Sleep(100);
+                            attempts++;
+                        }
+                        if (!signalOutputStop)
+                        {
+                            Log.Warning("Hybrid: Failed to stop replay buffer. Forcing stop.");
+                            obs_output_force_stop(bufferOutput);
+                        }
+                        else
+                        {
+                            Log.Information("Hybrid: Replay buffer stopped.");
+                        }
+                    }
+
+                    // Stop session recording
+                    if (output != IntPtr.Zero)
+                    {
+                        signalOutputStop = false;
+                        obs_output_stop(output);
+                        int attempts2 = 0;
+                        while (!signalOutputStop && attempts2 < 300)
+                        {
+                            Thread.Sleep(100);
+                            attempts2++;
+                        }
+                        if (!signalOutputStop)
+                        {
+                            Log.Warning("Hybrid: Failed to stop recording. Forcing stop.");
+                            obs_output_force_stop(output);
+                        }
+                        else
+                        {
+                            Log.Information("Hybrid: Recording stopped.");
+                        }
+                    }
+
+                    Thread.Sleep(200);
+
+                    DisposeOutput();
+                    DisposeSources();
+                    DisposeEncoders();
+
+                    _ = GameIntegrationService.Shutdown();
+                    KeybindCaptureService.Stop();
+
+                    if (Settings.Instance.State.Recording != null && Settings.Instance.State.Recording.FilePath != null)
+                    {
+                        ContentUtils.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks);
+                        await ContentUtils.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+                        ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+                    }
+
+                    SettingsUtils.LoadContentFromFolderIntoState(false);
+                }
+                else
+                {
+                    DisposeOutput();
+                    DisposeSources();
+                    DisposeEncoders();
+                    Settings.Instance.State.Recording = null;
+                    Settings.Instance.State.PreRecording = null;
                 }
 
-                SettingsUtils.LoadContentFromFolderIntoState(false);
-            }
-            else
-            {
-                DisposeOutput();
-                DisposeSources();
-                DisposeEncoders();
+                StorageUtils.EnsureStorageBelowLimit();
+
+                // Reset hooked executable file name
+                hookedExecutableFileName = null;
+
+                // If the recording ends before it started, don't do anything
+                if (Settings.Instance.State.Recording == null || (!isReplayBufferMode && Settings.Instance.State.Recording.FilePath == null))
+                {
+                    return;
+                }
+
+                // Get the file path before nullifying the recording (FilePath is not null at this point because of the previous check)
+                string filePath = Settings.Instance.State.Recording.FilePath!;
+
+                // Reset the recording and pre-recording
                 Settings.Instance.State.Recording = null;
                 Settings.Instance.State.PreRecording = null;
+
+                // If the recording is not a replay buffer recording, AI is enabled, user is authenticated, and auto generate highlights is enabled -> analyze the video!
+                if (Settings.Instance.EnableAi && AuthService.IsAuthenticated() && Settings.Instance.AutoGenerateHighlights && !isReplayBufferMode)
+                {
+                    string fileName = Path.GetFileNameWithoutExtension(filePath);
+                    _ = AiService.AnalyzeVideo(fileName);
+                }
             }
-
-            StorageUtils.EnsureStorageBelowLimit();
-
-            // Reset hooked executable file name
-            hookedExecutableFileName = null;
-
-            // If the recording ends before it started, don't do anything
-            if (Settings.Instance.State.Recording == null || (!isReplayBufferMode && Settings.Instance.State.Recording.FilePath == null))
+            finally
             {
-                return;
-            }
-
-            // Get the file path before nullifying the recording (FilePath is not null at this point because of the previous check)
-            string filePath = Settings.Instance.State.Recording.FilePath!;
-
-            // Reset the recording and pre-recording
-            Settings.Instance.State.Recording = null;
-            Settings.Instance.State.PreRecording = null;
-
-            // If the recording is not a replay buffer recording, AI is enabled, user is authenticated, and auto generate highlights is enabled -> analyze the video!
-            if (Settings.Instance.EnableAi && AuthService.IsAuthenticated() && Settings.Instance.AutoGenerateHighlights && !isReplayBufferMode)
-            {
-                string fileName = Path.GetFileNameWithoutExtension(filePath);
-                _ = AiService.AnalyzeVideo(fileName);
+                _stopRecordingSemaphore.Release();
             }
         }
 
@@ -1047,6 +1070,7 @@ namespace Segra.Backend.Utils
                 if (micSources[i] != IntPtr.Zero)
                 {
                     obs_set_output_source((uint)(i + 2), IntPtr.Zero);
+                    obs_source_remove(micSources[i]);
                     obs_source_release(micSources[i]);
                     micSources[i] = IntPtr.Zero;
                 }
@@ -1059,6 +1083,7 @@ namespace Segra.Backend.Utils
                 {
                     int desktopIndex = i + micSourcesCount + 2;
                     obs_set_output_source((uint)desktopIndex, IntPtr.Zero);
+                    obs_source_remove(desktopSources[i]);
                     obs_source_release(desktopSources[i]);
                     desktopSources[i] = IntPtr.Zero;
                 }
@@ -1084,6 +1109,7 @@ namespace Segra.Backend.Utils
                     Log.Warning($"Failed to disconnect game capture signals: {ex.Message}");
                 }
                 obs_set_output_source(0, IntPtr.Zero);
+                obs_source_remove(gameCaptureSource);
                 obs_source_release(gameCaptureSource);
                 gameCaptureSource = IntPtr.Zero;
             }
@@ -1138,6 +1164,7 @@ namespace Segra.Backend.Utils
             if (displaySource != IntPtr.Zero)
             {
                 obs_set_output_source(1, IntPtr.Zero);
+                obs_source_remove(displaySource);
                 obs_source_release(displaySource);
                 displaySource = IntPtr.Zero;
             }

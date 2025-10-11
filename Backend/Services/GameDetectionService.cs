@@ -174,7 +174,12 @@ namespace Segra.Backend.Services
                 string exePath = ResolveProcessPath(pid);
                 string fileNameWithExtension = Path.GetFileName(exePath);
 
-                Log.Information($"[OnProcessStopped] Application stopped: PID {pid}, Path: {exePath}");
+                // Only relevant to log if we can resolve the path
+                if (!string.IsNullOrEmpty(exePath)) 
+                {
+                    Log.Information($"[OnProcessStopped] Application stopped: PID {pid}, Path: {exePath}");
+                }
+                
                 if (fileNameWithExtension == Settings.Instance.State.Recording?.FileName)
                 {
                     Log.Information($"[OnTrackedProcessExited] Confirmed that PID {pid} is no longer running. Stopping recording.");
