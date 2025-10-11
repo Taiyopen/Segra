@@ -1,4 +1,3 @@
-using Segra.Backend.Models;
 using Serilog;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -7,7 +6,6 @@ namespace Segra.Backend.Utils
 {
     public static class GameUtils
     {
-        private static List<GameInfo> _games = new List<GameInfo>();
         private static HashSet<string> _gameExePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, string> _exeToGameName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private static bool _isInitialized = false;
@@ -26,15 +24,27 @@ namespace Segra.Backend.Utils
             if (!_isInitialized || string.IsNullOrEmpty(exePath))
                 return false;
 
-            // Convert backslashes to forward slashes for consistent comparison
             string normalizedPath = exePath.Replace("\\", "/");
+            string fileName = Path.GetFileName(exePath);
 
-            // Check if any game exe path is contained within the given exePath
+            // Check if any game exe path matches
             foreach (var gamePath in _gameExePaths)
             {
-                if (normalizedPath.Contains(gamePath, StringComparison.OrdinalIgnoreCase))
+                // If gamePath contains a slash, it's a path - check if it's contained in the full path
+                if (gamePath.Contains('/'))
                 {
-                    return true;
+                    if (normalizedPath.Contains(gamePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+                // Otherwise it's just a filename - check exact match
+                else
+                {
+                    if (fileName.Equals(gamePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -47,12 +57,25 @@ namespace Segra.Backend.Utils
                 return null;
 
             string normalizedPath = exePath.Replace("\\", "/");
+            string fileName = Path.GetFileName(exePath);
 
             foreach (var entry in _exeToGameName)
             {
-                if (normalizedPath.Contains(entry.Key, StringComparison.OrdinalIgnoreCase))
+                // If the key contains a slash, it's a path - check if it's contained in the full path
+                if (entry.Key.Contains('/'))
                 {
-                    return entry.Value;
+                    if (normalizedPath.Contains(entry.Key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return entry.Value;
+                    }
+                }
+                // Otherwise it's just a filename - check exact match
+                else
+                {
+                    if (fileName.Equals(entry.Key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return entry.Value;
+                    }
                 }
             }
 
@@ -73,24 +96,24 @@ namespace Segra.Backend.Utils
             try
             {
                 string jsonContent = File.ReadAllText(jsonPath);
-                _games = JsonSerializer.Deserialize<List<GameInfo>>(jsonContent) ?? new List<GameInfo>();
+                var gamesList = JsonSerializer.Deserialize<List<GameEntry>>(jsonContent) ?? new List<GameEntry>();
 
                 // Build lookup collections for fast access
                 _gameExePaths.Clear();
                 _exeToGameName.Clear();
 
-                foreach (var game in _games)
+                foreach (var entry in gamesList)
                 {
-                    if (!string.IsNullOrEmpty(game.Exe))
+                    foreach (var exe in entry.Executables)
                     {
                         // Normalize path for consistent comparison
-                        string normalizedExe = game.Exe.Replace("\\", "/");
+                        string normalizedExe = exe.Replace("\\", "/");
                         _gameExePaths.Add(normalizedExe);
-                        _exeToGameName[normalizedExe] = game.Name;
+                        _exeToGameName[normalizedExe] = entry.Name;
                     }
                 }
 
-                Log.Information($"Loaded {_games.Count} games from games.json");
+                Log.Information($"Loaded {gamesList.Count} games with {_gameExePaths.Count} executables from games.json");
             }
             catch (Exception ex)
             {
@@ -104,65 +127,56 @@ namespace Segra.Backend.Utils
             Directory.CreateDirectory(appDataDir); // Ensure directory exists
 
             string jsonPath = Path.Combine(appDataDir, "games.json");
-            string apiUrl = "https://api.github.com/repos/Segergren/Segra/contents/games.json?ref=main";
-            string localHashPath = Path.Combine(appDataDir, "games.hash");
-            bool needsDownload = true;
+            string cdnUrl = "https://cdn.segra.tv/games/games.json";
 
             using (var httpClient = new HttpClient())
             {
                 httpClient.DefaultRequestHeaders.Add("User-Agent", "Segra");
-                httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3.json");
-
-                Log.Information("Fetching games.json metadata...");
 
                 try
                 {
-                    var response = await httpClient.GetAsync(apiUrl);
+                    // Send HEAD request to check Last-Modified header
+                    var headRequest = new HttpRequestMessage(HttpMethod.Head, cdnUrl);
+                    var headResponse = await httpClient.SendAsync(headRequest);
 
-                    if (!response.IsSuccessStatusCode)
+                    if (!headResponse.IsSuccessStatusCode)
                     {
-                        Log.Error($"Failed to fetch metadata from {apiUrl}. Status: {response.StatusCode}");
+                        Log.Error($"Failed to fetch metadata from {cdnUrl}. Status: {headResponse.StatusCode}");
                         return;
                     }
 
-                    var jsonResponse = await response.Content.ReadAsStringAsync();
-                    var metadata = JsonSerializer.Deserialize<GitHubFileMetadata>(jsonResponse);
+                    DateTimeOffset? remoteLastModified = headResponse.Content.Headers.LastModified;
 
-                    if (metadata?.DownloadUrl == null)
+                    if (remoteLastModified == null)
                     {
-                        Log.Error("Download URL not found in the API response.");
-                        return;
+                        Log.Warning("Last-Modified header not found. Downloading games.json anyway.");
                     }
-
-                    string remoteHash = metadata.Sha;
-
-                    // Check if we already have the file with the correct hash
-                    if (File.Exists(jsonPath) && File.Exists(localHashPath))
+                    else if (File.Exists(jsonPath))
                     {
-                        string localHash = await File.ReadAllTextAsync(localHashPath);
-                        if (localHash == remoteHash)
+                        // Compare remote Last-Modified with local file's last write time
+                        var localLastModified = File.GetLastWriteTimeUtc(jsonPath);
+                        
+                        if (localLastModified >= remoteLastModified.Value.UtcDateTime)
                         {
-                            Log.Information("Found existing games.json with matching hash. Skipping download.");
-                            needsDownload = false;
+                            Log.Information("Local games.json is up to date. Skipping download.");
+                            return;
                         }
                         else
                         {
-                            Log.Information("Found existing games.json but hash doesn't match. Downloading new version.");
+                            Log.Information("Remote games.json is newer. Downloading new version.");
+                            Log.Information("Downloading games.json...");
+
+                            var jsonBytes = await httpClient.GetByteArrayAsync(cdnUrl);
+                            await File.WriteAllBytesAsync(jsonPath, jsonBytes);
+
+                            // Set the file's last write time to match the remote Last-Modified timestamp
+                            if (remoteLastModified != null)
+                            {
+                                File.SetLastWriteTimeUtc(jsonPath, remoteLastModified.Value.UtcDateTime);
+                            }
+
+                            Log.Information("Download complete");
                         }
-                    }
-
-                    if (needsDownload)
-                    {
-                        Log.Information("Downloading games.json...");
-
-                        httpClient.DefaultRequestHeaders.Clear();
-                        var jsonBytes = await httpClient.GetByteArrayAsync(metadata.DownloadUrl);
-                        await File.WriteAllBytesAsync(jsonPath, jsonBytes);
-
-                        // Save the hash for future reference
-                        await File.WriteAllTextAsync(localHashPath, remoteHash);
-
-                        Log.Information("Download complete");
                     }
                 }
                 catch (Exception ex)
@@ -172,13 +186,13 @@ namespace Segra.Backend.Utils
             }
         }
 
-        private class GitHubFileMetadata
+        private class GameEntry
         {
-            [JsonPropertyName("sha")]
-            public required string Sha { get; set; }
+            [JsonPropertyName("name")]
+            public required string Name { get; set; }
 
-            [JsonPropertyName("download_url")]
-            public required string DownloadUrl { get; set; }
+            [JsonPropertyName("executables")]
+            public required List<string> Executables { get; set; }
         }
     }
 }
