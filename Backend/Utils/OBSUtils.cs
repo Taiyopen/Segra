@@ -1254,18 +1254,19 @@ namespace Segra.Backend.Utils
                     }
 
                     // Filter to only compatible versions
-                    List<Models.OBSVersion> compatibleVersions = response.Where(v => {
+                    List<Models.OBSVersion> compatibleVersions = response.Where(v =>
+                    {
                         // SupportsFrom: null or empty means no lower limit
-                        bool supportsFrom = string.IsNullOrEmpty(v.SupportsFrom) || 
-                                          (NuGet.Versioning.SemanticVersion.TryParse(v.SupportsFrom, out var minVersion) && 
+                        bool supportsFrom = string.IsNullOrEmpty(v.SupportsFrom) ||
+                                          (NuGet.Versioning.SemanticVersion.TryParse(v.SupportsFrom, out var minVersion) &&
                                            currentVersion >= minVersion);
-                        
+
                         // SupportsTo: null or empty means no upper limit
-                        bool supportsTo = v.SupportsTo == null || 
+                        bool supportsTo = v.SupportsTo == null ||
                                         string.IsNullOrEmpty(v.SupportsTo) ||
-                                        (NuGet.Versioning.SemanticVersion.TryParse(v.SupportsTo, out var maxVersion) && 
+                                        (NuGet.Versioning.SemanticVersion.TryParse(v.SupportsTo, out var maxVersion) &&
                                          currentVersion <= maxVersion);
-                        
+
                         return supportsFrom && supportsTo;
                     }).ToList();
 

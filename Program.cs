@@ -258,12 +258,12 @@ namespace Segra
             try
             {
                 var logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra");
-                
+
                 if (!Directory.Exists(logDirectory))
                     return;
 
                 var logFiles = Directory.GetFiles(logDirectory, "*.log");
-                
+
                 if (logFiles.Length == 0)
                     return;
 

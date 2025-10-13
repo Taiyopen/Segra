@@ -155,7 +155,7 @@ namespace Segra.Backend.Utils
                     {
                         // Compare remote Last-Modified with local file's last write time
                         var localLastModified = File.GetLastWriteTimeUtc(jsonPath);
-                        
+
                         if (localLastModified >= remoteLastModified.Value.UtcDateTime)
                         {
                             Log.Information("Local games.json is up to date. Skipping download.");

@@ -173,7 +173,7 @@ namespace Segra.Backend.Utils
 
                 Settings.Instance.RunOnStartup = StartupUtils.GetStartupStatus();
                 Settings.Instance.State.GpuVendor = GeneralUtils.DetectGpuVendor();
-                 
+
                 Log.Information("Settings loaded from {0}", SettingsFilePath);
 
                 Settings.Instance.EndBulkUpdateAndSaveSettings();

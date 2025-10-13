@@ -221,7 +221,7 @@ namespace Segra.Backend.Utils
                 string videoCodecAi;
                 string qualityArgsAi = "";
                 string presetArgsAi = "";
-                
+
                 if (currentSettings.ClipEncoder.Equals("gpu", StringComparison.OrdinalIgnoreCase))
                 {
                     GpuVendor gpuVendor = DetectGpuVendor();
@@ -235,11 +235,11 @@ namespace Segra.Backend.Utils
                                 videoCodecAi = "av1_nvenc";
                             else
                                 videoCodecAi = "h264_nvenc";
-                            
+
                             qualityArgsAi = $"-cq {currentSettings.ClipQualityCq}";
                             presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                             break;
-                            
+
                         case GpuVendor.AMD:
                             if (currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
                                 videoCodecAi = "hevc_amf";
@@ -247,11 +247,11 @@ namespace Segra.Backend.Utils
                                 videoCodecAi = "av1_amf";
                             else
                                 videoCodecAi = "h264_amf";
-                            
+
                             qualityArgsAi = $"-qp_i {currentSettings.ClipQualityQp} -qp_p {currentSettings.ClipQualityQp}";
                             presetArgsAi = $"-quality {currentSettings.ClipPreset}";
                             break;
-                            
+
                         case GpuVendor.Intel:
                             if (currentSettings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
                                 videoCodecAi = "hevc_qsv";
@@ -259,11 +259,11 @@ namespace Segra.Backend.Utils
                                 videoCodecAi = "av1_qsv";
                             else
                                 videoCodecAi = "h264_qsv";
-                            
+
                             qualityArgsAi = $"-global_quality {currentSettings.ClipQualityIcq}";
                             presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                             break;
-                            
+
                         default:
                             // Fall back to CPU encoding if GPU vendor is unknown
                             Log.Warning("Unknown GPU vendor detected for AI clip, falling back to CPU encoding");
@@ -271,7 +271,7 @@ namespace Segra.Backend.Utils
                                 videoCodecAi = "libx265";
                             else
                                 videoCodecAi = "libx264";
-                            
+
                             qualityArgsAi = $"-crf {currentSettings.ClipQualityCrf}";
                             presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                             break;
@@ -283,7 +283,7 @@ namespace Segra.Backend.Utils
                         videoCodecAi = "libx265";
                     else
                         videoCodecAi = "libx264";
-                    
+
                     qualityArgsAi = $"-crf {currentSettings.ClipQualityCrf}";
                     presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                 }

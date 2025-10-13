@@ -1567,12 +1567,12 @@ namespace Segra.Backend.Utils
                 // Redact string values: "prop":"value"
                 var stringPattern = $"\"{prop}\":\"([^\"]+)\"";
                 message = Regex.Replace(message, stringPattern, $"\"{prop}\":\"-REDACTED-\"", RegexOptions.IgnoreCase);
-                
+
                 // Redact object/array values: "prop":{...} or "prop":[...]
                 // Find the property and then skip to the matching closing brace/bracket
                 var propPattern = $"\"{prop}\":";
                 var index = message.IndexOf($"\"{prop}\":", StringComparison.OrdinalIgnoreCase);
-                
+
                 while (index >= 0)
                 {
                     var valueStart = index + propPattern.Length;
@@ -1590,7 +1590,7 @@ namespace Segra.Backend.Utils
                             }
                         }
                     }
-                    
+
                     // Find next occurrence
                     index = message.IndexOf($"\"{prop}\":", index + 1, StringComparison.OrdinalIgnoreCase);
                 }
