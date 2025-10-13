@@ -15,6 +15,14 @@ namespace Segra.Backend.Utils
             {
                 return friendlyName;
             }
+            else if (friendlyName.Contains("SteelSeries Sonar"))
+            {
+                int index = friendlyName.IndexOf("(");
+                if (index > 0)
+                {
+                    return friendlyName.Substring(0, index).Trim();
+                }
+            }
 
             // Looks for patterns like "Microphone (2- Shure MV7)" or "Speakers (Sound BlasterX AE-5 Plus)" or "Stereo Mix (Realtek(R) Audio)"
             // Extract the main part of the device name, handling cases with nested parentheses
