@@ -16,7 +16,7 @@
       "cd Frontend && bunx eslint --fix"
     ],
     "**/*.cs": [
-      "dotnet format --exclude libobs-sharp --include"
+      "dotnet format Segra.sln --exclude libobs-sharp --include"
     ]
   }
 }
