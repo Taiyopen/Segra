@@ -168,6 +168,7 @@ namespace Segra
                 {
                     SettingsUtils.LoadContentFromFolderIntoState(true);
                     StartupUtils.SetStartupStatus(true);
+                    Settings.Instance.State.GpuVendor = GeneralUtils.DetectGpuVendor();
                 }
 
                 // Ensure content folder exists

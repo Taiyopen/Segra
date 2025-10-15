@@ -1,10 +1,67 @@
+import { motion, AnimatePresence } from 'framer-motion';
 import DropdownSelect from '../DropdownSelect';
-import { Settings as SettingsType, GpuVendor, ClipFPS, ClipPreset } from '../../Models/types';
+import { Settings as SettingsType, GpuVendor, ClipFPS, ClipPreset, ClipQualityPreset } from '../../Models/types';
 
 interface ClipSettingsSectionProps {
   settings: SettingsType;
   updateSettings: (updates: Partial<SettingsType>) => void;
 }
+
+// Preset configurations for CPU
+const CLIP_PRESETS_CPU = {
+  low: {
+    clipEncoder: 'cpu' as const,
+    clipQualityCpu: 28,
+    clipCodec: 'h264' as const,
+    clipFps: 30 as ClipFPS,
+    clipAudioQuality: '96k' as const,
+    clipPreset: 'ultrafast' as ClipPreset,
+  },
+  standard: {
+    clipEncoder: 'cpu' as const,
+    clipQualityCpu: 23,
+    clipCodec: 'h264' as const,
+    clipFps: 60 as ClipFPS,
+    clipAudioQuality: '128k' as const,
+    clipPreset: 'veryfast' as ClipPreset,
+  },
+  high: {
+    clipEncoder: 'cpu' as const,
+    clipQualityCpu: 20,
+    clipCodec: 'h264' as const,
+    clipFps: 60 as ClipFPS,
+    clipAudioQuality: '192k' as const,
+    clipPreset: 'medium' as ClipPreset,
+  },
+};
+
+// Preset configurations for GPU
+const CLIP_PRESETS_GPU = {
+  low: {
+    clipEncoder: 'gpu' as const,
+    clipQualityGpu: 30,
+    clipCodec: 'h264' as const,
+    clipFps: 30 as ClipFPS,
+    clipAudioQuality: '96k' as const,
+    clipPreset: 'fast' as ClipPreset,
+  },
+  standard: {
+    clipEncoder: 'gpu' as const,
+    clipQualityGpu: 23,
+    clipCodec: 'h264' as const,
+    clipFps: 60 as ClipFPS,
+    clipAudioQuality: '128k' as const,
+    clipPreset: 'medium' as ClipPreset,
+  },
+  high: {
+    clipEncoder: 'gpu' as const,
+    clipQualityGpu: 20,
+    clipCodec: 'h264' as const,
+    clipFps: 60 as ClipFPS,
+    clipAudioQuality: '192k' as const,
+    clipPreset: 'hq' as ClipPreset,
+  },
+};
 
 export default function ClipSettingsSection({ settings, updateSettings }: ClipSettingsSectionProps) {
   // Helper function to get available presets based on encoder settings
@@ -72,252 +129,307 @@ export default function ClipSettingsSection({ settings, updateSettings }: ClipSe
         return [];
     }
   };
+
+  const handlePresetChange = (preset: ClipQualityPreset) => {
+    if (preset === 'custom') {
+      updateSettings({ clipQualityPreset: preset });
+    } else {
+      // Use GPU presets if GPU is available, otherwise use CPU presets
+      const hasGpu = settings.state.gpuVendor !== GpuVendor.Unknown;
+      const presetConfig = hasGpu ? CLIP_PRESETS_GPU[preset] : CLIP_PRESETS_CPU[preset];
+      updateSettings({
+        clipQualityPreset: preset,
+        ...presetConfig,
+      });
+    }
+  };
+
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
       <h2 className="text-xl font-semibold mb-4">Clip Settings</h2>
-      <div className="grid grid-cols-2 gap-4">
-        {/* Encoder */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text text-base-content">Encoder</span>
-          </label>
-          <DropdownSelect
-            items={[
-              { value: 'cpu', label: 'CPU' },
-              ...(settings.state.gpuVendor !== GpuVendor.Unknown ? [{ value: 'gpu', label: 'GPU' }] : []),
-            ]}
-            value={settings.clipEncoder}
-            onChange={(val) => {
-              const newSettings: Partial<SettingsType> = { clipEncoder: val as 'cpu' | 'gpu' };
-              if (val === 'cpu' && settings.clipEncoder !== 'cpu') {
-                newSettings.clipPreset = 'veryfast' as ClipPreset;
-                // CPU doesn't support AV1, switch to H.264
-                if (settings.clipCodec === 'av1') {
-                  newSettings.clipCodec = 'h264';
-                }
-              } else if (val === 'gpu' && settings.clipEncoder !== 'gpu') {
-                newSettings.clipPreset = 'medium' as ClipPreset;
-              }
-              updateSettings(newSettings);
-            }}
-          />
-        </div>
 
-        {/* Quality Control - Different for CPU vs GPU */}
-        {settings.clipEncoder === 'cpu' ? (
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text text-base-content">Quality (CRF)</span>
-            </label>
-            <DropdownSelect
-              items={[
-                { value: '17', label: '17 (Highest Quality)' },
-                { value: '18', label: '18' },
-                { value: '19', label: '19' },
-                { value: '20', label: '20 (High Quality)' },
-                { value: '21', label: '21' },
-                { value: '22', label: '22' },
-                { value: '23', label: '23 (Normal Quality)' },
-                { value: '24', label: '24' },
-                { value: '25', label: '25' },
-                { value: '26', label: '26 (Low Quality)' },
-                { value: '27', label: '27' },
-                { value: '28', label: '28 (Lowest Quality)' },
-              ]}
-              value={String(settings.clipQualityCrf)}
-              onChange={(val) => updateSettings({ clipQualityCrf: Number(val) })}
-            />
+      {/* Quality Preset Selector */}
+      <div className="mb-4">
+        <div className="grid grid-cols-4 gap-3">
+          <div
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${
+              settings.clipQualityPreset === 'low' ? 'border-primary' : 'border-base-400'
+            }`}
+            onClick={() => handlePresetChange('low')}
+          >
+            <div className="text-sm font-semibold">Low Quality</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">Fast encode</div>
           </div>
-        ) : (
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text text-base-content">
-                Quality (
-                {settings.state.gpuVendor === GpuVendor.Nvidia
-                  ? 'CQ'
-                  : settings.state.gpuVendor === GpuVendor.AMD
-                    ? 'QP'
-                    : settings.state.gpuVendor === GpuVendor.Intel
-                      ? 'ICQ'
-                      : 'CQ'}
-                )
-              </span>
-            </label>
-            <DropdownSelect
-              items={
-                settings.state.gpuVendor === GpuVendor.Nvidia
-                  ? [
-                      { value: '0', label: '0 (Highest Quality)' },
-                      { value: '10', label: '10' },
-                      { value: '15', label: '15' },
+          <div
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${
+              settings.clipQualityPreset === 'standard' ? 'border-primary' : 'border-base-400'
+            }`}
+            onClick={() => handlePresetChange('standard')}
+          >
+            <div className="text-sm font-semibold">Standard</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">Balanced</div>
+          </div>
+          <div
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${
+              settings.clipQualityPreset === 'high' ? 'border-primary' : 'border-base-400'
+            }`}
+            onClick={() => handlePresetChange('high')}
+          >
+            <div className="text-sm font-semibold">High Quality</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">Best quality</div>
+          </div>
+          <div
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${
+              settings.clipQualityPreset === 'custom' ? 'border-primary' : 'border-base-400'
+            }`}
+            onClick={() => handlePresetChange('custom')}
+          >
+            <div className="text-sm font-semibold">Custom</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">Manual config</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Settings - Only show when Custom preset is selected */}
+      <AnimatePresence>
+        {settings.clipQualityPreset === 'custom' && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{
+              opacity: 1,
+              height: 'fit-content',
+              transition: {
+                duration: 0.3,
+                height: { type: 'spring', stiffness: 300, damping: 30 },
+              },
+            }}
+            exit={{
+              opacity: 0,
+              height: 0,
+              transition: {
+                duration: 0.2,
+              },
+            }}
+            style={{ overflow: 'visible' }}
+          >
+            <div className="grid grid-cols-2 gap-4">
+              {/* Encoder */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Encoder</span>
+                </label>
+                <DropdownSelect
+                  items={[
+                    { value: 'cpu', label: 'CPU' },
+                    ...(settings.state.gpuVendor !== GpuVendor.Unknown ? [{ value: 'gpu', label: 'GPU' }] : []),
+                  ]}
+                  value={settings.clipEncoder}
+                  onChange={(val) => {
+                    const newSettings: Partial<SettingsType> = { clipEncoder: val as 'cpu' | 'gpu' };
+                    if (val === 'cpu' && settings.clipEncoder !== 'cpu') {
+                      newSettings.clipPreset = 'veryfast' as ClipPreset;
+                      // CPU doesn't support AV1, switch to H.264
+                      if (settings.clipCodec === 'av1') {
+                        newSettings.clipCodec = 'h264';
+                      }
+                    } else if (val === 'gpu' && settings.clipEncoder !== 'gpu') {
+                      newSettings.clipPreset = 'medium' as ClipPreset;
+                    }
+                    updateSettings(newSettings);
+                  }}
+                />
+              </div>
+
+              {/* Quality Control - Different for CPU vs GPU */}
+              {settings.clipEncoder === 'cpu' ? (
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text text-base-content">Quality (CRF)</span>
+                  </label>
+                  <DropdownSelect
+                    items={[
+                      { value: '17', label: '17 (Highest Quality)' },
+                      { value: '18', label: '18' },
+                      { value: '19', label: '19' },
                       { value: '20', label: '20 (High Quality)' },
+                      { value: '21', label: '21' },
+                      { value: '22', label: '22' },
                       { value: '23', label: '23 (Normal Quality)' },
-                      { value: '26', label: '26' },
-                      { value: '30', label: '30 (Low Quality)' },
-                      { value: '35', label: '35' },
-                      { value: '40', label: '40' },
-                      { value: '45', label: '45' },
-                      { value: '51', label: '51 (Lowest Quality)' },
-                    ]
-                  : settings.state.gpuVendor === GpuVendor.AMD
-                    ? [
-                        { value: '0', label: '0 (Highest Quality)' },
-                        { value: '10', label: '10' },
-                        { value: '15', label: '15' },
-                        { value: '20', label: '20 (High Quality)' },
-                        { value: '23', label: '23 (Normal Quality)' },
-                        { value: '26', label: '26' },
-                        { value: '30', label: '30 (Low Quality)' },
-                        { value: '35', label: '35' },
-                        { value: '40', label: '40' },
-                        { value: '45', label: '45' },
-                        { value: '51', label: '51 (Lowest Quality)' },
-                      ]
-                    : settings.state.gpuVendor === GpuVendor.Intel
-                      ? [
-                          { value: '1', label: '1 (Highest Quality)' },
-                          { value: '10', label: '10' },
-                          { value: '15', label: '15' },
-                          { value: '20', label: '20 (High Quality)' },
-                          { value: '23', label: '23 (Normal Quality)' },
-                          { value: '26', label: '26' },
-                          { value: '30', label: '30 (Low Quality)' },
-                          { value: '35', label: '35' },
-                          { value: '40', label: '40' },
-                          { value: '45', label: '45' },
-                          { value: '51', label: '51 (Lowest Quality)' },
-                        ]
-                      : [{ value: '23', label: '23 (Normal Quality)' }]
-              }
-              value={String(
-                settings.state.gpuVendor === GpuVendor.Nvidia
-                  ? settings.clipQualityCq
-                  : settings.state.gpuVendor === GpuVendor.AMD
-                    ? settings.clipQualityQp
-                    : settings.state.gpuVendor === GpuVendor.Intel
-                      ? settings.clipQualityIcq
-                      : settings.clipQualityCq,
+                      { value: '24', label: '24' },
+                      { value: '25', label: '25' },
+                      { value: '26', label: '26 (Low Quality)' },
+                      { value: '27', label: '27' },
+                      { value: '28', label: '28 (Lowest Quality)' },
+                    ]}
+                    value={String(settings.clipQualityCpu)}
+                    onChange={(val) => updateSettings({ clipQualityCpu: Number(val) })}
+                  />
+                </div>
+              ) : (
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text text-base-content">
+                      Quality (
+                      {settings.state.gpuVendor === GpuVendor.Nvidia
+                        ? 'CQ'
+                        : settings.state.gpuVendor === GpuVendor.AMD
+                          ? 'QP'
+                          : settings.state.gpuVendor === GpuVendor.Intel
+                            ? 'ICQ'
+                            : 'CQ'}
+                      )
+                    </span>
+                  </label>
+                  <DropdownSelect
+                    items={
+                      settings.state.gpuVendor === GpuVendor.Nvidia
+                        ? [
+                            { value: '0', label: '0 (Highest Quality)' },
+                            { value: '10', label: '10' },
+                            { value: '15', label: '15' },
+                            { value: '20', label: '20 (High Quality)' },
+                            { value: '23', label: '23 (Normal Quality)' },
+                            { value: '26', label: '26' },
+                            { value: '30', label: '30 (Low Quality)' },
+                            { value: '35', label: '35' },
+                            { value: '40', label: '40' },
+                            { value: '45', label: '45' },
+                            { value: '51', label: '51 (Lowest Quality)' },
+                          ]
+                        : settings.state.gpuVendor === GpuVendor.AMD
+                          ? [
+                              { value: '0', label: '0 (Highest Quality)' },
+                              { value: '10', label: '10' },
+                              { value: '15', label: '15' },
+                              { value: '20', label: '20 (High Quality)' },
+                              { value: '23', label: '23 (Normal Quality)' },
+                              { value: '26', label: '26' },
+                              { value: '30', label: '30 (Low Quality)' },
+                              { value: '35', label: '35' },
+                              { value: '40', label: '40' },
+                              { value: '45', label: '45' },
+                              { value: '51', label: '51 (Lowest Quality)' },
+                            ]
+                          : settings.state.gpuVendor === GpuVendor.Intel
+                            ? [
+                                { value: '1', label: '1 (Highest Quality)' },
+                                { value: '10', label: '10' },
+                                { value: '15', label: '15' },
+                                { value: '20', label: '20 (High Quality)' },
+                                { value: '23', label: '23 (Normal Quality)' },
+                                { value: '26', label: '26' },
+                                { value: '30', label: '30 (Low Quality)' },
+                                { value: '35', label: '35' },
+                                { value: '40', label: '40' },
+                                { value: '45', label: '45' },
+                                { value: '51', label: '51 (Lowest Quality)' },
+                              ]
+                            : [{ value: '23', label: '23 (Normal Quality)' }]
+                    }
+                    value={String(settings.clipQualityGpu)}
+                    onChange={(val) => updateSettings({ clipQualityGpu: Number(val) })}
+                  />
+                </div>
               )}
-              onChange={(val) => {
-                if (settings.state.gpuVendor === GpuVendor.Nvidia) {
-                  updateSettings({ clipQualityCq: Number(val) });
-                } else if (settings.state.gpuVendor === GpuVendor.AMD) {
-                  updateSettings({ clipQualityQp: Number(val) });
-                } else if (settings.state.gpuVendor === GpuVendor.Intel) {
-                  updateSettings({ clipQualityIcq: Number(val) });
-                }
-              }}
-            />
-          </div>
+
+              {/* Codec */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Codec</span>
+                </label>
+                <DropdownSelect
+                  items={[
+                    { value: 'h264', label: 'H.264' },
+                    { value: 'h265', label: 'H.265' },
+                    ...(settings.clipEncoder === 'gpu' &&
+                    settings.state.codecs.find((c) => c.internalEncoderId.includes('av1'))
+                      ? [{ value: 'av1', label: 'AV1' }]
+                      : []),
+                  ]}
+                  value={settings.clipCodec}
+                  onChange={(val) => {
+                    const newCodec = val as 'h264' | 'h265' | 'av1';
+                    const updates: Partial<SettingsType> = { clipCodec: newCodec };
+
+                    // Auto-adjust preset when switching to/from AV1 on NVIDIA
+                    if (settings.state.gpuVendor === GpuVendor.Nvidia) {
+                      if (
+                        newCodec === 'av1' &&
+                        !['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'].includes(settings.clipPreset)
+                      ) {
+                        // Switching to AV1, set default AV1 preset
+                        updates.clipPreset = 'p4' as ClipPreset;
+                      } else if (
+                        newCodec !== 'av1' &&
+                        ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'].includes(settings.clipPreset)
+                      ) {
+                        // Switching from AV1 to H.264/H.265, set default preset
+                        updates.clipPreset = 'hq' as ClipPreset;
+                      }
+                    }
+
+                    updateSettings(updates);
+                  }}
+                  disabled={!settings.state.hasLoadedObs}
+                />
+              </div>
+
+              {/* FPS */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">FPS</span>
+                </label>
+                <DropdownSelect
+                  items={[
+                    { value: '0', label: 'Original FPS' },
+                    { value: '24', label: '24 FPS' },
+                    { value: '30', label: '30 FPS' },
+                    { value: '60', label: '60 FPS' },
+                    { value: '120', label: '120 FPS' },
+                    { value: '144', label: '144 FPS' },
+                  ]}
+                  value={String(settings.clipFps)}
+                  onChange={(val) => updateSettings({ clipFps: Number(val) as ClipFPS })}
+                />
+              </div>
+
+              {/* Audio Quality */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Audio Quality</span>
+                </label>
+                <DropdownSelect
+                  items={[
+                    { value: '96k', label: '96 kbps (Low)' },
+                    { value: '128k', label: '128 kbps (Medium)' },
+                    { value: '192k', label: '192 kbps (High)' },
+                    { value: '256k', label: '256 kbps (Very High)' },
+                    { value: '320k', label: '320 kbps (Insane)' },
+                  ]}
+                  value={settings.clipAudioQuality}
+                  onChange={(val) =>
+                    updateSettings({
+                      clipAudioQuality: val as '96k' | '128k' | '192k' | '256k' | '320k',
+                    })
+                  }
+                />
+              </div>
+
+              {/* Preset */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Preset</span>
+                </label>
+                <DropdownSelect
+                  items={getAvailablePresets(settings.clipEncoder, settings.clipCodec, settings.state.gpuVendor)}
+                  value={settings.clipPreset}
+                  onChange={(val) => updateSettings({ clipPreset: val as ClipPreset })}
+                />
+              </div>
+            </div>
+          </motion.div>
         )}
-
-        {/* Codec */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text text-base-content">Codec</span>
-          </label>
-          <DropdownSelect
-            items={[
-              { value: 'h264', label: 'H.264' },
-              { value: 'h265', label: 'H.265' },
-              ...(settings.clipEncoder === 'gpu' &&
-              settings.state.codecs.find((c) => c.internalEncoderId.includes('av1'))
-                ? [{ value: 'av1', label: 'AV1' }]
-                : []),
-            ]}
-            value={settings.clipCodec}
-            onChange={(val) => {
-              const newCodec = val as 'h264' | 'h265' | 'av1';
-              const updates: Partial<SettingsType> = { clipCodec: newCodec };
-
-              // Auto-adjust preset when switching to/from AV1 on NVIDIA
-              if (settings.state.gpuVendor === GpuVendor.Nvidia) {
-                if (
-                  newCodec === 'av1' &&
-                  !['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'].includes(settings.clipPreset)
-                ) {
-                  // Switching to AV1, set default AV1 preset
-                  updates.clipPreset = 'p4' as ClipPreset;
-                } else if (
-                  newCodec !== 'av1' &&
-                  ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'].includes(settings.clipPreset)
-                ) {
-                  // Switching from AV1 to H.264/H.265, set default preset
-                  updates.clipPreset = 'hq' as ClipPreset;
-                }
-              }
-
-              updateSettings(updates);
-            }}
-            disabled={!settings.state.hasLoadedObs}
-          />
-        </div>
-
-        {/* FPS */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text text-base-content">FPS</span>
-          </label>
-          <DropdownSelect
-            items={[
-              { value: '0', label: 'Original FPS' },
-              { value: '24', label: '24 FPS' },
-              { value: '30', label: '30 FPS' },
-              { value: '60', label: '60 FPS' },
-              { value: '120', label: '120 FPS' },
-              { value: '144', label: '144 FPS' },
-            ]}
-            value={String(settings.clipFps)}
-            onChange={(val) => updateSettings({ clipFps: Number(val) as ClipFPS })}
-          />
-        </div>
-
-        {/* Audio Quality */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text text-base-content">Audio Quality</span>
-          </label>
-          <DropdownSelect
-            items={[
-              { value: '96k', label: '96 kbps (Low)' },
-              { value: '128k', label: '128 kbps (Medium)' },
-              { value: '192k', label: '192 kbps (High)' },
-              { value: '256k', label: '256 kbps (Very High)' },
-              { value: '320k', label: '320 kbps (Insane)' },
-            ]}
-            value={settings.clipAudioQuality}
-            onChange={(val) =>
-              updateSettings({
-                clipAudioQuality: val as '96k' | '128k' | '192k' | '256k' | '320k',
-              })
-            }
-          />
-        </div>
-
-        {/* Preset */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text text-base-content">Preset</span>
-          </label>
-          <DropdownSelect
-            items={getAvailablePresets(settings.clipEncoder, settings.clipCodec, settings.state.gpuVendor)}
-            value={settings.clipPreset}
-            onChange={(val) => updateSettings({ clipPreset: val as ClipPreset })}
-          />
-        </div>
-      </div>
-      <div className="flex justify-start mt-4">
-        <label className="cursor-pointer flex items-center">
-          <input
-            type="checkbox"
-            name="clipClearSelectionsAfterCreatingClip"
-            checked={settings.clipClearSelectionsAfterCreatingClip}
-            onChange={(e) => updateSettings({ clipClearSelectionsAfterCreatingClip: e.target.checked })}
-            className="checkbox checkbox-sm checkbox-accent"
-          />
-          <span className="font-medium ml-2">Auto-Clear Selections After Creating Clip</span>
-        </label>
-      </div>
+      </AnimatePresence>
     </div>
   );
 }

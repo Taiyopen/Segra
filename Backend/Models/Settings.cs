@@ -37,9 +37,9 @@ namespace Segra.Backend.Models
         private bool _autoGenerateHighlights = true;
         private bool _runOnStartup = false;
         private bool _receiveBetaUpdates = false;
-        private RecordingMode _recordingMode = RecordingMode.Session;
+        private RecordingMode _recordingMode = RecordingMode.Hybrid;
         private int _replayBufferDuration = 30;
-        private int _replayBufferMaxSize = 500;
+        private int _replayBufferMaxSize = 1000;
         private List<Keybind> _keybindings;
         private List<Game> _whitelist = new List<Game>();
         private List<Game> _blacklist = new List<Game>();
@@ -48,10 +48,8 @@ namespace Segra.Backend.Models
         private bool _clipClearSelectionsAfterCreatingClip = false;
         private bool _clipShowInBrowserAfterUpload = false;
         private string _clipEncoder = "cpu";
-        private int _clipQualityCrf = 23;
-        private int _clipQualityCq = 23; // NVENC CQ value (0-51)
-        private int _clipQualityQp = 23; // AMF QP value (0-51)
-        private int _clipQualityIcq = 23; // QSV ICQ value (1-51)
+        private int _clipQualityCpu = 23; // CPU CRF: 17 (High) to 28 (Low)
+        private int _clipQualityGpu = 23; // GPU (CQ/QP/ICQ): 0-1 (High) to 51 (Low)
         private string _clipCodec = "h264";
         private int _clipFps = 0; // 0 for 'Original'
         private string _clipAudioQuality = "128k";
@@ -61,6 +59,8 @@ namespace Segra.Backend.Models
         private bool _showGameBackground = true;
         private bool _showAudioWaveformInTimeline = true;
         private bool _enableSeparateAudioTracks = false;
+        private string _videoQualityPreset = "custom"; // TODO (os): Set to 'high' in next release
+        private string _clipQualityPreset = "custom"; // TODO (os): Set to 'high' in next release
 
         // Returns the default keybindings
         private static List<Keybind> GetDefaultKeybindings()
@@ -504,54 +504,28 @@ namespace Segra.Backend.Models
             }
         }
 
-        [JsonPropertyName("clipQualityCrf")]
-        public int ClipQualityCrf
+        [JsonPropertyName("clipQualityCpu")]
+        public int ClipQualityCpu
         {
-            get => _clipQualityCrf;
+            get => _clipQualityCpu;
             set
             {
-                if (_clipQualityCrf != value)
+                if (_clipQualityCpu != value)
                 {
-                    _clipQualityCrf = value;
+                    _clipQualityCpu = value;
                 }
             }
         }
 
-        [JsonPropertyName("clipQualityCq")]
-        public int ClipQualityCq
+        [JsonPropertyName("clipQualityGpu")]
+        public int ClipQualityGpu
         {
-            get => _clipQualityCq;
+            get => _clipQualityGpu;
             set
             {
-                if (_clipQualityCq != value)
+                if (_clipQualityGpu != value)
                 {
-                    _clipQualityCq = value;
-                }
-            }
-        }
-
-        [JsonPropertyName("clipQualityQp")]
-        public int ClipQualityQp
-        {
-            get => _clipQualityQp;
-            set
-            {
-                if (_clipQualityQp != value)
-                {
-                    _clipQualityQp = value;
-                }
-            }
-        }
-
-        [JsonPropertyName("clipQualityIcq")]
-        public int ClipQualityIcq
-        {
-            get => _clipQualityIcq;
-            set
-            {
-                if (_clipQualityIcq != value)
-                {
-                    _clipQualityIcq = value;
+                    _clipQualityGpu = value;
                 }
             }
         }
@@ -669,6 +643,32 @@ namespace Segra.Backend.Models
                 if (_enableSeparateAudioTracks != value)
                 {
                     _enableSeparateAudioTracks = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("videoQualityPreset")]
+        public string VideoQualityPreset
+        {
+            get => _videoQualityPreset;
+            set
+            {
+                if (_videoQualityPreset != value)
+                {
+                    _videoQualityPreset = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("clipQualityPreset")]
+        public string ClipQualityPreset
+        {
+            get => _clipQualityPreset;
+            set
+            {
+                if (_clipQualityPreset != value)
+                {
+                    _clipQualityPreset = value;
                 }
             }
         }

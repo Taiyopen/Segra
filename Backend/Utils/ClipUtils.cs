@@ -236,7 +236,7 @@ namespace Segra.Backend.Utils
                             else
                                 videoCodecAi = "h264_nvenc";
 
-                            qualityArgsAi = $"-cq {currentSettings.ClipQualityCq}";
+                            qualityArgsAi = $"-cq {currentSettings.ClipQualityGpu}";
                             presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                             break;
 
@@ -248,7 +248,7 @@ namespace Segra.Backend.Utils
                             else
                                 videoCodecAi = "h264_amf";
 
-                            qualityArgsAi = $"-qp_i {currentSettings.ClipQualityQp} -qp_p {currentSettings.ClipQualityQp}";
+                            qualityArgsAi = $"-qp_i {currentSettings.ClipQualityGpu} -qp_p {currentSettings.ClipQualityGpu}";
                             presetArgsAi = $"-quality {currentSettings.ClipPreset}";
                             break;
 
@@ -260,7 +260,7 @@ namespace Segra.Backend.Utils
                             else
                                 videoCodecAi = "h264_qsv";
 
-                            qualityArgsAi = $"-global_quality {currentSettings.ClipQualityIcq}";
+                            qualityArgsAi = $"-global_quality {currentSettings.ClipQualityGpu}";
                             presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                             break;
 
@@ -272,7 +272,7 @@ namespace Segra.Backend.Utils
                             else
                                 videoCodecAi = "libx264";
 
-                            qualityArgsAi = $"-crf {currentSettings.ClipQualityCrf}";
+                            qualityArgsAi = $"-crf {currentSettings.ClipQualityCpu}";
                             presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                             break;
                     }
@@ -284,7 +284,7 @@ namespace Segra.Backend.Utils
                     else
                         videoCodecAi = "libx264";
 
-                    qualityArgsAi = $"-crf {currentSettings.ClipQualityCrf}";
+                    qualityArgsAi = $"-crf {currentSettings.ClipQualityCpu}";
                     presetArgsAi = $"-preset {currentSettings.ClipPreset}";
                 }
 
@@ -371,7 +371,7 @@ namespace Segra.Backend.Utils
                             videoCodec = "h264_nvenc";
 
                         // NVENC uses -cq for quality control and specific presets
-                        qualityArgs = $"-cq {settings.ClipQualityCq}";
+                        qualityArgs = $"-cq {settings.ClipQualityGpu}";
                         presetArgs = $"-preset {settings.ClipPreset}";
                         break;
 
@@ -384,7 +384,7 @@ namespace Segra.Backend.Utils
                             videoCodec = "h264_amf";
 
                         // AMF uses -qp_i, -qp_p for quality control
-                        qualityArgs = $"-qp_i {settings.ClipQualityQp} -qp_p {settings.ClipQualityQp}";
+                        qualityArgs = $"-qp_i {settings.ClipQualityGpu} -qp_p {settings.ClipQualityGpu}";
                         presetArgs = $"-quality {settings.ClipPreset}";
                         break;
 
@@ -397,7 +397,7 @@ namespace Segra.Backend.Utils
                             videoCodec = "h264_qsv";
 
                         // QSV uses -global_quality for ICQ mode
-                        qualityArgs = $"-global_quality {settings.ClipQualityIcq}";
+                        qualityArgs = $"-global_quality {settings.ClipQualityGpu}";
                         presetArgs = $"-preset {settings.ClipPreset}";
                         break;
 
@@ -410,7 +410,7 @@ namespace Segra.Backend.Utils
                             videoCodec = "libx264";
 
                         // CPU codecs use -crf and standard presets
-                        qualityArgs = $"-crf {settings.ClipQualityCrf}";
+                        qualityArgs = $"-crf {settings.ClipQualityCpu}";
                         presetArgs = $"-preset {settings.ClipPreset}";
                         break;
                 }
@@ -424,7 +424,7 @@ namespace Segra.Backend.Utils
                     videoCodec = "libx264";
 
                 // CPU codecs use -crf and standard presets
-                qualityArgs = $"-crf {settings.ClipQualityCrf}";
+                qualityArgs = $"-crf {settings.ClipQualityCpu}";
                 presetArgs = $"-preset {settings.ClipPreset}";
             }
 

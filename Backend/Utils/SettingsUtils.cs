@@ -248,35 +248,19 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
-            // Update ClipQualityCrf
-            if (settings.ClipQualityCrf != updatedSettings.ClipQualityCrf)
+            // Update ClipQualityCpu
+            if (settings.ClipQualityCpu != updatedSettings.ClipQualityCpu)
             {
-                Log.Information($"ClipQualityCrf changed from '{settings.ClipQualityCrf}' to '{updatedSettings.ClipQualityCrf}'");
-                settings.ClipQualityCrf = updatedSettings.ClipQualityCrf;
+                Log.Information($"ClipQualityCpu changed from '{settings.ClipQualityCpu}' to '{updatedSettings.ClipQualityCpu}'");
+                settings.ClipQualityCpu = updatedSettings.ClipQualityCpu;
                 hasChanges = true;
             }
 
-            // Update ClipQualityCq (NVENC)
-            if (settings.ClipQualityCq != updatedSettings.ClipQualityCq)
+            // Update ClipQualityGpu
+            if (settings.ClipQualityGpu != updatedSettings.ClipQualityGpu)
             {
-                Log.Information($"ClipQualityCq changed from '{settings.ClipQualityCq}' to '{updatedSettings.ClipQualityCq}'");
-                settings.ClipQualityCq = updatedSettings.ClipQualityCq;
-                hasChanges = true;
-            }
-
-            // Update ClipQualityQp (AMF)
-            if (settings.ClipQualityQp != updatedSettings.ClipQualityQp)
-            {
-                Log.Information($"ClipQualityQp changed from '{settings.ClipQualityQp}' to '{updatedSettings.ClipQualityQp}'");
-                settings.ClipQualityQp = updatedSettings.ClipQualityQp;
-                hasChanges = true;
-            }
-
-            // Update ClipQualityIcq (QSV)
-            if (settings.ClipQualityIcq != updatedSettings.ClipQualityIcq)
-            {
-                Log.Information($"ClipQualityIcq changed from '{settings.ClipQualityIcq}' to '{updatedSettings.ClipQualityIcq}'");
-                settings.ClipQualityIcq = updatedSettings.ClipQualityIcq;
+                Log.Information($"ClipQualityGpu changed from '{settings.ClipQualityGpu}' to '{updatedSettings.ClipQualityGpu}'");
+                settings.ClipQualityGpu = updatedSettings.ClipQualityGpu;
                 hasChanges = true;
             }
 
@@ -351,6 +335,22 @@ namespace Segra.Backend.Utils
             {
                 Log.Information($"EnableSeparateAudioTracks changed from '{settings.EnableSeparateAudioTracks}' to '{updatedSettings.EnableSeparateAudioTracks}'");
                 settings.EnableSeparateAudioTracks = updatedSettings.EnableSeparateAudioTracks;
+                hasChanges = true;
+            }
+
+            // Update VideoQualityPreset
+            if (settings.VideoQualityPreset != updatedSettings.VideoQualityPreset)
+            {
+                Log.Information($"VideoQualityPreset changed from '{settings.VideoQualityPreset}' to '{updatedSettings.VideoQualityPreset}'");
+                settings.VideoQualityPreset = updatedSettings.VideoQualityPreset;
+                hasChanges = true;
+            }
+
+            // Update ClipQualityPreset
+            if (settings.ClipQualityPreset != updatedSettings.ClipQualityPreset)
+            {
+                Log.Information($"ClipQualityPreset changed from '{settings.ClipQualityPreset}' to '{updatedSettings.ClipQualityPreset}'");
+                settings.ClipQualityPreset = updatedSettings.ClipQualityPreset;
                 hasChanges = true;
             }
 

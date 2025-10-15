@@ -11,6 +11,30 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
       <h2 className="text-xl font-semibold mb-4">Capture Mode</h2>
+      <div className="mb-6">
+        <div
+          className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${
+            settings.recordingMode == 'Hybrid' ? 'border-primary' : 'border-base-400'
+          } ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+          onClick={() => !isRecording && updateSettings({ recordingMode: 'Hybrid' })}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <div className="text-lg font-semibold">Hybrid (Session + Buffer)</div>
+          </div>
+          <div className="text-sm text-left text-base-content">
+            <p className="mb-2">
+              Record the full session while keeping a replay buffer. Save short highlights with a
+              hotkey without stopping the session.
+            </p>
+            <div className="text-xs text-base-content text-opacity-70">
+              • Clip without ending the session recording
+              <br />• Full game integration features
+              <br />• Access to AI-generated highlights
+              <br />• Access to Bookmarks
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-6">
         <div
           className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primary' : 'border-base-400'} ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
@@ -49,31 +73,6 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
               <br />
               • No game integration
               <br />• No bookmarks
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="mt-6">
-        <div
-          className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${
-            settings.recordingMode == 'Hybrid' ? 'border-primary' : 'border-base-400'
-          } ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
-          onClick={() => !isRecording && updateSettings({ recordingMode: 'Hybrid' })}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <div className="text-lg font-semibold">Hybrid (Session + Buffer)</div>
-            <span className="badge badge-primary badge-sm text-base-300">Beta</span>
-          </div>
-          <div className="text-sm text-left text-base-content">
-            <p className="mb-2">
-              Record the full session while keeping a replay buffer. Save short highlights with a
-              hotkey without stopping the session.
-            </p>
-            <div className="text-xs text-base-content text-opacity-70">
-              • Clip without ending the session recording
-              <br />• Full game integration features
-              <br />• Access to AI-generated highlights
-              <br />• Access to Bookmarks
             </div>
           </div>
         </div>

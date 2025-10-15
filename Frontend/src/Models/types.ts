@@ -146,6 +146,9 @@ export type GpuClipPreset =
 export type Av1NvencPreset = 'p1' | 'p2' | 'p3' | 'p4' | 'p5' | 'p6' | 'p7';
 export type ClipPreset = CpuClipPreset | GpuClipPreset | Av1NvencPreset;
 
+export type VideoQualityPreset = 'low' | 'standard' | 'high' | 'custom';
+export type ClipQualityPreset = 'low' | 'standard' | 'high' | 'custom';
+
 export interface Settings {
   theme:
     | 'segra'
@@ -188,10 +191,8 @@ export interface Settings {
   clipClearSelectionsAfterCreatingClip: boolean;
   clipShowInBrowserAfterUpload: boolean; // Open browser after upload
   clipEncoder: ClipEncoder;
-  clipQualityCrf: number; // CPU: 17 (High) to 28 (Low)
-  clipQualityCq: number; // NVENC: 0 (High) to 51 (Low)
-  clipQualityQp: number; // AMF: 0 (High) to 51 (Low)
-  clipQualityIcq: number; // QSV: 1 (High) to 51 (Low)
+  clipQualityCpu: number; // CPU CRF: 17 (High) to 28 (Low)
+  clipQualityGpu: number; // GPU (CQ/QP/ICQ): 0-1 (High) to 51 (Low)
   clipCodec: ClipCodec;
   clipFps: ClipFPS;
   clipAudioQuality: ClipAudioQuality;
@@ -204,6 +205,8 @@ export interface Settings {
   showGameBackground: boolean; // Show game background while recording
   showAudioWaveformInTimeline: boolean; // Show audio waveform in video timeline
   enableSeparateAudioTracks: boolean; // Advanced: per-source audio tracks
+  videoQualityPreset: VideoQualityPreset;
+  clipQualityPreset: ClipQualityPreset;
   state: State;
 }
 
@@ -244,25 +247,25 @@ export const initialSettings: Settings = {
   autoGenerateHighlights: true,
   runOnStartup: false,
   receiveBetaUpdates: false,
-  recordingMode: 'Session',
-  replayBufferDuration: 30, // 30 seconds default
-  replayBufferMaxSize: 500, // 500 MB default
+  recordingMode: 'Hybrid',
+  replayBufferDuration: 30,
+  replayBufferMaxSize: 1000,
   clipClearSelectionsAfterCreatingClip: false,
-  clipShowInBrowserAfterUpload: false, // Default to not opening browser after upload
+  clipShowInBrowserAfterUpload: false,
   clipEncoder: 'cpu',
-  clipQualityCrf: 23,
-  clipQualityCq: 23,
-  clipQualityQp: 23,
-  clipQualityIcq: 23,
+  clipQualityCpu: 23,
+  clipQualityGpu: 23,
   clipCodec: 'h264',
   clipFps: 0,
   clipAudioQuality: '128k',
   clipPreset: 'veryfast',
   soundEffectsVolume: 1,
   showNewBadgeOnVideos: true,
-  showGameBackground: true, // Default to showing game background
+  showGameBackground: true,
   showAudioWaveformInTimeline: true,
   enableSeparateAudioTracks: false,
+  videoQualityPreset: 'custom',
+  clipQualityPreset: 'custom',
   keybindings: [
     { keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
     { keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true }, // 121 is F10

@@ -30,11 +30,11 @@ export default function Settings() {
 
       <VideoSettingsSection settings={settings} updateSettings={updateSettings} />
 
-      <StorageSettingsSection settings={settings} updateSettings={updateSettings} />
+      <AudioDevicesSection settings={settings} updateSettings={updateSettings} />
 
       <ClipSettingsSection settings={settings} updateSettings={updateSettings} />
 
-      <AudioDevicesSection settings={settings} updateSettings={updateSettings} />
+      <StorageSettingsSection settings={settings} updateSettings={updateSettings} />
 
       <KeybindingsSection settings={settings} updateSettings={updateSettings} />
 
