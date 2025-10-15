@@ -166,7 +166,7 @@ namespace Segra
                 SettingsUtils.SaveSettings();
                 if (firstRun)
                 {
-                    SettingsUtils.LoadContentFromFolderIntoState(true);
+                    _ = SettingsUtils.LoadContentFromFolderIntoState(true);
                     StartupUtils.SetStartupStatus(true);
                     Settings.Instance.State.GpuVendor = GeneralUtils.DetectGpuVendor();
                 }

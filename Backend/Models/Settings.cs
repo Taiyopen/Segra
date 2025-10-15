@@ -138,11 +138,14 @@ namespace Segra.Backend.Models
 
                 if (hasChanged || Instance.State.Content.Count == 0)
                 {
-                    SettingsUtils.LoadContentFromFolderIntoState();
-                    if (Instance != null && !Instance._isBulkUpdating)
+                    _ = Task.Run(async () =>
                     {
-                        SettingsUtils.SaveSettings();
-                    }
+                        await SettingsUtils.LoadContentFromFolderIntoState();
+                        if (Instance != null && !Instance._isBulkUpdating)
+                        {
+                            SettingsUtils.SaveSettings();
+                        }
+                    });
                 }
             }
         }

@@ -1,15 +1,21 @@
 using Segra.Backend.Models;
 using Serilog;
-using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Segra.Backend.Utils
 {
     internal class ContentUtils
     {
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+
         public static void CreateMetadataFile(string filePath, Content.ContentType type, string game, List<Bookmark>? bookmarks = null, string? title = null, DateTime? createdAt = null)
         {
-            bookmarks ??= new List<Bookmark>();
+            bookmarks ??= [];
 
             try
             {
@@ -34,6 +40,7 @@ namespace Segra.Backend.Utils
                 // Create the metadata file
                 string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
                 var (displaySize, sizeKb) = GetFileSize(filePath);
+
                 // Build audio track names: Track 1 is Full Mix, then one per audio source (inputs then outputs), up to OBS's 6 total tracks
                 var trackNames = new List<string>
                 {
@@ -76,10 +83,7 @@ namespace Segra.Backend.Utils
                     AudioTrackNames = trackNames
                 };
 
-                string metadataJson = System.Text.Json.JsonSerializer.Serialize(metadataContent, new System.Text.Json.JsonSerializerOptions
-                {
-                    WriteIndented = true
-                });
+                string metadataJson = JsonSerializer.Serialize(metadataContent, _jsonOptions);
 
                 File.WriteAllText(metadataFilePath, metadataJson);
                 Log.Information($"Metadata file created at: {metadataFilePath}");
@@ -87,6 +91,43 @@ namespace Segra.Backend.Utils
             catch (Exception ex)
             {
                 Log.Error($"Error creating metadata file: {ex.Message}");
+            }
+        }
+
+        public static async Task<Content?> UpdateMetadataFile(string metadataFilePath, Action<Content> updateAction)
+        {
+            try
+            {
+                if (!File.Exists(metadataFilePath))
+                {
+                    Log.Error($"Metadata file not found: {metadataFilePath}");
+                    return null;
+                }
+
+                // Read and deserialize
+                string metadataJson = await File.ReadAllTextAsync(metadataFilePath);
+                var content = System.Text.Json.JsonSerializer.Deserialize<Content>(metadataJson);
+
+                if (content == null)
+                {
+                    Log.Error($"Failed to deserialize metadata: {metadataFilePath}");
+                    return null;
+                }
+
+                // Apply the update
+                updateAction(content);
+
+                // Serialize and write back
+                string updatedJson = JsonSerializer.Serialize(content, _jsonOptions);
+
+                await File.WriteAllTextAsync(metadataFilePath, updatedJson);
+
+                return content;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error updating metadata file {metadataFilePath}: {ex.Message}");
+                return null;
             }
         }
 
@@ -178,7 +219,7 @@ namespace Segra.Backend.Utils
                         length = 0,
                         data = Array.Empty<int>()
                     };
-                    File.WriteAllText(waveformJsonPathTemp, System.Text.Json.JsonSerializer.Serialize(emptyJson));
+                    File.WriteAllText(waveformJsonPathTemp, JsonSerializer.Serialize(emptyJson));
                     File.Move(waveformJsonPathTemp, waveformJsonPath, true);
                     return;
                 }
@@ -220,10 +261,10 @@ namespace Segra.Backend.Utils
                     samples_per_pixel = samplesPerPixel,
                     bits = 8,
                     length = data.Count,
-                    data = data
+                    data
                 };
                 // Serialize JSON
-                var json = System.Text.Json.JsonSerializer.Serialize(wrapper);
+                var json = JsonSerializer.Serialize(wrapper);
                 File.WriteAllText(waveformJsonPathTemp, json);
                 File.Move(waveformJsonPathTemp, waveformJsonPath, true);
                 Log.Information($"Waveform JSON successfully created at: {waveformJsonPath}");
@@ -250,7 +291,7 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static void DeleteContent(string filePath, Content.ContentType type)
+        public static async Task DeleteContent(string filePath, Content.ContentType type)
         {
             try
             {
@@ -337,7 +378,7 @@ namespace Segra.Backend.Utils
             }
             finally
             {
-                SettingsUtils.LoadContentFromFolderIntoState();
+                await SettingsUtils.LoadContentFromFolderIntoState();
             }
         }
 
@@ -366,5 +407,325 @@ namespace Segra.Backend.Utils
             }
         }
 
+        public static (string gameName, DateTime? extractedDate) ParseFileNameInfo(string fileName)
+        {
+            string gameName = fileName; // Fallback to original filename
+            DateTime? extractedDate = null;
+
+            // Remove common prefixes and suffixes
+            string cleanName = fileName
+                .Replace("Highlight_", "")
+                .Replace("Clip_", "")
+                .Replace("Replay_", "")
+                .Replace("Desktop_", "")
+                .Replace("DesktopRecording", "Desktop")
+                .Replace("Recording_", "");
+
+            // Date patterns to try
+            var datePatterns = new[]
+            {
+                @"(\d{4}-\d{2}-\d{2})",           // YYYY-MM-DD
+                @"(\d{2}-\d{2}-\d{4})",           // MM-DD-YYYY or DD-MM-YYYY
+                @"(\d{4}\.\d{2}\.\d{2})",         // YYYY.MM.DD
+                @"(\d{2}\.\d{2}\.\d{4})",         // MM.DD.YYYY or DD.MM.YYYY
+                @"(\d{4}_\d{2}_\d{2})",           // YYYY_MM_DD
+                @"(\d{2}_\d{2}_\d{4})"            // MM_DD_YYYY or DD_MM_YYYY
+            };
+
+            // Try to extract date
+            foreach (string pattern in datePatterns)
+            {
+                var match = Regex.Match(cleanName, pattern);
+                if (match.Success)
+                {
+                    string dateStr = match.Groups[1].Value;
+
+                    // Try different date formats
+                    string[] formats = {
+                        "yyyy-MM-dd", "MM-dd-yyyy", "dd-MM-yyyy",
+                        "yyyy.MM.dd", "MM.dd.yyyy", "dd.MM.yyyy",
+                        "yyyy_MM_dd", "MM_dd_yyyy", "dd_MM_yyyy"
+                    };
+
+                    foreach (string format in formats)
+                    {
+                        if (DateTime.TryParseExact(dateStr, format, null, DateTimeStyles.None, out DateTime parsedDate))
+                        {
+                            extractedDate = parsedDate;
+                            break;
+                        }
+                    }
+
+                    if (extractedDate.HasValue)
+                    {
+                        // Remove the date part from the name for game detection
+                        cleanName = cleanName.Replace(dateStr, "").Trim('_', '-', '.', ' ');
+                        break;
+                    }
+                }
+            }
+
+            // Remove time patterns
+            var timePatterns = new[]
+            {
+                @"_\d{2}-\d{2}-\d{2}",    // _HH-MM-SS
+                @"_\d{2}\.\d{2}\.\d{2}",  // _HH.MM.SS
+                @"_\d{2}:\d{2}:\d{2}",    // _HH:MM:SS
+                @"\s\d{2}-\d{2}-\d{2}",   // HH-MM-SS
+                @"\s\d{2}\.\d{2}\.\d{2}", // HH.MM.SS
+                @"\s\d{2}:\d{2}:\d{2}"    // HH:MM:SS
+            };
+
+            foreach (string pattern in timePatterns)
+            {
+                cleanName = Regex.Replace(cleanName, pattern, "");
+            }
+
+            // Clean up any remaining separators and common words
+            cleanName = cleanName
+                .Replace("_", " ")
+                .Replace("-", " ")
+                .Replace(".", " ")
+                .Trim();
+
+            // Remove common action words at the end
+            var actionWords = new[] { "Ace", "Win", "Victory", "Goal", "Clutch", "Kill", "DoubleKill", "TripleKill",
+                                    "BossFight", "Mission", "Match", "Explore", "Sabotage", "FullMatch", "Highlight",
+                                    "Clip", "Replay", "Play", "Heist", "Recording", "Build", "SoloWin" };
+
+            foreach (string action in actionWords)
+            {
+                if (cleanName.EndsWith(" " + action, StringComparison.OrdinalIgnoreCase))
+                {
+                    cleanName = cleanName.Substring(0, cleanName.Length - action.Length - 1).Trim();
+                    break;
+                }
+            }
+
+            // Smart game name parsing - use cleanName if meaningful, otherwise fallback to original fileName
+            string nameToFormat = (!string.IsNullOrWhiteSpace(cleanName) &&
+                                  !Regex.IsMatch(cleanName, @"^[\d\s_\-\.]+$"))
+                                  ? cleanName : fileName;
+            gameName = GameNameUtils.SmartFormatGameName(nameToFormat);
+
+            return (gameName, extractedDate);
+        }
+
+        public static async Task HandleAddBookmark(JsonElement message)
+        {
+            try
+            {
+                // Get required properties from the message
+                if (message.TryGetProperty("FilePath", out JsonElement filePathElement) &&
+                    message.TryGetProperty("Type", out JsonElement typeElement) &&
+                    message.TryGetProperty("Time", out JsonElement timeElement) &&
+                    message.TryGetProperty("ContentType", out JsonElement contentTypeElement) &&
+                    message.TryGetProperty("Id", out JsonElement idElement))
+                {
+                    string? filePath = filePathElement.GetString();
+                    string? bookmarkTypeStr = typeElement.GetString();
+                    string? timeString = timeElement.GetString();
+                    string? contentTypeStr = contentTypeElement.GetString();
+                    int bookmarkId = idElement.GetInt32();
+
+                    if (string.IsNullOrEmpty(filePath) || string.IsNullOrEmpty(timeString) || string.IsNullOrEmpty(contentTypeStr))
+                    {
+                        Log.Error("Required parameters are null or empty in AddBookmark message");
+                        return;
+                    }
+
+                    // Parse bookmark type, default to Manual if not valid
+                    BookmarkType bookmarkType = BookmarkType.Manual;
+                    if (!string.IsNullOrEmpty(bookmarkTypeStr) && Enum.TryParse<BookmarkType>(bookmarkTypeStr, out var parsedType))
+                    {
+                        bookmarkType = parsedType;
+                    }
+
+                    // Determine content type from the provided value
+                    if (!Enum.TryParse<Content.ContentType>(contentTypeStr, out Content.ContentType contentType))
+                    {
+                        Log.Error($"Invalid content type: {contentTypeStr}");
+                        return;
+                    }
+
+                    // Get metadata file path
+                    string contentFileName = Path.GetFileNameWithoutExtension(filePath);
+                    string metadataFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".metadata", contentType.ToString().ToLower() + "s");
+                    string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
+
+                    // Create a new bookmark
+                    var bookmark = new Bookmark
+                    {
+                        Id = bookmarkId,
+                        Type = bookmarkType,
+                        Time = TimeSpan.Parse(timeString)
+                    };
+
+                    // Update the metadata file
+                    var content = await UpdateMetadataFile(metadataFilePath, c =>
+                    {
+                        if (c.Bookmarks == null)
+                        {
+                            c.Bookmarks = [];
+                        }
+                        c.Bookmarks.Add(bookmark);
+                    });
+
+                    if (content == null)
+                    {
+                        return;
+                    }
+
+                    // Update the bookmark in the in-memory content collection
+                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c =>
+                        c.FilePath == filePath &&
+                        c.Type.ToString() == contentTypeStr);
+
+                    if (contentItem == null)
+                    {
+                        Log.Error($"Content item not found for {filePath} and {contentTypeStr}");
+                        return;
+                    }
+
+                    contentItem.Bookmarks.Add(bookmark);
+
+                    await MessageUtils.SendSettingsToFrontend("Added bookmark");
+                    Log.Information($"Added bookmark of type {bookmarkType} at {timeString} to {metadataFilePath}");
+                }
+                else
+                {
+                    Log.Error("Required properties missing in AddBookmark message.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error handling AddBookmark: {ex.Message}");
+            }
+        }
+
+        public static async Task HandleDeleteBookmark(JsonElement message)
+        {
+            try
+            {
+                // Get required properties from the message
+                if (message.TryGetProperty("FilePath", out JsonElement filePathElement) &&
+                    message.TryGetProperty("ContentType", out JsonElement contentTypeElement) &&
+                    message.TryGetProperty("Id", out JsonElement idElement))
+                {
+                    string? filePath = filePathElement.GetString();
+                    string? contentTypeStr = contentTypeElement.GetString();
+                    int bookmarkId = idElement.GetInt32();
+
+                    if (string.IsNullOrEmpty(filePath) || string.IsNullOrEmpty(contentTypeStr))
+                    {
+                        Log.Error("Required parameters are null or empty in DeleteBookmark message");
+                        return;
+                    }
+
+                    // Determine content type from the provided value
+                    if (!Enum.TryParse<Content.ContentType>(contentTypeStr, out Content.ContentType contentType))
+                    {
+                        Log.Error($"Invalid content type: {contentTypeStr}");
+                        return;
+                    }
+
+                    // Get metadata file path
+                    string contentFileName = Path.GetFileNameWithoutExtension(filePath);
+                    string metadataFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".metadata", contentType.ToString().ToLower() + "s");
+                    string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
+
+                    // Update the metadata file
+                    var content = await UpdateMetadataFile(metadataFilePath, c =>
+                    {
+                        if (c.Bookmarks != null)
+                        {
+                            c.Bookmarks = c.Bookmarks.Where(b => b.Id != bookmarkId).ToList();
+                        }
+                    });
+
+                    if (content == null)
+                    {
+                        return;
+                    }
+
+                    // Update the bookmark in the in-memory content collection
+                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c =>
+                        c.FilePath == filePath &&
+                        c.Type.ToString() == contentTypeStr);
+
+                    if (contentItem != null && contentItem.Bookmarks != null)
+                    {
+                        contentItem.Bookmarks = contentItem.Bookmarks.Where(b => b.Id != bookmarkId).ToList();
+                    }
+
+                    await MessageUtils.SendSettingsToFrontend("Deleted bookmark");
+                    Log.Information($"Deleted bookmark with id {bookmarkId} from {metadataFilePath}");
+                }
+                else
+                {
+                    Log.Error("Required properties missing in DeleteBookmark message.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error handling DeleteBookmark: {ex.Message}");
+            }
+        }
+
+        public static async Task HandleRenameContent(JsonElement message)
+        {
+            try
+            {
+                Log.Information($"Handling RenameContent with message: {message}");
+
+                // Extract FileName, ContentType, and NewName from the message
+                if (message.TryGetProperty("FileName", out JsonElement fileNameElement) &&
+                    message.TryGetProperty("ContentType", out JsonElement contentTypeElement) &&
+                    message.TryGetProperty("Title", out JsonElement titleElement))
+                {
+                    string fileName = fileNameElement.GetString()!;
+                    string contentTypeStr = contentTypeElement.GetString()!;
+                    string newTitle = titleElement.GetString()!;
+
+                    // Parse the content type
+                    if (!Enum.TryParse(contentTypeStr, true, out Content.ContentType contentType))
+                    {
+                        Log.Error($"Invalid ContentType provided: {contentTypeStr}");
+                        return;
+                    }
+
+                    // Construct metadata file path
+                    string metadataFolderPath = Path.Combine(Settings.Instance.ContentFolder, ".metadata", contentType.ToString().ToLower() + "s");
+                    string metadataFilePath = Path.Combine(metadataFolderPath, $"{fileName}.json");
+
+                    // Update the metadata file
+                    var content = await UpdateMetadataFile(metadataFilePath, c =>
+                    {
+                        c.Title = newTitle;
+                    });
+
+                    if (content == null)
+                    {
+                        return;
+                    }
+
+                    Log.Information($"Updated title for {fileName} to '{newTitle}' in metadata file: {metadataFilePath}");
+
+                    // Reload content from disk to update in-memory state
+                    await SettingsUtils.LoadContentFromFolderIntoState(true);
+
+                    // Refresh the content in the frontend
+                    await MessageUtils.SendSettingsToFrontend("Renamed content");
+                }
+                else
+                {
+                    Log.Error("FileName, ContentType, or Title property not found in RenameContent message.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error handling RenameContent: {ex.Message}");
+            }
+        }
     }
 }

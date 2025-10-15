@@ -633,7 +633,7 @@ namespace Segra.Backend.Utils
             }
         }
 
-        public static void LoadContentFromFolderIntoState(bool sendToFrontend = true)
+        public static async Task LoadContentFromFolderIntoState(bool sendToFrontend = true)
         {
             string baseMetadataPath = Settings.Instance.ContentFolder + "/.metadata";
             string[] subfolders = Enum.GetValues(typeof(Content.ContentType))
@@ -676,20 +676,14 @@ namespace Segra.Backend.Utils
                             if (metadata.FileSizeKb == 0)
                             {
                                 Log.Information($"[MIGRATION] Adding FileSizeKb to {metadata.FilePath}");
-                                try
+                                var updatedMetadata = await ContentUtils.UpdateMetadataFile(metadataFilePath, c =>
                                 {
-                                    metadata.FileSizeKb = ContentUtils.GetFileSize(metadata.FilePath).sizeKb;
+                                    c.FileSizeKb = ContentUtils.GetFileSize(c.FilePath).sizeKb;
+                                });
 
-                                    string updatedMetadataJson = JsonSerializer.Serialize(metadata, new JsonSerializerOptions
-                                    {
-                                        WriteIndented = true
-                                    });
-
-                                    File.WriteAllText(metadataFilePath, updatedMetadataJson);
-                                }
-                                catch (Exception ex)
+                                if (updatedMetadata != null)
                                 {
-                                    Log.Error($"Failed to update file size for {metadata.FilePath}: {ex.Message}");
+                                    metadata = updatedMetadata;
                                 }
                             }
 

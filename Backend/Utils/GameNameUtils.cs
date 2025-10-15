@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -96,6 +97,91 @@ namespace Segra.Backend.Utils
             var match = Regex.Match(content, pattern, RegexOptions.IgnoreCase);
 
             return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
+        }
+
+        public static string SmartFormatGameName(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return "Unknown";
+
+            string result = input.Trim();
+
+            // Handle Desktop special case
+            if (result.Equals("Desktop", StringComparison.OrdinalIgnoreCase))
+                return "Desktop Recording";
+
+            // First, identify and preserve potential acronyms (2-6 consecutive uppercase letters)
+            var acronymMatches = Regex.Matches(result, @"\b[A-Z]{2,6}\b");
+            var acronymPlaceholders = new Dictionary<string, string>();
+            int placeholderIndex = 0;
+
+            foreach (Match match in acronymMatches)
+            {
+                string placeholder = $"__ACRONYM_{placeholderIndex}__";
+                acronymPlaceholders[placeholder] = match.Value;
+                result = result.Replace(match.Value, placeholder);
+                placeholderIndex++;
+            }
+
+            // Add spaces before capital letters (CamelCase handling)
+            result = Regex.Replace(result, @"(?<!^)(?=[A-Z][a-z])|(?<=[a-z])(?=[A-Z])", " ");
+
+            // Add spaces before numbers that follow letters
+            result = Regex.Replace(result, @"(?<=[a-zA-Z])(?=\d)", " ");
+
+            // Add spaces after numbers that are followed by letters
+            result = Regex.Replace(result, @"(?<=\d)(?=[a-zA-Z])", " ");
+
+            // Clean up multiple spaces
+            result = Regex.Replace(result, @"\s+", " ").Trim();
+
+            // Restore acronyms
+            foreach (var placeholder in acronymPlaceholders)
+            {
+                result = result.Replace(placeholder.Key, placeholder.Value);
+            }
+
+            // Split into words for processing
+            var words = result.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var processedWords = new List<string>();
+
+            foreach (string word in words)
+            {
+                string processedWord = word;
+
+                // Keep acronyms as they are (2-6 uppercase letters)
+                if (word.Length >= 2 && word.Length <= 6 && word.All(char.IsUpper) && word.All(char.IsLetter))
+                {
+                    processedWord = word;
+                }
+                // Handle connecting words as lowercase (except if first word)
+                else if (processedWords.Count > 0 &&
+                         (word.Equals("of", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("the", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("and", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("in", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("on", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("at", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("to", StringComparison.OrdinalIgnoreCase) ||
+                          word.Equals("for", StringComparison.OrdinalIgnoreCase)))
+                {
+                    processedWord = word.ToLower();
+                }
+                // Detect Roman numerals (proper patterns only)
+                else if (Regex.IsMatch(word, @"^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)$", RegexOptions.IgnoreCase))
+                {
+                    processedWord = word.ToUpper();
+                }
+                // Regular title case for other words
+                else
+                {
+                    processedWord = char.ToUpper(word[0]) + (word.Length > 1 ? word.Substring(1).ToLower() : "");
+                }
+
+                processedWords.Add(processedWord);
+            }
+
+            return string.Join(" ", processedWords);
         }
     }
 }

@@ -125,7 +125,7 @@ namespace Segra.Backend.Utils
             ContentUtils.CreateWaveformFile(savedPath, Content.ContentType.Buffer);
 
             // Reload content list to include the new buffer file
-            SettingsUtils.LoadContentFromFolderIntoState(true);
+            await SettingsUtils.LoadContentFromFolderIntoState(true);
 
             Log.Information("Replay buffer save process completed successfully");
 
@@ -782,7 +782,7 @@ namespace Segra.Backend.Utils
                     KeybindCaptureService.Stop();
 
                     // Reload content list
-                    SettingsUtils.LoadContentFromFolderIntoState(false);
+                    await SettingsUtils.LoadContentFromFolderIntoState(false);
                 }
                 else if (!isReplayBufferMode && !isHybridMode && output != IntPtr.Zero)
                 {
@@ -837,7 +837,7 @@ namespace Segra.Backend.Utils
                         Log.Information($"File Path: {Settings.Instance.State.Recording.FilePath}");
                     }
 
-                    SettingsUtils.LoadContentFromFolderIntoState(false);
+                    await SettingsUtils.LoadContentFromFolderIntoState(false);
                 }
                 else if (isHybridMode)
                 {
@@ -904,7 +904,7 @@ namespace Segra.Backend.Utils
                         ContentUtils.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
                     }
 
-                    SettingsUtils.LoadContentFromFolderIntoState(false);
+                    await SettingsUtils.LoadContentFromFolderIntoState(false);
                 }
                 else
                 {
@@ -915,7 +915,7 @@ namespace Segra.Backend.Utils
                     Settings.Instance.State.PreRecording = null;
                 }
 
-                StorageUtils.EnsureStorageBelowLimit();
+                await StorageUtils.EnsureStorageBelowLimit();
 
                 // Reset hooked executable file name
                 hookedExecutableFileName = null;

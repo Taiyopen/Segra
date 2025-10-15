@@ -160,7 +160,7 @@ namespace Segra.Backend.Utils
             ContentUtils.CreateMetadataFile(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip, selections.FirstOrDefault()?.Game!, null, selections.FirstOrDefault()?.Title);
             await ContentUtils.CreateThumbnail(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip);
             ContentUtils.CreateWaveformFile(outputFilePath, aiProgressMessage != null ? Content.ContentType.Highlight : Content.ContentType.Clip);
-            SettingsUtils.LoadContentFromFolderIntoState();
+            await SettingsUtils.LoadContentFromFolderIntoState();
             if (updateFrontend)
             {
                 await MessageUtils.SendFrontendMessage("ClipProgress", new { id, progress = 100, selections });

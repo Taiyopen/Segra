@@ -7,7 +7,7 @@ namespace Segra.Backend.Utils
     {
         private const long BYTES_PER_GB = 1073741824; // 1024 * 1024 * 1024
 
-        public static void EnsureStorageBelowLimit()
+        public static async Task EnsureStorageBelowLimit()
         {
             Log.Information("Starting storage limit check");
             long storageLimit = Settings.Instance.StorageLimit; // This is in GB
@@ -22,7 +22,7 @@ namespace Segra.Backend.Utils
             {
                 double excessGB = (currentUsageBytes - (storageLimit * BYTES_PER_GB)) / (double)BYTES_PER_GB;
                 Log.Information($"Storage limit exceeded by {excessGB:F2} GB, starting cleanup");
-                DeleteOldestFiles(contentFolder, currentUsageBytes - (storageLimit * BYTES_PER_GB));
+                await DeleteOldestContent(contentFolder, currentUsageBytes - (storageLimit * BYTES_PER_GB));
             }
             else
             {
@@ -51,7 +51,7 @@ namespace Segra.Backend.Utils
             return size;
         }
 
-        private static void DeleteOldestFiles(string contentFolder, long spaceToFreeBytes)
+        private static async Task DeleteOldestContent(string contentFolder, long spaceToFreeBytes)
         {
             double spaceToFreeGB = (double)spaceToFreeBytes / BYTES_PER_GB;
 
@@ -110,7 +110,7 @@ namespace Segra.Backend.Utils
                         Content.ContentType.Session : Content.ContentType.Buffer;
 
                     Log.Information($"Deleting {contentType} file: {file.FullName} ({fileSizeMB:F2} MB)");
-                    ContentUtils.DeleteContent(file.FullName, contentType);
+                    await ContentUtils.DeleteContent(file.FullName, contentType);
 
                     freedSpaceBytes += fileSize;
                     deletedCount++;

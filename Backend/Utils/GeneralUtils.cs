@@ -1,4 +1,5 @@
 using Serilog;
+using System.Text.RegularExpressions;
 using Vortice.DXCore;
 
 namespace Segra.Backend.Utils
@@ -206,6 +207,102 @@ namespace Segra.Backend.Utils
                 Log.Error($"Error detecting GPU vendor: {ex.Message}");
                 return GpuVendor.Unknown;
             }
+        }
+
+        private static readonly string[] SensitiveProperties =
+        [
+            "accesstoken",
+            "refreshtoken",
+            "jwt",
+            "state"
+        ];
+
+        public static string RedactSensitiveInfo(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return message;
+
+            foreach (var prop in SensitiveProperties)
+            {
+                // Redact string values: "prop":"value"
+                var stringPattern = $"\"{prop}\":\"([^\"]+)\"";
+                message = Regex.Replace(message, stringPattern, $"\"{prop}\":\"-REDACTED-\"", RegexOptions.IgnoreCase);
+
+                // Redact object/array values: "prop":{...} or "prop":[...]
+                // Find the property and then skip to the matching closing brace/bracket
+                var propPattern = $"\"{prop}\":";
+                var index = message.IndexOf($"\"{prop}\":", StringComparison.OrdinalIgnoreCase);
+
+                while (index >= 0)
+                {
+                    var valueStart = index + propPattern.Length;
+                    if (valueStart < message.Length)
+                    {
+                        var firstChar = message[valueStart];
+                        if (firstChar == '{' || firstChar == '[')
+                        {
+                            var endIndex = FindMatchingBracket(message, valueStart);
+                            if (endIndex > valueStart)
+                            {
+                                var before = message.Substring(0, index);
+                                var after = message.Substring(endIndex + 1);
+                                message = before + $"\"{prop}\":\"-REDACTED-\"" + after;
+                            }
+                        }
+                    }
+
+                    // Find next occurrence
+                    index = message.IndexOf($"\"{prop}\":", index + 1, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+
+            return message;
+        }
+
+        private static int FindMatchingBracket(string text, int startIndex)
+        {
+            var openChar = text[startIndex];
+            var closeChar = openChar == '{' ? '}' : ']';
+            var depth = 1;
+            var inString = false;
+            var escaped = false;
+
+            for (int i = startIndex + 1; i < text.Length; i++)
+            {
+                var c = text[i];
+
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+
+                if (c == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (!inString)
+                {
+                    if (c == openChar)
+                        depth++;
+                    else if (c == closeChar)
+                    {
+                        depth--;
+                        if (depth == 0)
+                            return i;
+                    }
+                }
+            }
+
+            return -1; // No matching bracket found
         }
     }
 }
