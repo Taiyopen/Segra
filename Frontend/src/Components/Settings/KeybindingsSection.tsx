@@ -6,8 +6,8 @@ interface KeybindingsSectionProps {
 }
 
 const getKeyName = (keyCode: number): string => {
-  // Function keys
-  if (keyCode >= 112 && keyCode <= 123) return `F${keyCode - 111}`;
+  // Function keys F1-F24
+  if (keyCode >= 112 && keyCode <= 135) return `F${keyCode - 111}`;
   
   // Special keys
   const keyMap: Record<number, string> = {
