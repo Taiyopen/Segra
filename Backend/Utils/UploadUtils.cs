@@ -10,6 +10,11 @@ namespace Segra.Backend.Utils
 {
     internal static class UploadUtils
     {
+        private static readonly HttpClient _httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromMinutes(10)
+        };
+
         public static async Task HandleUploadContent(JsonElement message)
         {
             try
@@ -19,7 +24,6 @@ namespace Segra.Backend.Utils
                 string title = message.GetProperty("Title").GetString()!;
 
                 byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
-                using var httpClient = new HttpClient();
                 using var formData = new MultipartFormDataContent();
 
                 int lastSentProgress = 0;
@@ -65,7 +69,7 @@ namespace Segra.Backend.Utils
                 };
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await AuthService.GetJwtAsync());
 
-                var response = await httpClient.SendAsync(request);
+                var response = await _httpClient.SendAsync(request);
                 response.EnsureSuccessStatusCode();
 
                 await MessageUtils.SendFrontendMessage("UploadProgress", new
