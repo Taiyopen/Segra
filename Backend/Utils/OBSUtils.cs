@@ -455,15 +455,22 @@ namespace Segra.Backend.Utils
             // Reset video settings to set correct output width for games with custom resolution
             Task.Delay(500).Wait();
             
-            // If recording windowed applications and we have captured dimensions, use them
-            if (Settings.Instance.RecordWindowedApplications && _capturedWindowWidth.HasValue && _capturedWindowHeight.HasValue)
+            // If recording windowed applications, try to get the window dimensions
+            if (Settings.Instance.RecordWindowedApplications)
             {
-                Log.Information($"Using captured window dimensions: {_capturedWindowWidth}x{_capturedWindowHeight}");
-                ResetVideoSettings(
-                    customFps: (uint)Settings.Instance.FrameRate,
-                    customOutputWidth: _capturedWindowWidth.Value,
-                    customOutputHeight: _capturedWindowHeight.Value
-                );
+                if (GetWindowSize(fileName, out uint windowWidth, out uint windowHeight))
+                {
+                    ResetVideoSettings(
+                        customFps: (uint)Settings.Instance.FrameRate,
+                        customOutputWidth: windowWidth,
+                        customOutputHeight: windowHeight
+                    );
+                }
+                else
+                {
+                    Log.Warning("Could not determine window size, using default video settings");
+                    ResetVideoSettings(customFps: (uint)Settings.Instance.FrameRate);
+                }
             }
             else
             {
@@ -1542,6 +1549,21 @@ namespace Segra.Backend.Utils
             while (waveOut.PlaybackState == PlaybackState.Playing)
                 Thread.Sleep(50);
         }
+
+        private static bool GetWindowSize(string? executableFileName, out uint width, out uint height)
+        {
+            if (_capturedWindowWidth.HasValue && _capturedWindowHeight.HasValue)
+            {
+                width = _capturedWindowWidth.Value;
+                height = _capturedWindowHeight.Value;
+                Log.Information($"Using captured window dimensions from OBS logs: {width}x{height}");
+                return true;
+            }
+
+            Log.Information("Captured dimensions not available, using Windows API fallback");
+            return WindowUtils.GetWindowDimensions(executableFileName, out width, out height);
+        }
+
 
         private static readonly Dictionary<string, string> EncoderFriendlyNames =
             new(StringComparer.OrdinalIgnoreCase)
