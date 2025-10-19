@@ -333,7 +333,7 @@ namespace Segra.Backend.Services
                 string windowClass = string.Empty;
 
                 // Array of blacklisted words in file descriptions
-                string[] blacklistedWords = ["anticheat", "loader", "launcher"];
+                string[] blacklistedWords = ["anticheat", "loader", "launcher", "overlay"];
 
                 if (File.Exists(exePath))
                 {

@@ -39,8 +39,8 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
       <div
         className={
           type === 'Highlight'
-            ? 'card card-compact shadow-xl w-full relative highlight-card'
-            : 'card card-compact bg-base-300 text-gray-300 shadow-xl w-full border border-[#49515b]'
+            ? 'card card-compact w-full relative highlight-card'
+            : 'card card-compact bg-base-300 text-gray-300 w-full border border-[#49515b]'
         }
       >
         {type === 'Highlight' && (
@@ -240,7 +240,7 @@ export default function ContentCard({ content, type, onClick, isLoading }: Video
             </label>
             <ul
               tabIndex={0}
-              className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2 shadow"
+              className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2"
             >
               {(type === 'Clip' || type === 'Highlight') && (
                 <li>

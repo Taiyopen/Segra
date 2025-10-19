@@ -7,7 +7,7 @@ namespace Segra.Backend.Utils
     public static class WindowUtils
     {
         [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
@@ -124,9 +124,9 @@ namespace Segra.Backend.Utils
                     return true;
                 }
 
-                if (!GetClientRect(windowHandle, out RECT rect))
+                if (!GetWindowRect(windowHandle, out RECT rect))
                 {
-                    Log.Warning($"Failed to get client rect for window handle {windowHandle}");
+                    Log.Warning($"Failed to get window rect for window handle {windowHandle}");
                     return false;
                 }
 
