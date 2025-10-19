@@ -53,8 +53,8 @@ namespace Segra.Backend.Utils
         private static bool _isGameCaptureHooked = false;
         private static readonly SemaphoreSlim _stopRecordingSemaphore = new SemaphoreSlim(1, 1);
         private static bool _isStoppingOrStopped = false;
-        private static uint? _capturedWindowWidth = null;
-        private static uint? _capturedWindowHeight = null;
+        public static uint? CapturedWindowWidth { get; private set; } = null;
+        public static uint? CapturedWindowHeight { get; private set; } = null;
 
         public static async Task<bool> SaveReplayBuffer()
         {
@@ -210,7 +210,7 @@ namespace Segra.Backend.Utils
                         var match = BufferDescWidthRegex().Match(formattedMessage);
                         if (match.Success && uint.TryParse(match.Groups[1].Value, out uint width))
                         {
-                            _capturedWindowWidth = width;
+                            CapturedWindowWidth = width;
                             Log.Information($"Captured window width: {width}");
                         }
                     }
@@ -220,7 +220,7 @@ namespace Segra.Backend.Utils
                         var match = BufferDescHeightRegex().Match(formattedMessage);
                         if (match.Success && uint.TryParse(match.Groups[1].Value, out uint height))
                         {
-                            _capturedWindowHeight = height;
+                            CapturedWindowHeight = height;
                             Log.Information($"Captured window height: {height}");
                         }
                     }
@@ -458,7 +458,7 @@ namespace Segra.Backend.Utils
             // If recording windowed applications, try to get the window dimensions
             if (Settings.Instance.RecordWindowedApplications)
             {
-                if (GetWindowSize(fileName, out uint windowWidth, out uint windowHeight))
+                if (WindowUtils.GetWindowDimensions(fileName, out uint windowWidth, out uint windowHeight))
                 {
                     ResetVideoSettings(
                         customFps: (uint)Settings.Instance.FrameRate,
@@ -987,8 +987,8 @@ namespace Segra.Backend.Utils
 
                 // Reset hooked executable file name and captured dimensions
                 hookedExecutableFileName = null;
-                _capturedWindowWidth = null;
-                _capturedWindowHeight = null;
+                CapturedWindowWidth = null;
+                CapturedWindowHeight = null;
 
                 // If the recording ends before it started, don't do anything
                 if (Settings.Instance.State.Recording == null || (!isReplayBufferMode && Settings.Instance.State.Recording.FilePath == null))
@@ -1548,20 +1548,6 @@ namespace Segra.Backend.Utils
 
             while (waveOut.PlaybackState == PlaybackState.Playing)
                 Thread.Sleep(50);
-        }
-
-        private static bool GetWindowSize(string? executableFileName, out uint width, out uint height)
-        {
-            if (_capturedWindowWidth.HasValue && _capturedWindowHeight.HasValue)
-            {
-                width = _capturedWindowWidth.Value;
-                height = _capturedWindowHeight.Value;
-                Log.Information($"Using captured window dimensions from OBS logs: {width}x{height}");
-                return true;
-            }
-
-            Log.Information("Captured dimensions not available, using Windows API fallback");
-            return WindowUtils.GetWindowDimensions(executableFileName, out width, out height);
         }
 
 

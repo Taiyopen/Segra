@@ -37,12 +37,21 @@ namespace Segra.Backend.Utils
             width = 0;
             height = 0;
 
+            // Check for captured dimensions first - these are the most accurate and don't require window handle lookup
+            if (OBSUtils.CapturedWindowWidth.HasValue && OBSUtils.CapturedWindowHeight.HasValue)
+            {
+                width = OBSUtils.CapturedWindowWidth.Value;
+                height = OBSUtils.CapturedWindowHeight.Value;
+                Log.Information($"Using captured window dimensions from OBS logs: {width}x{height}");
+                return true;
+            }
+
             if (string.IsNullOrEmpty(executableFileName))
             {
                 return false;
             }
 
-            Log.Information($"Attempting to find window for: {executableFileName}");
+            Log.Information($"Captured dimensions not available, attempting to find window for: {executableFileName}");
 
             IntPtr targetWindow = IntPtr.Zero;
 
@@ -99,13 +108,22 @@ namespace Segra.Backend.Utils
         {
             width = 0;
             height = 0;
-            int maxAttempts = 10;
+            int maxAttempts = 20;
             int attempts = 0;
             uint? lastWidth = null;
             uint? lastHeight = null;
 
             while (attempts < maxAttempts)
             {
+                // If OBS captured dimensions are available, use them
+                if (OBSUtils.CapturedWindowWidth.HasValue && OBSUtils.CapturedWindowHeight.HasValue)
+                {
+                    width = OBSUtils.CapturedWindowWidth.Value;
+                    height = OBSUtils.CapturedWindowHeight.Value;
+                    Log.Information($"Using captured window dimensions from OBS logs: {width}x{height}");
+                    return true;
+                }
+
                 if (!GetClientRect(windowHandle, out RECT rect))
                 {
                     Log.Warning($"Failed to get client rect for window handle {windowHandle}");
@@ -153,7 +171,7 @@ namespace Segra.Backend.Utils
                 attempts++;
             }
 
-            Log.Warning($"Window dimension timeout after 10 seconds");
+            Log.Warning($"Window dimension timeout after {maxAttempts} seconds");
             return false;
         }
     }
