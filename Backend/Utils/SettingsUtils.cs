@@ -539,11 +539,26 @@ namespace Segra.Backend.Utils
                 hasChanges = true;
             }
 
+            // Update RecordWindowedApplications
+            if (settings.RecordWindowedApplications != updatedSettings.RecordWindowedApplications)
+            {
+                Log.Information($"RecordWindowedApplications changed from '{settings.RecordWindowedApplications}' to '{updatedSettings.RecordWindowedApplications}'");
+                settings.RecordWindowedApplications = updatedSettings.RecordWindowedApplications;
+                hasChanges = true;
+            }
+
             // Update EnableDisplayRecording
             if (settings.EnableDisplayRecording != updatedSettings.EnableDisplayRecording)
             {
                 Log.Information($"EnableDisplayRecording changed from '{settings.EnableDisplayRecording}' to '{updatedSettings.EnableDisplayRecording}'");
                 settings.EnableDisplayRecording = updatedSettings.EnableDisplayRecording;
+
+                if(updatedSettings.EnableDisplayRecording == true && updatedSettings.RecordWindowedApplications == true)
+                {
+                    settings.RecordWindowedApplications = false;
+                    Log.Warning("RecordWindowedApplications disabled because EnableDisplayRecording is enabled");
+                }
+
                 hasChanges = true;
             }
 

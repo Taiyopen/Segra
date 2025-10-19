@@ -33,6 +33,7 @@ namespace Segra.Backend.Models
         private bool _forceMonoInputSources = false;
         private bool _enableDisplayRecording = true;
         private Display? _selectedDisplay = null;
+        private bool _recordWindowedApplications = false;
         private bool _enableAi = true;
         private bool _autoGenerateHighlights = true;
         private bool _runOnStartup = false;
@@ -312,6 +313,19 @@ namespace Segra.Backend.Models
             set
             {
                 _selectedDisplay = value;
+            }
+        }
+
+        [JsonPropertyName("recordWindowedApplications")]
+        public bool RecordWindowedApplications
+        {
+            get => _recordWindowedApplications;
+            set
+            {
+                if (_recordWindowedApplications != value)
+                {
+                    _recordWindowedApplications = value;
+                }
             }
         }
 

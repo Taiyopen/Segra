@@ -180,6 +180,7 @@ export interface Settings {
   forceMonoInputSources: boolean;
   enableDisplayRecording: boolean;
   selectedDisplay: Display | null;
+  recordWindowedApplications: boolean;
   selectedOBSVersion: string | null; // null means automatic (latest non-beta)
   enableAi: boolean;
   autoGenerateHighlights: boolean;
@@ -242,6 +243,7 @@ export const initialSettings: Settings = {
   forceMonoInputSources: false,
   enableDisplayRecording: true,
   selectedDisplay: null, // Default to null (auto-select)
+  recordWindowedApplications: false,
   selectedOBSVersion: null, // null means automatic (latest non-beta)
   enableAi: true,
   autoGenerateHighlights: true,

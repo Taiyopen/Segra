@@ -415,6 +415,26 @@ export default function VideoSettingsSection({ settings, updateSettings }: Video
       </AnimatePresence>
 
       <div className="flex items-center justify-between mt-3">
+        <div className="flex flex-col gap-1">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="recordWindowedApplications"
+              checked={settings.recordWindowedApplications}
+              onChange={(e) => updateSettings({ recordWindowedApplications: e.target.checked })}
+              className="checkbox checkbox-primary checkbox-sm"
+              disabled={isRecording || settings.enableDisplayRecording}
+            />
+            <span className="font-medium cursor-pointer">Capture Windowed Games</span>
+            <span className="badge badge-primary badge-sm">Beta</span>
+          </label>
+          {settings.enableDisplayRecording && (
+            <span className="text-xs text-warning ml-7">Cannot be enabled with Display Recording while this feature is in Beta</span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mt-3">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"

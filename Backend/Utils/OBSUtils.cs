@@ -6,6 +6,7 @@ using Segra.Backend.Services;
 using Serilog;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using static LibObs.Obs;
 using static Segra.Backend.Utils.GeneralUtils;
 using size_t = System.UIntPtr;
@@ -14,9 +15,15 @@ using System.Net.Http.Json;
 
 namespace Segra.Backend.Utils
 {
-    public static class OBSUtils
+    public static partial class OBSUtils
     {
         private const uint OBS_SOURCE_FLAG_FORCE_MONO = 1u << 1; // from obs.h
+        
+        [GeneratedRegex(@"BufferDesc\.Width:\s*(\d+)")]
+        private static partial Regex BufferDescWidthRegex();
+        
+        [GeneratedRegex(@"BufferDesc\.Height:\s*(\d+)")]
+        private static partial Regex BufferDescHeightRegex();
         public static bool IsInitialized { get; private set; }
         public static GpuVendor DetectedGpuVendor { get; private set; } = DetectGpuVendor();
         static bool signalOutputStop = false;
@@ -46,6 +53,8 @@ namespace Segra.Backend.Utils
         private static bool _isGameCaptureHooked = false;
         private static readonly SemaphoreSlim _stopRecordingSemaphore = new SemaphoreSlim(1, 1);
         private static bool _isStoppingOrStopped = false;
+        private static uint? _capturedWindowWidth = null;
+        private static uint? _capturedWindowHeight = null;
 
         public static async Task<bool> SaveReplayBuffer()
         {
@@ -181,7 +190,7 @@ namespace Segra.Backend.Utils
                         }
                     }
 
-                    if (formattedMessage.Contains("attempting to hook fullscreen process"))
+                    if (formattedMessage.Contains("attempting to hook fullscreen process") || formattedMessage.Contains("attempting to hook process"))
                     {
                         if (Settings.Instance.State.PreRecording != null)
                         {
@@ -192,6 +201,27 @@ namespace Segra.Backend.Utils
                             {
                                 _ = MessageUtils.SendSettingsToFrontend("Waiting for game hook");
                             }
+                        }
+                    }
+
+                    // Parse window dimensions from OBS game capture logs
+                    if (formattedMessage.Contains("BufferDesc.Width:"))
+                    {
+                        var match = BufferDescWidthRegex().Match(formattedMessage);
+                        if (match.Success && uint.TryParse(match.Groups[1].Value, out uint width))
+                        {
+                            _capturedWindowWidth = width;
+                            Log.Information($"Captured window width: {width}");
+                        }
+                    }
+
+                    if (formattedMessage.Contains("BufferDesc.Height:"))
+                    {
+                        var match = BufferDescHeightRegex().Match(formattedMessage);
+                        if (match.Success && uint.TryParse(match.Groups[1].Value, out uint height))
+                        {
+                            _capturedWindowHeight = height;
+                            Log.Information($"Captured window height: {height}");
                         }
                     }
 
@@ -282,6 +312,8 @@ namespace Segra.Backend.Utils
             // Use custom values if provided, otherwise use defaults
             uint outputWidth = customOutputWidth ?? baseWidth;
             uint outputHeight = customOutputHeight ?? baseHeight;
+            baseWidth = customOutputWidth ?? baseWidth;
+            baseHeight = customOutputHeight ?? baseHeight;
 
             // Check if the input aspect ratio is close to 4:3 (1.33)
             double aspectRatio = (double)baseWidth / baseHeight;
@@ -355,7 +387,21 @@ namespace Segra.Backend.Utils
             _isGameCaptureHooked = false;
 
             IntPtr videoSourceSettings = obs_data_create();
-            obs_data_set_string(videoSourceSettings, "capture_mode", "any_fullscreen");
+            
+            // Use window capture mode if RecordWindowedApplications is enabled, otherwise use fullscreen mode
+            if (Settings.Instance.RecordWindowedApplications)
+            {
+                obs_data_set_string(videoSourceSettings, "capture_mode", "window");
+                // Specify the executable to capture (format: <title>:<window-class>:<executable>)
+                obs_data_set_string(videoSourceSettings, "window", $"*:*:{fileName}");
+                Log.Information($"Game capture configured for windowed applications: {fileName}");
+            }
+            else
+            {
+                obs_data_set_string(videoSourceSettings, "capture_mode", "any_fullscreen");
+                Log.Information("Game capture configured for fullscreen applications only");
+            }
+            
             gameCaptureSource = obs_source_create("game_capture", "gameplay", videoSourceSettings, IntPtr.Zero);
             obs_data_release(videoSourceSettings);
 
@@ -408,7 +454,22 @@ namespace Segra.Backend.Utils
 
             // Reset video settings to set correct output width for games with custom resolution
             Task.Delay(500).Wait();
-            ResetVideoSettings(customFps: (uint)Settings.Instance.FrameRate);
+            
+            // If recording windowed applications and we have captured dimensions, use them
+            if (Settings.Instance.RecordWindowedApplications && _capturedWindowWidth.HasValue && _capturedWindowHeight.HasValue)
+            {
+                Log.Information($"Using captured window dimensions: {_capturedWindowWidth}x{_capturedWindowHeight}");
+                ResetVideoSettings(
+                    customFps: (uint)Settings.Instance.FrameRate,
+                    customOutputWidth: _capturedWindowWidth.Value,
+                    customOutputHeight: _capturedWindowHeight.Value
+                );
+            }
+            else
+            {
+                ResetVideoSettings(customFps: (uint)Settings.Instance.FrameRate);
+            }
+            
             Task.Delay(1000).Wait();
 
             // If display recording is disabled, wait for game capture to hook
@@ -917,8 +978,10 @@ namespace Segra.Backend.Utils
 
                 await StorageUtils.EnsureStorageBelowLimit();
 
-                // Reset hooked executable file name
+                // Reset hooked executable file name and captured dimensions
                 hookedExecutableFileName = null;
+                _capturedWindowWidth = null;
+                _capturedWindowHeight = null;
 
                 // If the recording ends before it started, don't do anything
                 if (Settings.Instance.State.Recording == null || (!isReplayBufferMode && Settings.Instance.State.Recording.FilePath == null))
