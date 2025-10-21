@@ -348,7 +348,7 @@ namespace Segra.Backend.Utils
             return obs_reset_video(ref videoInfo) == 0; // Returns true if successful
         }
 
-        public static bool StartRecording(string name = "Manual Recording", string exePath = "Unknown", bool startManually = false)
+        public static bool StartRecording(string name = "Manual Recording", string exePath = "Unknown", bool startManually = false, int pid = 0)
         {
             Settings.Instance.State.PreRecording = new PreRecording { Game = name, Status = "Waiting to start" };
             bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
@@ -755,6 +755,7 @@ namespace Segra.Backend.Utils
                 Game = name,
                 FilePath = videoOutputPath,
                 FileName = fileName,
+                Pid = pid,
                 IsUsingGameHook = _isGameCaptureHooked,
                 GameImage = gameImage
             };

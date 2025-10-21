@@ -1131,6 +1131,9 @@ namespace Segra.Backend.Models
         [JsonPropertyName("fileName")]
         public required string FileName { get; set; }
 
+        [JsonPropertyName("pid")]
+        public int Pid { get; set; }
+
         [JsonPropertyName("isUsingGameHook")]
         public bool IsUsingGameHook { get; set; }
 

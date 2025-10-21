@@ -38,6 +38,10 @@ namespace Segra.Backend.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool QueryDosDevice(string lpDeviceName, StringBuilder lpTargetPath, int ucchMax);
 
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool QueryFullProcessImageName(IntPtr hProcess, int dwFlags, StringBuilder lpExeName, ref int lpdwSize);
+
         private delegate void WinEventDelegate(
             IntPtr hWinEventHook,
             uint eventType,
@@ -86,18 +90,6 @@ namespace Segra.Backend.Services
             });
         }
 
-        public static void StopAsync()
-        {
-            if (!_running)
-                return;
-
-            _cts?.Cancel();
-
-            Stop();
-
-            _running = false;
-        }
-
         private static void Start()
         {
             Log.Information("Starting process monitoring...");
@@ -115,25 +107,6 @@ namespace Segra.Backend.Services
             _processCheckTimer = new System.Threading.Timer(_ => CheckForGames(), null, 10000, 10000);
 
             Log.Information("WMI watchers and process check timer are now active.");
-        }
-
-        private static void Stop()
-        {
-            try
-            {
-                processStartWatcher?.Stop();
-                processStopWatcher?.Stop();
-                processStartWatcher?.Dispose();
-                processStopWatcher?.Dispose();
-
-                // Stop and dispose the process check timer
-                _processCheckTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-                _processCheckTimer?.Dispose();
-                _processCheckTimer = null;
-            }
-            catch { }
-
-            Log.Information("Process monitoring stopped.");
         }
 
         private static void OnProcessStarted(object sender, EventArrivedEventArgs e)
@@ -201,7 +174,7 @@ namespace Segra.Backend.Services
             }
 
             Log.Information($"[StartGameRecording] Starting recording for game: PID {pid}, Path: {exePath}");
-            OBSUtils.StartRecording(ExtractGameName(exePath), exePath);
+            OBSUtils.StartRecording(ExtractGameName(exePath), exePath, pid: pid);
         }
 
         [DllImport("user32.dll")]
@@ -397,6 +370,12 @@ namespace Segra.Backend.Services
         private static string ResolveProcessPath(int pid)
         {
             if (pid <= 0) return string.Empty;
+
+            // Strategy 1: Try QueryFullProcessImageName (works for most processes including elevated)
+            string path = ResolvePathViaQueryFullProcessImageName(pid);
+            if (!string.IsNullOrEmpty(path)) return path;
+
+            // Strategy 2: Try standard Process.MainModule
             try
             {
                 var proc = Process.GetProcessById(pid);
@@ -404,12 +383,66 @@ namespace Segra.Backend.Services
                 {
                     return Path.GetFullPath(proc.MainModule.FileName);
                 }
-                return ResolvePathViaWinAPI(pid);
+            }
+            catch { /* Continue to next strategy */ }
+
+            // Strategy 3: Try GetProcessImageFileName (device path method)
+            path = ResolvePathViaWinAPI(pid);
+            if (!string.IsNullOrEmpty(path)) return path;
+
+            // Strategy 4: Try WMI query (slower but works for elevated processes)
+            path = ResolvePathViaWMI(pid);
+            if (!string.IsNullOrEmpty(path)) return path;
+
+            return string.Empty;
+        }
+
+        private static string ResolvePathViaQueryFullProcessImageName(int pid)
+        {
+            IntPtr hProcess = IntPtr.Zero;
+            try
+            {
+                // PROCESS_QUERY_LIMITED_INFORMATION (0x1000) works even for elevated processes
+                hProcess = OpenProcess(0x1000, false, pid);
+                if (hProcess == IntPtr.Zero) return string.Empty;
+
+                var sb = new StringBuilder(1024);
+                int size = sb.Capacity;
+                if (QueryFullProcessImageName(hProcess, 0, sb, ref size))
+                {
+                    return sb.ToString();
+                }
+                return string.Empty;
             }
             catch
             {
-                return ResolvePathViaWinAPI(pid);
+                return string.Empty;
             }
+            finally
+            {
+                if (hProcess != IntPtr.Zero) CloseHandle(hProcess);
+            }
+        }
+
+        private static string ResolvePathViaWMI(int pid)
+        {
+            try
+            {
+                using (var searcher = new System.Management.ManagementObjectSearcher(
+                    $"SELECT ExecutablePath FROM Win32_Process WHERE ProcessId = {pid}"))
+                {
+                    foreach (System.Management.ManagementObject obj in searcher.Get())
+                    {
+                        var path = obj["ExecutablePath"]?.ToString();
+                        if (!string.IsNullOrEmpty(path))
+                        {
+                            return path;
+                        }
+                    }
+                }
+            }
+            catch { /* WMI query failed */ }
+            return string.Empty;
         }
 
         private static string ResolvePathViaWinAPI(int pid)
@@ -441,11 +474,25 @@ namespace Segra.Backend.Services
 
         private static void CheckForGames()
         {
-            // Skip if already recording
-            if (Settings.Instance.State.Recording != null || PreventRetryRecording) return;
-
             try
             {
+                // First, check if we're currently recording and if that process is still alive
+                if (Settings.Instance.State.Recording != null)
+                {
+                    int recordingPid = Settings.Instance.State.Recording.Pid;
+                    if (!IsProcessRunning(recordingPid))
+                    {
+                        Log.Warning($"[ProcessCheck] Recording process PID {recordingPid} is no longer running. Stopping recording.");
+                        _ = Task.Run(OBSUtils.StopRecording);
+                        return;
+                    }
+                    // Process is still running, no need to check for new games
+                    return;
+                }
+
+                // Skip if retry is prevented
+                if (PreventRetryRecording) return;
+
                 // Get the foreground window and its process ID
                 IntPtr foregroundWindow = GetForegroundWindow();
                 _ = GetWindowThreadProcessId(foregroundWindow, out uint foregroundPid);
@@ -483,6 +530,32 @@ namespace Segra.Backend.Services
             catch (Exception ex)
             {
                 Log.Error($"[ProcessCheck] Error checking foreground window: {ex.Message}");
+            }
+        }
+
+        private static bool IsProcessRunning(int pid)
+        {
+            if (pid <= 0) return false;
+
+            try
+            {
+                using var process = Process.GetProcessById(pid);
+                return !process.HasExited;
+            }
+            catch (ArgumentException)
+            {
+                // Process doesn't exist
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                // Process has exited
+                return false;
+            }
+            catch
+            {
+                // Other errors, assume not running
+                return false;
             }
         }
 
