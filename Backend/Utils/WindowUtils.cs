@@ -104,6 +104,49 @@ namespace Segra.Backend.Utils
             return GetWindowDimensions(targetWindow, out width, out height);
         }
 
+        private static bool IsStandardAspectRatio(uint width, uint height)
+        {
+            if (width == 0 || height == 0) return false;
+
+            // Calculate GCD to reduce the aspect ratio to its simplest form
+            uint gcd = GCD(width, height);
+            uint aspectWidth = width / gcd;
+            uint aspectHeight = height / gcd;
+
+            // Check against standard aspect ratios
+            var standardRatios = new (uint w, uint h)[]
+            {
+                (32, 9),   // 32:9
+                (21, 9),   // 21:9
+                (16, 9),   // 16:9
+                (16, 10),  // 16:10
+                (3, 2),    // 3:2
+                (4, 3),    // 4:3
+                (5, 4)     // 5:4
+            };
+
+            foreach (var (w, h) in standardRatios)
+            {
+                if (aspectWidth == w && aspectHeight == h)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static uint GCD(uint a, uint b)
+        {
+            while (b != 0)
+            {
+                uint temp = b;
+                b = a % b;
+                a = temp;
+            }
+            return a;
+        }
+
         private static bool GetWindowDimensions(IntPtr windowHandle, out uint width, out uint height)
         {
             width = 0;
@@ -112,6 +155,8 @@ namespace Segra.Backend.Utils
             int attempts = 0;
             uint? lastWidth = null;
             uint? lastHeight = null;
+            int stabilityChecks = 0;
+            int requiredStabilityChecks = 0;
 
             while (attempts < maxAttempts)
             {
@@ -133,30 +178,52 @@ namespace Segra.Backend.Utils
                 width = (uint)rect.Width;
                 height = (uint)rect.Height;
 
-                // window dimensions are 0x0 or 1x1 when the window is not visible
+                // Window dimensions are 0x0 or 1x1 when the window is not visible
                 if (width > 1 && height > 1)
                 {
                     if (lastWidth.HasValue && lastHeight.HasValue)
                     {
                         if (lastWidth.Value == width && lastHeight.Value == height)
                         {
-                            Log.Information($"Retrieved stable window dimensions: {width}x{height}");
-                            return true;
+                            // Dimensions are stable, increment stability counter
+                            stabilityChecks++;
+                            
+                            if (stabilityChecks >= requiredStabilityChecks)
+                            {
+                                Log.Information($"Retrieved stable window dimensions: {width}x{height} after {stabilityChecks} checks");
+                                return true;
+                            }
+                            
+                            Log.Information($"Window dimensions stable at {width}x{height}, check {stabilityChecks}/{requiredStabilityChecks}");
+                            Thread.Sleep(1000);
                         }
                         else
                         {
-                            Log.Information($"Window dimensions changed from {lastWidth}x{lastHeight} to {width}x{height}, waiting for stability...");
+                            // Dimensions changed, reset stability counter and recalculate required checks
+                            Log.Information($"Window dimensions changed from {lastWidth}x{lastHeight} to {width}x{height}, resetting stability timer...");
                             lastWidth = width;
                             lastHeight = height;
-                            Thread.Sleep(2000);
+                            
+                            bool isStandardAspectRatio = IsStandardAspectRatio(width, height);
+                            requiredStabilityChecks = isStandardAspectRatio ? 5 : 20;
+                            stabilityChecks = 0;
+                            
+                            Thread.Sleep(1000);
                         }
                     }
                     else
                     {
-                        Log.Information($"Window dimensions are {width}x{height}, waiting 2 seconds to verify stability...");
+                        // First valid dimensions detected
+                        bool isStandardAspectRatio = IsStandardAspectRatio(width, height);
+                        requiredStabilityChecks = isStandardAspectRatio ? 5 : 20;
+                        stabilityChecks = 0;
+                        
+                        string aspectRatioNote = isStandardAspectRatio ? "standard aspect ratio" : "non-standard aspect ratio";
+                        Log.Information($"Window dimensions are {width}x{height} ({aspectRatioNote}), waiting {requiredStabilityChecks} seconds to verify stability...");
+                        
                         lastWidth = width;
                         lastHeight = height;
-                        Thread.Sleep(2000);
+                        Thread.Sleep(1000);
                     }
                 }
                 else
