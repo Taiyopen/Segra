@@ -56,7 +56,7 @@ namespace Segra.Backend.Models
         private string _clipAudioQuality = "128k";
         private string _clipPreset = "veryfast";
         private float _soundEffectsVolume = 0.5f;
-        private bool _showNewBadgeOnVideos = true;
+        private bool _showNewBadgeOnVideos = false;
         private bool _showGameBackground = true;
         private bool _showAudioWaveformInTimeline = true;
         private bool _enableSeparateAudioTracks = false;
