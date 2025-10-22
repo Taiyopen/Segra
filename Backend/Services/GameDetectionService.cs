@@ -479,8 +479,8 @@ namespace Segra.Backend.Services
                 // First, check if we're currently recording and if that process is still alive
                 if (Settings.Instance.State.Recording != null)
                 {
-                    int recordingPid = Settings.Instance.State.Recording.Pid;
-                    if (!IsProcessRunning(recordingPid))
+                    int? recordingPid = Settings.Instance.State.Recording.Pid;
+                    if (recordingPid.HasValue && !IsProcessRunning(recordingPid.Value))
                     {
                         Log.Warning($"[ProcessCheck] Recording process PID {recordingPid} is no longer running. Stopping recording.");
                         _ = Task.Run(OBSUtils.StopRecording);
