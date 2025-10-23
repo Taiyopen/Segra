@@ -55,7 +55,10 @@ namespace Segra.Backend.Utils
                 var adapters = new List<IDXCoreAdapter>();
                 for (uint i = 0; i < list.AdapterCount; ++i)
                 {
-                    adapters.Add(list.GetAdapter<IDXCoreAdapter>(i));
+                    if(list.GetAdapter<IDXCoreAdapter>(i).DedicatedAdapterMemory > 0)
+                    {
+                        adapters.Add(list.GetAdapter<IDXCoreAdapter>(i));
+                    }
                 }
 
                 foreach (var adapter in adapters)

@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using Segra.Backend.Models;
 using System.Management;
 using System.Text.RegularExpressions;
-using Vortice.Mathematics;
 
 namespace Segra.Backend.Utils
 {
@@ -20,14 +19,23 @@ namespace Segra.Backend.Utils
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern bool EnumDisplayDevices(string lpDevice, uint iDevNum, ref DisplayDevice lpDisplayDevice, uint dwFlags);
 
-        public delegate bool MonitorEnumDelegate(IntPtr hMonitor, IntPtr hdcMonitor, ref Rect lprcMonitor, IntPtr dwData);
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        public delegate bool MonitorEnumDelegate(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
         public struct MonitorInfoEx
         {
             public int Size;
-            public Rect Monitor;
-            public Rect WorkArea;
+            public RECT Monitor;
+            public RECT WorkArea;
             public uint Flags;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
             public string DeviceName;
@@ -57,7 +65,7 @@ namespace Segra.Backend.Utils
             Log.Information("=== End Monitor List ===");
         }
 
-        private static bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref Rect lprcMonitor, IntPtr dwData)
+        private static bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData)
         {
             MonitorInfoEx mi = new MonitorInfoEx();
             mi.Size = Marshal.SizeOf(mi);
@@ -76,9 +84,9 @@ namespace Segra.Backend.Utils
                     Log.Information("  Device ID: {DeviceID}", device.DeviceID);
                     Log.Information("  Display String: {DeviceString}", device.DeviceString);
                     Log.Information("  Resolution: {Width}x{Height}",
-                        lprcMonitor.Right - lprcMonitor.Left,
-                        lprcMonitor.Bottom - lprcMonitor.Top);
-                    Log.Information("  Position: {X},{Y}", lprcMonitor.Left, lprcMonitor.Top);
+                        mi.Monitor.Right - mi.Monitor.Left,
+                        mi.Monitor.Bottom - mi.Monitor.Top);
+                    Log.Information("  Position: {X},{Y}", mi.Monitor.Left, mi.Monitor.Top);
                     Log.Information("  Primary: {IsPrimary}", (mi.Flags & 1) != 0);
                     Log.Information("---");
                     displays.Add(new Display { DeviceName = friendlyName, DeviceId = device.DeviceID, IsPrimary = (mi.Flags & 1) != 0 });
