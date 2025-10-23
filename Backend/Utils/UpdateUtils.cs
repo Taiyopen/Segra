@@ -302,10 +302,8 @@ namespace Segra.Backend.Utils
                         releaseDate = release.PublishedAt
                     });
 
-                    Log.Information($"Added release notes for version {versionString}");
-
-                    // Limit to 20 releases if we're not filtering by version
-                    if (targetVersion == null && releaseNotesList.Count >= 20)
+                    // Limit to 20 releases (80 if beta is enabled)
+                    if (targetVersion == null && releaseNotesList.Count >= (includeBeta ? 80 : 20))
                     {
                         break;
                     }

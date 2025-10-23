@@ -10,6 +10,8 @@ namespace Segra.Backend.Services
         private const string Url = "https://ponthqrnesnanivsatps.supabase.co";
         private const string PublicApiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvbnRocXJuZXNuYW5pdnNhdHBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc2NzMzMjgsImV4cCI6MjA1MzI0OTMyOH0.k8pLDkDgKV0ZLjZjAZ6eUHa40rot5qWa7iJDQKWy1FA";
         private static readonly Supabase.Client _client = new(Url, PublicApiKey);
+        private static readonly SemaphoreSlim _loginSemaphore = new(1, 1);
+        private static readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
 
         // Try to login with stored credentials on startup
         public static async Task TryAutoLogin()
@@ -32,6 +34,7 @@ namespace Segra.Backend.Services
 
         public static async Task Login(string jwt, string refreshToken, bool isAutoLogin = false)
         {
+            await _loginSemaphore.WaitAsync();
             try
             {
                 Log.Debug($"Login attempt starting - JWT length: {jwt?.Length ?? 0}, RefreshToken length: {refreshToken?.Length ?? 0}, IsAutoLogin: {isAutoLogin}");
@@ -83,6 +86,10 @@ namespace Segra.Backend.Services
                 Log.Error($"Login failed: {ex.Message}");
                 Log.Debug($"Login exception details: {ex}");
                 Session = null;
+            }
+            finally
+            {
+                _loginSemaphore.Release();
             }
         }
 
@@ -145,28 +152,37 @@ namespace Segra.Backend.Services
 
             if (Session == null || Session.Expired() == true)
             {
+                await _refreshSemaphore.WaitAsync();
                 try
                 {
-                    Log.Debug("Refreshing session...");
-                    Session = await _client.Auth.RefreshSession();
-                    Log.Debug($"RefreshSession completed. Session is {(Session == null ? "null" : "valid")}");
+                    // Double-check after acquiring the lock in case another thread already refreshed
+                    if (Session == null || Session.Expired() == true)
+                    {
+                        Log.Debug("Refreshing session...");
+                        Session = await _client.Auth.RefreshSession();
+                        Log.Debug($"RefreshSession completed. Session is {(Session == null ? "null" : "valid")}");
 
-                    // Update stored tokens when refreshed
-                    if (Session != null)
-                    {
-                        Log.Debug($"Refreshed tokens. New AccessToken length: {Session.AccessToken?.Length ?? 0}, RefreshToken length: {Session.RefreshToken?.Length ?? 0}");
-                        Models.Settings.Instance.Auth.Jwt = Session.AccessToken ?? string.Empty;
-                        Models.Settings.Instance.Auth.RefreshToken = Session.RefreshToken ?? string.Empty;
-                    }
-                    else
-                    {
-                        Log.Warning("Session is null after refresh attempt in GetJwtAsync");
+                        // Update stored tokens when refreshed
+                        if (Session != null)
+                        {
+                            Log.Debug($"Refreshed tokens. New AccessToken length: {Session.AccessToken?.Length ?? 0}, RefreshToken length: {Session.RefreshToken?.Length ?? 0}");
+                            Models.Settings.Instance.Auth.Jwt = Session.AccessToken ?? string.Empty;
+                            Models.Settings.Instance.Auth.RefreshToken = Session.RefreshToken ?? string.Empty;
+                        }
+                        else
+                        {
+                            Log.Warning("Session is null after refresh attempt in GetJwtAsync");
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
                     Log.Error($"Failed to refresh session: {ex.Message}");
                     Log.Debug($"Session refresh exception details: {ex}");
+                }
+                finally
+                {
+                    _refreshSemaphore.Release();
                 }
             }
             else
