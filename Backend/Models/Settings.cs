@@ -834,14 +834,21 @@ namespace Segra.Backend.Models
         private bool _isCheckingForUpdates = false;
 
         private AudioDeviceWatcher? _deviceWatcher;
+        private DisplayWatcher? _displayWatcher;
+        private System.Threading.Timer? _audioDeviceDebounceTimer;
+        private System.Threading.Timer? _displayDebounceTimer;
+        private const int DebounceDelayMs = 3000;
 
         public void Initialize()
         {
             _deviceWatcher = new();
-            _deviceWatcher.DevicesChanged += UpdateAudioDevices;
+            _deviceWatcher.DevicesChanged += OnAudioDevicesChanged;
+
+            _displayWatcher = new();
+            _displayWatcher.DisplaysChanged += OnDisplaysChanged;
 
             UpdateAudioDevices();
-            DisplayUtils.LoadAvailableMonitorsIntoState();
+            UpdateDisplays();
 
             bool hasNoSelectedAudioDevices = Settings.Instance.InputDevices.Count == 0 && Settings.Instance.OutputDevices.Count == 0;
             Log.Information($"Has no selected audio devices: {hasNoSelectedAudioDevices}");
@@ -1012,6 +1019,28 @@ namespace Segra.Backend.Models
             }
         }
 
+        private void OnAudioDevicesChanged()
+        {
+            _audioDeviceDebounceTimer?.Dispose();
+            _audioDeviceDebounceTimer = new System.Threading.Timer(
+                _ => UpdateAudioDevices(),
+                null,
+                DebounceDelayMs,
+                Timeout.Infinite
+            );
+        }
+
+        private void OnDisplaysChanged()
+        {
+            _displayDebounceTimer?.Dispose();
+            _displayDebounceTimer = new System.Threading.Timer(
+                _ => UpdateDisplays(),
+                null,
+                DebounceDelayMs,
+                Timeout.Infinite
+            );
+        }
+
         public void UpdateAudioDevices()
         {
             // Get the list of input devices
@@ -1041,6 +1070,12 @@ namespace Segra.Backend.Models
             }
             Log.Information("-------------");
             _ = MessageUtils.SendSettingsToFrontend("Updated audio devices");
+        }
+
+        private static void UpdateDisplays()
+        {
+            DisplayUtils.LoadAvailableMonitorsIntoState();
+            SendToFrontend("Display change detected");
         }
 
         private void SelectDefaultDevices()
@@ -1097,10 +1132,20 @@ namespace Segra.Backend.Models
         {
             if (_deviceWatcher != null)
             {
-                _deviceWatcher.DevicesChanged -= UpdateAudioDevices;
+                _deviceWatcher.DevicesChanged -= OnAudioDevicesChanged;
                 _deviceWatcher.Dispose();
                 _deviceWatcher = null;
             }
+
+            if (_displayWatcher != null)
+            {
+                _displayWatcher.DisplaysChanged -= OnDisplaysChanged;
+                _displayWatcher.Dispose();
+                _displayWatcher = null;
+            }
+
+            _audioDeviceDebounceTimer?.Dispose();
+            _displayDebounceTimer?.Dispose();
         }
     }
 
