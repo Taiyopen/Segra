@@ -15,11 +15,11 @@ namespace Segra.Backend.Models
 
         private string _contentFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Segra").Replace("\\", "/");
         private string _theme = "segra";
-        private string _resolution = "1080p";
+        private string _resolution = "1440p";
         private int _frameRate = 60;
-        private int _bitrate = 40;
-        private int _minBitrate = 40;
-        private int _maxBitrate = 60;
+        private int _bitrate = 70;
+        private int _minBitrate = 70;
+        private int _maxBitrate = 100;
         private string _rateControl = "VBR";
         private int _crfValue = 23;
         private int _cqLevel = 20;
@@ -48,20 +48,20 @@ namespace Segra.Backend.Models
         private Auth _auth = new Auth();
         private bool _clipClearSelectionsAfterCreatingClip = false;
         private bool _clipShowInBrowserAfterUpload = false;
-        private string _clipEncoder = "cpu";
-        private int _clipQualityCpu = 23; // CPU CRF: 17 (High) to 28 (Low)
-        private int _clipQualityGpu = 23; // GPU (CQ/QP/ICQ): 0-1 (High) to 51 (Low)
+        private string _clipEncoder = "gpu";
+        private int _clipQualityCpu = 20; // CPU CRF: 17 (High) to 28 (Low)
+        private int _clipQualityGpu = 20; // GPU (CQ/QP/ICQ): 0-1 (High) to 51 (Low)
         private string _clipCodec = "h264";
-        private int _clipFps = 0; // 0 for 'Original'
-        private string _clipAudioQuality = "128k";
-        private string _clipPreset = "veryfast";
+        private int _clipFps = 60; // 0 for 'Original'
+        private string _clipAudioQuality = "192k";
+        private string _clipPreset = "hq";
         private float _soundEffectsVolume = 0.5f;
         private bool _showNewBadgeOnVideos = false;
         private bool _showGameBackground = true;
         private bool _showAudioWaveformInTimeline = true;
         private bool _enableSeparateAudioTracks = false;
-        private string _videoQualityPreset = "custom"; // TODO (os): Set to 'high' in next release
-        private string _clipQualityPreset = "custom"; // TODO (os): Set to 'high' in next release
+        private string _videoQualityPreset = "high";
+        private string _clipQualityPreset = "high";
 
         // Returns the default keybindings
         private static List<Keybind> GetDefaultKeybindings()

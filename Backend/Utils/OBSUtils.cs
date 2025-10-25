@@ -338,14 +338,18 @@ namespace Segra.Backend.Utils
 
         private static bool ResetVideoSettings(uint? customFps = null, uint? customOutputWidth = null, uint? customOutputHeight = null)
         {
-            uint baseWidth, baseHeight;
-            SettingsUtils.GetPrimaryMonitorResolution(out baseWidth, out baseHeight);
+            SettingsUtils.GetPrimaryMonitorResolution(out uint baseWidth, out uint baseHeight);
 
             // Use custom values if provided, otherwise use defaults
-            uint outputWidth = customOutputWidth ?? baseWidth;
-            uint outputHeight = customOutputHeight ?? baseHeight;
             baseWidth = customOutputWidth ?? baseWidth;
             baseHeight = customOutputHeight ?? baseHeight;
+
+            // Get the maximum height from resolution setting
+            SettingsUtils.GetResolution(Settings.Instance.Resolution, out uint maxWidth, out uint maxHeight);
+
+            // Calculate output dimensions respecting the max height cap while preserving aspect ratio
+            uint outputWidth = baseWidth;
+            uint outputHeight = baseHeight;
 
             // Check if the input aspect ratio is close to 4:3 (1.33)
             double aspectRatio = (double)baseWidth / baseHeight;
@@ -356,8 +360,18 @@ namespace Segra.Backend.Utils
             if (is4by3 && customOutputWidth == null)
             {
                 // Calculate 16:9 width based on the current height
-                outputWidth = (uint)(outputHeight * (16.0 / 9.0));
-                Log.Information($"Stretching 4:3 content ({baseWidth}x{baseHeight}) to 16:9 ({outputWidth}x{outputHeight})");
+                baseWidth = (uint)(baseHeight * (16.0 / 9.0));
+                outputWidth = baseWidth;
+                Log.Information($"Stretching 4:3 content to 16:9: {outputWidth}x{outputHeight}");
+            }
+
+            // If content height exceeds max height setting, downscale proportionally
+            if (outputHeight > maxHeight)
+            {
+                double scale = (double)maxHeight / outputHeight;
+                outputWidth = (uint)(outputWidth * scale);
+                outputHeight = maxHeight;
+                Log.Information($"Downscaling from {baseWidth}x{baseHeight} to {outputWidth}x{outputHeight} (max height: {maxHeight})");
             }
 
             obs_video_info videoInfo = new obs_video_info()
@@ -405,13 +419,7 @@ namespace Segra.Backend.Utils
             // but video can be reset as long as no outputs are active
 
             // Configure video settings specifically for this recording/buffer
-            uint outputWidth, outputHeight;
-            SettingsUtils.GetResolution(Settings.Instance.Resolution, out outputWidth, out outputHeight);
-
-            if (!ResetVideoSettings(
-                customFps: (uint)Settings.Instance.FrameRate,
-                customOutputWidth: outputWidth,
-                customOutputHeight: outputHeight))
+            if (!ResetVideoSettings(customFps: (uint)Settings.Instance.FrameRate))
             {
                 throw new Exception("Failed to configure video settings for recording.");
             }
