@@ -133,7 +133,7 @@ export default function UISettingsSection({
                 name="soundEffectsVolume"
                 min="0"
                 max="1"
-                step="0.01"
+                step="0.02"
                 value={draggingSoundVolume ?? settings.soundEffectsVolume}
                 onChange={(e) => {
                   setDraggingSoundVolume(parseFloat(e.target.value));
@@ -149,7 +149,7 @@ export default function UISettingsSection({
                   });
                   setDraggingSoundVolume(null);
                 }}
-                className="range range-xs range-primary w-48"
+                className="range range-xs range-primary w-48 [--range-fill:0]"
               />
               <span className="w-12 text-center">
                 {Math.round((draggingSoundVolume ?? settings.soundEffectsVolume) * 100)}%

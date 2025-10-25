@@ -1433,7 +1433,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                   type="range"
                   min="0"
                   max="1"
-                  step="0.01"
+                  step="0.02"
                   value={volume}
                   onChange={handleVolumeChange}
                   onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
