@@ -37,7 +37,7 @@ export default function UISettingsSection({
               <span className="font-medium cursor-pointer">Run on Startup</span>
             </label>
           </div>
-          <div className="form-control">
+          <div className="flex items-center">
             <label className="label cursor-pointer justify-start gap-2 px-0">
               <input
                 type="checkbox"
@@ -47,11 +47,11 @@ export default function UISettingsSection({
                 className="checkbox checkbox-sm checkbox-primary"
               />
               <span className="flex items-center gap-1 text-base-content">
-                Show game cover while recording <CloudBadge side="right" />
+                Show Game Cover While Recording <CloudBadge side="right" />
               </span>
             </label>
           </div>
-          <div className="form-control">
+          <div className="flex items-center">
             <label className="label cursor-pointer justify-start gap-2 px-0">
               <input
                 type="checkbox"
@@ -61,11 +61,11 @@ export default function UISettingsSection({
                 className="checkbox checkbox-sm checkbox-primary"
               />
               <span className="flex items-center gap-1 text-base-content">
-                Show audio waveform in video timeline
+                Show Audio Waveform in Video Timeline
               </span>
             </label>
           </div>
-          <div className="form-control">
+          <div className="flex items-center">
             <label className="label cursor-pointer justify-start gap-2 px-0">
               <input
                 type="checkbox"
@@ -75,8 +75,8 @@ export default function UISettingsSection({
                 className="checkbox checkbox-sm checkbox-primary"
               />
               <span className="flex items-center gap-1 text-base-content">
-                Show<span className="badge badge-primary badge-sm text-base-300 mx-1">NEW</span>badge on new
-                sessions and replay buffers
+                Show<span className="badge badge-primary badge-sm text-base-300 mx-1">NEW</span>Badge on New
+                Sessions and Replay Buffers
               </span>
             </label>
           </div>

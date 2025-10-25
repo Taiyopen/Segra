@@ -78,7 +78,7 @@ export default function AccountSection() {
             {isAuthenticating ? 'Connecting...' : 'Continue with Discord'}
           </button>
 
-          <div className="divider">or use email</div>
+          <div className="divider">Or Use Email</div>
 
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div className="form-control">
@@ -110,7 +110,7 @@ export default function AccountSection() {
               disabled={isAuthenticating}
               className={`btn btn-secondary w-full font-semibold text-white border border-custom hover:border-custom ${isAuthenticating ? 'btn-loading' : ''}`}
             >
-              Sign in with Email
+              Sign In With Email
             </button>
           </form>
         </div>

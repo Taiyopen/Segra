@@ -46,7 +46,7 @@ export default function SegraAISection({ session, settings, updateSettings }: Se
               disabled={!session || !settings.enableAi}
             />
             <span className="text-sm ml-2 flex items-center gap-1">
-              Auto-generate Highlights <CloudBadge side="right" />
+              Auto-Generate Highlights <CloudBadge side="right" />
             </span>
           </label>
         </div>

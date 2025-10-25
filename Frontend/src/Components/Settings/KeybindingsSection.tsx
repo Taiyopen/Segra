@@ -114,7 +114,7 @@ export default function KeybindingsSection({ settings, updateSettings }: Keybind
               }}
             >
               {capturing === index ? (
-                'Press keys...'
+                'Press Keys...'
               ) : (
                 keybind.keys.map((key, i) => (
                   <span key={i}>

@@ -161,7 +161,7 @@ export default function VideoSettingsSection({ settings, updateSettings }: Video
               {/* Buffer Max Size */}
               <div className="form-control w-full">
                 <label htmlFor="replayBufferMaxSize" className="label text-base-content px-0 !block mb-1">
-                  <span className="label-text">Maximum Size (MB)</span>
+                  <span className="label-text">Buffer Maximum Size (MB)</span>
                 </label>
                 <input
                   id="replayBufferMaxSize"
@@ -175,11 +175,6 @@ export default function VideoSettingsSection({ settings, updateSettings }: Video
                   disabled={isRecording}
                   className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80 w-full"
                 />
-                <div className="help-text-container">
-                  <span className="text-xs text-base-content/60 mt-1">
-                    Maximum buffer size
-                  </span>
-                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -398,7 +393,7 @@ export default function VideoSettingsSection({ settings, updateSettings }: Video
               </div>
             </div>
 
-            <div className="form-control mt-3">
+            <div className="flex items-center justify-between mt-3">
               <label className="label cursor-pointer justify-start gap-2 px-0">
                 <input
                   type="checkbox"
@@ -407,7 +402,7 @@ export default function VideoSettingsSection({ settings, updateSettings }: Video
                   onChange={(e) => updateSettings({ enableSeparateAudioTracks: e.target.checked })}
                   className="checkbox checkbox-sm checkbox-primary"
                 />
-                <span className="flex items-center gap-1 text-base-content">Separate audio tracks</span>
+                <span className="flex items-center gap-1 text-base-content">Separate Audio Tracks</span>
               </label>
             </div>
           </motion.div>

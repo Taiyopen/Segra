@@ -105,7 +105,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
                 checked={clipShowInBrowserAfterUpload}
                 onChange={(e) => updateSettings({ clipShowInBrowserAfterUpload: e.target.checked })}
               />
-              <span className="label-text text-base-content">Open in browser after upload</span>
+              <span className="label-text text-base-content">Open in Browser After Upload</span>
             </label>
           </div>
         </div>
