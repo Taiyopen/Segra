@@ -106,7 +106,8 @@ internal static class MigrationUtils
         return new List<Migration>
         {
             new("0001_waveforms_json", Apply_0001_WaveformsJson),
-            new("0002_hide_dotfolders", Apply_0002_HideDotfolders)
+            new("0002_hide_dotfolders", Apply_0002_HideDotfolders),
+            new("0003_delete_legacy_games_files", Apply_0003_DeleteLegacyGamesFiles)
         };
     }
 
@@ -195,6 +196,37 @@ internal static class MigrationUtils
         catch (Exception ex)
         {
             Log.Warning(ex, "Error while enumerating dotfolders for hidden attribute");
+        }
+    }
+
+    // Migration 0003: Delete legacy games.json and games.hash files from AppData
+    private static void Apply_0003_DeleteLegacyGamesFiles()
+    {
+        try
+        {
+            string gamesHashPath = Path.Combine(appDataDir, "games.hash");
+            string gamesJsonPath = Path.Combine(appDataDir, "games.json");
+
+            // Only proceed if games.hash exists
+            if (File.Exists(gamesHashPath))
+            {
+                Log.Information("Deleting legacy games.hash file: {Path}", gamesHashPath);
+                File.Delete(gamesHashPath);
+
+                if (File.Exists(gamesJsonPath))
+                {
+                    Log.Information("Deleting legacy games.json file: {Path}", gamesJsonPath);
+                    File.Delete(gamesJsonPath);
+                }
+            }
+            else
+            {
+                Log.Debug("No legacy games files found to delete");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to delete legacy games files");
         }
     }
 }

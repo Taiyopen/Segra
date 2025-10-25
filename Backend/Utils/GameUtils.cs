@@ -147,11 +147,20 @@ namespace Segra.Backend.Utils
 
                     DateTimeOffset? remoteLastModified = headResponse.Content.Headers.LastModified;
 
-                    if (remoteLastModified == null)
+                    // Check if we need to download
+                    bool shouldDownload = false;
+
+                    if (!File.Exists(jsonPath))
+                    {
+                        Log.Information("Local games.json not found. Downloading...");
+                        shouldDownload = true;
+                    }
+                    else if (remoteLastModified == null)
                     {
                         Log.Warning("Last-Modified header not found. Downloading games.json anyway.");
+                        shouldDownload = true;
                     }
-                    else if (File.Exists(jsonPath))
+                    else
                     {
                         // Compare remote Last-Modified with local file's last write time
                         var localLastModified = File.GetLastWriteTimeUtc(jsonPath);
@@ -164,19 +173,22 @@ namespace Segra.Backend.Utils
                         else
                         {
                             Log.Information("Remote games.json is newer. Downloading new version.");
-                            Log.Information("Downloading games.json...");
-
-                            var jsonBytes = await httpClient.GetByteArrayAsync(cdnUrl);
-                            await File.WriteAllBytesAsync(jsonPath, jsonBytes);
-
-                            // Set the file's last write time to match the remote Last-Modified timestamp
-                            if (remoteLastModified != null)
-                            {
-                                File.SetLastWriteTimeUtc(jsonPath, remoteLastModified.Value.UtcDateTime);
-                            }
-
-                            Log.Information("Download complete");
+                            shouldDownload = true;
                         }
+                    }
+
+                    if (shouldDownload)
+                    {
+                        var jsonBytes = await httpClient.GetByteArrayAsync(cdnUrl);
+                        await File.WriteAllBytesAsync(jsonPath, jsonBytes);
+
+                        // Set the file's last write time to match the remote Last-Modified timestamp
+                        if (remoteLastModified != null)
+                        {
+                            File.SetLastWriteTimeUtc(jsonPath, remoteLastModified.Value.UtcDateTime);
+                        }
+
+                        Log.Information("Download complete");
                     }
                 }
                 catch (Exception ex)
