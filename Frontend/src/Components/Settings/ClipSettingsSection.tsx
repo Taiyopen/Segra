@@ -152,7 +152,7 @@ export default function ClipSettingsSection({ settings, updateSettings }: ClipSe
       <div className="mb-4">
         <div className="grid grid-cols-4 gap-3">
           <div
-            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border cursor-pointer hover:bg-base-300 ${
               settings.clipQualityPreset === 'low' ? 'border-primary' : 'border-base-400'
             }`}
             onClick={() => handlePresetChange('low')}
@@ -161,7 +161,7 @@ export default function ClipSettingsSection({ settings, updateSettings }: ClipSe
             <div className="text-xs text-base-content text-opacity-70 mt-1">Fast encode</div>
           </div>
           <div
-            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border cursor-pointer hover:bg-base-300 ${
               settings.clipQualityPreset === 'standard' ? 'border-primary' : 'border-base-400'
             }`}
             onClick={() => handlePresetChange('standard')}
@@ -170,7 +170,7 @@ export default function ClipSettingsSection({ settings, updateSettings }: ClipSe
             <div className="text-xs text-base-content text-opacity-70 mt-1">Balanced</div>
           </div>
           <div
-            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border cursor-pointer hover:bg-base-300 ${
               settings.clipQualityPreset === 'high' ? 'border-primary' : 'border-base-400'
             }`}
             onClick={() => handlePresetChange('high')}
@@ -179,7 +179,7 @@ export default function ClipSettingsSection({ settings, updateSettings }: ClipSe
             <div className="text-xs text-base-content text-opacity-70 mt-1">Best quality</div>
           </div>
           <div
-            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border cursor-pointer hover:bg-base-300 ${
               settings.clipQualityPreset === 'custom' ? 'border-primary' : 'border-base-400'
             }`}
             onClick={() => handlePresetChange('custom')}

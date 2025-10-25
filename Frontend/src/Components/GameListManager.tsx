@@ -3,7 +3,6 @@ import { Game } from '../Models/types';
 import { useSettings } from '../Context/SettingsContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { isSelectedGameExecutableMessage } from '../Models/WebSocketMessages';
-import { MdClose, MdAdd } from 'react-icons/md';
 
 interface GameListManagerProps {
   listType: 'whitelist' | 'blacklist';
@@ -126,19 +125,9 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
       {!isAdding && (
         <div className="flex justify-start mt-4">
           <button
-            className="btn btn-sm btn-secondary border-base-400 hover:border-base-400"
+            className="btn btn-sm bg-base-300 border-base-400 hover:border-base-400"
             onClick={handleSelectExecutable}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="w-5 h-5 mr-1"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
             Add Game
           </button>
         </div>
@@ -157,7 +146,7 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
                 className="input input-bordered w-full bg-base-200"
                 value={newGameName}
                 onChange={(e) => setNewGameName(e.target.value)}
-                placeholder="Enter game name"
+                placeholder="Game Name"
               />
             </div>
             <div>
@@ -167,20 +156,20 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
               <div className="join w-full">
                 <input
                   type="text"
-                  className="input input-bordered bg-base-200 w-full join-item"
+                  className="input input-bordered bg-base-200 w-full join-item select-none"
                   value={newGamePath}
                   onChange={(e) => setNewGamePath(e.target.value)}
-                  placeholder="e.g. C:\\Program Files\\Game\\Game.exe"
+                  placeholder="C:\Program Files\Game\Game.exe"
                 />
                 <button
-                  className="btn btn-secondary join-item border-custom border-opacity-75 hover:border-custom"
+                  className="btn btn-secondary join-item border-base-400 hover:border-base-400"
                   onClick={handleSelectExecutable}
                   disabled={isSelectingFile}
                 >
                   {isSelectingFile ? (
                     <span className="loading loading-spinner loading-xs"></span>
                   ) : (
-                    'Browse EXE'
+                    'Browse'
                   )}
                 </button>
               </div>
@@ -188,21 +177,19 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
           </div>
           <div className="flex justify-start gap-2 mt-4">
             <button
-              className="btn btn-sm btn-primary flex items-center gap-1 text-base-300"
+              className="btn btn-sm flex items-center gap-1 bg-base-300 border-base-400 hover:border-base-400"
               onClick={handleAddGame}
               disabled={!newGameName.trim() || !newGamePath.trim()}
             >
-              <MdAdd size={20} />
-              Add
+              Add to {listTitle}
             </button>
             <button
-              className="btn btn-sm btn-ghost flex items-center gap-1"
+              className="btn btn-sm btn-ghost flex items-center gap-1 bg-base-300 border-base-400 hover:border-base-400"
               onClick={() => {
                 setIsAdding(false);
                 setIsSelectingFile(false);
               }}
             >
-              <MdClose size={20} />
               Cancel
             </button>
           </div>

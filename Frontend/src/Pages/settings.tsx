@@ -2,7 +2,6 @@ import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
 import { useUpdate } from '../Context/UpdateContext';
 import { useAuth } from '../Hooks/useAuth';
 import AccountSection from '../Components/Settings/AccountSection';
-import SegraAISection from '../Components/Settings/SegraAISection';
 import CaptureModeSection from '../Components/Settings/CaptureModeSection';
 import VideoSettingsSection from '../Components/Settings/VideoSettingsSection';
 import StorageSettingsSection from '../Components/Settings/StorageSettingsSection';
@@ -24,8 +23,6 @@ export default function Settings() {
 
       <AccountSection />
 
-      <SegraAISection session={session} settings={settings} updateSettings={updateSettings} />
-
       <CaptureModeSection settings={settings} updateSettings={updateSettings} />
 
       <VideoSettingsSection settings={settings} updateSettings={updateSettings} />
@@ -41,6 +38,7 @@ export default function Settings() {
       <GameDetectionSection />
 
       <UISettingsSection
+        session={session}
         settings={settings}
         updateSettings={updateSettings}
         openReleaseNotesModal={openReleaseNotesModal}

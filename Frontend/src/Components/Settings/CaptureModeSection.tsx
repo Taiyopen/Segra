@@ -13,9 +13,7 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
       <h2 className="text-xl font-semibold mb-4">Capture Mode</h2>
       <div className="mb-6">
         <div
-          className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${
-            settings.recordingMode == 'Hybrid' ? 'border-primary' : 'border-base-400'
-          } ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+          className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all transition-200 border ${settings.recordingMode == 'Hybrid' ? 'border-primary' : 'border-base-400'} ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-base-300'}`}
           onClick={() => !isRecording && updateSettings({ recordingMode: 'Hybrid' })}
         >
           <div className="flex items-center gap-2 mb-3">
@@ -37,7 +35,7 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
       </div>
       <div className="grid grid-cols-2 gap-6">
         <div
-          className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Session' ? 'border-primary' : 'border-base-400'} ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+          className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all transition-200 border ${settings.recordingMode == 'Session' ? 'border-primary' : 'border-base-400'} ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-base-300'}`}
           onClick={() => !isRecording && updateSettings({ recordingMode: 'Session' })}
         >
           <div className="text-lg font-semibold mb-3">Session Recording</div>
@@ -57,7 +55,7 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
           </div>
         </div>
         <div
-          className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all border ${settings.recordingMode == 'Buffer' ? 'border-primary' : 'border-base-400'} ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-opacity-80'}`}
+          className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all transition-200 border ${settings.recordingMode == 'Buffer' ? 'border-primary' : 'border-base-400'} ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-base-300'}`}
           onClick={() => !isRecording && updateSettings({ recordingMode: 'Buffer' })}
         >
           <div className="flex items-center gap-2 mb-3">

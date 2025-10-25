@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { MdOutlineUpdate, MdOutlineDescription } from 'react-icons/md';
+import { MdOutlineDescription, MdLock } from 'react-icons/md';
 import { SiGithub } from 'react-icons/si';
+import { GrUpdate } from 'react-icons/gr';
+import { Session } from '@supabase/supabase-js';
 import CloudBadge from '../CloudBadge';
+import AiBadge from '../AiBadge';
 import DropdownSelect from '../DropdownSelect';
 import { Settings as SettingsType } from '../../Models/types';
 import { sendMessageToBackend } from '../../Utils/MessageUtils';
 
 interface UISettingsSectionProps {
+  session: Session | null;
   settings: SettingsType;
   updateSettings: (updates: Partial<SettingsType>) => void;
   openReleaseNotesModal: (version: string | null) => void;
@@ -14,6 +18,7 @@ interface UISettingsSectionProps {
 }
 
 export default function UISettingsSection({
+  session,
   settings,
   updateSettings,
   openReleaseNotesModal,
@@ -37,6 +42,46 @@ export default function UISettingsSection({
               <span className="font-medium cursor-pointer">Run on Startup</span>
             </label>
           </div>
+          {!session && (
+            <div className="flex items-center gap-2 text-sm text-warning">
+              <MdLock className="w-4 h-4" />
+              <span>Sign in to access AI features</span>
+            </div>
+          )}
+          <div className="flex items-center">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="enableAI"
+                checked={settings.enableAi}
+                onChange={(e) => updateSettings({ enableAi: e.target.checked })}
+                className="checkbox checkbox-primary checkbox-sm"
+                disabled={!session}
+              />
+              <span className="flex items-center gap-1 cursor-pointer">
+                Enable Segra AI
+                <AiBadge />
+                <CloudBadge />
+              </span>
+            </label>
+          </div>
+          <div className="flex items-center">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="autoGenerateHighlights"
+                checked={settings.autoGenerateHighlights}
+                onChange={(e) => updateSettings({ autoGenerateHighlights: e.target.checked })}
+                className="checkbox checkbox-primary checkbox-sm"
+                disabled={!session || !settings.enableAi}
+              />
+              <span className="flex items-center gap-1 cursor-pointer">
+                Auto-Generate Highlights
+                <AiBadge />
+                <CloudBadge />
+              </span>
+            </label>
+          </div>
           <div className="flex items-center">
             <label className="label cursor-pointer justify-start gap-2 px-0">
               <input
@@ -47,7 +92,7 @@ export default function UISettingsSection({
                 className="checkbox checkbox-sm checkbox-primary"
               />
               <span className="flex items-center gap-1 text-base-content">
-                Show Game Cover While Recording <CloudBadge side="right" />
+                Show Game Cover While Recording <CloudBadge />
               </span>
             </label>
           </div>
@@ -118,42 +163,45 @@ export default function UISettingsSection({
       <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
         <h2 className="text-xl font-semibold mb-4">Advanced Settings</h2>
         <div className="bg-base-200 p-4 rounded-lg space-y-4 border border-custom">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <div className="mb-1">
-                <span className="text-base-content">Update Channel</span>
-              </div>
-              <div className="w-28">
-                <DropdownSelect
-                  size="sm"
-                  items={[
-                    { value: 'stable', label: 'Stable' },
-                    { value: 'beta', label: 'Beta' },
-                  ]}
-                  value={settings.receiveBetaUpdates ? 'beta' : 'stable'}
-                  onChange={(val) => updateSettings({ receiveBetaUpdates: val === 'beta' })}
-                />
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <div className="mb-1">
+                  <span className="text-base-content">Update Channel</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-28">
+                    <DropdownSelect
+                      size="sm"
+                      items={[
+                        { value: 'stable', label: 'Stable' },
+                        { value: 'beta', label: 'Beta' },
+                      ]}
+                      value={settings.receiveBetaUpdates ? 'beta' : 'stable'}
+                      onChange={(val) => updateSettings({ receiveBetaUpdates: val === 'beta' })}
+                    />
+                  </div>
+                  <button
+                    className="btn btn-sm btn-ghost btn-circle"
+                    onClick={() => checkForUpdates()}
+                    disabled={settings.state.isCheckingForUpdates}
+                  >
+                    {settings.state.isCheckingForUpdates ? (
+                      <span className="loading loading-spinner loading-md text-gray-400 loading-md" ></span>
+                    ) : (
+                      <GrUpdate size={18} className="text-gray-400" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
               <button
                 onClick={() => openReleaseNotesModal(null)}
                 className="btn btn-sm btn-secondary border-custom hover:border-custom text-gray-400 hover:text-gray-300 flex items-center justify-center"
               >
                 <SiGithub className="text-lg shrink-0" aria-hidden="true" />
                 <span className="inline-block">View Release Notes</span>
-              </button>
-              <button
-                className="btn btn-sm btn-primary flex items-center gap-1 text-base-300 w-38"
-                onClick={() => checkForUpdates()}
-                disabled={settings.state.isCheckingForUpdates}
-              >
-                {settings.state.isCheckingForUpdates ? (
-                  <span className="loading loading-spinner loading-xs"></span>
-                ) : (
-                  <MdOutlineUpdate className="text-lg shrink-0" />
-                )}
-                Check for Updates
               </button>
             </div>
           </div>
@@ -194,8 +242,8 @@ export default function UISettingsSection({
             onClick={() => sendMessageToBackend('OpenLogsLocation')}
             className="btn btn-sm btn-secondary border-custom hover:border-custom text-gray-400 hover:text-gray-300 flex items-center justify-center"
           >
-            <MdOutlineDescription className="text-lg shrink-0" aria-hidden="true" />
-            <span className="inline-block">View Logs</span>
+            <MdOutlineDescription className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span className="leading-none">View Logs</span>
           </button>
           <div>
             Segra {__APP_VERSION__ === 'Developer Preview' ? __APP_VERSION__ : 'v' + __APP_VERSION__}

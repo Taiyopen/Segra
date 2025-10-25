@@ -52,7 +52,7 @@ export default function AccountSection() {
     return (
       <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          Authentication <CloudBadge side="right" />
+          Authentication <CloudBadge />
         </h2>
 
         {error && (
@@ -117,7 +117,7 @@ export default function AccountSection() {
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
       <h2 className="text-xl mb-4 flex items-center gap-2">
-        <span className="font-semibold">Account</span> <CloudBadge side="right" />
+        <span className="font-semibold">Account</span> <CloudBadge />
       </h2>
 
       <div className="bg-base-200 p-4 rounded-lg border border-custom">

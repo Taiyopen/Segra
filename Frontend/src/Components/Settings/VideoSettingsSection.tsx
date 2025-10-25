@@ -72,7 +72,7 @@ export default function VideoSettingsSection({ settings, updateSettings }: Video
       <div className="mb-4">
         <div className="grid grid-cols-4 gap-3">
           <div
-            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${settings.videoQualityPreset === 'low' ? 'border-primary' : 'border-base-400'
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border cursor-pointer hover:bg-base-300 ${settings.videoQualityPreset === 'low' ? 'border-primary' : 'border-base-400'
               }`}
             onClick={() => handlePresetChange('low')}
           >
@@ -80,7 +80,7 @@ export default function VideoSettingsSection({ settings, updateSettings }: Video
             <div className="text-xs text-base-content text-opacity-70 mt-1">720p • 30fps</div>
           </div>
           <div
-            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${settings.videoQualityPreset === 'standard' ? 'border-primary' : 'border-base-400'
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border cursor-pointer hover:bg-base-300 ${settings.videoQualityPreset === 'standard' ? 'border-primary' : 'border-base-400'
               }`}
             onClick={() => handlePresetChange('standard')}
           >
@@ -88,7 +88,7 @@ export default function VideoSettingsSection({ settings, updateSettings }: Video
             <div className="text-xs text-base-content text-opacity-70 mt-1">1080p • 60fps</div>
           </div>
           <div
-            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${settings.videoQualityPreset === 'high' ? 'border-primary' : 'border-base-400'
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border cursor-pointer hover:bg-base-300 ${settings.videoQualityPreset === 'high' ? 'border-primary' : 'border-base-400'
               }`}
             onClick={() => handlePresetChange('high')}
           >
@@ -96,7 +96,7 @@ export default function VideoSettingsSection({ settings, updateSettings }: Video
             <div className="text-xs text-base-content text-opacity-70 mt-1">1440p • 60fps</div>
           </div>
           <div
-            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all border cursor-pointer hover:bg-opacity-80 ${settings.videoQualityPreset === 'custom' ? 'border-primary' : 'border-base-400'
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border cursor-pointer hover:bg-base-300 ${settings.videoQualityPreset === 'custom' ? 'border-primary' : 'border-base-400'
               }`}
             onClick={() => handlePresetChange('custom')}
           >

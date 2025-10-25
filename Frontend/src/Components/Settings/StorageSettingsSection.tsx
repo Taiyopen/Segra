@@ -38,7 +38,7 @@ export default function StorageSettingsSection({ settings, updateSettings }: Sto
               />
               <button
                 onClick={handleBrowseClick}
-                className="btn btn-secondary bg-base-200 hover:bg-base-300 hover:text-primary border-base-400 hover:border-base-400 font-semibold join-item"
+                className="btn btn-secondary bg-base-200 hover:bg-base-300 border-base-400 hover:border-base-400 font-semibold join-item"
               >
                 Browse
               </button>

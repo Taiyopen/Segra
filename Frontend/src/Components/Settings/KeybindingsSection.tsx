@@ -107,22 +107,15 @@ export default function KeybindingsSection({ settings, updateSettings }: Keybind
             </label>
             
             <button
-              className={`kbd kbd-md cursor-pointer min-w-[120px] h-10 ${capturing === index ? 'animate-pulse' : ''}`}
+              className={`kbd kbd-md cursor-pointer min-w-[120px] transition-all hover:bg-base-300 outline-none h-10 ${capturing === index ? 'animate-pulse bg-base-300' : ''}`}
               onClick={() => {
                 setCapturing(index);
                 setPressedKeys([]);
               }}
             >
-              {capturing === index ? (
-                'Press Keys...'
-              ) : (
-                keybind.keys.map((key, i) => (
-                  <span key={i}>
-                    {getKeyName(key)}
-                    {i < keybind.keys.length - 1 && ' + '}
-                  </span>
-                ))
-              )}
+              {capturing === index
+                ? 'Press Keys...'
+                : keybind.keys.map((key) => getKeyName(key)).join(' + ')}
             </button>
           </div>
         ))}
