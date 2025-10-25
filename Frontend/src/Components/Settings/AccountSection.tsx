@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaDiscord } from 'react-icons/fa';
-import { MdWarning, MdOutlineLogout } from 'react-icons/md';
+import { MdWarning, MdOutlineLogout, MdOutlineMoreHoriz } from 'react-icons/md';
 import CloudBadge from '../CloudBadge';
 import { supabase } from '../../lib/supabase/client';
 import { useAuth } from '../../Hooks/useAuth';
@@ -12,7 +12,6 @@ export default function AccountSection() {
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleDiscordLogin = async () => {
     setError('');
@@ -46,12 +45,7 @@ export default function AccountSection() {
   };
 
   const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await signOut();
-    } finally {
-      setIsLoggingOut(false);
-    }
+    await signOut();
   };
 
   if (!session) {
@@ -89,6 +83,7 @@ export default function AccountSection() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="input input-bordered bg-base-200 w-full"
                 disabled={isAuthenticating}
+                placeholder="example@example.com"
                 required
               />
             </div>
@@ -101,6 +96,7 @@ export default function AccountSection() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="input input-bordered bg-base-200 w-full"
                 disabled={isAuthenticating}
+                placeholder="********"
                 required
               />
             </div>
@@ -160,15 +156,32 @@ export default function AccountSection() {
               </p>
             </div>
 
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="btn btn-sm no-animation btn-outline btn-error h-8"
-              disabled={isLoggingOut}
-            >
-              {!isLoggingOut && <MdOutlineLogout className="w-4 h-4" />}
-              {isLoggingOut ? 'Logging out...' : 'Logout'}
-            </button>
+            {/* More Options Dropdown */}
+            <div className="dropdown">
+              <label
+                tabIndex={0}
+                className="btn btn-ghost btn-sm btn-circle hover:bg-white/10 active:bg-white/10"
+              >
+                <MdOutlineMoreHoriz size="28" />
+              </label>
+              <ul
+                tabIndex={0}
+                className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2"
+              >
+                <li>
+                  <a
+                    className="flex w-full items-center gap-2 px-4 py-3 text-error hover:bg-error/10 active:bg-error/20 rounded-lg transition-all duration-200 hover:pl-5 outline-none"
+                    onClick={() => {
+                      (document.activeElement as HTMLElement).blur();
+                      handleLogout();
+                    }}
+                  >
+                    <MdOutlineLogout size="20" />
+                    <span>Logout</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
