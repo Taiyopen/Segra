@@ -490,7 +490,7 @@ namespace Segra.Backend.Utils
             // If recording windowed applications, try to get the window dimensions
             if (Settings.Instance.RecordWindowedApplications)
             {
-                if (WindowUtils.GetWindowDimensions(fileName, out uint windowWidth, out uint windowHeight))
+                if (WindowUtils.GetWindowDimensionsByExe(fileName, out uint windowWidth, out uint windowHeight))
                 {
                     ResetVideoSettings(
                         customFps: (uint)Settings.Instance.FrameRate,

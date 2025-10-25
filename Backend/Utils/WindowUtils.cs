@@ -32,7 +32,7 @@ namespace Segra.Backend.Utils
             public int Height => Bottom - Top;
         }
 
-        public static bool GetWindowDimensions(string? executableFileName, out uint width, out uint height)
+        public static bool GetWindowDimensionsByExe(string? executableFileName, out uint width, out uint height)
         {
             width = 0;
             height = 0;
@@ -101,7 +101,7 @@ namespace Segra.Backend.Utils
                 return false;
             }
 
-            return GetWindowDimensions(targetWindow, out width, out height);
+            return GetWindowDimensionsByWindowHandle(targetWindow, out width, out height);
         }
 
         private static bool IsStandardAspectRatio(uint width, uint height)
@@ -147,7 +147,7 @@ namespace Segra.Backend.Utils
             return a;
         }
 
-        private static bool GetWindowDimensions(IntPtr windowHandle, out uint width, out uint height)
+        private static bool GetWindowDimensionsByWindowHandle(IntPtr windowHandle, out uint width, out uint height)
         {
             width = 0;
             height = 0;
@@ -160,13 +160,21 @@ namespace Segra.Backend.Utils
 
             while (attempts < maxAttempts)
             {
-                // If OBS captured dimensions are available, use them
+                // Check if OBS captured dimensions are available and match display size
                 if (OBSUtils.CapturedWindowWidth.HasValue && OBSUtils.CapturedWindowHeight.HasValue)
                 {
-                    width = OBSUtils.CapturedWindowWidth.Value;
-                    height = OBSUtils.CapturedWindowHeight.Value;
-                    Log.Information($"Using captured window dimensions from OBS logs: {width}x{height}");
-                    return true;
+                    uint capturedWidth = OBSUtils.CapturedWindowWidth.Value;
+                    uint capturedHeight = OBSUtils.CapturedWindowHeight.Value;
+                    
+                    SettingsUtils.GetPrimaryMonitorResolution(out uint displayWidth, out uint displayHeight);
+                    
+                    if (capturedWidth == displayWidth && capturedHeight == displayHeight)
+                    {
+                        width = capturedWidth;
+                        height = capturedHeight;
+                        Log.Information($"Using captured window dimensions from OBS logs (matches display size): {width}x{height}");
+                        return true;
+                    }
                 }
 
                 if (!GetWindowRect(windowHandle, out RECT rect))
@@ -205,7 +213,7 @@ namespace Segra.Backend.Utils
                             lastHeight = height;
                             
                             bool isStandardAspectRatio = IsStandardAspectRatio(width, height);
-                            requiredStabilityChecks = isStandardAspectRatio ? 5 : 20;
+                            requiredStabilityChecks = isStandardAspectRatio ? 10 : 20;
                             stabilityChecks = 0;
                             
                             Thread.Sleep(1000);
@@ -215,7 +223,7 @@ namespace Segra.Backend.Utils
                     {
                         // First valid dimensions detected
                         bool isStandardAspectRatio = IsStandardAspectRatio(width, height);
-                        requiredStabilityChecks = isStandardAspectRatio ? 5 : 20;
+                        requiredStabilityChecks = isStandardAspectRatio ? 10 : 20;
                         stabilityChecks = 0;
                         
                         string aspectRatioNote = isStandardAspectRatio ? "standard aspect ratio" : "non-standard aspect ratio";
