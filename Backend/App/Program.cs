@@ -87,6 +87,7 @@ namespace Segra.Backend.App
             if (!createdNew)
             {
                 // Another instance exists, send a message to it via named pipe
+                int exitCode = 0;
                 try
                 {
                     using (var pipeClient = new NamedPipeClientStream(".", PipeName, PipeDirection.Out))
@@ -99,13 +100,16 @@ namespace Segra.Backend.App
                             writer.Flush();
                         }
                     }
-
-                    Environment.Exit(0);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Failed to communicate with existing instance: {ex.Message}");
+                    exitCode = 1;
                 }
+
+                // Important: never continue startup when mutex indicates another instance exists.
+                Environment.Exit(exitCode);
+                return;
             }
 
             StartNamedPipeServer();

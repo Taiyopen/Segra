@@ -656,6 +656,8 @@ namespace Segra.Backend.Services
             {
                 Log.Information($"InputNoiseSuppression changed from '{settings.InputNoiseSuppression}' to '{updatedSettings.InputNoiseSuppression}'");
                 settings.InputNoiseSuppression = updatedSettings.InputNoiseSuppression;
+                hasChanges = true;
+            }
 
             // Update RecordingAudioBitrate (OBS AAC for session / replay buffer)
             if (!string.IsNullOrEmpty(updatedSettings.RecordingAudioBitrate) &&
