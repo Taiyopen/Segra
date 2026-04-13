@@ -151,6 +151,11 @@ namespace Segra.Backend.App
             {
                 Log.Information("Application starting up...");
 
+                // Photino.NET.Server resolves WebRootPath "wwwroot" relative to Directory.GetCurrentDirectory().
+                // If the working directory is not the app folder (e.g. shortcut, Run dialog, IDE), disk wwwroot is
+                // missed and CompositeFileProvider falls back to embedded Resources/wwwroot (stale UI).
+                Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+
                 // Set up the PhotinoServer
                 PhotinoServer
                     .CreateStaticFileServer(args, out string baseUrl)

@@ -418,7 +418,10 @@ namespace Segra.Backend.App
                     }
                 }
 
-                await ClipService.CreateClips(segments);
+                bool losslessOnly = message.TryGetProperty("lossless", out JsonElement losslessEl)
+                    && losslessEl.ValueKind == JsonValueKind.True;
+
+                await ClipService.CreateClips(segments, losslessOnly: losslessOnly);
             }
             else
             {

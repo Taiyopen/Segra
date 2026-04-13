@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using Segra.Backend.App;
 using Segra.Backend.Core.Models;
+using Segra.Backend.Games;
 using Segra.Backend.Services;
 using Segra.Backend.Shared;
 using Segra.Backend.Windows.Storage;
@@ -18,7 +19,13 @@ namespace Segra.Backend.Media
         // Lock for thread safety
         private static readonly object ProcessLock = new object();
 
-        public static async Task CreateClips(List<Segment> segments)
+        /// <param name="preferredOutputFileNameBase">Ignored for the output file name; clips are always saved as <c>{originalFileName}_clip_{i}.mp4</c> with a per-folder auto-incrementing <c>i</c>.</param>
+        /// <param name="appendTimestampToPreferredFileName">Ignored; kept for call-site compatibility.</param>
+        public static async Task CreateClips(
+            List<Segment> segments,
+            string? preferredOutputFileNameBase = null,
+            bool appendTimestampToPreferredFileName = true,
+            bool losslessOnly = false)
         {
             int id = Guid.NewGuid().GetHashCode();
             List<string> tempClipFiles = new List<string>();
@@ -58,23 +65,30 @@ namespace Segra.Backend.Media
                     return;
                 }
 
-                // Read per-segment audio track names and build union layout
-                bool anySegmentHasMutedTracks = segments.Any(s => s.MutedAudioTracks != null && s.MutedAudioTracks.Count > 0);
+                // Lossless clips ignore track metadata / union layout — each segment is just -ss/-t/-c copy.
                 var perSegmentTrackNames = new List<List<string>?>();
-                if (Settings.Instance.ClipKeepSeparateAudioTracks || anySegmentHasMutedTracks)
+                List<string>? unionAudioLayout = null;
+                if (!losslessOnly)
                 {
-                    foreach (var seg in segments)
-                        perSegmentTrackNames.Add(GetSourceAudioTrackNames(seg));
+                    bool anySegmentHasMutedTracks = segments.Any(s => s.MutedAudioTracks != null && s.MutedAudioTracks.Count > 0);
+                    if (Settings.Instance.ClipKeepSeparateAudioTracks || anySegmentHasMutedTracks)
+                    {
+                        foreach (var seg in segments)
+                            perSegmentTrackNames.Add(GetSourceAudioTrackNames(seg));
+                    }
+                    else
+                    {
+                        perSegmentTrackNames.AddRange(Enumerable.Repeat<List<string>?>(null, segments.Count));
+                    }
+
+                    unionAudioLayout = Settings.Instance.ClipKeepSeparateAudioTracks
+                        ? BuildUnionAudioLayout(perSegmentTrackNames)
+                        : null;
                 }
                 else
                 {
                     perSegmentTrackNames.AddRange(Enumerable.Repeat<List<string>?>(null, segments.Count));
                 }
-
-                // Union of all track names across sources -- used to normalise every temp clip to the same stream layout
-                List<string>? unionAudioLayout = Settings.Instance.ClipKeepSeparateAudioTracks
-                    ? BuildUnionAudioLayout(perSegmentTrackNames)
-                    : null;
 
                 double processedDuration = 0;
                 int segmentIndex = 0;
@@ -104,9 +118,9 @@ namespace Segra.Backend.Media
                     double clipDuration = segment.EndTime - segment.StartTime;
 
                     List<string>? segmentTrackNames = perSegmentTrackNames[segmentIndex];
-                    List<string>? targetLayout = Settings.Instance.ClipKeepSeparateAudioTracks ? unionAudioLayout : null;
+                    List<string>? targetLayout = losslessOnly ? null : (Settings.Instance.ClipKeepSeparateAudioTracks ? unionAudioLayout : null);
 
-                    await ExtractClip(id, inputFilePath, tempFileName, segment.StartTime, segment.EndTime, segmentTrackNames, segment.MutedAudioTracks, segment.AudioTrackVolumes, targetLayout, progress =>
+                    await ExtractClip(id, inputFilePath, tempFileName, segment.StartTime, segment.EndTime, segmentTrackNames, segment.MutedAudioTracks, segment.AudioTrackVolumes, targetLayout, losslessOnly, progress =>
                     {
                         double clampedProgress = Math.Min(progress, 1.0);
                         double currentProgress = (processedDuration + (clampedProgress * clipDuration)) / totalDuration * 95;
@@ -134,7 +148,11 @@ namespace Segra.Backend.Media
 
                 _ = MessageService.SendFrontendMessage("ClipProgress", new { id, progress = 96, segments });
 
-                string outputFileName = $"{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
+                string firstInputPath = ResolveSegmentInputPath(firstSegment!, videoFolder);
+                string originalBase = GetSanitizedOriginalFileBase(firstSegment!, firstInputPath);
+                int clipIndex = GetNextAvailableClipIndex(outputFolder, originalBase);
+                string outputBaseName = $"{originalBase}_clip_{clipIndex}";
+                string outputFileName = $"{outputBaseName}.mp4";
                 outputFilePath = Path.Combine(outputFolder, outputFileName);
 
                 if (tempClipFiles.Count == 1)
@@ -149,21 +167,31 @@ namespace Segra.Backend.Media
 
                     try
                     {
-                        string mapAllArg = unionAudioLayout != null ? "-map 0 " : "";
-                        string concatMetadataArgs = "";
-                        // When multi-track is active, re-encode audio during concat to fix
-                        // DTS misalignment between streams (different seek offsets cause
-                        // slightly different AAC frame counts per stream).
-                        // Video is always stream-copied.
-                        string codecArg = unionAudioLayout != null
-                            ? $"-c:v copy -c:a aac -b:a {Settings.Instance.ClipAudioQuality} "
-                            : "-c copy ";
-                        if (unionAudioLayout != null)
+                        string concatArgs;
+                        if (losslessOnly)
                         {
-                            concatMetadataArgs = string.Join(" ", unionAudioLayout.Select((name, i) => $"-metadata:s:a:{i} title=\"{name}\"")) + " ";
+                            concatArgs = $"-y -f concat -safe 0 -i \"{concatFilePath}\" -map 0 -c copy \"{outputFilePath}\"";
                         }
+                        else
+                        {
+                            string mapAllArg = unionAudioLayout != null ? "-map 0 " : "";
+                            string concatMetadataArgs = "";
+                            // When multi-track is active, re-encode audio during concat to fix
+                            // DTS misalignment between streams (different seek offsets cause
+                            // slightly different AAC frame counts per stream).
+                            // Video is always stream-copied.
+                            string codecArg = unionAudioLayout != null
+                                ? $"-c:v copy -c:a aac -b:a {Settings.Instance.ClipAudioQuality} "
+                                : "-c copy ";
+                            if (unionAudioLayout != null)
+                            {
+                                concatMetadataArgs = string.Join(" ", unionAudioLayout.Select((name, i) => $"-metadata:s:a:{i} title=\"{name}\"")) + " ";
+                            }
+                            concatArgs = $"-y -f concat -safe 0 -i \"{concatFilePath}\" {mapAllArg}{codecArg}{concatMetadataArgs}-avoid_negative_ts make_zero -movflags +faststart \"{outputFilePath}\"";
+                        }
+
                         await FFmpegService.RunWithProgress(id,
-                            $"-y -f concat -safe 0 -i \"{concatFilePath}\" {mapAllArg}{codecArg}{concatMetadataArgs}-avoid_negative_ts make_zero -movflags +faststart \"{outputFilePath}\"",
+                            concatArgs,
                             totalDuration,
                             progress => { },
                             process =>
@@ -245,10 +273,95 @@ namespace Segra.Backend.Media
             }
         }
 
+        /// <summary>
+        /// Extracts a time range from a session recording into the Clips folder (FFmpeg). Does not start or stop OBS outputs.
+        /// Output file name is always <c>{sessionFileBase}_clip_{i}.mp4</c> (see <see cref="CreateClips"/>).
+        /// </summary>
+        internal static async Task CreateClipFromSessionTimeRange(
+            Recording recording,
+            double startSeconds,
+            double endSeconds,
+            string clipTitle,
+            string? preferredOutputFileNameBase = null,
+            int? clipIgdbId = null,
+            bool appendTimestampToPreferredFileName = true)
+        {
+            if (string.IsNullOrEmpty(recording.FilePath) || !File.Exists(recording.FilePath))
+            {
+                Log.Warning("Session clip: source file missing or path empty");
+                return;
+            }
+
+            if (endSeconds <= startSeconds + 0.25)
+            {
+                Log.Warning("Session clip: invalid time range");
+                return;
+            }
+
+            await EnsureFileReady(recording.FilePath);
+
+            string baseName = Path.GetFileNameWithoutExtension(recording.FilePath);
+            int? igdbId = clipIgdbId;
+            if (igdbId == null && !string.IsNullOrEmpty(recording.ExePath))
+                igdbId = GameUtils.GetIgdbIdFromExePath(recording.ExePath);
+
+            var segment = new Segment
+            {
+                Id = Random.Shared.NextInt64(),
+                Type = Content.ContentType.Session.ToString(),
+                StartTime = startSeconds,
+                EndTime = endSeconds,
+                FileName = baseName,
+                FilePath = recording.FilePath,
+                Game = recording.Game,
+                Title = clipTitle,
+                IgdbId = igdbId
+            };
+
+            await CreateClips(new List<Segment> { segment }, preferredOutputFileNameBase, appendTimestampToPreferredFileName);
+        }
+
         private static async Task ExtractClip(int clipId, string inputFilePath, string outputFilePath, double startTime, double endTime,
-                            List<string>? audioTrackNames, List<int>? mutedAudioTracks, Dictionary<int, double>? audioTrackVolumes, List<string>? targetAudioLayout, Action<double> progressCallback)
+                            List<string>? audioTrackNames, List<int>? mutedAudioTracks, Dictionary<int, double>? audioTrackVolumes, List<string>? targetAudioLayout, bool losslessOnly, Action<double> progressCallback)
         {
             double duration = endTime - startTime;
+
+            if (losslessOnly)
+            {
+                string ss = startTime.ToString(CultureInfo.InvariantCulture);
+                string durStr = duration.ToString(CultureInfo.InvariantCulture);
+                // -map 0 keeps every stream (all audio tracks, video, subtitles) — default mapping would often drop extra audio.
+                string losslessArgs = $"-y -ss {ss} -i \"{inputFilePath}\" -t {durStr} -map 0 -c copy \"{outputFilePath}\"";
+                Log.Information("Extracting clip (lossless remux: -ss, -i, -t, -map 0, -c copy)");
+                Log.Information($"FFmpeg arguments: {losslessArgs}");
+
+                try
+                {
+                    await FFmpegService.RunWithProgress(clipId, losslessArgs, duration, progressCallback, process =>
+                    {
+                        lock (ProcessLock)
+                        {
+                            if (!ActiveFFmpegProcesses.ContainsKey(clipId))
+                            {
+                                ActiveFFmpegProcesses[clipId] = new List<Process>();
+                            }
+                            ActiveFFmpegProcesses[clipId].Add(process);
+                            Log.Information($"[Clip {clipId}] Tracking FFmpeg process (PID: {process.Id})");
+                        }
+                    });
+                }
+                finally
+                {
+                    lock (ProcessLock)
+                    {
+                        ActiveFFmpegProcesses.Remove(clipId);
+                        Log.Information($"[Clip {clipId}] Removed from active processes");
+                    }
+                }
+
+                return;
+            }
+
             var settings = Settings.Instance;
 
             string videoCodec;
@@ -552,10 +665,14 @@ namespace Segra.Backend.Media
             // The concat demuxer then uses the first clip's stream params for subsequent clips, playing
             // mismatched samples at the wrong rate (the reported "shrunken audio").
             string audioRateArg = targetAudioLayout != null ? "-ar 48000 " : "";
-            string arguments = $"-y {verboseFlag}-ss {startTime.ToString(CultureInfo.InvariantCulture)} -t {duration.ToString(CultureInfo.InvariantCulture)} " +
+
+            string clipStartStr = startTime.ToString(CultureInfo.InvariantCulture);
+            string clipDurationStr = duration.ToString(CultureInfo.InvariantCulture);
+
+            string arguments = $"-y {verboseFlag}-ss {clipStartStr} -t {clipDurationStr} " +
                              $"-i \"{inputFilePath}\" {extraInputArgs}{filterArgs}{mapArgs}-c:v {videoCodec} {presetArgs} {qualityArgs} {fpsArg} " +
-                             $"-c:a aac -b:a {settings.ClipAudioQuality} {audioRateArg}{metadataArgs}-t {duration.ToString(CultureInfo.InvariantCulture)} -movflags +faststart \"{outputFilePath}\"";
-            Log.Information("Extracting clip");
+                             $"-c:a aac -b:a {settings.ClipAudioQuality} {audioRateArg}{metadataArgs}-t {clipDurationStr} -movflags +faststart \"{outputFilePath}\"";
+            Log.Information("Extracting clip (re-encode)");
             Log.Information($"FFmpeg arguments: {arguments}");
 
             try
@@ -635,6 +752,34 @@ namespace Segra.Backend.Media
             {
                 await MessageService.SendFrontendMessage("ClipProgress", new { id = clipId, progress = 100, segments = new List<Segment>() });
             }
+        }
+
+        private static string ResolveSegmentInputPath(Segment segment, string videoFolder)
+        {
+            if (!string.IsNullOrEmpty(segment.FilePath) && File.Exists(segment.FilePath))
+                return segment.FilePath;
+
+            string inputGameFolder = StorageService.SanitizeGameNameForFolder(segment.Game);
+            var segmentType = Enum.Parse<Content.ContentType>(segment.Type);
+            string inputFolderName = FolderNames.GetVideoFolderName(segmentType);
+            return Path.Combine(videoFolder, inputFolderName, inputGameFolder, $"{segment.FileName}.mp4");
+        }
+
+        private static string GetSanitizedOriginalFileBase(Segment segment, string resolvedInputPath)
+        {
+            string baseName = !string.IsNullOrEmpty(segment.FileName)
+                ? Path.GetFileNameWithoutExtension(segment.FileName)
+                : Path.GetFileNameWithoutExtension(resolvedInputPath);
+            return StorageService.SanitizeGameNameForFolder(baseName);
+        }
+
+        /// <summary>First available index i so that <c>{originalBase}_clip_{i}.mp4</c> does not exist in the folder.</summary>
+        private static int GetNextAvailableClipIndex(string outputFolder, string sanitizedOriginalBase)
+        {
+            int i = 1;
+            while (File.Exists(Path.Combine(outputFolder, $"{sanitizedOriginalBase}_clip_{i}.mp4")))
+                i++;
+            return i;
         }
 
         private static List<string>? BuildUnionAudioLayout(List<List<string>?> perSegmentTrackNames)
