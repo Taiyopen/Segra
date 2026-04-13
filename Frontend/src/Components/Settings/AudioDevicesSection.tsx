@@ -3,7 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TriangleAlert, X, CircleAlert, Volume2, Gamepad2 } from 'lucide-react';
 import { DiscordIcon, TeamSpeakIcon } from '../icons/BrandIcons';
 import Button from '../Button';
-import { Settings as SettingsType, AudioDevice, AudioOutputMode } from '../../Models/types';
+import DropdownSelect from '../DropdownSelect';
+import {
+  Settings as SettingsType,
+  AudioDevice,
+  AudioOutputMode,
+  RecordingAudioBitrate,
+} from '../../Models/types';
 import { useAppState } from '../../Context/AppStateContext';
 
 interface AudioDevicesSectionProps {
@@ -45,7 +51,9 @@ export default function AudioDevicesSection({
   const totalSourceCount = combinedSelectedIds.length + implicitOutputCount;
   const maxIsolatedTracks = 5;
   const hasOverTrackLimit =
-    settings.enableSeparateAudioTracks && totalSourceCount > maxIsolatedTracks;
+    settings.enableSeparateAudioTracks &&
+    !settings.excludeGameDiscordFromMasterMix &&
+    totalSourceCount > maxIsolatedTracks;
   const selectionSig = combinedSelectedIds.join(',');
 
   // Dismissible warning for track limit exceeded
@@ -141,6 +149,7 @@ export default function AudioDevicesSection({
                   const selectedIndex = combinedSelectedIds.indexOf(device.id);
                   const showLimitIcon =
                     settings.enableSeparateAudioTracks &&
+                    !settings.excludeGameDiscordFromMasterMix &&
                     selectedDevices.some((d) => d.id === device.id) &&
                     selectedIndex >= 0 &&
                     selectedIndex + implicitOutputCount >= maxIsolatedTracks;
@@ -316,12 +325,41 @@ export default function AudioDevicesSection({
             type="checkbox"
             name="enableSeparateAudioTracks"
             checked={settings.enableSeparateAudioTracks}
-            onChange={(e) => updateSettings({ enableSeparateAudioTracks: e.target.checked })}
+            onChange={(e) =>
+              updateSettings({
+                enableSeparateAudioTracks: e.target.checked,
+                ...(e.target.checked ? {} : { excludeGameDiscordFromMasterMix: false }),
+              })
+            }
             disabled={isRecording}
             className="checkbox checkbox-sm checkbox-accent"
           />
           <span className="ml-2">Separate Audio Tracks</span>
         </label>
+        {settings.enableSeparateAudioTracks &&
+          (settings.audioOutputMode === 'GameOnly' ||
+            settings.audioOutputMode === 'GameAndDiscord') && (
+            <label className="cursor-pointer flex items-start gap-2">
+              <input
+                type="checkbox"
+                name="excludeGameDiscordFromMasterMix"
+                checked={settings.excludeGameDiscordFromMasterMix}
+                onChange={(e) =>
+                  updateSettings({ excludeGameDiscordFromMasterMix: e.target.checked })
+                }
+                className="checkbox checkbox-sm checkbox-accent mt-0.5"
+              />
+              <span className="text-sm leading-snug">
+                Keep game &amp; Discord off Track 1 (master)
+                <span className="block text-xs text-base-content/60 mt-1">
+                  Track 1 is a mix of all selected inputs and outputs (no game / Discord). Each
+                  selected input and output can also get its own track (up to 6 tracks total), then
+                  game and Discord on the last tracks — not mixed into Track 1. Desktop stays active
+                  when the game hooks so Track 1 still includes output audio.
+                </span>
+              </span>
+            </label>
+          )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -423,6 +461,28 @@ export default function AudioDevicesSection({
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="form-control mt-4 max-w-md">
+        <label className="label">
+          <span className="label-text text-base-content">Recording audio bitrate</span>
+        </label>
+        <DropdownSelect
+          items={[
+            { value: '96k', label: '96 kbps (Low)' },
+            { value: '128k', label: '128 kbps (Medium)' },
+            { value: '192k', label: '192 kbps (High)' },
+            { value: '256k', label: '256 kbps (Very High)' },
+            { value: '320k', label: '320 kbps (Insane)' },
+          ]}
+          value={settings.recordingAudioBitrate}
+          onChange={(val) =>
+            updateSettings({ recordingAudioBitrate: val as RecordingAudioBitrate })
+          }
+        />
+        <span className="label-text-alt text-xs text-base-content/60 mt-1 block">
+          AAC for session and replay buffer recording. Applies when the next recording starts.
+        </span>
       </div>
 
       <AnimatePresence>

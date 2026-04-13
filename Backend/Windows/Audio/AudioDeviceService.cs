@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace Segra.Backend.Windows.Audio
 {
-    internal class AudioDeviceService
+    internal static class AudioDeviceService
     {
         private static string GetCleanDeviceName(string friendlyName)
         {
@@ -105,6 +105,44 @@ namespace Segra.Backend.Windows.Audio
             }
 
             return sortedDevices;
+        }
+
+        /// <summary>
+        /// Peak level (0–1) for a capture or render endpoint, using Windows' mixer meter (same devices as Segra routes into OBS).
+        /// </summary>
+        public static float GetEndpointPeak(string deviceId, DataFlow flow)
+        {
+            try
+            {
+                using var enumerator = new MMDeviceEnumerator();
+                using MMDevice device = string.IsNullOrEmpty(deviceId) || deviceId == "default"
+                    ? enumerator.GetDefaultAudioEndpoint(flow, Role.Multimedia)
+                    : enumerator.GetDevice(deviceId);
+                return device.AudioMeterInformation.MasterPeakValue;
+            }
+            catch
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>
+        /// Maximum peak across all configured devices (e.g. all selected mics or all desktop outputs).
+        /// </summary>
+        public static float GetMaxPeakForDeviceSettings(IReadOnlyList<DeviceSetting>? devices, DataFlow flow)
+        {
+            if (devices == null || devices.Count == 0)
+                return 0f;
+
+            float max = 0f;
+            foreach (var d in devices)
+            {
+                if (string.IsNullOrEmpty(d.Id))
+                    continue;
+                max = Math.Max(max, GetEndpointPeak(d.Id, flow));
+            }
+
+            return max;
         }
     }
 }

@@ -159,6 +159,8 @@ namespace Segra.Backend.Services
 
                 Log.Information("Settings loaded from {0}", SettingsFilePath);
 
+                TrySanitizeCqvbrRateControl();
+
                 // The file has been read, so forcing this save is safe even though
                 // Program.Main hasn't set hasLoadedInitialSettings yet.
                 Settings.Instance.EndBulkUpdateAndSaveSettings(force: true);
@@ -331,6 +333,14 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
+            // Update ExcludeGameDiscordFromMasterMix
+            if (settings.ExcludeGameDiscordFromMasterMix != updatedSettings.ExcludeGameDiscordFromMasterMix)
+            {
+                Log.Information($"ExcludeGameDiscordFromMasterMix changed from '{settings.ExcludeGameDiscordFromMasterMix}' to '{updatedSettings.ExcludeGameDiscordFromMasterMix}'");
+                settings.ExcludeGameDiscordFromMasterMix = updatedSettings.ExcludeGameDiscordFromMasterMix;
+                hasChanges = true;
+            }
+
             // Update AudioOutputMode
             if (settings.AudioOutputMode != updatedSettings.AudioOutputMode)
             {
@@ -436,6 +446,20 @@ namespace Segra.Backend.Services
                     current.WarThunder.Enabled = updated.WarThunder.Enabled;
                     hasChanges = true;
                 }
+                if (updated.VrChat != null && current.VrChat.Enabled != updated.VrChat.Enabled)
+                {
+                    Log.Information($"GameIntegrations.VrChat.Enabled changed from '{current.VrChat.Enabled}' to '{updated.VrChat.Enabled}'");
+                    current.VrChat.Enabled = updated.VrChat.Enabled;
+                    hasChanges = true;
+                }
+            }
+
+            // Update Theme
+            if (settings.Theme != updatedSettings.Theme)
+            {
+                Log.Information($"Theme changed from '{settings.Theme}' to '{updatedSettings.Theme}'");
+                settings.Theme = updatedSettings.Theme;
+                hasChanges = true;
             }
 
             // Update ContentFolder
@@ -570,6 +594,12 @@ namespace Segra.Backend.Services
                     settings.RateControl = "CRF";
                     hasAutoSelectedRateControl = true;
                 }
+                else if (settings.Encoder == "cpu" && settings.RateControl == "CQVBR")
+                {
+                    Log.Information($"Automatically changing RateControl from 'CQVBR' to 'VBR' because encoder is CPU");
+                    settings.RateControl = "VBR";
+                    hasAutoSelectedRateControl = true;
+                }
 
                 hasChanges = true;
             }
@@ -626,6 +656,13 @@ namespace Segra.Backend.Services
             {
                 Log.Information($"InputNoiseSuppression changed from '{settings.InputNoiseSuppression}' to '{updatedSettings.InputNoiseSuppression}'");
                 settings.InputNoiseSuppression = updatedSettings.InputNoiseSuppression;
+
+            // Update RecordingAudioBitrate (OBS AAC for session / replay buffer)
+            if (!string.IsNullOrEmpty(updatedSettings.RecordingAudioBitrate) &&
+                settings.RecordingAudioBitrate != updatedSettings.RecordingAudioBitrate)
+            {
+                Log.Information($"RecordingAudioBitrate changed from '{settings.RecordingAudioBitrate}' to '{updatedSettings.RecordingAudioBitrate}'");
+                settings.RecordingAudioBitrate = updatedSettings.RecordingAudioBitrate;
                 hasChanges = true;
             }
 
@@ -661,10 +698,11 @@ namespace Segra.Backend.Services
                 Log.Information($"SelectedDisplay changed from '{settings.SelectedDisplay}' to '{updatedSettings.SelectedDisplay}'");
                 settings.SelectedDisplay = updatedSettings.SelectedDisplay;
 
-                // Update the live display capture in place; only meaningful while recording without a game hook.
-                if (AppState.Instance.Recording != null && !AppState.Instance.Recording.IsUsingGameHook)
+                var rec = Settings.Instance.State.Recording;
+                if (rec != null && !rec.IsUsingGameHook)
                 {
-                    OBSService.UpdateMonitorCapture();
+                    OBSService.RefreshMonitorCaptureForSlot(0);
+                }
                 }
                 hasChanges = true;
             }
@@ -779,6 +817,12 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
+            // CQVBR (OBS 31+ NVENC only): fix invalid combinations after other fields merge
+            if (TrySanitizeCqvbrRateControl())
+            {
+                hasChanges = true;
+            }
+
             // Only save settings and send to frontend if changes were actually made
             if (hasChanges)
             {
@@ -791,6 +835,33 @@ namespace Segra.Backend.Services
                 settings._isBulkUpdating = false;
                 Log.Information("No settings changes detected");
             }
+        }
+
+        /// <summary>
+        /// CQVBR matches OBS 31+ NVENC "Variable Bitrate with Target Quality"; it is invalid on CPU or non-NVENC GPU codecs.
+        /// </summary>
+        private static bool TrySanitizeCqvbrRateControl()
+        {
+            var s = Settings.Instance;
+            if (s.RateControl != "CQVBR")
+                return false;
+
+            if (s.Encoder == "cpu")
+            {
+                Log.Information("CQVBR requires GPU NVENC; changing RateControl from 'CQVBR' to 'VBR'");
+                s.RateControl = "VBR";
+                return true;
+            }
+
+            if (s.Codec != null &&
+                !s.Codec.InternalEncoderId.Contains("nvenc", StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Information("CQVBR requires NVIDIA NVENC; changing RateControl from 'CQVBR' to 'CQP'");
+                s.RateControl = "CQP";
+                return true;
+            }
+
+            return false;
         }
 
         public static async Task LoadContentFromFolderIntoState(bool sendToFrontend = true)

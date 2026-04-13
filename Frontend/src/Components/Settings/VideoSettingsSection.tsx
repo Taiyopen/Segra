@@ -43,6 +43,17 @@ export default function VideoSettingsSection({
   useEffect(() => {
     setLocalCqLevel(String(settings.cqLevel));
   }, [settings.cqLevel]);
+  const codecIdLower = (settings.codec?.internalEncoderId ?? '').toLowerCase();
+  const isNvencCodec = codecIdLower.includes('nvenc');
+
+  // CQVBR is OBS 31+ NVENC-only; switch away if user picks a non-NVENC codec
+  useEffect(() => {
+    const id = (settings.codec?.internalEncoderId ?? '').toLowerCase();
+    if (settings.rateControl !== 'CQVBR' || settings.encoder !== 'gpu') return;
+    if (!id || id.includes('nvenc')) return;
+    updateSettings({ rateControl: 'CQP' });
+  }, [settings.codec?.internalEncoderId, settings.rateControl, settings.encoder, updateSettings]);
+
   const isRecording = appState.recording != null || appState.preRecording != null;
 
   const handlePresetChange = (preset: VideoQualityPreset) => {
@@ -260,6 +271,14 @@ export default function VideoSettingsSection({
                     ...(settings.encoder !== 'cpu'
                       ? [{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' }]
                       : []),
+                    ...(settings.encoder === 'gpu' && isNvencCodec
+                      ? [
+                          {
+                            value: 'CQVBR',
+                            label: 'CQVBR (Target Quality + Max Bitrate, OBS 31+ NVENC)',
+                          },
+                        ]
+                      : []),
                   ]}
                   value={settings.rateControl}
                   onChange={(val) => updateSettings({ rateControl: val })}
@@ -379,6 +398,62 @@ export default function VideoSettingsSection({
                     className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:opacity-80 w-full outline-none focus:border-base-400"
                   />
                 </div>
+              )}
+
+              {/* CQVBR: max bitrate + target quality (OBS NVENC target_quality) */}
+              {settings.rateControl === 'CQVBR' && (
+                <>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-base-content">Maximum Bitrate (Mbps)</span>
+                    </label>
+                    <DropdownSelect
+                      items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
+                        value: String(v),
+                        label: `${v} Mbps`,
+                      }))}
+                      value={String(
+                        settings.maxBitrate ??
+                          Math.max(
+                            settings.minBitrate ?? settings.bitrate,
+                            Math.round((settings.bitrate || 10) * 1.5),
+                          ),
+                      )}
+                      onChange={(val) => {
+                        const max = Number(val);
+                        updateSettings({ maxBitrate: max });
+                      }}
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-base-content">
+                        Target Quality (CQ){' '}
+                        <span className="text-base-content/60 text-sm">
+                          ({codecIdLower.includes('av1') ? '1–63' : '1–51'} · lower is higher
+                          quality)
+                        </span>
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      name="cqvbrTargetQuality"
+                      value={localCqLevel}
+                      onChange={(e) => setLocalCqLevel(e.target.value)}
+                      onBlur={() => {
+                        const maxTq = codecIdLower.includes('av1') ? 63 : 51;
+                        let val = Number(localCqLevel) || 20;
+                        val = Math.min(maxTq, Math.max(1, val));
+                        if (!localCqLevel) setLocalCqLevel(String(val));
+                        setLocalCqLevel(String(val));
+                        updateSettings({ cqLevel: val });
+                      }}
+                      min="1"
+                      max={codecIdLower.includes('av1') ? '63' : '51'}
+                      className="input input-bordered bg-base-200 w-full outline-none focus:border-base-400"
+                    />
+                  </div>
+                </>
               )}
 
               {/* Encoder */}

@@ -130,17 +130,20 @@ export function useAudioTracks(
     if (!ctx || !master) return;
     const now = ctx.currentTime;
     const { mutedTracks: defaultMuted, soloTrack: solo, volumes: vols } = latestRef.current;
-    const effectiveMuted = muteOverrideRef.current ?? defaultMuted;
+    const muteOverride = muteOverrideRef.current;
     const effectiveVolumes = volumeOverrideRef.current ?? vols;
 
     master.gain.setTargetAtTime(masterMutedRef.current ? 0 : masterVolumeRef.current, now, 0.005);
 
     for (const td of trackDataRef.current.values()) {
       let muted: boolean;
-      if (solo !== null) {
+      if (muteOverride !== null) {
+        // Timeline segment clip settings — must win over default solo-first playback
+        muted = muteOverride.has(td.segraIndex);
+      } else if (solo !== null) {
         muted = td.segraIndex !== solo;
       } else {
-        muted = effectiveMuted.has(td.segraIndex);
+        muted = defaultMuted.has(td.segraIndex);
       }
       const vol = effectiveVolumes[td.segraIndex] ?? 1;
       td.gainNode.gain.setTargetAtTime(muted ? 0 : vol, now, 0.005);
@@ -367,15 +370,14 @@ export function useAudioTracks(
   );
 
   useEffect(() => {
-    if (!video.audioTrackNames || video.audioTrackNames.length <= 1) {
-      setTracks([]);
-      return;
-    }
     if (typeof AudioDecoder === 'undefined' || typeof EncodedAudioChunk === 'undefined') {
       console.warn('[useAudioTracks] WebCodecs AudioDecoder not available');
       setTracks([]);
       return;
     }
+
+    // Do not require Content.audioTrackNames (clips often omit it). We probe the file;
+    // metadata names are only used as labels when present.
 
     const abortController = new AbortController();
     abortRef.current = abortController;
@@ -607,13 +609,42 @@ export function useAudioTracks(
         return;
       }
 
+      // Single-stream files: keep native <video> audio only (no WebCodecs path).
+      if (displayTracks.length <= 1) {
+        for (const td of trackDataRef.current.values()) {
+          try {
+            td.decoder.close();
+          } catch {
+            /* ignore */
+          }
+          try {
+            td.gainNode.disconnect();
+          } catch {
+            /* ignore */
+          }
+        }
+        trackDataRef.current.clear();
+        try {
+          master.disconnect();
+        } catch {
+          /* ignore */
+        }
+        masterGainRef.current = null;
+        ctx.close().catch(() => {});
+        audioCtxRef.current = null;
+        fileSizeRef.current = 0;
+        setTracks([]);
+        return;
+      }
+
       // Drop mp4box so its internal sample object arrays can be GC'd.
       file = null;
 
       setTracks(displayTracks);
       setVolumes(initialVolumes);
-      setMutedTracks(new Set([0]));
-      setSoloTrack(null);
+      // Default: hear only the first audio stream (index 0). User can clear solo or adjust mutes in the UI.
+      setMutedTracks(new Set());
+      setSoloTrack(0);
 
       const vid = videoRef.current;
       const startTime = vid?.currentTime ?? 0;

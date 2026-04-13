@@ -1,9 +1,13 @@
 using Serilog;
 using System.Net;
+using System.Text.Json;
 using System.Web;
+using NAudio.CoreAudioApi;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Media;
+using Segra.Backend.Recorder;
 using Segra.Backend.Shared;
+using Segra.Backend.Windows.Audio;
 
 namespace Segra.Backend.Api
 {
@@ -65,6 +69,14 @@ namespace Segra.Backend.Api
                 {
                     await HandleThumbnailRequest(context);
                 }
+                else if (rawUrl.StartsWith("/api/recording-preview"))
+                {
+                    await HandleRecordingPreviewRequest(context);
+                }
+                else if (rawUrl.StartsWith("/api/recording-audio-levels"))
+                {
+                    await HandleRecordingAudioLevelsRequest(context);
+                }
                 else if (rawUrl.StartsWith("/api/content"))
                 {
                     await HandleContentRequest(context);
@@ -111,6 +123,95 @@ namespace Segra.Backend.Api
                 {
                 }
             }
+        }
+
+        private static async Task HandleRecordingPreviewRequest(HttpListenerContext context)
+        {
+            var request = context.Request;
+            var response = context.Response;
+            response.AddHeader("Access-Control-Allow-Origin", "*");
+
+            if (request.HttpMethod == "OPTIONS")
+            {
+                response.AddHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+                response.AddHeader("Access-Control-Allow-Headers", "Content-Type");
+                response.StatusCode = (int)HttpStatusCode.NoContent;
+                return;
+            }
+
+            if (request.HttpMethod != "GET")
+            {
+                response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                return;
+            }
+
+            byte[]? jpeg = OBSService.TryGetRecordingPreviewJpeg();
+            if (jpeg == null || jpeg.Length == 0)
+            {
+                response.StatusCode = (int)HttpStatusCode.NotFound;
+                response.ContentType = "text/plain";
+                using (var writer = new StreamWriter(response.OutputStream))
+                {
+                    await writer.WriteAsync("Preview not available.");
+                }
+                return;
+            }
+
+            response.StatusCode = (int)HttpStatusCode.OK;
+            response.ContentType = "image/jpeg";
+            response.AddHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            response.ContentLength64 = jpeg.Length;
+            await response.OutputStream.WriteAsync(jpeg, 0, jpeg.Length);
+        }
+
+        private static async Task HandleRecordingAudioLevelsRequest(HttpListenerContext context)
+        {
+            var request = context.Request;
+            var response = context.Response;
+            response.AddHeader("Access-Control-Allow-Origin", "*");
+
+            if (request.HttpMethod == "OPTIONS")
+            {
+                response.AddHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+                response.AddHeader("Access-Control-Allow-Headers", "Content-Type");
+                response.StatusCode = (int)HttpStatusCode.NoContent;
+                return;
+            }
+
+            if (request.HttpMethod != "GET")
+            {
+                response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                return;
+            }
+
+            var inputTracks = (Settings.Instance.InputDevices ?? [])
+                .Where(d => !string.IsNullOrEmpty(d.Id))
+                .Select((d, index) => new
+                {
+                    index,
+                    id = d.Id,
+                    name = d.Name,
+                    peak = AudioDeviceService.GetEndpointPeak(d.Id, DataFlow.Capture),
+                })
+                .ToList();
+
+            var outputTracks = (Settings.Instance.OutputDevices ?? [])
+                .Where(d => !string.IsNullOrEmpty(d.Id))
+                .Select((d, index) => new
+                {
+                    index,
+                    id = d.Id,
+                    name = d.Name,
+                    peak = AudioDeviceService.GetEndpointPeak(d.Id, DataFlow.Render),
+                })
+                .ToList();
+
+            response.StatusCode = (int)HttpStatusCode.OK;
+            response.ContentType = "application/json";
+            response.AddHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            byte[] body = JsonSerializer.SerializeToUtf8Bytes(new { inputTracks, outputTracks });
+            response.ContentLength64 = body.Length;
+            await response.OutputStream.WriteAsync(body, 0, body.Length);
         }
 
         private static async Task HandleThumbnailRequest(HttpListenerContext context)

@@ -72,8 +72,6 @@ export enum BookmarkSubtype {
 export enum KeybindAction {
   CreateBookmark = 'CreateBookmark',
   SaveReplayBuffer = 'SaveReplayBuffer',
-  ToggleRecording = 'ToggleRecording',
-  TogglePreview = 'TogglePreview',
 }
 
 export interface Keybind {
@@ -95,12 +93,16 @@ export interface Recording {
   game: string;
   isUsingGameHook: boolean;
   coverImageId?: string;
+  gameImage?: string; // Base64 encoded image of the game executable icon
+  /** 0 = primary output, 1 = secondary (dual session). */
+  slot?: number;
 }
 
 export interface PreRecording {
   game: string;
   status: string;
   coverImageId?: string;
+  slot?: number;
 }
 
 export interface AudioDevice {
@@ -153,12 +155,15 @@ export interface GameIntegrations {
   runescapeDragonwilds: GameIntegrationSettings;
   warThunder: GameIntegrationSettings;
   gta: GameIntegrationSettings;
+  vrChat: GameIntegrationSettings;
 }
 
 export type ClipEncoder = 'gpu' | 'cpu';
 export type ClipCodec = 'h264' | 'h265' | 'av1';
 export type ClipFPS = 0 | 24 | 30 | 60 | 120 | 144;
 export type ClipAudioQuality = '96k' | '128k' | '192k' | '256k' | '320k';
+/** Session / replay-buffer recording AAC bitrate (same options as clip audio). */
+export type RecordingAudioBitrate = ClipAudioQuality;
 export type CpuClipPreset =
   | 'ultrafast'
   | 'superfast'
@@ -233,7 +238,7 @@ export interface Settings {
   cqLevel: number;
   bitrate: number;
   minBitrate: number; // VBR only (Mbps)
-  maxBitrate: number; // VBR only (Mbps)
+  maxBitrate: number; // VBR / CQVBR peak cap (Mbps)
   encoder: 'gpu' | 'cpu';
   codec: Codec | null;
   storageLimit: number;
@@ -275,6 +280,10 @@ export interface Settings {
   showGameBackground: boolean; // Show game background while recording
   showAudioWaveformInTimeline: boolean; // Show audio waveform in video timeline
   enableSeparateAudioTracks: boolean; // Advanced: per-source audio tracks
+  /** Game + Discord capture not mixed into track 1 (requires Game / Game+Discord + separate tracks) */
+  excludeGameDiscordFromMasterMix: boolean;
+  /** AAC bitrate for session / replay-buffer recording (OBS). */
+  recordingAudioBitrate: RecordingAudioBitrate;
   audioOutputMode: AudioOutputMode;
   videoQualityPreset: VideoQualityPreset;
   clipQualityPreset: ClipQualityPreset;
@@ -349,6 +358,8 @@ export const initialSettings: Settings = {
   showGameBackground: true,
   showAudioWaveformInTimeline: true,
   enableSeparateAudioTracks: false,
+  excludeGameDiscordFromMasterMix: false,
+  recordingAudioBitrate: '128k',
   audioOutputMode: 'All',
   videoQualityPreset: 'high',
   clipQualityPreset: 'standard',
@@ -358,9 +369,7 @@ export const initialSettings: Settings = {
   defaultMenuItem: 'Full Sessions',
   keybindings: [
     { keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
-    { keys: [120], action: KeybindAction.ToggleRecording, enabled: true }, // 120 is F9
     { keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true }, // 121 is F10
-    { keys: [122], action: KeybindAction.TogglePreview, enabled: true }, // 122 is F11
   ],
   whitelist: [],
   blacklist: [],
@@ -375,6 +384,7 @@ export const initialSettings: Settings = {
     runescapeDragonwilds: { enabled: true },
     warThunder: { enabled: true },
     gta: { enabled: true },
+    vrChat: { enabled: true },
   },
 };
 

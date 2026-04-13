@@ -86,6 +86,16 @@ const GAME_INTEGRATIONS: GameIntegration[] = [
     bookmarks: ['Deaths'],
     backgroundImage: 'https://segra.tv/api/games/cover/ar3en0',
   },
+  {
+    id: 'vrchat',
+    name: 'VRChat',
+    settingsKey: 'vrChat',
+    bookmarks: ['World video', 'Auto clips'],
+    backgroundImage: 'https://segra.tv/api/games/cover/cobuhu',
+    isBeta: true,
+    warningText:
+      'Detects VVMW world-video playback via the VRChat output log. PlaybackStart and PlaybackEnded must both include Url, and they must refer to the same video (normalized). After PlaybackEnded, pending state is cleared so a new PlaybackStart (even the same Url) is independent. Duplicate PlaybackStart before an end keeps the first start time. Clips prefer the replay-buffer tail; session recording is used when available.',
+  },
 ];
 
 const getBookmarkBadgeClass = (bookmark: string): string => {
@@ -94,6 +104,8 @@ const getBookmarkBadgeClass = (bookmark: string): string => {
     case 'Knocks':
     case 'Assists':
     case 'Goals':
+    case 'World video':
+    case 'Auto clips':
       return 'bg-success/15 text-success';
     case 'Deaths':
       return 'bg-error/15 text-error';

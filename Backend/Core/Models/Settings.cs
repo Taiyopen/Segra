@@ -68,6 +68,7 @@ namespace Segra.Backend.Core.Models
         private string _clipCodec = "h264";
         private int _clipFps = 60; // 0 for 'Original'
         private string _clipAudioQuality = "128k";
+        private string _recordingAudioBitrate = "128k";
         private string _clipPreset = "veryfast";
         private bool _clipKeepSeparateAudioTracks = false;
         private float _soundEffectsVolume = 0.5f;
@@ -75,6 +76,7 @@ namespace Segra.Backend.Core.Models
         private bool _showGameBackground = true;
         private bool _showAudioWaveformInTimeline = true;
         private bool _enableSeparateAudioTracks = false;
+        private bool _excludeGameDiscordFromMasterMix = false;
         private AudioOutputMode _audioOutputMode = AudioOutputMode.All;
         private bool _inputNoiseSuppression = true;
         private string _videoQualityPreset = "high";
@@ -281,7 +283,7 @@ namespace Segra.Backend.Core.Models
             }
         }
 
-        // Maximum bitrate in Mbps (used for VBR only)
+        // Maximum bitrate in Mbps (VBR min–max range upper; CQVBR peak cap)
         [JsonPropertyName("maxBitrate")]
         public int MaxBitrate
         {
@@ -678,6 +680,19 @@ namespace Segra.Backend.Core.Models
             }
         }
 
+        [JsonPropertyName("recordingAudioBitrate")]
+        public string RecordingAudioBitrate
+        {
+            get => _recordingAudioBitrate;
+            set
+            {
+                if (_recordingAudioBitrate != value)
+                {
+                    _recordingAudioBitrate = value;
+                }
+            }
+        }
+
         [JsonPropertyName("clipPreset")]
         public string ClipPreset
         {
@@ -765,6 +780,23 @@ namespace Segra.Backend.Core.Models
                 if (_enableSeparateAudioTracks != value)
                 {
                     _enableSeparateAudioTracks = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// When true with separate tracks and Game/Game+Discord modes: Track 1 is microphone + desktop only;
+        /// game capture_audio and Discord app capture go to their own tracks and are not routed to Track 1.
+        /// </summary>
+        [JsonPropertyName("excludeGameDiscordFromMasterMix")]
+        public bool ExcludeGameDiscordFromMasterMix
+        {
+            get => _excludeGameDiscordFromMasterMix;
+            set
+            {
+                if (_excludeGameDiscordFromMasterMix != value)
+                {
+                    _excludeGameDiscordFromMasterMix = value;
                 }
             }
         }
@@ -991,6 +1023,7 @@ namespace Segra.Backend.Core.Models
 
         [JsonPropertyName("exe")]
         public string? Exe { get; set; }
+
     }
 
     // Recording class
@@ -1302,5 +1335,8 @@ namespace Segra.Backend.Core.Models
 
         [JsonPropertyName("gta")]
         public GameIntegrationSettings Gta { get; set; } = new GameIntegrationSettings(true);
+
+        [JsonPropertyName("vrChat")]
+        public GameIntegrationSettings VrChat { get; set; } = new GameIntegrationSettings(true);
     }
 }
