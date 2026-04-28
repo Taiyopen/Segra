@@ -589,7 +589,8 @@ namespace Segra.Backend.Media
                         }
                     }
                     string inputs = string.Join("", mixInputLabels);
-                    filterParts.Add($"{inputs}amix=inputs={enabledSourceTracks.Count}:duration=longest,{atrim}[out_a0]");
+                    // amix defaults to normalize=1, which attenuates each input (~1/sqrt(N)) and makes clips sound quieter than the source mix.
+                    filterParts.Add($"{inputs}amix=inputs={enabledSourceTracks.Count}:duration=longest:normalize=0,{atrim}[out_a0]");
                     mapParts.Add("-map \"[out_a0]\"");
                 }
                 metaParts.Add($"-metadata:s:a:0 title=\"{targetAudioLayout[0]}\"");
@@ -670,7 +671,7 @@ namespace Segra.Backend.Media
                             else
                             {
                                 string allInputs = string.Join("", mixInputLabels);
-                                filterPartsList.Add($"{allInputs}amix=inputs={enabledTracks.Count}:duration=longest[mix]");
+                                filterPartsList.Add($"{allInputs}amix=inputs={enabledTracks.Count}:duration=longest:normalize=0[mix]");
                                 filterArgs = $"-filter_complex \"{string.Join(";", filterPartsList)}\" ";
                                 mapArgs = "-map 0:v:0 -map \"[mix]\" ";
                             }
@@ -679,11 +680,16 @@ namespace Segra.Backend.Media
                         metadataArgs = "-metadata:s:a:0 title=\"Full Mix\" ";
                     }
                 }
-                else if (settings.ClipKeepSeparateAudioTracks && audioTrackNames != null)
+                else if (settings.ClipKeepSeparateAudioTracks)
                 {
+                    // Keep all source audio streams even when metadata does not expose track names
+                    // (e.g. some VRChat recordings), so FFmpeg won't collapse output to one track.
                     mapArgs = "-map 0:v:0 -map 0:a ";
-                    for (int i = 0; i < audioTrackNames.Count; i++)
-                        metadataArgs += $"-metadata:s:a:{i} title=\"{audioTrackNames[i]}\" ";
+                    if (audioTrackNames != null)
+                    {
+                        for (int i = 0; i < audioTrackNames.Count; i++)
+                            metadataArgs += $"-metadata:s:a:{i} title=\"{audioTrackNames[i]}\" ";
+                    }
                 }
             }
 

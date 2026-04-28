@@ -32,6 +32,8 @@ namespace Segra.Backend.Games.VrChat
 
         /// <summary>PlaybackStart→PlaybackEnded wall time under this (seconds) is ignored (no clip).</summary>
         internal const double MinWallClipSeconds = 5;
+        internal const double ClipLeadPaddingSeconds = 2;
+        internal const double ClipTailPaddingSeconds = 5;
 
         private static readonly object DeferredLock = new();
         private static readonly List<DeferredVvmwClip> Deferred = new();
@@ -323,14 +325,22 @@ namespace Segra.Backend.Games.VrChat
                 return;
             }
 
+            DateTime paddedStartLocal = startLocal.AddSeconds(-ClipLeadPaddingSeconds);
+            DateTime paddedEndLocal = endLocal.AddSeconds(ClipTailPaddingSeconds);
+            double paddedWallDuration = (paddedEndLocal - paddedStartLocal).TotalSeconds;
+
             string videoTitle = await ResolveVideoDisplayTitleAsync(startUrl);
             string clipTitle = BuildClipMetadataTitle(performer, videoTitle);
             string fileNameBase = BuildVvmwClipFileNameBase(endLocal, performer, videoTitle, startUrl);
             string safeFileBase = StorageService.SanitizeGameNameForFolder(fileNameBase);
 
-            Log.Information($"[VRChat VVMW] PlaybackEnded → clip title: “{clipTitle}” | file: {safeFileBase}.mp4");
+            Log.Information($"[VRChat VVMW] PlaybackEnded → clip title: “{clipTitle}” | file: {safeFileBase}.mp4 (padding -{ClipLeadPaddingSeconds:0}s/+{ClipTailPaddingSeconds:0}s)");
 
-            if (await OBSService.TrySaveReplayBufferTailAsClipAsync(wallDuration, clipTitle, safeFileBase, IgdbId))
+            // Wait for post-reaction tail before extracting/saving clip.
+            if (ClipTailPaddingSeconds > 0)
+                await Task.Delay(TimeSpan.FromSeconds(ClipTailPaddingSeconds));
+
+            if (await OBSService.TrySaveReplayBufferTailAsClipAsync(paddedWallDuration, clipTitle, safeFileBase, IgdbId))
                 return;
 
             Recording? rec = FindVrChatSessionRecording();
@@ -340,8 +350,8 @@ namespace Segra.Backend.Games.VrChat
                 return;
             }
 
-            double startSec = (startLocal - rec.StartTime).TotalSeconds;
-            double endSec = (endLocal - rec.StartTime).TotalSeconds;
+            double startSec = (paddedStartLocal - rec.StartTime).TotalSeconds;
+            double endSec = (paddedEndLocal - rec.StartTime).TotalSeconds;
             if (startSec < 0)
                 startSec = 0;
 
