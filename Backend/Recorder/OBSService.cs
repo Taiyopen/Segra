@@ -350,7 +350,9 @@ namespace Segra.Backend.Recorder
                 {
                     await FFmpegService.RunSimple(new[]
                     {
-                        "-y", "-sseof", "-" + tailArg, "-i", savedPath, "-c", "copy", "-movflags", "+faststart", tempOut,
+                        // Keep all streams (video + every audio track) when trimming replay buffer tails.
+                        // Default mapping may keep only a single audio stream.
+                        "-y", "-sseof", "-" + tailArg, "-i", savedPath, "-map", "0", "-c", "copy", "-movflags", "+faststart", tempOut,
                     });
                 }
                 catch (Exception ex)
