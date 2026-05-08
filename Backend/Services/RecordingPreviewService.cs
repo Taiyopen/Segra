@@ -27,6 +27,7 @@ namespace Segra.Backend.Services
         private static uint _recordingFps;
         private static bool _recordingActive;
         private static bool _enabled;
+        private static byte[]? _lastJpegFrame;
         private static readonly ImageCodecInfo? _jpegCodec =
             ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/jpeg");
 
@@ -34,6 +35,16 @@ namespace Segra.Backend.Services
         /// Whether the preview is currently streaming frames.
         /// </summary>
         public static bool IsEnabled => _enabled;
+
+        public static byte[]? TryGetLatestJpegFrame()
+        {
+            lock (_lock)
+            {
+                if (_lastJpegFrame == null || _lastJpegFrame.Length == 0)
+                    return null;
+                return (byte[])_lastJpegFrame.Clone();
+            }
+        }
 
         /// <summary>
         /// Called when a recording starts. Caches the recording fps so a later toggle can pick the right divisor.
@@ -45,7 +56,7 @@ namespace Segra.Backend.Services
             {
                 _recordingFps = recordingFps;
                 _recordingActive = true;
-                _enabled = false;
+                _enabled = StartSubscriptionLocked();
             }
 
             BroadcastState();
@@ -60,6 +71,7 @@ namespace Segra.Backend.Services
             {
                 _recordingActive = false;
                 _enabled = false;
+                _lastJpegFrame = null;
                 DisposeSubscriptionLocked();
             }
 
@@ -227,6 +239,10 @@ namespace Segra.Backend.Services
             }
 
             var b64 = Convert.ToBase64String(jpegBytes);
+            lock (_lock)
+            {
+                _lastJpegFrame = jpegBytes;
+            }
             await MessageService.SendFrontendMessage("RecordingPreviewFrame", new
             {
                 jpegBase64 = b64,

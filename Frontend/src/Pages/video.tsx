@@ -1163,6 +1163,35 @@ export default function VideoComponent({ video }: { video: Content }) {
     sendMessageToBackend('CreateClip', params);
   };
 
+  // Create a lossless clip from current segments (stream copy, no re-encode)
+  const handleCreateLosslessClip = () => {
+    if (segments.length === 0) {
+      setShowNoSegmentsIndicator(true);
+      setTimeout(() => setShowNoSegmentsIndicator(false), 2000);
+      return;
+    }
+
+    const params = {
+      Segments: segments.map((s) => ({
+        id: s.id,
+        type: s.type,
+        fileName: s.fileName,
+        filePath: s.filePath,
+        game: s.game,
+        title: s.title,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        igdbId: s.igdbId,
+        mutedAudioTracks: s.mutedAudioTracks,
+        audioTrackVolumes: s.audioTrackVolumes,
+      })),
+      lossless: true,
+    };
+    sendMessageToBackend('CreateClip', params);
+  };
+
+  // Handle segment drag and drop operations (drag start removed to allow segment click-through)
+
   const handleSegmentDrag = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!scrollContainerRef.current) return;
     if ((e.buttons & 1) !== 1 && dragState.id == null) return;
@@ -2224,6 +2253,15 @@ export default function VideoComponent({ video }: { video: Content }) {
                   >
                     <Clapperboard className="w-5 h-5" />
                     <span>Create Clip</span>
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="h-10 gap-1 hover:text-accent"
+                    onClick={handleCreateLosslessClip}
+                  >
+                    <Clapperboard className="w-5 h-5" />
+                    <span>Lossless Clip</span>
                   </Button>
                   <div className="indicator">
                     <Button

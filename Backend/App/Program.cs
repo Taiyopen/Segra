@@ -166,11 +166,25 @@ namespace Segra.Backend.App
 
                 WebView2RuntimeService.LogRuntimeVersion();
 
+                // Always prefer frontend from disk wwwroot next to the executable.
+                Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+
                 // VS Code sets SEGRA_VSCODE=1 via launch.json; Visual Studio does not.
                 // In VS Code the Vite dev server runs separately, so PhotinoServer is not needed
                 // and its RunAsync() would otherwise open a spurious browser tab.
                 bool IsVSCodeDebug = Environment.GetEnvironmentVariable("SEGRA_VSCODE") == "1";
                 bool IsDebugMode = Debugger.IsAttached;
+
+                if (!IsDebugMode)
+                {
+                    string webRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+                    string webRootIndexPath = Path.Combine(webRootPath, "index.html");
+                    if (!Directory.Exists(webRootPath) || !File.Exists(webRootIndexPath))
+                    {
+                        throw new DirectoryNotFoundException(
+                            $"Missing frontend build output at '{webRootPath}'. Embedded fallback is disabled.");
+                    }
+                }
 
                 string baseUrl = string.Empty;
                 if (!IsVSCodeDebug)
@@ -180,7 +194,12 @@ namespace Segra.Backend.App
                         .RunAsync();
                 }
 
-                appUrl = IsDebugMode ? "http://localhost:2882" : $"{baseUrl}/index.html";
+                // Add a startup cache-buster so WebView cannot reuse stale disk-cached index.html.
+                // Static assets are content-hashed by Vite, so this only forces fresh app shell load.
+                string startupCacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+                appUrl = IsDebugMode
+                    ? $"http://localhost:2882/?v={startupCacheBust}"
+                    : $"{baseUrl}/index.html?v={startupCacheBust}";
 
                 if (IsDebugMode)
                 {
