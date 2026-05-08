@@ -42,6 +42,7 @@ finally {
 Write-Host "=== Copying Frontend to wwwroot ===" -ForegroundColor Cyan
 $wwwroot = Join-Path $root "wwwroot"
 $dist = Join-Path $root "Frontend\dist"
+$embeddedWebroot = Join-Path $root "Resources\wwwroot"
 if (-not (Test-Path $dist)) {
     throw "Frontend build output not found: $dist"
 }
@@ -50,6 +51,13 @@ if (Test-Path $wwwroot) {
 }
 New-Item -ItemType Directory -Path $wwwroot | Out-Null
 Copy-Item -Path (Join-Path $dist "*") -Destination $wwwroot -Recurse -Force
+
+Write-Host "=== Syncing Frontend to Resources/wwwroot (embedded fallback) ===" -ForegroundColor Cyan
+if (Test-Path $embeddedWebroot) {
+    Remove-Item $embeddedWebroot -Recurse -Force
+}
+New-Item -ItemType Directory -Path $embeddedWebroot | Out-Null
+Copy-Item -Path (Join-Path $dist "*") -Destination $embeddedWebroot -Recurse -Force
 
 Write-Host "=== Publishing Backend ===" -ForegroundColor Cyan
 $publishArgs = @(

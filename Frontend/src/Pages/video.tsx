@@ -430,8 +430,10 @@ export default function VideoComponent({ video }: { video: Content }) {
   // Computed values
   const basePixelsPerSecond = duration > 0 ? containerWidth / duration : 0;
   const pixelsPerSecond = basePixelsPerSecond * zoom;
-  waveformStateRef.current.pixelsPerSecond = pixelsPerSecond;
-  waveformStateRef.current.duration = duration;
+  useEffect(() => {
+    waveformStateRef.current.pixelsPerSecond = pixelsPerSecond;
+    waveformStateRef.current.duration = duration;
+  }, [pixelsPerSecond, duration]);
 
   // Make sure bookmarks are only shown when we have valid duration and zoom
   // Prevents weird positioning on initial load
@@ -1128,6 +1130,33 @@ export default function VideoComponent({ video }: { video: Content }) {
         mutedAudioTracks: s.mutedAudioTracks,
         audioTrackVolumes: s.audioTrackVolumes,
       })),
+    };
+    sendMessageToBackend('CreateClip', params);
+  };
+
+  // Create a lossless clip from current segments (stream copy, no re-encode)
+  const handleCreateLosslessClip = () => {
+    if (segments.length === 0) {
+      setShowNoSegmentsIndicator(true);
+      setTimeout(() => setShowNoSegmentsIndicator(false), 2000);
+      return;
+    }
+
+    const params = {
+      Segments: segments.map((s) => ({
+        id: s.id,
+        type: s.type,
+        fileName: s.fileName,
+        filePath: s.filePath,
+        game: s.game,
+        title: s.title,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        igdbId: s.igdbId,
+        mutedAudioTracks: s.mutedAudioTracks,
+        audioTrackVolumes: s.audioTrackVolumes,
+      })),
+      lossless: true,
     };
     sendMessageToBackend('CreateClip', params);
   };
@@ -2199,6 +2228,15 @@ export default function VideoComponent({ video }: { video: Content }) {
                   >
                     <Clapperboard className="w-5 h-5" />
                     <span>Create Clip</span>
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="h-10 gap-1 hover:text-accent"
+                    onClick={handleCreateLosslessClip}
+                  >
+                    <Clapperboard className="w-5 h-5" />
+                    <span>Lossless Clip</span>
                   </Button>
                   <div className="indicator">
                     <Button

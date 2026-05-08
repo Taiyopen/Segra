@@ -155,18 +155,36 @@ namespace Segra.Backend.App
             {
                 Log.Information("Application starting up...");
 
-                // Photino.NET.Server resolves WebRootPath "wwwroot" relative to Directory.GetCurrentDirectory().
-                // If the working directory is not the app folder (e.g. shortcut, Run dialog, IDE), disk wwwroot is
-                // missed and CompositeFileProvider falls back to embedded Resources/wwwroot (stale UI).
+                // Always prefer frontend from disk wwwroot next to the executable.
                 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+                bool IsDebugMode =
+#if DEBUG
+                    true;
+#else
+                    false;
+#endif
+                if (!IsDebugMode)
+                {
+                    string webRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+                    string webRootIndexPath = Path.Combine(webRootPath, "index.html");
+                    if (!Directory.Exists(webRootPath) || !File.Exists(webRootIndexPath))
+                    {
+                        throw new DirectoryNotFoundException(
+                            $"Missing frontend build output at '{webRootPath}'. Embedded fallback is disabled.");
+                    }
+                }
 
                 // Set up the PhotinoServer
                 PhotinoServer
                     .CreateStaticFileServer(args, out string baseUrl)
                     .RunAsync();
 
-                bool IsDebugMode = Debugger.IsAttached;
-                appUrl = IsDebugMode ? "http://localhost:2882" : $"{baseUrl}/index.html";
+                // Add a startup cache-buster so WebView cannot reuse stale disk-cached index.html.
+                // Static assets are content-hashed by Vite, so this only forces fresh app shell load.
+                string startupCacheBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+                appUrl = IsDebugMode
+                    ? $"http://localhost:2882/?v={startupCacheBust}"
+                    : $"{baseUrl}/index.html?v={startupCacheBust}";
 
                 if (IsDebugMode)
                 {
