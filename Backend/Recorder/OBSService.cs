@@ -191,6 +191,26 @@ namespace Segra.Backend.Recorder
             return 128;
         }
 
+        private static uint SanitizeAudioTrackMask(uint mask) => mask & 0x3Fu;
+
+        private static void ApplyAudioTrackMask(Source source, uint mask, string label)
+        {
+            try
+            {
+                source.AudioMixers = mask;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Failed to set mixers for {label}: {ex.Message}");
+            }
+        }
+
+        private static void ApplyAudioTrackMask(IReadOnlyList<Source> sources, uint mask, string labelPrefix)
+        {
+            for (int i = 0; i < sources.Count; i++)
+                ApplyAudioTrackMask(sources[i], mask, $"{labelPrefix} {i + 1}");
+        }
+
         /// <summary>
         /// Gets whether the game capture is currently hooked.
         /// Uses the built-in IsHooked property from OBSKit.NET.
@@ -234,9 +254,34 @@ namespace Segra.Backend.Recorder
 
                 await EnsureFileReady(savedPath);
 
+                TimeSpan savedDuration;
+                try
+                {
+                    savedDuration = await FFmpegService.GetVideoDuration(savedPath);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Could not read replay buffer save duration");
+                    TryDeleteReplayTempFile(savedPath);
+                    await ResetReplayBuffer();
+                    _replaySaved = false;
+                    return false;
+                }
+
+                if (savedDuration.TotalSeconds < 0.5)
+                {
+                    Log.Warning(
+                        "Replay buffer save too short ({Seconds:0.###}s), discarding duplicate/empty save",
+                        savedDuration.TotalSeconds);
+                    TryDeleteReplayTempFile(savedPath);
+                    await ResetReplayBuffer();
+                    _replaySaved = false;
+                    return false;
+                }
+
                 await ContentService.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game, igdbId: igdbId, audioTrackNames: Settings.Instance.State.Recording?.AudioTrackNames);
                 await ContentService.CreateThumbnail(savedPath, Content.ContentType.Buffer);
-                await ContentService.CreateWaveformFile(savedPath, Content.ContentType.Buffer);
+                _ = Task.Run(async () => await ContentService.CreateWaveformFile(savedPath, Content.ContentType.Buffer));
 
                 await SettingsService.LoadContentFromFolderIntoState(true);
 
@@ -1073,233 +1118,99 @@ namespace Segra.Backend.Recorder
                 }
             }
 
-            // Configure mixers and audio encoders based on setting.
-            // Default separate tracks: Track 1 = Full Mix, Tracks 2..6 = per-source isolated (up to 5 sources).
-            // excludeGameDiscordFromMasterMix + Game/Game+Discord: Track 1 = mic + desktop only; game (and Discord) on
-            // separate tracks without routing to Track 1.
-            // If disabled: Track 1 only (Full Mix).
-            // In GameOnly/GameAndDiscord modes, desktop sources are fallback-only (full mix only).
-            var allAudioSources = new List<Source>();
-            allAudioSources.AddRange(_micSources);
-            allAudioSources.AddRange(_desktopSources);
+            // Configure mixers and audio encoders.
+            // Single-track mode: all sources → Track 1.
+            // Multi-track mode: each source uses its configured OBS mixer bitmask (tracks 1–6).
+            const int maxTracks = 6;
+            bool separateTracks = Settings.Instance.EnableSeparateAudioTracks;
+            _audioEncoders.Clear();
+            var actualAudioTrackNames = new List<string>();
+            uint recordingTracksMask;
+            int trackCount;
 
-            if (audioOutputMode != AudioOutputMode.All && GameCaptureSource != null)
+            if (!separateTracks)
             {
-                // Desktop sources are fallback-only: assign to full mix (Track 1) only, no separate tracks
-                foreach (var desktopSource in _desktopSources)
-                {
-                    try { desktopSource.AudioMixers = 1u << 0; }
-                    catch (Exception ex) { Log.Warning($"Failed to set mixer for fallback desktop source: {ex.Message}"); }
-                }
+                const uint singleTrackMask = 1u;
+                ApplyAudioTrackMask(_micSources, singleTrackMask, "microphone");
+                ApplyAudioTrackMask(_desktopSources, singleTrackMask, "desktop");
+                if (GameCaptureSource != null)
+                    ApplyAudioTrackMask(GameCaptureSource, singleTrackMask, "game");
+                if (_discordAudioSource != null)
+                    ApplyAudioTrackMask(_discordAudioSource, singleTrackMask, "discord");
 
-                // Remove desktop sources from the list that gets separate tracks
-                allAudioSources = new List<Source>();
-                allAudioSources.AddRange(_micSources);
-                allAudioSources.Add(GameCaptureSource);
-                if (audioOutputMode == AudioOutputMode.GameAndDiscord && _discordAudioSource != null)
-                    allAudioSources.Add(_discordAudioSource);
-            }
+                trackCount = 1;
+                recordingTracksMask = 1;
+                actualAudioTrackNames.Add("Full Mix");
 
-            // Build list of device names for encoder naming (standard per-source layout)
-            var audioDeviceNames = new List<string>();
-            if (Settings.Instance.InputDevices != null)
-            {
-                foreach (var device in Settings.Instance.InputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
-                    audioDeviceNames.Add(device.Name.Replace(" (Default)", "") ?? "Microphone");
-            }
-            if (audioOutputMode == AudioOutputMode.All || GameCaptureSource == null)
-            {
-                if (Settings.Instance.OutputDevices != null)
-                {
-                    foreach (var device in Settings.Instance.OutputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
-                        audioDeviceNames.Add(device.Name.Replace(" (Default)", "") ?? "Desktop Audio");
-                }
+                int recordingAudioKbps = GetRecordingAudioBitrateKbps();
+                _audioEncoders.Add(AudioEncoder.CreateAac("Full Mix", recordingAudioKbps, 0));
             }
             else
             {
-                audioDeviceNames.Add("Game Audio");
-                if (audioOutputMode == AudioOutputMode.GameAndDiscord && _discordAudioSource != null)
-                    audioDeviceNames.Add("Discord");
-            }
-
-            bool separateTracks = Settings.Instance.EnableSeparateAudioTracks;
-            bool isolateGameDiscordMaster = separateTracks
-                && Settings.Instance.ExcludeGameDiscordFromMasterMix
-                && audioOutputMode != AudioOutputMode.All
-                && GameCaptureSource != null;
-
-            int maxTracks = 6; // OBS supports up to 6 audio tracks
-            int trackCount;
-            var actualAudioTrackNames = new List<string>();
-
-            _audioEncoders.Clear();
-
-            if (isolateGameDiscordMaster)
-            {
-                // Up to 6 tracks: (1) all inputs+outputs mix without game/discord, (2..) each input/output that fits,
-                // then game and Discord on their own tracks — none of those route game/discord to Track 1.
-                bool hasGameIso = GameCaptureSource != null;
-                bool hasDiscordIso = audioOutputMode == AudioOutputMode.GameAndDiscord && _discordAudioSource != null;
-                int reservedAfterDevices = (hasGameIso ? 1 : 0) + (hasDiscordIso ? 1 : 0);
-                int maxDeviceIsolates = Math.Max(0, maxTracks - 1 - reservedAfterDevices);
-                int totalDevices = _micSources.Count + _desktopSources.Count;
-                int deviceIsoCount = Math.Min(totalDevices, maxDeviceIsolates);
-
-                if (totalDevices > maxDeviceIsolates)
+                var inputDevices = Settings.Instance.InputDevices ?? new List<DeviceSetting>();
+                for (int i = 0; i < _micSources.Count; i++)
                 {
-                    Log.Warning(
-                        $"{totalDevices} audio device sources exceed {maxDeviceIsolates} available isolate slots; " +
-                        $"only the first {deviceIsoCount} (inputs, then outputs) get dedicated tracks. Others are mixed into Track 1 only.");
+                    uint mask = i < inputDevices.Count
+                        ? SanitizeAudioTrackMask(inputDevices[i].AudioTrackMask)
+                        : 1u;
+                    ApplyAudioTrackMask(_micSources[i], mask, $"microphone {i + 1}");
                 }
 
-                var orderedDeviceNames = new List<string>();
-                if (Settings.Instance.InputDevices != null)
+                var outputDevices = Settings.Instance.OutputDevices ?? new List<DeviceSetting>();
+                for (int i = 0; i < _desktopSources.Count; i++)
                 {
-                    foreach (var device in Settings.Instance.InputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
-                        orderedDeviceNames.Add(device.Name.Replace(" (Default)", "") ?? "Microphone");
+                    uint mask = i < outputDevices.Count
+                        ? SanitizeAudioTrackMask(outputDevices[i].AudioTrackMask)
+                        : 1u;
+                    ApplyAudioTrackMask(_desktopSources[i], mask, $"desktop {i + 1}");
                 }
 
-                if (Settings.Instance.OutputDevices != null)
+                if (GameCaptureSource != null)
                 {
-                    foreach (var device in Settings.Instance.OutputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
-                        orderedDeviceNames.Add(device.Name.Replace(" (Default)", "") ?? "Desktop Audio");
+                    ApplyAudioTrackMask(
+                        GameCaptureSource,
+                        SanitizeAudioTrackMask(Settings.Instance.GameAudioTrackMask),
+                        "game");
                 }
 
-                int di = 0;
-                foreach (var mic in _micSources)
+                if (_discordAudioSource != null)
                 {
-                    try
-                    {
-                        uint mask = 1u << 0;
-                        if (di < deviceIsoCount)
-                            mask |= (uint)(1 << (1 + di));
-                        mic.AudioMixers = mask;
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning($"Failed to set mixers for microphone source {di}: {ex.Message}");
-                    }
-
-                    di++;
+                    ApplyAudioTrackMask(
+                        _discordAudioSource,
+                        SanitizeAudioTrackMask(Settings.Instance.DiscordAudioTrackMask),
+                        "discord");
                 }
 
-                foreach (var desktop in _desktopSources)
-                {
-                    try
-                    {
-                        uint mask = 1u << 0;
-                        if (di < deviceIsoCount)
-                            mask |= (uint)(1 << (1 + di));
-                        desktop.AudioMixers = mask;
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning($"Failed to set mixers for desktop source {di}: {ex.Message}");
-                    }
+                recordingTracksMask = 0;
+                foreach (var device in inputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
+                    recordingTracksMask |= SanitizeAudioTrackMask(device.AudioTrackMask);
+                foreach (var device in outputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
+                    recordingTracksMask |= SanitizeAudioTrackMask(device.AudioTrackMask);
+                if (GameCaptureSource != null)
+                    recordingTracksMask |= SanitizeAudioTrackMask(Settings.Instance.GameAudioTrackMask);
+                if (_discordAudioSource != null)
+                    recordingTracksMask |= SanitizeAudioTrackMask(Settings.Instance.DiscordAudioTrackMask);
 
-                    di++;
-                }
+                if (recordingTracksMask == 0)
+                    recordingTracksMask = 1;
 
-                int gameMixerIndex = 1 + deviceIsoCount;
-                try
-                {
-                    GameCaptureSource!.AudioMixers = (uint)(1 << gameMixerIndex);
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"Failed to set isolated mixer for game audio: {ex.Message}");
-                }
-
-                trackCount = 1 + deviceIsoCount + 1;
-                if (hasDiscordIso)
-                {
-                    int discordMixerIndex = gameMixerIndex + 1;
-                    try
-                    {
-                        _discordAudioSource!.AudioMixers = (uint)(1 << discordMixerIndex);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning($"Failed to set isolated mixer for Discord audio: {ex.Message}");
-                    }
-
-                    trackCount++;
-                }
-
-                var masterParts = new List<string>(orderedDeviceNames);
-                string masterTrackName = masterParts.Count > 0
-                    ? string.Join(" + ", masterParts)
-                    : "Desktop & Microphone";
-                if (masterTrackName.Length > 120)
-                    masterTrackName = masterTrackName[..120] + "...";
-
-                actualAudioTrackNames.Add(masterTrackName);
-                for (int i = 0; i < deviceIsoCount; i++)
-                {
-                    string n = i < orderedDeviceNames.Count ? orderedDeviceNames[i] : $"Device {i + 1}";
-                    actualAudioTrackNames.Add(n);
-                }
-
-                actualAudioTrackNames.Add("Game Audio");
-                if (hasDiscordIso)
-                    actualAudioTrackNames.Add("Discord");
-
+                trackCount = maxTracks;
                 int recordingAudioKbps = GetRecordingAudioBitrateKbps();
-                for (int t = 0; t < trackCount; t++)
+                var customTrackNames = Settings.Instance.RecordingAudioTrackNames;
+                for (int t = 0; t < maxTracks; t++)
                 {
-                    var audioEncoder = AudioEncoder.CreateAac(actualAudioTrackNames[t], recordingAudioKbps, t);
-                    _audioEncoders.Add(audioEncoder);
+                    string trackName = customTrackNames != null
+                        && t < customTrackNames.Count
+                        && !string.IsNullOrWhiteSpace(customTrackNames[t])
+                        ? customTrackNames[t].Trim()
+                        : $"Track {t + 1}";
+
+                    actualAudioTrackNames.Add(trackName);
+                    _audioEncoders.Add(AudioEncoder.CreateAac(trackName, recordingAudioKbps, t));
                 }
 
                 Log.Information(
-                    $"Hybrid multi-track: Track 1 = input+output mix; {deviceIsoCount} device isolate track(s); " +
-                    $"game mixer index {gameMixerIndex}; {trackCount} audio tracks total.");
-            }
-            else
-            {
-                int perSourceTracks = separateTracks ? Math.Min(allAudioSources.Count, maxTracks - 1) : 0; // tracks 2..6 for sources
-                trackCount = 1 + perSourceTracks; // Track 1 is always the full mix
-
-                for (int i = 0; i < allAudioSources.Count; i++)
-                {
-                    try
-                    {
-                        // Always include Track 1 (bit 0) as a full mix
-                        uint mixersMask = 1u << 0;
-
-                        // If enabled, give first 5 sources their own isolated tracks on 2..6 (bits 1..5)
-                        if (separateTracks && i < (maxTracks - 1))
-                        {
-                            mixersMask |= (uint)(1 << (i + 1));
-                        }
-                        else
-                        {
-                            if (separateTracks && i >= (maxTracks - 1))
-                                Log.Warning($"Audio source index {i} exceeds {maxTracks - 1} dedicated per-source tracks. It will be available in the master mix (Track 1) only.");
-                        }
-                        allAudioSources[i].AudioMixers = mixersMask;
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning($"Failed to set mixers for audio source {i}: {ex.Message}");
-                    }
-                }
-
-                // Create one audio encoder per track and bind to corresponding mixer index.
-                // Also capture the authoritative track name list so downstream code (metadata,
-                // clip creation, UI) matches what OBS actually recorded.
-                int recordingAudioKbps = GetRecordingAudioBitrateKbps();
-                for (int t = 0; t < trackCount; t++)
-                {
-                    // Track 0 is the full mix, tracks 1+ are individual devices
-                    string encoderName = t == 0
-                        ? "Full Mix"
-                        : (t - 1 < audioDeviceNames.Count ? audioDeviceNames[t - 1] : $"Audio Track {t + 1}");
-
-                    actualAudioTrackNames.Add(encoderName);
-                    var audioEncoder = AudioEncoder.CreateAac(encoderName, recordingAudioKbps, t);
-                    _audioEncoders.Add(audioEncoder);
-                }
+                    $"Multi-track recording: output mask 0x{recordingTracksMask:X}, {trackCount} encoder(s).");
             }
 
             // Paths for session recordings and buffer, organized by game
@@ -1314,7 +1225,7 @@ namespace Segra.Backend.Recorder
             // Configure outputs depending on mode
             if (isReplayBufferMode || isHybridMode)
             {
-                uint bufferTracksMask = trackCount == 0 ? 0u : (1u << trackCount) - 1u;
+                uint bufferTracksMask = recordingTracksMask;
 
                 _bufferOutput = new ReplayBuffer("replay_buffer_output", Settings.Instance.ReplayBufferDuration, Settings.Instance.ReplayBufferMaxSize);
                 _bufferOutput.SetDirectory(bufferDir);
@@ -1336,7 +1247,7 @@ namespace Segra.Backend.Recorder
             {
                 videoOutputPath = $"{sessionDir}/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
 
-                uint recordTracksMask = trackCount == 0 ? 0u : (1u << trackCount) - 1u;
+                uint recordTracksMask = recordingTracksMask;
 
                 bool useHybridMp4 = SupportsHybridMp4();
                 Log.Information($"Using recording output type: {(useHybridMp4 ? "mp4_output" : "ffmpeg_muxer")} (Hybrid MP4: {useHybridMp4})");
@@ -1428,7 +1339,14 @@ namespace Segra.Backend.Recorder
             Settings.Instance.State.Recording = newRecording;
 
             ClearPendingPreRecordingForSlot(slot);
-            _ = MessageService.SendSettingsToFrontend("OBS Start recording");
+            uint previewFps = (uint)Math.Max(1, Settings.Instance.FrameRate);
+            _ = Task.Run(async () =>
+            {
+                await MessageService.SendSettingsToFrontend("OBS Start recording");
+                if (_isStoppingOrStopped || Settings.Instance.State.Recording == null)
+                    return;
+                RecordingPreviewService.OnRecordingStarted(previewFps);
+            });
 
             NotifyIconService.SetNotifyIconStatus(NotifyIconState.Recording);
 
@@ -1520,6 +1438,8 @@ namespace Segra.Backend.Recorder
                 GeneralUtils.SetProcessPriority(ProcessPriorityClass.Normal);
 
                 StopGameCaptureHookTimeoutTimer();
+
+                RecordingPreviewService.OnRecordingStopped();
 
                 bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
                 bool isHybridMode = Settings.Instance.RecordingMode == RecordingMode.Hybrid;
@@ -1623,7 +1543,8 @@ namespace Segra.Backend.Recorder
                             : null;
                         await ContentService.CreateMetadataFile(rec.FilePath!, Content.ContentType.Session, rec.Game, rec.Bookmarks, igdbId: igdbId, audioTrackNames: rec.AudioTrackNames);
                         await ContentService.CreateThumbnail(rec.FilePath!, Content.ContentType.Session);
-                        await ContentService.CreateWaveformFile(rec.FilePath!, Content.ContentType.Session);
+                        string sessionFilePath = rec.FilePath!;
+                        _ = Task.Run(async () => await ContentService.CreateWaveformFile(sessionFilePath, Content.ContentType.Session));
 
                         Log.Information($"Recording details (slot {rec.Slot}):");
                         Log.Information($"Start Time: {rec.StartTime}");
@@ -1733,9 +1654,10 @@ namespace Segra.Backend.Recorder
                             int? igdbId = !string.IsNullOrEmpty(Settings.Instance.State.Recording.ExePath)
                                 ? GameUtils.GetIgdbIdFromExePath(Settings.Instance.State.Recording.ExePath)
                                 : null;
-                            await ContentService.CreateMetadataFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks, igdbId: igdbId, audioTrackNames: Settings.Instance.State.Recording.AudioTrackNames);
-                            await ContentService.CreateThumbnail(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
-                            await ContentService.CreateWaveformFile(Settings.Instance.State.Recording.FilePath!, Content.ContentType.Session);
+                            string hybridSessionFilePath = Settings.Instance.State.Recording.FilePath!;
+                            await ContentService.CreateMetadataFile(hybridSessionFilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks, igdbId: igdbId, audioTrackNames: Settings.Instance.State.Recording.AudioTrackNames);
+                            await ContentService.CreateThumbnail(hybridSessionFilePath, Content.ContentType.Session);
+                            _ = Task.Run(async () => await ContentService.CreateWaveformFile(hybridSessionFilePath, Content.ContentType.Session));
                             await VrChatVvmwIntegration.FlushDeferredClipsAsync();
                         }
                     }
@@ -1816,8 +1738,9 @@ namespace Segra.Backend.Recorder
                 var audioOutputMode = Settings.Instance.AudioOutputMode;
                 if (audioOutputMode != AudioOutputMode.All)
                 {
-                    bool preserveDesktopForHybridTracks = Settings.Instance.EnableSeparateAudioTracks
-                        && Settings.Instance.ExcludeGameDiscordFromMasterMix;
+                    // Separate tracks implies output capture may be routed to iso tracks + master; muting on hook
+                    // would drop those tracks entirely (not only the old "fallback duplicate" case).
+                    bool preserveDesktopForHybridTracks = Settings.Instance.EnableSeparateAudioTracks;
 
                     if (!preserveDesktopForHybridTracks)
                     {
@@ -1830,7 +1753,7 @@ namespace Segra.Backend.Recorder
                     }
                     else
                     {
-                        Log.Information("Keeping desktop audio sources active (hybrid multi-track: master includes desktop).");
+                        Log.Information("Keeping desktop audio sources active (separate audio tracks: do not mute output capture on hook).");
                     }
 
                     if (audioOutputMode == AudioOutputMode.GameAndDiscord && sl.DiscordAudioSource != null)

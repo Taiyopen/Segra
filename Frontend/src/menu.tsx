@@ -14,10 +14,21 @@ import ClippingCard from './Components/ClippingCard';
 import UpdateCard from './Components/UpdateCard';
 import UnavailableDeviceCard from './Components/UnavailableDeviceCard';
 import AnimatedCard from './Components/AnimatedCard';
-import { Clapperboard, OctagonX, Settings, History, Crown, Monitor, Play } from 'lucide-react';
+import {
+  Clapperboard,
+  OctagonX,
+  Settings,
+  History,
+  Crown,
+  Monitor,
+  Play,
+  PictureInPicture2,
+  Inbox,
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRef, useEffect, useState } from 'react';
 import Button from './Components/Button';
+import { useMonitoringLayout } from './Context/MonitoringLayoutContext';
 
 interface MenuProps {
   selectedMenu: string;
@@ -26,6 +37,7 @@ interface MenuProps {
 
 export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   const settings = useSettings();
+  const { enterMonitoringLayout } = useMonitoringLayout();
   const { hasLoadedObs, recording, preRecording } = settings.state;
   const { updateInfo } = useUpdate();
   const { aiProgress } = useAiHighlights();
@@ -35,6 +47,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   // Create refs for each menu button
   const sessionsRef = useRef<HTMLButtonElement>(null);
   const replayRef = useRef<HTMLButtonElement>(null);
+  const pendingEditRef = useRef<HTMLButtonElement>(null);
   const clipsRef = useRef<HTMLButtonElement>(null);
   const highlightsRef = useRef<HTMLButtonElement>(null);
   const settingsRef = useRef<HTMLButtonElement>(null);
@@ -50,6 +63,8 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
           return sessionsRef;
         case 'Replay Buffer':
           return replayRef;
+        case '待剪輯':
+          return pendingEditRef;
         case 'Clips':
           return clipsRef;
         case 'Highlights':
@@ -132,6 +147,15 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
           Replay Buffer
         </Button>
         <Button
+          ref={pendingEditRef}
+          variant="nav"
+          className={selectedMenu === '待剪輯' ? 'text-primary' : ''}
+          onMouseDown={() => onSelectMenu('待剪輯')}
+        >
+          <Inbox className="w-5 h-5" />
+          待剪輯
+        </Button>
+        <Button
           ref={clipsRef}
           variant="nav"
           className={selectedMenu === 'Clips' ? 'text-primary' : ''}
@@ -174,6 +198,19 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         >
           <Settings className="w-5 h-5" />
           Settings
+        </Button>
+      </div>
+
+      <div className="px-4 pb-1">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-gray-400 hover:bg-white/5 hover:text-gray-200"
+          disabled={!hasLoadedObs}
+          onClick={() => enterMonitoringLayout()}
+          title="將視窗縮小並只保留預覽與錄製控制"
+        >
+          <PictureInPicture2 className="h-5 w-5 shrink-0" />
+          極簡監控
         </Button>
       </div>
 

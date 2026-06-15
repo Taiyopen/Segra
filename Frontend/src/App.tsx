@@ -1,9 +1,10 @@
-import { useEffect, useState, createContext } from 'react';
+import { useEffect, useState, createContext, useRef } from 'react';
 import Settings from './Pages/settings';
 import Menu from './menu';
 import Sessions from './Pages/sessions';
 import Clips from './Pages/clips';
 import ReplayBuffer from './Pages/replay-buffer';
+import PendingEdit from './Pages/pending-edit';
 import Highlights from './Pages/highlights';
 import { SettingsProvider } from './Context/SettingsContext';
 import Video from './Pages/video';
@@ -12,7 +13,8 @@ import { useSelectedMenu } from './Context/SelectedMenuContext';
 import { themeChange } from 'theme-change';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { DndProvider } from 'react-dnd';
-import { SegmentsProvider } from './Context/SegmentsContext';
+import { SegmentsProvider, useSegments } from './Context/SegmentsContext';
+import { Content } from './Models/types';
 import { UploadProvider } from './Context/UploadContext';
 import { ImportProvider } from './Context/ImportContext';
 import { WebSocketProvider } from './Context/WebSocketContext';
@@ -27,8 +29,10 @@ import { ModalProvider } from './Context/ModalContext';
 import { GeneralMessagesProvider } from './Context/GeneralMessagesContext';
 import MigrationOverlay from './Components/MigrationOverlay';
 import SetupProfileModal from './Components/SetupProfileModal';
+import MonitoringCompactShell from './Components/MonitoringCompactShell';
 import { useAuth } from './Hooks/useAuth';
 import { useProfile } from './Hooks/useUserProfile';
+import { MonitoringLayoutProvider, useMonitoringLayout } from './Context/MonitoringLayoutContext';
 
 // Create a context for release notes that can be accessed globally
 export const ReleaseNotesContext = createContext<{
@@ -50,6 +54,48 @@ function App() {
 
   const { selectedVideo, setSelectedVideo } = useSelectedVideo();
   const { selectedMenu, setSelectedMenu } = useSelectedMenu();
+  const { compactMonitoringLayout } = useMonitoringLayout();
+  const { renameSegmentsForVideo } = useSegments();
+  const selectedVideoRef = useRef<Content | null>(null);
+  useEffect(() => {
+    selectedVideoRef.current = selectedVideo;
+  }, [selectedVideo]);
+
+  useEffect(() => {
+    const handleContentRenamed = (event: CustomEvent<any>) => {
+      const data = event.detail;
+      if (data.method !== 'ContentRenamed') return;
+
+      const { OldFileName, Content: renamedContent } = data.content as {
+        OldFileName: string;
+        Content?: Content;
+      };
+
+      if (!renamedContent) return;
+
+      if (selectedVideoRef.current?.fileName === OldFileName) {
+        setSelectedVideo(renamedContent);
+      }
+
+      renameSegmentsForVideo(OldFileName, renamedContent.fileName, renamedContent.filePath);
+
+      try {
+        const viewedContent = localStorage.getItem('viewed-content') || '{}';
+        const viewedContentObj = JSON.parse(viewedContent);
+        if (viewedContentObj[OldFileName]) {
+          viewedContentObj[renamedContent.fileName] = true;
+          delete viewedContentObj[OldFileName];
+          localStorage.setItem('viewed-content', JSON.stringify(viewedContentObj));
+        }
+      } catch {
+        /* no-op */
+      }
+    };
+
+    window.addEventListener('websocket-message', handleContentRenamed as EventListener);
+    return () =>
+      window.removeEventListener('websocket-message', handleContentRenamed as EventListener);
+  }, [setSelectedVideo, renameSegmentsForVideo]);
 
   const handleMenuSelection = (menu: any) => {
     setSelectedVideo(null);
@@ -70,6 +116,8 @@ function App() {
         return <Sessions />;
       case 'Replay Buffer':
         return <ReplayBuffer />;
+      case '待剪輯':
+        return <PendingEdit />;
       case 'Clips':
         return <Clips />;
       case 'Highlights':
@@ -80,6 +128,15 @@ function App() {
         return <Sessions />;
     }
   };
+
+  if (compactMonitoringLayout) {
+    return (
+      <>
+        {needsUsername && <SetupProfileModal />}
+        <MonitoringCompactShell />
+      </>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen">
@@ -100,31 +157,33 @@ export default function AppWrapper() {
       <MigrationOverlay />
       <ScrollProvider>
         <SettingsProvider>
-          <ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
-            <ModalProvider>
-              <GeneralMessagesProvider>
-                <SegmentsProvider>
-                  <DndProvider backend={HTML5Backend}>
-                    <UploadProvider>
-                      <ImportProvider>
-                        <ClippingProvider>
-                          <AiHighlightsProvider>
-                            <CompressionProvider>
-                              <UpdateProvider>
-                                <ObsDownloadProvider>
-                                  <App />
-                                </ObsDownloadProvider>
-                              </UpdateProvider>
-                            </CompressionProvider>
-                          </AiHighlightsProvider>
-                        </ClippingProvider>
-                      </ImportProvider>
-                    </UploadProvider>
-                  </DndProvider>
-                </SegmentsProvider>
-              </GeneralMessagesProvider>
-            </ModalProvider>
-          </ReleaseNotesContext.Provider>
+          <MonitoringLayoutProvider>
+            <ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
+              <ModalProvider>
+                <GeneralMessagesProvider>
+                  <SegmentsProvider>
+                    <DndProvider backend={HTML5Backend}>
+                      <UploadProvider>
+                        <ImportProvider>
+                          <ClippingProvider>
+                            <AiHighlightsProvider>
+                              <CompressionProvider>
+                                <UpdateProvider>
+                                  <ObsDownloadProvider>
+                                    <App />
+                                  </ObsDownloadProvider>
+                                </UpdateProvider>
+                              </CompressionProvider>
+                            </AiHighlightsProvider>
+                          </ClippingProvider>
+                        </ImportProvider>
+                      </UploadProvider>
+                    </DndProvider>
+                  </SegmentsProvider>
+                </GeneralMessagesProvider>
+              </ModalProvider>
+            </ReleaseNotesContext.Provider>
+          </MonitoringLayoutProvider>
         </SettingsProvider>
       </ScrollProvider>
     </WebSocketProvider>

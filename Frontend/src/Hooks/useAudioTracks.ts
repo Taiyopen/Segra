@@ -644,9 +644,14 @@ export function useAudioTracks(
 
       setTracks(displayTracks);
       setVolumes(initialVolumes);
-      // Default: hear only the first audio stream (index 0). User can clear solo or adjust mutes in the UI.
-      setMutedTracks(new Set());
-      setSoloTrack(0);
+      // Default: hear only the first audio stream (index 0). Use mutedTracks (not solo) so the
+      // player headphones UI stays consistent with actual routing.
+      const initialMuted = new Set<number>();
+      for (const t of displayTracks) {
+        if (t.index !== 0) initialMuted.add(t.index);
+      }
+      setMutedTracks(initialMuted);
+      setSoloTrack(null);
 
       const vid = videoRef.current;
       const startTime = vid?.currentTime ?? 0;
@@ -766,11 +771,13 @@ export function useAudioTracks(
   }, [volumes, mutedTracks, soloTrack, tracks, applyMuting]);
 
   const setTrackVolume = useCallback((index: number, volume: number) => {
+    setSoloTrack(null);
     const clamped = Math.max(0, Math.min(1, volume));
     setVolumes((prev) => ({ ...prev, [index]: clamped }));
   }, []);
 
   const toggleTrackMute = useCallback((index: number) => {
+    setSoloTrack(null);
     setMutedTracks((prev) => {
       const wasEnabled = !prev.has(index);
       if (wasEnabled) {
@@ -793,6 +800,7 @@ export function useAudioTracks(
   }, []);
 
   const replaceMutedTracks = useCallback((muted: Set<number>) => {
+    setSoloTrack(null);
     setMutedTracks(muted);
   }, []);
 

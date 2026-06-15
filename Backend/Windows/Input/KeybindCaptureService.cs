@@ -1,6 +1,3 @@
-using NAudio.CoreAudioApi;
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
 using Segra.Backend.App;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Recorder;
@@ -143,31 +140,20 @@ namespace Segra.Backend.Windows.Input
         {
             var recording = Settings.Instance.State.Recording;
             var preRecording = Settings.Instance.State.PreRecording;
-            var recordingMode = Settings.Instance.RecordingMode;
 
             switch (action)
             {
                 case KeybindAction.CreateBookmark:
-                    if (recording != null && (recordingMode == RecordingMode.Session || recordingMode == RecordingMode.Hybrid))
+                    if (RecordingHotkeyActions.TryCreateBookmark())
                     {
                         Log.Information("Saving bookmark...");
-                        recording.Bookmarks.Add(new Bookmark
-                        {
-                            Type = BookmarkType.Manual,
-                            Time = DateTime.Now - recording.StartTime
-                        });
-                        Task.Run(PlayBookmarkSound);
                         _ = MessageService.SendFrontendMessage("BookmarkCreated", new { });
                     }
                     break;
 
                 case KeybindAction.SaveReplayBuffer:
-                    if (recording != null && (recordingMode == RecordingMode.Buffer || recordingMode == RecordingMode.Hybrid))
-                    {
+                    if (RecordingHotkeyActions.TrySaveReplayBuffer())
                         Log.Information("Saving replay buffer...");
-                        Task.Run(OBSService.SaveReplayBuffer);
-                        Task.Run(PlayBookmarkSound);
-                    }
                     break;
 
                 case KeybindAction.ToggleRecording:
@@ -191,24 +177,6 @@ namespace Segra.Backend.Windows.Input
                     }
                     break;
             }
-        }
-
-        private static void PlayBookmarkSound()
-        {
-            using var audioStream = new MemoryStream(Properties.Resources.bookmark);
-            using var audioReader = new WaveFileReader(audioStream);
-            var sampleProvider = audioReader.ToSampleProvider();
-            var volumeProvider = new VolumeSampleProvider(sampleProvider)
-            {
-                Volume = Settings.Instance.SoundEffectsVolume
-            };
-
-            using var waveOut = new WasapiOut(AudioClientShareMode.Shared, 100);
-            waveOut.Init(volumeProvider);
-            waveOut.Play();
-
-            while (waveOut.PlaybackState == PlaybackState.Playing)
-                Thread.Sleep(10);
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]

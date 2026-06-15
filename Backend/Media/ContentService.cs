@@ -408,7 +408,14 @@ namespace Segra.Backend.Media
                         {
                             // Only delete if the folder is empty and is a game subfolder (not the root video type folder)
                             string contentRoot = Settings.Instance.ContentFolder;
-                            string[] rootFolders = { FolderNames.Sessions, FolderNames.Buffers, FolderNames.Clips, FolderNames.Highlights };
+                            string[] rootFolders =
+                            {
+                                FolderNames.Sessions,
+                                FolderNames.Buffers,
+                                FolderNames.Clips,
+                                FolderNames.Highlights,
+                                FolderNames.PendingEdit
+                            };
                             bool isGameSubfolder = rootFolders.Any(rf =>
                                 videoDirectory.StartsWith(Path.Combine(contentRoot, rf), StringComparison.OrdinalIgnoreCase) &&
                                 !videoDirectory.Equals(Path.Combine(contentRoot, rf), StringComparison.OrdinalIgnoreCase));
@@ -518,6 +525,195 @@ namespace Segra.Backend.Media
             {
                 Log.Error($"Error getting file size: {ex.Message}");
                 return ("Unknown", 0);
+            }
+        }
+
+        private static void TryMoveSidecarFile(string sourcePath, string destPath)
+        {
+            try
+            {
+                if (!File.Exists(sourcePath))
+                    return;
+                string? destDir = Path.GetDirectoryName(destPath);
+                if (!string.IsNullOrEmpty(destDir))
+                    Directory.CreateDirectory(destDir);
+                if (File.Exists(destPath))
+                    File.Delete(destPath);
+                File.Move(sourcePath, destPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "TryMoveSidecarFile failed {Src} -> {Dest}", sourcePath, destPath);
+            }
+        }
+
+        private static async Task MoveSingleContentToPendingEdit(Content content, Content.ContentType sourceType)
+        {
+            if (sourceType != Content.ContentType.Session && sourceType != Content.ContentType.Buffer)
+            {
+                Log.Warning("MoveToPendingEdit ignored non-session/buffer type {Type} for {File}", sourceType, content.FileName);
+                return;
+            }
+
+            string oldVideoPath = Path.GetFullPath(content.FilePath);
+            if (!File.Exists(oldVideoPath))
+            {
+                Log.Warning("MoveToPendingEdit: video missing {Path}", oldVideoPath);
+                return;
+            }
+
+            string contentFolder = Path.GetFullPath(Settings.Instance.ContentFolder);
+            string gameFolder = StorageService.SanitizeGameNameForFolder(content.Game ?? "Unknown");
+            string fileBase = Path.GetFileName(oldVideoPath);
+            string destDir = Path.Combine(contentFolder, FolderNames.PendingEdit, gameFolder);
+            Directory.CreateDirectory(destDir);
+            string newVideoPath = Path.GetFullPath(Path.Combine(destDir, fileBase));
+
+            if (string.Equals(newVideoPath, oldVideoPath, StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Information("MoveToPendingEdit: already at destination {Path}", oldVideoPath);
+                return;
+            }
+
+            if (File.Exists(newVideoPath))
+            {
+                Log.Warning("MoveToPendingEdit: destination already exists {Path}", newVideoPath);
+                return;
+            }
+
+            try
+            {
+                File.Move(oldVideoPath, newVideoPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "MoveToPendingEdit: failed moving video {Old} -> {New}", oldVideoPath, newVideoPath);
+                return;
+            }
+
+            string newMetaDir = FolderNames.GetMetadataFolderPath(Content.ContentType.PendingEdit);
+            Directory.CreateDirectory(newMetaDir);
+            string newMetaPath = Path.Combine(newMetaDir, $"{content.FileName}.json");
+            string oldMetaPath = Path.Combine(FolderNames.GetMetadataFolderPath(sourceType), $"{content.FileName}.json");
+
+            try
+            {
+                if (File.Exists(newMetaPath))
+                    throw new IOException($"Metadata already exists at {newMetaPath}");
+
+                if (File.Exists(oldMetaPath))
+                {
+                    string json = await File.ReadAllTextAsync(oldMetaPath);
+                    var meta = JsonSerializer.Deserialize<Content>(json);
+                    if (meta == null)
+                        throw new InvalidOperationException("Failed to deserialize metadata");
+
+                    meta.Type = Content.ContentType.PendingEdit;
+                    meta.FilePath = newVideoPath;
+                    await File.WriteAllTextAsync(newMetaPath, JsonSerializer.Serialize(meta, _jsonOptions));
+                    File.Delete(oldMetaPath);
+                }
+                else
+                {
+                    Log.Warning("MoveToPendingEdit: no metadata at {Old}, recreating", oldMetaPath);
+                    await CreateMetadataFile(
+                        newVideoPath,
+                        Content.ContentType.PendingEdit,
+                        content.Game ?? "Unknown",
+                        content.Bookmarks,
+                        string.IsNullOrEmpty(content.Title) ? null : content.Title,
+                        content.CreatedAt,
+                        content.IgdbId,
+                        content.IsImported,
+                        content.AudioTrackNames);
+                }
+
+                TryMoveSidecarFile(
+                    Path.Combine(FolderNames.GetThumbnailsFolderPath(sourceType), $"{content.FileName}.jpeg"),
+                    Path.Combine(FolderNames.GetThumbnailsFolderPath(Content.ContentType.PendingEdit), $"{content.FileName}.jpeg"));
+
+                TryMoveSidecarFile(
+                    Path.Combine(FolderNames.GetWaveformsFolderPath(sourceType), $"{content.FileName}.peaks.json"),
+                    Path.Combine(FolderNames.GetWaveformsFolderPath(Content.ContentType.PendingEdit), $"{content.FileName}.peaks.json"));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "MoveToPendingEdit: metadata/sidecar failed after video move; reverting file");
+                try
+                {
+                    if (File.Exists(newVideoPath) && !File.Exists(oldVideoPath))
+                        File.Move(newVideoPath, oldVideoPath);
+                }
+                catch (Exception revertEx)
+                {
+                    Log.Error(revertEx, "MoveToPendingEdit: revert failed; manual fix may be needed");
+                }
+
+                if (File.Exists(newMetaPath))
+                {
+                    try { File.Delete(newMetaPath); } catch { /* ignore */ }
+                }
+            }
+        }
+
+        public static async Task HandleMoveToPendingEdit(JsonElement message)
+        {
+            try
+            {
+                var snapshots = new List<(Content content, Content.ContentType sourceType)>();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                void TryAddItem(string? fileName, string? contentTypeStr)
+                {
+                    if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(contentTypeStr))
+                        return;
+                    if (!Enum.TryParse(contentTypeStr, out Content.ContentType sourceType))
+                        return;
+                    if (sourceType != Content.ContentType.Session && sourceType != Content.ContentType.Buffer)
+                        return;
+                    string key = $"{sourceType}:{fileName}";
+                    if (!seen.Add(key))
+                        return;
+
+                    Content? c = Settings.Instance.State.Content.FirstOrDefault(x =>
+                        x.FileName == fileName && x.Type == sourceType);
+                    if (c != null)
+                        snapshots.Add((c, sourceType));
+                    else
+                        Log.Warning("MoveToPendingEdit: content not in state {File} {Type}", fileName, sourceType);
+                }
+
+                if (message.TryGetProperty("Items", out JsonElement itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement item in itemsEl.EnumerateArray())
+                    {
+                        if (!item.TryGetProperty("FileName", out JsonElement fnEl) ||
+                            !item.TryGetProperty("ContentType", out JsonElement ctEl))
+                            continue;
+                        TryAddItem(fnEl.GetString(), ctEl.GetString());
+                    }
+                }
+                else if (message.TryGetProperty("FileName", out JsonElement fnSingle) &&
+                         message.TryGetProperty("ContentType", out JsonElement ctSingle))
+                {
+                    TryAddItem(fnSingle.GetString(), ctSingle.GetString());
+                }
+
+                if (snapshots.Count == 0)
+                {
+                    Log.Warning("MoveToPendingEdit: no valid items");
+                    return;
+                }
+
+                foreach (var pair in snapshots)
+                    await MoveSingleContentToPendingEdit(pair.content, pair.sourceType);
+
+                await SettingsService.LoadContentFromFolderIntoState(true);
+                await MessageService.SendSettingsToFrontend("Moved to pending edit");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "HandleMoveToPendingEdit failed");
             }
         }
 
@@ -688,43 +884,134 @@ namespace Segra.Backend.Media
             {
                 Log.Information($"Handling RenameContent with message: {message}");
 
-                // Extract FileName, ContentType, and NewName from the message
                 if (message.TryGetProperty("FileName", out JsonElement fileNameElement) &&
                     message.TryGetProperty("ContentType", out JsonElement contentTypeElement) &&
                     message.TryGetProperty("Title", out JsonElement titleElement))
                 {
                     string fileName = fileNameElement.GetString()!;
                     string contentTypeStr = contentTypeElement.GetString()!;
-                    string newTitle = titleElement.GetString()!;
+                    string newTitle = titleElement.GetString() ?? string.Empty;
 
-                    // Parse the content type
                     if (!Enum.TryParse(contentTypeStr, true, out Content.ContentType contentType))
                     {
                         Log.Error($"Invalid ContentType provided: {contentTypeStr}");
                         return;
                     }
 
-                    // Construct metadata file path
                     string metadataFolderPath = FolderNames.GetMetadataFolderPath(contentType);
                     string metadataFilePath = Path.Combine(metadataFolderPath, $"{fileName}.json");
 
-                    // Update the metadata file
-                    var content = await UpdateMetadataFile(metadataFilePath, c =>
+                    if (!File.Exists(metadataFilePath))
                     {
-                        c.Title = newTitle;
-                    });
-
-                    if (content == null)
-                    {
+                        Log.Error($"Metadata file not found for rename: {metadataFilePath}");
                         return;
                     }
 
-                    Log.Information($"Updated title for {fileName} to '{newTitle}' in metadata file: {metadataFilePath}");
+                    string metadataJson = await File.ReadAllTextAsync(metadataFilePath);
+                    var existingContent = JsonSerializer.Deserialize<Content>(metadataJson);
+                    if (existingContent == null)
+                    {
+                        Log.Error($"Failed to deserialize metadata for rename: {metadataFilePath}");
+                        return;
+                    }
 
-                    // Reload content from disk to update in-memory state
+                    string sanitizedNewFileName = StorageService.SanitizeFileName(newTitle.Trim());
+                    if (string.IsNullOrEmpty(sanitizedNewFileName))
+                    {
+                        Log.Warning("RenameContent rejected: title is empty or invalid after sanitization");
+                        return;
+                    }
+
+                    bool fileNameChanged = !string.Equals(sanitizedNewFileName, fileName, StringComparison.OrdinalIgnoreCase);
+
+                    if (fileNameChanged)
+                    {
+                        string oldVideoPath = Path.GetFullPath(existingContent.FilePath);
+                        if (!File.Exists(oldVideoPath))
+                        {
+                            Log.Error($"Video file not found for rename: {oldVideoPath}");
+                            return;
+                        }
+
+                        string extension = Path.GetExtension(oldVideoPath);
+                        if (string.IsNullOrEmpty(extension))
+                            extension = ".mp4";
+
+                        string? videoDirectory = Path.GetDirectoryName(oldVideoPath);
+                        if (string.IsNullOrEmpty(videoDirectory))
+                        {
+                            Log.Error($"Could not determine directory for rename: {oldVideoPath}");
+                            return;
+                        }
+
+                        string newVideoPath = Path.GetFullPath(Path.Combine(videoDirectory, $"{sanitizedNewFileName}{extension}"));
+                        if (File.Exists(newVideoPath))
+                        {
+                            Log.Warning("RenameContent rejected: destination video already exists at {Path}", newVideoPath);
+                            return;
+                        }
+
+                        string newMetadataFilePath = Path.Combine(metadataFolderPath, $"{sanitizedNewFileName}.json");
+                        if (File.Exists(newMetadataFilePath))
+                        {
+                            Log.Warning("RenameContent rejected: destination metadata already exists at {Path}", newMetadataFilePath);
+                            return;
+                        }
+
+                        File.Move(oldVideoPath, newVideoPath);
+
+                        TryMoveSidecarFile(
+                            Path.Combine(FolderNames.GetThumbnailsFolderPath(contentType), $"{fileName}.jpeg"),
+                            Path.Combine(FolderNames.GetThumbnailsFolderPath(contentType), $"{sanitizedNewFileName}.jpeg"));
+
+                        TryMoveSidecarFile(
+                            Path.Combine(FolderNames.GetWaveformsFolderPath(contentType), $"{fileName}.peaks.json"),
+                            Path.Combine(FolderNames.GetWaveformsFolderPath(contentType), $"{sanitizedNewFileName}.peaks.json"));
+
+                        TryMoveSidecarFile(
+                            Path.Combine(FolderNames.GetWaveformsFolderPath(contentType), $"{fileName}.peaks.temp.json"),
+                            Path.Combine(FolderNames.GetWaveformsFolderPath(contentType), $"{sanitizedNewFileName}.peaks.temp.json"));
+
+                        File.Move(metadataFilePath, newMetadataFilePath);
+                        metadataFilePath = newMetadataFilePath;
+
+                        await UpdateMetadataFile(metadataFilePath, c =>
+                        {
+                            c.Title = newTitle.Trim();
+                            c.FileName = sanitizedNewFileName;
+                            c.FilePath = newVideoPath;
+                        });
+
+                        Log.Information(
+                            "Renamed content {OldFile} -> {NewFile} ({Type})",
+                            fileName,
+                            sanitizedNewFileName,
+                            contentType);
+                    }
+                    else
+                    {
+                        await UpdateMetadataFile(metadataFilePath, c =>
+                        {
+                            c.Title = newTitle.Trim();
+                        });
+
+                        Log.Information($"Updated title for {fileName} to '{newTitle.Trim()}' in metadata file: {metadataFilePath}");
+                    }
+
                     await SettingsService.LoadContentFromFolderIntoState(true);
 
-                    // Refresh the content in the frontend
+                    var updatedContent = Settings.Instance.State.Content.FirstOrDefault(c =>
+                        c.FileName.Equals(sanitizedNewFileName, StringComparison.OrdinalIgnoreCase) &&
+                        c.Type == contentType);
+
+                    await MessageService.SendFrontendMessage("ContentRenamed", new
+                    {
+                        OldFileName = fileName,
+                        NewFileName = sanitizedNewFileName,
+                        ContentType = contentTypeStr,
+                        Content = updatedContent,
+                    });
+
                     await MessageService.SendSettingsToFrontend("Renamed content");
                 }
                 else

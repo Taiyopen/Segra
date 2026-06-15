@@ -189,6 +189,10 @@ namespace Segra.Backend.Services
 
                 TrySanitizeCqvbrRateControl();
 
+                bool clipSanitized = TrySanitizeClipEncoderRateControl();
+                if (clipSanitized)
+                    Log.Information("Sanitized clip rate-control / bitrate defaults after loading settings");
+
                 Settings.Instance.EndBulkUpdateAndSaveSettings();
                 return true;
             }
@@ -241,6 +245,7 @@ namespace Segra.Backend.Services
 
             // Update ClipEncoder
             bool hasAutoSelectedClipCodec = false;
+            bool hasAutoSelectedClipRateControl = false;
             if (settings.ClipEncoder != updatedSettings.ClipEncoder)
             {
                 Log.Information($"ClipEncoder changed from '{settings.ClipEncoder}' to '{updatedSettings.ClipEncoder}'");
@@ -249,6 +254,28 @@ namespace Segra.Backend.Services
                 Log.Information($"Automatically changing ClipCodec to 'h264' due to ClipEncoder change");
                 settings.ClipCodec = "h264";
                 hasAutoSelectedClipCodec = true;
+
+                if (string.Equals(settings.ClipEncoder, "gpu", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(settings.ClipRateControl, "CRF", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Information($"Automatically changing ClipRateControl from 'CRF' to 'CQP' because ClipEncoder is GPU");
+                    settings.ClipRateControl = "CQP";
+                    hasAutoSelectedClipRateControl = true;
+                }
+                else if (string.Equals(settings.ClipEncoder, "cpu", StringComparison.OrdinalIgnoreCase) &&
+                         string.Equals(settings.ClipRateControl, "CQP", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Information($"Automatically changing ClipRateControl from 'CQP' to 'CRF' because ClipEncoder is CPU");
+                    settings.ClipRateControl = "CRF";
+                    hasAutoSelectedClipRateControl = true;
+                }
+                else if (string.Equals(settings.ClipEncoder, "cpu", StringComparison.OrdinalIgnoreCase) &&
+                         string.Equals(settings.ClipRateControl, "CQVBR", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Information($"Automatically changing ClipRateControl from 'CQVBR' to 'VBR' because ClipEncoder is CPU");
+                    settings.ClipRateControl = "VBR";
+                    hasAutoSelectedClipRateControl = true;
+                }
 
                 hasChanges = true;
             }
@@ -317,6 +344,36 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
+            // Update ClipRateControl / clip bitrates (FFmpeg clip export — mirrors session Video Settings semantics)
+            if (!hasAutoSelectedClipRateControl &&
+                !string.Equals(settings.ClipRateControl, updatedSettings.ClipRateControl, StringComparison.Ordinal))
+            {
+                Log.Information($"ClipRateControl changed from '{settings.ClipRateControl}' to '{updatedSettings.ClipRateControl}'");
+                settings.ClipRateControl = updatedSettings.ClipRateControl;
+                hasChanges = true;
+            }
+
+            if (settings.ClipBitrate != updatedSettings.ClipBitrate)
+            {
+                Log.Information($"ClipBitrate changed from '{settings.ClipBitrate} Mbps' to '{updatedSettings.ClipBitrate} Mbps'");
+                settings.ClipBitrate = updatedSettings.ClipBitrate;
+                hasChanges = true;
+            }
+
+            if (settings.ClipMinBitrate != updatedSettings.ClipMinBitrate)
+            {
+                Log.Information($"ClipMinBitrate changed from '{settings.ClipMinBitrate} Mbps' to '{updatedSettings.ClipMinBitrate} Mbps'");
+                settings.ClipMinBitrate = updatedSettings.ClipMinBitrate;
+                hasChanges = true;
+            }
+
+            if (settings.ClipMaxBitrate != updatedSettings.ClipMaxBitrate)
+            {
+                Log.Information($"ClipMaxBitrate changed from '{settings.ClipMaxBitrate} Mbps' to '{updatedSettings.ClipMaxBitrate} Mbps'");
+                settings.ClipMaxBitrate = updatedSettings.ClipMaxBitrate;
+                hasChanges = true;
+            }
+
             // Update SoundEffectsVolume
             if (settings.SoundEffectsVolume != updatedSettings.SoundEffectsVolume)
             {
@@ -359,11 +416,32 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
-            // Update ExcludeGameDiscordFromMasterMix
+            // Update ExcludeGameDiscordFromMasterMix (deprecated, kept for compatibility)
             if (settings.ExcludeGameDiscordFromMasterMix != updatedSettings.ExcludeGameDiscordFromMasterMix)
             {
                 Log.Information($"ExcludeGameDiscordFromMasterMix changed from '{settings.ExcludeGameDiscordFromMasterMix}' to '{updatedSettings.ExcludeGameDiscordFromMasterMix}'");
                 settings.ExcludeGameDiscordFromMasterMix = updatedSettings.ExcludeGameDiscordFromMasterMix;
+                hasChanges = true;
+            }
+
+            if (settings.GameAudioTrackMask != updatedSettings.GameAudioTrackMask)
+            {
+                Log.Information($"GameAudioTrackMask changed from '0x{settings.GameAudioTrackMask:X}' to '0x{updatedSettings.GameAudioTrackMask:X}'");
+                settings.GameAudioTrackMask = updatedSettings.GameAudioTrackMask;
+                hasChanges = true;
+            }
+
+            if (settings.DiscordAudioTrackMask != updatedSettings.DiscordAudioTrackMask)
+            {
+                Log.Information($"DiscordAudioTrackMask changed from '0x{settings.DiscordAudioTrackMask:X}' to '0x{updatedSettings.DiscordAudioTrackMask:X}'");
+                settings.DiscordAudioTrackMask = updatedSettings.DiscordAudioTrackMask;
+                hasChanges = true;
+            }
+
+            if (!(settings.RecordingAudioTrackNames ?? new List<string>()).SequenceEqual(updatedSettings.RecordingAudioTrackNames ?? new List<string>()))
+            {
+                Log.Information("RecordingAudioTrackNames updated");
+                settings.RecordingAudioTrackNames = updatedSettings.RecordingAudioTrackNames ?? new List<string>();
                 hasChanges = true;
             }
 
@@ -764,6 +842,11 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
+            if (TrySanitizeClipEncoderRateControl())
+            {
+                hasChanges = true;
+            }
+
             // Only save settings and send to frontend if changes were actually made
             if (hasChanges)
             {
@@ -803,6 +886,65 @@ namespace Segra.Backend.Services
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Clip FFmpeg export: keep rate-control/bitrates consistent with ClipEncoder/GPU vendor (CQVBR = NVIDIA NVENC-only).
+        /// </summary>
+        private static bool TrySanitizeClipEncoderRateControl()
+        {
+            var s = Settings.Instance;
+            bool changed = false;
+
+            // Bitrate clamps (Mbps) — aligned with frontend bitrate dropdown granularity (steps of 5, 10–100)
+            static int ClampMbps(int v)
+            {
+                double baseMbps = v <= 0 ? 35 : v;
+                return Math.Clamp((int)Math.Round(baseMbps / 5.0) * 5, 10, 100);
+            }
+
+            int b = ClampMbps(s.ClipBitrate);
+            if (s.ClipBitrate != b)
+            {
+                s.ClipBitrate = b;
+                changed = true;
+            }
+
+            int mn = ClampMbps(s.ClipMinBitrate);
+            int mx = ClampMbps(s.ClipMaxBitrate);
+            if (mn > mx)
+                (mn, mx) = (mx, mn);
+            if (s.ClipMinBitrate != mn || s.ClipMaxBitrate != mx)
+            {
+                s.ClipMinBitrate = mn;
+                s.ClipMaxBitrate = mx;
+                changed = true;
+            }
+
+            bool clipCpu = string.Equals(s.ClipEncoder, "cpu", StringComparison.OrdinalIgnoreCase);
+            string rc = (s.ClipRateControl ?? "CRF").Trim().ToUpperInvariant();
+
+            bool invalidCpuMode = clipCpu &&
+                (string.Equals(rc, "CQP", StringComparison.Ordinal) ||
+                 string.Equals(rc, "CQVBR", StringComparison.Ordinal));
+            bool invalidGpuMode = !clipCpu && string.Equals(rc, "CRF", StringComparison.Ordinal);
+
+            bool nvGpu = Settings.Instance.State.GpuVendor == GeneralUtils.GpuVendor.Nvidia;
+            bool cqVbrBlocked = string.Equals(rc, "CQVBR", StringComparison.Ordinal) && (!nvGpu || clipCpu);
+
+            if (invalidCpuMode || invalidGpuMode || cqVbrBlocked)
+            {
+                if (clipCpu && string.Equals(rc, "CQVBR", StringComparison.Ordinal))
+                    s.ClipRateControl = "VBR";
+                else if (clipCpu)
+                    s.ClipRateControl = "CRF";
+                else
+                    s.ClipRateControl = "CQP";
+
+                changed = true;
+            }
+
+            return changed;
         }
 
         public static async Task LoadContentFromFolderIntoState(bool sendToFrontend = true)

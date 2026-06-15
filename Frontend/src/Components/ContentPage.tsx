@@ -5,7 +5,7 @@ import { Content, ContentType } from '../Models/types';
 import { useScroll } from '../Context/ScrollContext';
 import { useLayoutEffect, useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { FileUp, Trash2 } from 'lucide-react';
+import { FileUp, Trash2, Inbox } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import ContentFilters, { SortOption } from './ContentFilters';
@@ -158,6 +158,19 @@ export default function ContentPage({
     setSelectedItems(new Set());
   }, [selectedItems, contentType]);
 
+  const handleMoveSelectedToPendingEdit = useCallback(() => {
+    if (selectedItems.size === 0) return;
+    if (contentType !== 'Session' && contentType !== 'Buffer') return;
+
+    const items = Array.from(selectedItems).map((fileName) => ({
+      FileName: fileName,
+      ContentType: contentType,
+    }));
+
+    sendMessageToBackend('MoveToPendingEdit', { Items: items });
+    setSelectedItems(new Set());
+  }, [selectedItems, contentType]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isModalOpen) return;
@@ -242,7 +255,9 @@ export default function ContentPage({
             ? scrollPositions.replayBuffer
             : sectionId === 'sessions'
               ? scrollPositions.sessions
-              : 0;
+              : sectionId === 'pendingEdit'
+                ? scrollPositions.pendingEdit
+                : 0;
 
     if (containerRef.current && position > 0) {
       isSettingScroll.current = true;
@@ -274,7 +289,9 @@ export default function ContentPage({
                 ? 'replayBuffer'
                 : sectionId === 'sessions'
                   ? 'sessions'
-                  : null;
+                  : sectionId === 'pendingEdit'
+                    ? 'pendingEdit'
+                    : null;
 
         if (pageKey) {
           setScrollPosition(pageKey, currentPos);
@@ -298,15 +315,32 @@ export default function ContentPage({
         </div>
         <div className="flex items-center gap-2">
           {(sectionId === 'sessions' || sectionId === 'replayBuffer') && (
-            <Button
-              variant="primary"
-              size="sm"
-              className="no-animation h-8 gap-1"
-              onClick={() => sendMessageToBackend('ImportFile', { sectionId })}
-            >
-              <FileUp size={16} />
-              Import
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="no-animation h-8 gap-1 border border-base-400 hover:border-opacity-75"
+                disabled={selectedItems.size === 0}
+                title={
+                  selectedItems.size === 0
+                    ? '先按住 Ctrl 點選卡片（或 Ctrl+A 全選），將選取的影片移至「待剪輯」'
+                    : '將選取的影片移至「待剪輯」（不會被儲存空間自動清理刪除）'
+                }
+                onClick={handleMoveSelectedToPendingEdit}
+              >
+                <Inbox size={16} />
+                移至待剪輯
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                className="no-animation h-8 gap-1"
+                onClick={() => sendMessageToBackend('ImportFile', { sectionId })}
+              >
+                <FileUp size={16} />
+                Import
+              </Button>
+            </>
           )}
           <ContentFilters
             uniqueGames={uniqueGames}
@@ -351,6 +385,17 @@ export default function ContentPage({
             className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-base-300 border border-base-400 rounded-xl px-4 py-2 flex items-center gap-3 shadow-lg z-50"
           >
             <span className="text-sm text-gray-300">{selectedItems.size} Selected</span>
+            {(sectionId === 'sessions' || sectionId === 'replayBuffer') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 border border-base-400"
+                onClick={handleMoveSelectedToPendingEdit}
+              >
+                <Inbox size={16} />
+                待剪輯
+              </Button>
+            )}
             <Button variant="danger" size="sm" className="h-8" onClick={handleDeleteSelected}>
               <Trash2 size={16} />
               Delete

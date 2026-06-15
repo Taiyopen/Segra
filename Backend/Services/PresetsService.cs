@@ -99,6 +99,7 @@ namespace Segra.Backend.Services
                     case "low":
                         settings.ClipQualityPreset = "low";
                         settings.ClipEncoder = "cpu";
+                        settings.ClipRateControl = "CRF";
                         settings.ClipQualityCpu = 28;
                         settings.ClipCodec = "h264";
                         settings.ClipFps = 30;
@@ -109,6 +110,7 @@ namespace Segra.Backend.Services
                     case "standard":
                         settings.ClipQualityPreset = "standard";
                         settings.ClipEncoder = "cpu";
+                        settings.ClipRateControl = "CRF";
                         settings.ClipQualityCpu = 23;
                         settings.ClipCodec = "h264";
                         settings.ClipFps = 60;
@@ -119,6 +121,7 @@ namespace Segra.Backend.Services
                     case "high":
                         settings.ClipQualityPreset = "high";
                         settings.ClipEncoder = "cpu";
+                        settings.ClipRateControl = "CRF";
                         settings.ClipQualityCpu = 20;
                         settings.ClipCodec = "h264";
                         settings.ClipFps = 60;
@@ -135,8 +138,8 @@ namespace Segra.Backend.Services
                         return;
                 }
 
-                Log.Information("Applied clip preset '{Preset}': {Encoder}, CRF {Quality}, {Codec}, {Fps}fps, {Audio} audio, {EncoderPreset}",
-                    settings.ClipQualityPreset, settings.ClipEncoder, settings.ClipQualityCpu, settings.ClipCodec, settings.ClipFps, settings.ClipAudioQuality, settings.ClipPreset);
+                Log.Information("Applied clip preset '{Preset}': {Encoder}, {RateControl}, CRF {Quality}, {Codec}, {Fps}fps, {Audio} audio, {EncoderPreset}",
+                    settings.ClipQualityPreset, settings.ClipEncoder, settings.ClipRateControl, settings.ClipQualityCpu, settings.ClipCodec, settings.ClipFps, settings.ClipAudioQuality, settings.ClipPreset);
 
                 settings.EndBulkUpdateAndSaveSettings();
                 await MessageService.SendSettingsToFrontend("Clip preset applied");

@@ -1,4 +1,4 @@
-export type ContentType = 'Session' | 'Buffer' | 'Clip' | 'Highlight';
+export type ContentType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit';
 
 export type RecordingMode = 'Session' | 'Buffer' | 'Hybrid';
 
@@ -75,6 +75,8 @@ export enum BookmarkSubtype {
 export enum KeybindAction {
   CreateBookmark = 'CreateBookmark',
   SaveReplayBuffer = 'SaveReplayBuffer',
+  ToggleRecording = 'ToggleRecording',
+  TogglePreview = 'TogglePreview',
 }
 
 export interface Keybind {
@@ -117,8 +119,13 @@ export interface AudioDevice {
 export interface DeviceSetting {
   id: string;
   name: string;
-  volume: number; // Volume from 0.0 to 1.0
+  volume: number; // Multiplier 0–3 (shown as 0–300%); applied to OBS source volume
+  /** OBS mixer bitmask: bits 0–5 = tracks 1–6. Default 1 = track 1 only. */
+  audioTrackMask?: number;
 }
+
+export const MAX_RECORDING_AUDIO_TRACKS = 6;
+export const DEFAULT_AUDIO_TRACK_MASK = 1;
 
 export interface Display {
   deviceId: string;
@@ -240,6 +247,10 @@ export interface Settings {
   clipClearSegmentsAfterCreatingClip: boolean;
   clipShowInBrowserAfterUpload: boolean; // Open browser after upload
   clipEncoder: ClipEncoder;
+  clipRateControl: string;
+  clipBitrate: number;
+  clipMinBitrate: number;
+  clipMaxBitrate: number;
   clipQualityCpu: number; // CPU CRF: 17 (High) to 28 (Low)
   clipQualityGpu: number; // GPU (CQ/QP/ICQ): 0-1 (High) to 51 (Low)
   clipCodec: ClipCodec;
@@ -256,8 +267,14 @@ export interface Settings {
   showGameBackground: boolean; // Show game background while recording
   showAudioWaveformInTimeline: boolean; // Show audio waveform in video timeline
   enableSeparateAudioTracks: boolean; // Advanced: per-source audio tracks
-  /** Game + Discord capture not mixed into track 1 (requires Game / Game+Discord + separate tracks) */
+  /** @deprecated Use per-source audioTrackMask instead */
   excludeGameDiscordFromMasterMix: boolean;
+  /** OBS mixer bitmask for game capture audio (bits 0–5 = tracks 1–6) */
+  gameAudioTrackMask: number;
+  /** OBS mixer bitmask for Discord app capture */
+  discordAudioTrackMask: number;
+  /** Custom names for recording tracks 1–6 (empty string = "Track N") */
+  recordingAudioTrackNames: string[];
   /** AAC bitrate for session / replay-buffer recording (OBS). */
   recordingAudioBitrate: RecordingAudioBitrate;
   audioOutputMode: AudioOutputMode;
@@ -318,6 +335,10 @@ export const initialSettings: Settings = {
   clipClearSegmentsAfterCreatingClip: false,
   clipShowInBrowserAfterUpload: false,
   clipEncoder: 'cpu',
+  clipRateControl: 'CRF',
+  clipBitrate: 35,
+  clipMinBitrate: 25,
+  clipMaxBitrate: 55,
   clipQualityCpu: 23,
   clipQualityGpu: 23,
   clipCodec: 'h264',
@@ -331,6 +352,9 @@ export const initialSettings: Settings = {
   showAudioWaveformInTimeline: true,
   enableSeparateAudioTracks: false,
   excludeGameDiscordFromMasterMix: false,
+  gameAudioTrackMask: 1,
+  discordAudioTrackMask: 1,
+  recordingAudioTrackNames: ['', '', '', '', '', ''],
   recordingAudioBitrate: '128k',
   audioOutputMode: 'All',
   videoQualityPreset: 'high',
@@ -380,6 +404,12 @@ export interface SegmentCardProps {
   audioTrackNames?: string[];
   onMutedAudioTracksChange?: (id: number, mutedTracks: number[]) => void;
   onAudioTrackVolumesChange?: (id: number, volumes: Record<number, number>) => void;
+  /** 標記此片段為剪輯編輯目標（例如設定起／終點） */
+  onClipEditTarget?: (id: number) => void;
+  /** 點擊卡片（非按鈕／輸入）時跳轉至該片段起點 */
+  onSidebarSegmentClick?: (segment: Segment) => void;
+  /** 側欄卡片開始拖曳排序前（用於單次復原步驟） */
+  onSegmentCardDragBegin?: () => void;
 }
 
 export interface AiProgress {

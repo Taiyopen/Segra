@@ -18,12 +18,13 @@ import {
   Crown,
   ExternalLink,
   Copy,
+  Inbox,
 } from 'lucide-react';
 import { useAiHighlights } from '../Context/AiHighlightsContext';
 import { useCompression } from '../Context/CompressionContext';
 import Button from './Button';
 
-type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight';
+type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit';
 
 interface VideoCardProps {
   content?: Content; // Optional for skeleton cards
@@ -155,7 +156,9 @@ export default function ContentCard({
           ? 'Replay Buffers'
           : type === 'Clip'
             ? 'Clips'
-            : 'Highlights';
+            : type === 'PendingEdit'
+              ? '待剪輯'
+              : 'Highlights';
     const thumbnailPath = `${cacheFolder}/thumbnails/${folderName}/${content?.fileName}.jpeg`;
     return `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(thumbnailPath)}`;
   };
@@ -246,7 +249,7 @@ export default function ContentCard({
   };
 
   const startRenaming = () => {
-    setRenameValue(content!.title || '');
+    setRenameValue(content!.title || content!.fileName || '');
     setIsRenaming(true);
     setTimeout(() => {
       renameInputRef.current?.focus();
@@ -259,7 +262,7 @@ export default function ContentCard({
     setIsRenaming(false);
     const trimmed = renameValue.trim();
     const invalidChars = /[<>:"/\\|?*]/;
-    if (trimmed && invalidChars.test(trimmed)) return;
+    if (!trimmed || invalidChars.test(trimmed)) return;
     sendMessageToBackend('RenameContent', {
       FileName: content!.fileName,
       ContentType: type,
@@ -300,7 +303,7 @@ export default function ContentCard({
           />
         )}
         {isRecent &&
-          (type === 'Session' || type === 'Buffer') &&
+          (type === 'Session' || type === 'Buffer' || type === 'PendingEdit') &&
           showNewBadgeOnVideos &&
           !isSelectionMode && (
             <span className="absolute top-2 left-2 badge badge-primary badge-sm text-base-300 opacity-90">
@@ -399,7 +402,10 @@ export default function ContentCard({
                   </Button>
                 </li>
               )}
-              {(type === 'Clip' || type === 'Highlight' || type === 'Buffer') && (
+              {(type === 'Clip' ||
+                type === 'Highlight' ||
+                type === 'Buffer' ||
+                type === 'PendingEdit') && (
                 <li>
                   <Button
                     variant="menu"
@@ -415,7 +421,7 @@ export default function ContentCard({
                   </Button>
                 </li>
               )}
-              {type === 'Session' && enableAi && (
+              {(type === 'Session' || type === 'PendingEdit') && enableAi && (
                 <li>
                   {(() => {
                     const hasHighlightBookmarks = content?.bookmarks?.some((b) =>
@@ -450,6 +456,22 @@ export default function ContentCard({
                       </Button>
                     );
                   })()}
+                </li>
+              )}
+              {(type === 'Session' || type === 'Buffer') && (
+                <li>
+                  <Button
+                    variant="menu"
+                    onClick={() => {
+                      (document.activeElement as HTMLElement).blur();
+                      sendMessageToBackend('MoveToPendingEdit', {
+                        Items: [{ FileName: content!.fileName, ContentType: type }],
+                      });
+                    }}
+                  >
+                    <Inbox size={20} />
+                    <span>移至待剪輯</span>
+                  </Button>
                 </li>
               )}
               <li>

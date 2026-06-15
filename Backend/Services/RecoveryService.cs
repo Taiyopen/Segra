@@ -186,6 +186,7 @@ namespace Segra.Backend.Services
                         Content.ContentType.Clip => "Clip",
                         Content.ContentType.Highlight => "Highlight",
                         Content.ContentType.Buffer => "Replay Buffer",
+                        Content.ContentType.PendingEdit => "待剪輯",
                         _ => orphanedFile.Type.ToString()
                     };
 
@@ -304,7 +305,8 @@ namespace Segra.Backend.Services
                 Content.ContentType.Session,
                 Content.ContentType.Clip,
                 Content.ContentType.Highlight,
-                Content.ContentType.Buffer
+                Content.ContentType.Buffer,
+                Content.ContentType.PendingEdit
             };
 
             foreach (var type in contentTypes)

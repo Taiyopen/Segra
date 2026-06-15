@@ -494,6 +494,7 @@ namespace Segra.Backend.Services
             var s = Settings.Instance;
             Log.Information($"Clip encoder: {s.ClipEncoder}");
             Log.Information($"Clip codec: {s.ClipCodec}");
+            Log.Information($"Clip rate control: {s.ClipRateControl} (bitrate={s.ClipBitrate} Mbps, min={s.ClipMinBitrate}, max={s.ClipMaxBitrate})");
             Log.Information($"Clip fps: {s.ClipFps}");
             Log.Information($"Clip quality CPU (CRF): {s.ClipQualityCpu}");
             Log.Information($"Clip quality GPU (CQ): {s.ClipQualityGpu}");
