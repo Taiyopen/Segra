@@ -29,10 +29,9 @@ import { ModalProvider } from './Context/ModalContext';
 import { GeneralMessagesProvider } from './Context/GeneralMessagesContext';
 import MigrationOverlay from './Components/MigrationOverlay';
 import SetupProfileModal from './Components/SetupProfileModal';
-import MonitoringCompactShell from './Components/MonitoringCompactShell';
 import { useAuth } from './Hooks/useAuth';
 import { useProfile } from './Hooks/useUserProfile';
-import { MonitoringLayoutProvider, useMonitoringLayout } from './Context/MonitoringLayoutContext';
+import { MonitoringLayoutProvider } from './Context/MonitoringLayoutContext';
 
 // Create a context for release notes that can be accessed globally
 export const ReleaseNotesContext = createContext<{
@@ -54,7 +53,6 @@ function App() {
 
   const { selectedVideo, setSelectedVideo } = useSelectedVideo();
   const { selectedMenu, setSelectedMenu } = useSelectedMenu();
-  const { compactMonitoringLayout } = useMonitoringLayout();
   const { renameSegmentsForVideo } = useSegments();
   const selectedVideoRef = useRef<Content | null>(null);
   useEffect(() => {
@@ -128,15 +126,6 @@ function App() {
         return <Sessions />;
     }
   };
-
-  if (compactMonitoringLayout) {
-    return (
-      <>
-        {needsUsername && <SetupProfileModal />}
-        <MonitoringCompactShell />
-      </>
-    );
-  }
 
   return (
     <div className="flex h-screen w-screen">

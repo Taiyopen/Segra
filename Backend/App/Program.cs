@@ -11,9 +11,11 @@ using Segra.Backend.Windows.Power;
 using Segra.Backend.Windows.Storage;
 using Serilog;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO.Pipes;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Velopack;
 
 namespace Segra.Backend.App
@@ -26,6 +28,19 @@ namespace Segra.Backend.App
         [DllImport("user32.dll")]
         static extern bool SetProcessDPIAware();
 
+        [DllImport("user32.dll")]
+        static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
+
+        private const int WM_NCLBUTTONDOWN = 0xA1;
+        private const int HTCAPTION = 0x2;
+
+        /// <summary>WebView2 init args for the monitoring PiP window.</summary>
+        private const string MonitoringBrowserInitParameters =
+            "--enable-blink-features=AudioVideoTracks";
+
         const int SW_HIDE = 0;
         /// <summary>Win32: restore normal position/size before applying real maximize.</summary>
         private const int SW_RESTORE = 9;
@@ -35,6 +50,14 @@ namespace Segra.Backend.App
         private static readonly AutoResetEvent ShowWindowEvent = new AutoResetEvent(false);
         public static bool hasLoadedInitialSettings = false;
         public static PhotinoWindow? Window { get; private set; }
+        public static PhotinoWindow? MonitoringWindow { get; private set; }
+        private static bool _monitoringWindowTopMost = true;
+        private static Point? _monitoringWindowLocation;
+        private static Size? _monitoringWindowSize;
+        private static readonly string MonitoringWindowBoundsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Segra",
+            "monitoring-window-bounds.json");
         private static readonly string LogFilePath =
           Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra", "logs.log");
         private const string PipeName = "Segra_SingleInstance";
@@ -386,12 +409,6 @@ namespace Segra.Backend.App
         private static Point? _windowLocationBeforeFullscreen;
         private static bool _wasMaximizedBeforeFullscreen;
 
-        private static Size? _monitoringRestoreSize;
-        private static Point? _monitoringRestoreLocation;
-        private static bool _monitoringRestoreMaximized;
-        private static bool _monitoringLayoutActive;
-        private static bool _monitoringTopMostApplied;
-
         /// <summary>
         /// After OS fullscreen on Windows, <see cref="PhotinoWindow.SetMaximized"/> alone can leave the HWND sized to the monitor
         /// instead of the work area; bounce via Win32 Restore → ShowMaximized when possible.
@@ -460,60 +477,275 @@ namespace Segra.Backend.App
             }
         }
 
-        public static void ApplyMonitoringWindowLayout(bool compact)
+        public static void ApplyMonitoringWindowLayout(bool open)
         {
+            if (open)
+                ShowMonitoringWindow();
+            else
+                CloseMonitoringWindow();
+        }
+
+        /// <summary>Opens the monitoring window when recording starts, if it is not already open.</summary>
+        public static void ShowMonitoringWindowIfClosed()
+        {
+            if (MonitoringWindow != null) return;
+            ShowMonitoringWindow();
+        }
+
+        private static void LoadMonitoringWindowBounds()
+        {
+            if (_monitoringWindowLocation.HasValue) return;
+
             try
             {
-                if (Window == null) return;
+                if (!File.Exists(MonitoringWindowBoundsPath)) return;
 
-                if (compact)
-                {
-                    if (_monitoringLayoutActive) return;
-                    _monitoringLayoutActive = true;
+                var json = File.ReadAllText(MonitoringWindowBoundsPath);
+                var bounds = JsonSerializer.Deserialize<MonitoringWindowBounds>(json);
+                if (bounds == null || bounds.Width <= 0 || bounds.Height <= 0) return;
 
-                    _monitoringRestoreMaximized = Window.Maximized;
-                    if (_monitoringRestoreMaximized)
-                        Window.SetMaximized(false);
-
-                    _monitoringRestoreSize = Window.Size;
-                    _monitoringRestoreLocation = Window.Location;
-
-                    Window.SetSize(new Size(336, 304));
-                    Window.Center();
-
-                    Window.SetTopMost(true);
-                    _monitoringTopMostApplied = true;
-                }
-                else
-                {
-                    if (!_monitoringLayoutActive) return;
-                    _monitoringLayoutActive = false;
-
-                    if (_monitoringTopMostApplied)
-                    {
-                        Window.SetTopMost(false);
-                        _monitoringTopMostApplied = false;
-                    }
-
-                    if (_monitoringRestoreSize.HasValue && _monitoringRestoreLocation.HasValue)
-                    {
-                        Window.SetSize(_monitoringRestoreSize.Value);
-                        Window.SetLocation(_monitoringRestoreLocation.Value);
-                    }
-
-                    _monitoringRestoreSize = null;
-                    _monitoringRestoreLocation = null;
-
-                    if (_monitoringRestoreMaximized)
-                    {
-                        Window.SetMaximized(true);
-                        _monitoringRestoreMaximized = false;
-                    }
-                }
+                _monitoringWindowLocation = new Point(bounds.X, bounds.Y);
+                _monitoringWindowSize = new Size(bounds.Width, bounds.Height);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error applying monitoring window layout");
+                Log.Warning(ex, "Failed to load monitoring window bounds");
+            }
+        }
+
+        private static void SaveMonitoringWindowBounds(PhotinoWindow window)
+        {
+            try
+            {
+                var location = window.Location;
+                var size = window.Size;
+                if (size.Width <= 0 || size.Height <= 0) return;
+
+                _monitoringWindowLocation = location;
+                _monitoringWindowSize = size;
+
+                var bounds = new MonitoringWindowBounds
+                {
+                    X = location.X,
+                    Y = location.Y,
+                    Width = size.Width,
+                    Height = size.Height,
+                };
+
+                Directory.CreateDirectory(Path.GetDirectoryName(MonitoringWindowBoundsPath)!);
+                File.WriteAllText(
+                    MonitoringWindowBoundsPath,
+                    JsonSerializer.Serialize(bounds, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to save monitoring window bounds");
+            }
+        }
+
+        private sealed class MonitoringWindowBounds
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+            public int Width { get; set; }
+            public int Height { get; set; }
+        }
+
+        private static string BuildMonitoringWindowUrl(string baseUrl)
+        {
+            string withoutHash = baseUrl.Contains('#') ? baseUrl.Split('#')[0] : baseUrl;
+            string separator = withoutHash.Contains('?') ? "&" : "?";
+            return $"{withoutHash}{separator}window=monitoring#/monitoring";
+        }
+
+        public static void ShowMonitoringWindow()
+        {
+            if (Window == null || appUrl == null)
+            {
+                Log.Warning("ShowMonitoringWindow skipped: main window or appUrl is null");
+                return;
+            }
+
+            try
+            {
+                Window.Invoke(() => ShowMonitoringWindowOnUiThread());
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "ShowMonitoringWindow Invoke failed; trying direct UI thread call");
+                ShowMonitoringWindowOnUiThread();
+            }
+        }
+
+        private static PhotinoWindow CreateMonitoringPhotinoWindow(string monitoringUrl, bool chromeless)
+        {
+            LoadMonitoringWindowBounds();
+
+            var defaultSize = new Size(336, 348);
+            var size = _monitoringWindowSize ?? defaultSize;
+
+            var windowBuilder = new PhotinoWindow(Window)
+                .SetBrowserControlInitParameters(MonitoringBrowserInitParameters)
+                .SetNotificationsEnabled(false)
+                // Chromeless on Windows requires explicit size AND location (not OS defaults).
+                .SetUseOsDefaultSize(false)
+                .SetUseOsDefaultLocation(false)
+                .SetIconFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico"))
+                .SetSize(size)
+                .SetResizable(true)
+                .SetTopMost(_monitoringWindowTopMost)
+                .SetContextMenuEnabled(false)
+                .RegisterWebMessageReceivedHandler((sender, message) =>
+                {
+                    _ = MessageService.HandleMessage(message);
+                })
+                .RegisterWindowClosingHandler((sender, eventArgs) =>
+                {
+                    if (MonitoringWindow != null)
+                    {
+                        SaveMonitoringWindowBounds((PhotinoWindow)sender);
+                        MonitoringWindow = null;
+                        _ = MessageService.SendFrontendMessage("MonitoringWindowState", new { open = false });
+                    }
+                    return false;
+                });
+
+            if (_monitoringWindowLocation.HasValue)
+                windowBuilder = windowBuilder.SetLocation(_monitoringWindowLocation.Value);
+            else
+                windowBuilder = windowBuilder.Center();
+
+            var window = windowBuilder;
+
+            if (chromeless)
+                window = window.SetChromeless(true).SetTransparent(true);
+
+            return window.Load(monitoringUrl);
+        }
+
+        public static void SetMonitoringWindowTopMost(bool enabled)
+        {
+            _monitoringWindowTopMost = enabled;
+            if (MonitoringWindow == null || Window == null) return;
+
+            try
+            {
+                Window.Invoke(() => MonitoringWindow?.SetTopMost(enabled));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "SetMonitoringWindowTopMost failed");
+            }
+        }
+
+        private static void ShowMonitoringWindowOnUiThread()
+        {
+            try
+            {
+                if (Window == null || appUrl == null) return;
+
+                if (MonitoringWindow != null)
+                {
+                    MonitoringWindow.SetMinimized(false);
+                    if (_monitoringWindowTopMost)
+                        MonitoringWindow.SetTopMost(true);
+                    return;
+                }
+
+                string monitoringUrl = BuildMonitoringWindowUrl(appUrl);
+                Log.Information("Opening monitoring window at {MonitoringUrl}", monitoringUrl);
+
+                try
+                {
+                    MonitoringWindow = CreateMonitoringPhotinoWindow(monitoringUrl, chromeless: true);
+                    MonitoringWindow.SetTitle("Segra 監控");
+                    MonitoringWindow.WaitForClose();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Chromeless monitoring window failed; falling back to framed window");
+                    MonitoringWindow = CreateMonitoringPhotinoWindow(monitoringUrl, chromeless: false);
+                    MonitoringWindow.SetTitle("Segra 監控");
+                    MonitoringWindow.WaitForClose();
+                }
+
+                _ = MessageService.SendFrontendMessage("MonitoringWindowState", new { open = true });
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(400);
+                    await MessageService.SendSettingsToFrontend("Monitoring window opened");
+                    await MessageService.SendGameList();
+                });
+                Log.Information("Monitoring window opened");
+            }
+            catch (Exception ex)
+            {
+                MonitoringWindow = null;
+                Log.Error(ex, "Error showing monitoring window");
+            }
+        }
+
+        /// <summary>
+        /// Win32 title-bar drag for chromeless monitoring window (WebView2 CSS drag regions are unreliable in Photino).
+        /// </summary>
+        public static void BeginMonitoringWindowDrag()
+        {
+            if (MonitoringWindow == null || Window == null) return;
+
+            void StartDrag()
+            {
+                try
+                {
+                    IntPtr hwnd = MonitoringWindow!.WindowHandle;
+                    if (hwnd == IntPtr.Zero) return;
+
+                    ReleaseCapture();
+                    SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "BeginMonitoringWindowDrag failed");
+                }
+            }
+
+            try
+            {
+                Window.Invoke(StartDrag);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "BeginMonitoringWindowDrag Invoke failed; trying direct");
+                StartDrag();
+            }
+        }
+
+        public static void CloseMonitoringWindow()
+        {
+            if (Window == null)
+            {
+                MonitoringWindow?.Close();
+                MonitoringWindow = null;
+                return;
+            }
+
+            Window.Invoke(CloseMonitoringWindowOnUiThread);
+        }
+
+        private static void CloseMonitoringWindowOnUiThread()
+        {
+            try
+            {
+                if (MonitoringWindow == null) return;
+
+                var window = MonitoringWindow;
+                MonitoringWindow = null;
+                SaveMonitoringWindowBounds(window);
+                window.Close();
+                _ = MessageService.SendFrontendMessage("MonitoringWindowState", new { open = false });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error closing monitoring window");
             }
         }
 

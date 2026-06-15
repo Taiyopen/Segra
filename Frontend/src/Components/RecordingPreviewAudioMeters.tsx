@@ -4,10 +4,12 @@ type Props = {
   /** When false, polling stops and the overlay hides. */
   poll: boolean;
   compact?: boolean;
+  /** Minimal inline bars for PiP / floating monitor window. */
+  pip?: boolean;
 };
 
 /** Overlay peak meters for recording preview (HTTP `/api/recording-audio-levels`). */
-export default function RecordingPreviewAudioMeters({ poll, compact }: Props) {
+export default function RecordingPreviewAudioMeters({ poll, compact, pip }: Props) {
   const levels = useRecordingAudioLevels(poll);
   if (!poll) return null;
 
@@ -15,6 +17,31 @@ export default function RecordingPreviewAudioMeters({ poll, compact }: Props) {
   const maxOut = maxPeak(levels?.outputTracks);
   const tipIn = peakSummary(levels?.inputTracks);
   const tipOut = peakSummary(levels?.outputTracks);
+
+  if (pip) {
+    return (
+      <div
+        className="flex gap-2 px-1"
+        title={
+          [tipIn && `輸入 ${tipIn}`, tipOut && `輸出 ${tipOut}`].filter(Boolean).join(' · ') ||
+          undefined
+        }
+      >
+        <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-emerald-400/90 transition-[width] duration-75"
+            style={{ width: `${Math.round(maxIn * 100)}%` }}
+          />
+        </div>
+        <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-sky-400/90 transition-[width] duration-75"
+            style={{ width: `${Math.round(maxOut * 100)}%` }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const barH = compact ? 'h-1' : 'h-1.5';
   const label = compact ? 'text-[9px]' : 'text-[10px]';

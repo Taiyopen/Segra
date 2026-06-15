@@ -32,7 +32,8 @@ namespace Segra.Backend.App
 
     public static class MessageService
     {
-        private static WebSocket? activeWebSocket;
+        private static readonly HashSet<WebSocket> activeWebSockets = new();
+        private static readonly object webSocketsLock = new();
         private static readonly SemaphoreSlim sendLock = new SemaphoreSlim(1, 1);
         private static readonly JsonSerializerOptions jsonOptions = new JsonSerializerOptions
         {
@@ -88,18 +89,41 @@ namespace Segra.Backend.App
                             }
                             break;
                         case "SetMonitoringWindowLayout":
-                            if (root.TryGetProperty("Parameters", out var monitoringParams) &&
-                                monitoringParams.TryGetProperty("enabled", out var monitoringEnabledEl))
+                            if (root.TryGetProperty("Parameters", out var monitoringParams))
                             {
-                                bool monitoringCompact = monitoringEnabledEl.GetBoolean();
+                                bool monitoringOpen = false;
+                                if (monitoringParams.TryGetProperty("enabled", out var monitoringEnabledEl))
+                                    monitoringOpen = monitoringEnabledEl.GetBoolean();
+                                else if (monitoringParams.TryGetProperty("Enabled", out var monitoringEnabledElPascal))
+                                    monitoringOpen = monitoringEnabledElPascal.GetBoolean();
+
+                                Log.Information("SetMonitoringWindowLayout: enabled={Enabled}", monitoringOpen);
                                 try
                                 {
-                                    Program.ApplyMonitoringWindowLayout(monitoringCompact);
+                                    Program.ApplyMonitoringWindowLayout(monitoringOpen);
                                 }
                                 catch (Exception ex)
                                 {
                                     Log.Error(ex, "Failed to apply monitoring window layout");
                                 }
+                            }
+                            else
+                            {
+                                Log.Warning("SetMonitoringWindowLayout missing Parameters");
+                            }
+                            break;
+                        case "BeginMonitoringWindowDrag":
+                            Program.BeginMonitoringWindowDrag();
+                            break;
+                        case "SetMonitoringWindowTopMost":
+                            if (root.TryGetProperty("Parameters", out var topMostParams))
+                            {
+                                bool topMost = true;
+                                if (topMostParams.TryGetProperty("enabled", out var topMostEl))
+                                    topMost = topMostEl.GetBoolean();
+                                else if (topMostParams.TryGetProperty("Enabled", out var topMostElPascal))
+                                    topMost = topMostElPascal.GetBoolean();
+                                Program.SetMonitoringWindowTopMost(topMost);
                             }
                             break;
                         case "CreateRecordingBookmark":
@@ -629,18 +653,16 @@ namespace Segra.Backend.App
                     {
                         Log.Information("Received WebSocket connection request");
 
-                        // Close the current WebSocket if already active
-                        if (activeWebSocket != null && activeWebSocket.State == WebSocketState.Open)
+                        HttpListenerWebSocketContext wsContext = await context.AcceptWebSocketAsync(null);
+                        WebSocket webSocket = wsContext.WebSocket;
+
+                        lock (webSocketsLock)
                         {
-                            await activeWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "New connection", CancellationToken.None);
-                            Log.Information("Closed previous WebSocket connection.");
+                            activeWebSockets.Add(webSocket);
                         }
 
-                        HttpListenerWebSocketContext wsContext = await context.AcceptWebSocketAsync(null);
-                        activeWebSocket = wsContext.WebSocket;
-
-                        Log.Information("WebSocket connection established");
-                        await HandleWebSocketAsync(activeWebSocket);
+                        Log.Information("WebSocket connection established ({Count} active)", activeWebSockets.Count);
+                        _ = HandleWebSocketAsync(webSocket);
                     }
                     else
                     {
@@ -754,11 +776,16 @@ namespace Segra.Backend.App
             }
             finally
             {
+                lock (webSocketsLock)
+                {
+                    activeWebSockets.Remove(webSocket);
+                }
+
                 if (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.Aborted)
                 {
                     await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, "Server-side error", CancellationToken.None);
                 }
-                Log.Information("WebSocket connection closed.");
+                Log.Information("WebSocket connection closed ({Count} active).", activeWebSockets.Count);
             }
         }
 
@@ -767,28 +794,43 @@ namespace Segra.Backend.App
             await sendLock.WaitAsync();
             try
             {
-                // Wait for up to 10 seconds for the websocket to be open
-                int maxWaitTimeMs = 10000;
-                int waitIntervalMs = 100;
-                int elapsedTime = 0;
+                var message = new { method, content };
+                byte[] buffer = JsonSerializer.SerializeToUtf8Bytes(message, jsonOptions);
 
-                while ((activeWebSocket == null || activeWebSocket.State != WebSocketState.Open)
-                    && elapsedTime < maxWaitTimeMs)
+                List<WebSocket> sockets;
+                lock (webSocketsLock)
                 {
-                    await Task.Delay(waitIntervalMs);
-                    elapsedTime += waitIntervalMs;
+                    sockets = activeWebSockets.ToList();
                 }
 
-                if (activeWebSocket?.State == WebSocketState.Open)
+                foreach (var webSocket in sockets)
                 {
-                    var message = new { method, content };
-                    byte[] buffer = JsonSerializer.SerializeToUtf8Bytes(message, jsonOptions);
-                    await activeWebSocket.SendAsync(
-                        buffer,
-                        WebSocketMessageType.Text,
-                        endOfMessage: true,
-                        cancellationToken: CancellationToken.None
-                    );
+                    if (webSocket.State != WebSocketState.Open)
+                    {
+                        lock (webSocketsLock)
+                        {
+                            activeWebSockets.Remove(webSocket);
+                        }
+                        continue;
+                    }
+
+                    try
+                    {
+                        await webSocket.SendAsync(
+                            buffer,
+                            WebSocketMessageType.Text,
+                            endOfMessage: true,
+                            cancellationToken: CancellationToken.None
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Error sending message to a WebSocket client");
+                        lock (webSocketsLock)
+                        {
+                            activeWebSockets.Remove(webSocket);
+                        }
+                    }
                 }
             }
             catch (Exception ex)

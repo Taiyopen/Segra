@@ -1339,6 +1339,7 @@ namespace Segra.Backend.Recorder
             Settings.Instance.State.Recording = newRecording;
 
             ClearPendingPreRecordingForSlot(slot);
+            Program.ShowMonitoringWindowIfClosed();
             uint previewFps = (uint)Math.Max(1, Settings.Instance.FrameRate);
             _ = Task.Run(async () =>
             {
