@@ -720,8 +720,8 @@ export default function VideoComponent({ video }: { video: Content }) {
     clipPreviewLoopRef.current = clipPreviewLoop;
   }, [clipPreviewLoop]);
 
-  const [segmentUndoPast, setSegmentUndoPast] = useState<Segment[][]>([]);
-  const [segmentUndoFuture, setSegmentUndoFuture] = useState<Segment[][]>([]);
+  const [, setSegmentUndoPast] = useState<Segment[][]>([]);
+  const [, setSegmentUndoFuture] = useState<Segment[][]>([]);
 
   useEffect(() => {
     if (sortedClipSegments.length === 0 && clipPreviewLoop) {

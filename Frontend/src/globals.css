@@ -145,6 +145,31 @@
   animation: import-pulse 0.9s ease-in-out 0.7s 2;
 }
 
+/* Floating PiP monitor window (chromeless + transparent native shell) */
+html.monitoring-window,
+html.monitoring-window body,
+html.monitoring-window #root {
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+html.monitoring-window body {
+  margin: 0;
+}
+
+.monitoring-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+  cursor: grab;
+}
+
+.monitoring-no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  cursor: default;
+}
+
 /* Remove all focus rings globally */
 *,
 *:focus,

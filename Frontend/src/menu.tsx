@@ -37,7 +37,7 @@ interface MenuProps {
 
 export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   const settings = useSettings();
-  const { enterMonitoringLayout } = useMonitoringLayout();
+  const { enterMonitoringLayout, monitoringWindowOpen } = useMonitoringLayout();
   const { hasLoadedObs, recording, preRecording } = settings.state;
   const { updateInfo } = useUpdate();
   const { aiProgress } = useAiHighlights();
@@ -204,10 +204,13 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
       <div className="px-4 pb-1">
         <Button
           variant="ghost"
-          className="w-full justify-start gap-2 text-gray-400 hover:bg-white/5 hover:text-gray-200"
-          disabled={!hasLoadedObs}
+          className={`w-full justify-start gap-2 hover:bg-white/5 hover:text-gray-200 ${
+            monitoringWindowOpen ? 'text-primary' : 'text-gray-400'
+          }`}
           onClick={() => enterMonitoringLayout()}
-          title="將視窗縮小並只保留預覽與錄製控制"
+          title={
+            monitoringWindowOpen ? '極簡監控視窗已開啟（點擊可聚焦）' : '開啟獨立的極簡監控視窗'
+          }
         >
           <PictureInPicture2 className="h-5 w-5 shrink-0" />
           極簡監控

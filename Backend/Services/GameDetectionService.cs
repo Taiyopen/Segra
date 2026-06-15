@@ -3,6 +3,8 @@ using Segra.Backend.Core.Models;
 using Segra.Backend.Games;
 using Segra.Backend.Recorder;
 using Segra.Backend.Shared;
+using Segra.Backend.Utils;
+using Segra.Backend.App;
 using Serilog;
 using System.Diagnostics;
 using System.Management;
@@ -184,7 +186,8 @@ namespace Segra.Backend.Services
             string gameName = ExtractGameName(exePath);
             string? coverImageId = GameUtils.GetCoverImageIdFromExePath(exePath);
 
-            AppState.Instance.PreRecording = new PreRecording { Game = gameName, Status = "Waiting to start", CoverImageId = coverImageId, Pid = pid, Exe = exePath };
+            Settings.Instance.State.PreRecording = new PreRecording { Game = gameName, Status = "Waiting to start", CoverImageId = coverImageId, Pid = pid, Exe = exePath };
+            Program.ShowMonitoringWindowIfClosed();
             OBSService.StartRecording(gameName, exePath, pid: pid);
         }
 

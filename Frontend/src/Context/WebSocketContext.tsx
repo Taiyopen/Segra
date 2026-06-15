@@ -5,6 +5,8 @@ import { useAuth } from '../Hooks/useAuth.tsx';
 
 interface WebSocketContextType {
   sendMessage: (message: string) => void;
+  /** Sends a JSON command directly over the WebSocket (bypasses Photino bridge). */
+  sendRawMessage: (message: string) => void;
   isConnected: boolean;
   connectionState: ReadyState;
 }
@@ -30,7 +32,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   // Configure WebSocket with reconnection and heartbeat
-  const { readyState } = useWebSocket('ws://localhost:44030/', {
+  const { readyState, sendMessage: wsSend } = useWebSocket('ws://localhost:44030/', {
     onOpen: () => {
       // Check if this is a reconnection
       if (hasConnectedBefore.current) {
@@ -109,10 +111,20 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const sendRawMessage = useCallback(
+    (message: string) => {
+      if (readyState === ReadyState.OPEN) {
+        wsSend(message);
+      }
+    },
+    [readyState, wsSend],
+  );
+
   const contextValue = {
     sendMessage: useCallback((message: string) => {
       sendMessageToBackend(message);
     }, []),
+    sendRawMessage,
     isConnected: readyState === ReadyState.OPEN,
     connectionState: readyState,
   };
