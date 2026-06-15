@@ -35,6 +35,10 @@ namespace Segra.Backend.App
         const int SW_HIDE = 0;
         const int SM_CXFULLSCREEN = 16;
         const int SM_CYFULLSCREEN = 17;
+        /// <summary>Win32: restore normal position/size before applying real maximize.</summary>
+        private const int SW_RESTORE = 9;
+        /// <summary>Win32 <c>SW_SHOWMAXIMIZED</c> — maximize into work area.</summary>
+        private const int SW_SHOWMAXIMIZED = 3;
         public static bool IsFirstRun { get; private set; } = false;
         private static readonly AutoResetEvent ShowWindowEvent = new AutoResetEvent(false);
         public static bool hasLoadedInitialSettings = false;
@@ -408,6 +412,41 @@ namespace Segra.Backend.App
         private static Point? _windowLocationBeforeFullscreen;
         private static bool _wasMaximizedBeforeFullscreen;
 
+        private static Size? _monitoringRestoreSize;
+        private static Point? _monitoringRestoreLocation;
+        private static bool _monitoringRestoreMaximized;
+        private static bool _monitoringLayoutActive;
+        private static bool _monitoringTopMostApplied;
+
+        /// <summary>
+        /// After OS fullscreen on Windows, <see cref="PhotinoWindow.SetMaximized"/> alone can leave the HWND sized to the monitor
+        /// instead of the work area; bounce via Win32 Restore → ShowMaximized when possible.
+        /// </summary>
+        private static void RestoreMaximizedAfterFullscreen(PhotinoWindow window)
+        {
+            window.SetMaximized(false);
+
+            if (PhotinoWindow.IsWindowsPlatform)
+            {
+                try
+                {
+                    var hwnd = window.WindowHandle;
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        ShowWindow(hwnd, SW_RESTORE);
+                        ShowWindow(hwnd, SW_SHOWMAXIMIZED);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Win32 restore→maximize after fullscreen failed; Photino maximize only.");
+                }
+            }
+
+            // Keep Photino's managed fullscreen/maximize bookkeeping in sync with the HWND.
+            window.SetMaximized(true);
+        }
+
         public static void SetFullscreen(bool enabled)
         {
             try
@@ -419,30 +458,88 @@ namespace Segra.Backend.App
                     _wasMaximizedBeforeFullscreen = Window.Maximized;
                     _windowSizeBeforeFullscreen = Window.Size;
                     _windowLocationBeforeFullscreen = Window.Location;
-                    Window.SetMaximized(true);
+                    // If still maximized, Win32 fullscreen can behave like bounded maximize (taskbar stays visible).
+                    if (Window.Maximized)
+                        Window.SetMaximized(false);
+                    // Native OS fullscreen fills the monitor; maximize alone only fills the work area.
+                    Window.SetFullScreen(true);
                 }
                 else
                 {
+                    Window.SetFullScreen(false);
+
                     if (_wasMaximizedBeforeFullscreen)
-                    {
-                        return;
-                    }
+                        RestoreMaximizedAfterFullscreen(Window);
                     else if (_windowSizeBeforeFullscreen.HasValue && _windowLocationBeforeFullscreen.HasValue)
                     {
-                        // Was not maximized, restore size and position
                         Window.SetMaximized(false);
                         Window.SetSize(_windowSizeBeforeFullscreen.Value);
                         Window.SetLocation(_windowLocationBeforeFullscreen.Value);
                     }
                     else
-                    {
                         Window.SetMaximized(false);
-                    }
                 }
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Error setting fullscreen state");
+            }
+        }
+
+        public static void ApplyMonitoringWindowLayout(bool compact)
+        {
+            try
+            {
+                if (Window == null) return;
+
+                if (compact)
+                {
+                    if (_monitoringLayoutActive) return;
+                    _monitoringLayoutActive = true;
+
+                    _monitoringRestoreMaximized = Window.Maximized;
+                    if (_monitoringRestoreMaximized)
+                        Window.SetMaximized(false);
+
+                    _monitoringRestoreSize = Window.Size;
+                    _monitoringRestoreLocation = Window.Location;
+
+                    Window.SetSize(new Size(336, 304));
+                    Window.Center();
+
+                    Window.SetTopMost(true);
+                    _monitoringTopMostApplied = true;
+                }
+                else
+                {
+                    if (!_monitoringLayoutActive) return;
+                    _monitoringLayoutActive = false;
+
+                    if (_monitoringTopMostApplied)
+                    {
+                        Window.SetTopMost(false);
+                        _monitoringTopMostApplied = false;
+                    }
+
+                    if (_monitoringRestoreSize.HasValue && _monitoringRestoreLocation.HasValue)
+                    {
+                        Window.SetSize(_monitoringRestoreSize.Value);
+                        Window.SetLocation(_monitoringRestoreLocation.Value);
+                    }
+
+                    _monitoringRestoreSize = null;
+                    _monitoringRestoreLocation = null;
+
+                    if (_monitoringRestoreMaximized)
+                    {
+                        Window.SetMaximized(true);
+                        _monitoringRestoreMaximized = false;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error applying monitoring window layout");
             }
         }
 

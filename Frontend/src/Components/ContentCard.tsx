@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { useSettings } from '../Context/SettingsContext';
-import { useAppState } from '../Context/AppStateContext';
-import { BookmarkType, Content, includeInHighlight } from '../Models/types';
+import { Content, includeInHighlight } from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { openFileLocation } from '../Utils/FileUtils';
 import { useAuth } from '../Hooks/useAuth.tsx';
@@ -19,21 +18,13 @@ import {
   Crown,
   ExternalLink,
   Copy,
-  Bookmark,
+  Inbox,
 } from 'lucide-react';
 import { useAiHighlights } from '../Context/AiHighlightsContext';
 import { useCompression } from '../Context/CompressionContext';
 import Button from './Button';
 
-type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight';
-
-// Content keys (type:fileName) present at the first populated list. Anything absent afterwards
-// appeared while the app was open and is the only kind whose thumbnail animates in.
-const knownContentKeys = new Set<string>();
-let hasSeededKnownContent = false;
-
-// Thumbnails already loaded this session, so a remounted card shows instantly without re-animating.
-const loadedThumbnailKeys = new Set<string>();
+type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit';
 
 interface VideoCardProps {
   content?: Content; // Optional for skeleton cards
@@ -42,7 +33,6 @@ interface VideoCardProps {
   isLoading?: boolean; // Indicates if this is a loading (skeleton) card
   isSelected?: boolean; // Whether this card is selected in multi-select mode
   isSelectionMode?: boolean; // Whether multi-select mode is active
-  isHighlighted?: boolean; // Briefly pulse the card to draw attention (e.g. after import)
 }
 
 export default function ContentCard({
@@ -52,10 +42,9 @@ export default function ContentCard({
   isLoading,
   isSelected = false,
   isSelectionMode = false,
-  isHighlighted = false,
 }: VideoCardProps) {
-  const { enableAi, showNewBadgeOnVideos, airplaneMode } = useSettings();
-  const { cacheFolder, content: allContent } = useAppState();
+  const { enableAi, showNewBadgeOnVideos, state } = useSettings();
+  const { cacheFolder } = state;
   const { session } = useAuth();
   const { openModal, closeModal } = useModal();
   const { aiProgress } = useAiHighlights();
@@ -73,39 +62,6 @@ export default function ContentCard({
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
-
-  const thumbnailRef = useRef<HTMLImageElement>(null);
-  const thumbnailKey = `${type}:${content?.fileName ?? ''}`;
-  const isNewContent =
-    hasSeededKnownContent && content != null && !knownContentKeys.has(thumbnailKey);
-
-  // Existing content starts "loaded" (instant); only newly appeared content crossfades from the shimmer.
-  const [thumbnailLoaded, setThumbnailLoaded] = useState(
-    () => !isNewContent || loadedThumbnailKeys.has(thumbnailKey),
-  );
-
-  // Seed the known set on the first populated list; record each card on mount so it stays "known".
-  useEffect(() => {
-    if (!hasSeededKnownContent && allContent.length > 0) {
-      for (const item of allContent) knownContentKeys.add(`${item.type}:${item.fileName}`);
-      hasSeededKnownContent = true;
-    }
-    if (content?.fileName) knownContentKeys.add(thumbnailKey);
-  }, [allContent, thumbnailKey, content?.fileName]);
-
-  const markThumbnailLoaded = useCallback(() => {
-    loadedThumbnailKeys.add(thumbnailKey);
-    setThumbnailLoaded(true);
-  }, [thumbnailKey]);
-
-  // A cached thumbnail can already be `complete` on mount. Mark it loaded before paint so it shows
-  // instantly (no crossfade) rather than briefly shimmering.
-  useLayoutEffect(() => {
-    const img = thumbnailRef.current;
-    if (img?.complete && img.naturalWidth > 0) {
-      markThumbnailLoaded();
-    }
-  }, [markThumbnailLoaded]);
 
   const updateDropdownPosition = useCallback(() => {
     if (dropdownRef.current) {
@@ -148,7 +104,7 @@ export default function ContentCard({
               <figure className="relative aspect-w-16 aspect-h-9">
                 {/* Thumbnail Skeleton */}
                 <div
-                  className="skeleton w-full h-0 relative bg-base-200/75 rounded-none"
+                  className="skeleton w-full h-0 relative bg-base-300/70 rounded-none"
                   style={{ paddingTop: '56.25%' }}
                 ></div>
                 <span
@@ -168,27 +124,22 @@ export default function ContentCard({
 
         {type !== 'Highlight' && (
           <>
-            {/* Mirrors the loaded card's figure/body exactly so the skeleton is the same height. */}
-            <figure className="relative aspect-video bg-black">
-              <div className="skeleton w-full h-full rounded-none bg-base-200/75"></div>
+            <figure className="relative aspect-w-16 aspect-h-9">
+              {/* Thumbnail Skeleton */}
+              <div
+                className="skeleton w-full h-0 relative bg-base-300/70 rounded-none"
+                style={{ paddingTop: '56.25%' }}
+              ></div>
+              <span
+                className="absolute bottom-2 right-2 bg-opacity-75 text-white text-xs rounded skeleton w-full"
+                style={{ aspectRatio: '16/9', visibility: 'hidden' }}
+              ></span>
             </figure>
-            <div className="card-body gap-1 pt-2">
-              <div className="flex justify-between items-center">
-                <h2 className="card-title !block w-3/4">
-                  {/* Title Skeleton */}
-                  <span className="skeleton inline-block align-middle h-4 w-full rounded"></span>
-                </h2>
-                <span
-                  aria-hidden="true"
-                  className="btn btn-ghost btn-sm btn-circle invisible shrink-0"
-                >
-                  <Ellipsis size={24} />
-                </span>
-              </div>
+            <div className="card card-body bg-base-300">
+              {/* Title Skeleton */}
+              <div className="skeleton bg-base-300 h-5 w-3/4 mb-2 mt-1"></div>
               {/* Metadata Skeleton */}
-              <div className="text-sm">
-                <span className="skeleton inline-block align-middle h-3.5 w-4/6 rounded"></span>
-              </div>
+              <div className="skeleton h-4 w-4/6"></div>
             </div>
           </>
         )}
@@ -205,7 +156,9 @@ export default function ContentCard({
           ? 'Replay Buffers'
           : type === 'Clip'
             ? 'Clips'
-            : 'Highlights';
+            : type === 'PendingEdit'
+              ? '待剪輯'
+              : 'Highlights';
     const thumbnailPath = `${cacheFolder}/thumbnails/${folderName}/${content?.fileName}.jpeg`;
     return `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(thumbnailPath)}`;
   };
@@ -227,8 +180,6 @@ export default function ContentCard({
 
   const thumbnailPath = getThumbnailPath();
   const formattedDuration = formatDuration(content!.duration);
-  const manualBookmarkCount =
-    content?.bookmarks?.filter((b) => b.type === BookmarkType.Manual).length ?? 0;
 
   // Check if content was created within the last hour and hasn't been viewed yet
   const isRecent = useMemo((): boolean => {
@@ -244,9 +195,10 @@ export default function ContentCard({
     const createdAt = new Date(content.createdAt);
     const now = new Date();
     const diffInHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-    return diffInHours <= 1;
+    return diffInHours <= 1; // Content is considered recent if created within the last hour
   }, [content?.fileName, content?.createdAt]);
 
+  // Mark content as viewed when clicked
   const markAsViewed = () => {
     if (!content) return;
 
@@ -297,7 +249,7 @@ export default function ContentCard({
   };
 
   const startRenaming = () => {
-    setRenameValue(content!.title || '');
+    setRenameValue(content!.title || content!.fileName || '');
     setIsRenaming(true);
     setTimeout(() => {
       renameInputRef.current?.focus();
@@ -310,7 +262,7 @@ export default function ContentCard({
     setIsRenaming(false);
     const trimmed = renameValue.trim();
     const invalidChars = /[<>:"/\\|?*]/;
-    if (trimmed && invalidChars.test(trimmed)) return;
+    if (!trimmed || invalidChars.test(trimmed)) return;
     sendMessageToBackend('RenameContent', {
       FileName: content!.fileName,
       ContentType: type,
@@ -322,8 +274,7 @@ export default function ContentCard({
 
   return (
     <div
-      data-content-filename={content!.fileName}
-      className={`card card-compact bg-base-300 text-gray-300 w-full border border-[#49515b] ${isSelected ? '!outline !outline-1 !outline-primary' : ''} ${isHighlighted ? 'import-pulse' : ''} ${isBeingCompressed ? 'cursor-default opacity-75' : 'cursor-pointer'} ${isSelectionMode ? 'select-none' : ''}`}
+      className={`card card-compact bg-base-300 text-gray-300 w-full border border-[#49515b] ${isSelected ? '!outline !outline-1 !outline-primary' : ''} ${isBeingCompressed ? 'cursor-default opacity-75' : 'cursor-pointer'} ${isSelectionMode ? 'select-none' : ''}`}
       onClick={() => {
         if (isBeingCompressed) return;
         if (!isSelectionMode) markAsViewed();
@@ -331,31 +282,18 @@ export default function ContentCard({
       }}
     >
       <figure className="relative aspect-video bg-black">
-        {/* Shimmer crossfades out as the image fades in, so the figure never flashes black. */}
-        <div
-          className={`absolute inset-0 rounded-none bg-base-200/75 transition-opacity duration-200 ${thumbnailLoaded ? 'opacity-0' : 'skeleton opacity-100'}`}
-        ></div>
         <img
-          ref={thumbnailRef}
           src={thumbnailPath}
           alt={'thumbnail'}
-          className={`w-full h-full object-contain select-none transition-opacity duration-200 ${thumbnailLoaded ? 'opacity-100' : 'opacity-0'}`}
+          className="w-full h-full object-contain select-none"
           loading="lazy"
           width={1600}
           height={900}
           draggable={false}
-          onLoad={markThumbnailLoaded}
-          onError={markThumbnailLoaded}
         />
         <span className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
           {formattedDuration}
         </span>
-        {manualBookmarkCount > 0 && (
-          <span className="absolute top-2 right-2 bg-black/75 text-yellow-400 text-xs px-2 py-1 rounded">
-            <Bookmark size={12} fill="currentColor" className="inline align-middle mr-1" />
-            <span className="align-middle">{manualBookmarkCount}</span>
-          </span>
-        )}
         {isSelectionMode && (
           <input
             type="checkbox"
@@ -365,7 +303,7 @@ export default function ContentCard({
           />
         )}
         {isRecent &&
-          (type === 'Session' || type === 'Buffer') &&
+          (type === 'Session' || type === 'Buffer' || type === 'PendingEdit') &&
           showNewBadgeOnVideos &&
           !isSelectionMode && (
             <span className="absolute top-2 left-2 badge badge-primary badge-sm text-base-300 opacity-90">
@@ -450,7 +388,7 @@ export default function ContentCard({
               tabIndex={0}
               className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2"
             >
-              {!airplaneMode && (type === 'Clip' || type === 'Highlight') && (
+              {(type === 'Clip' || type === 'Highlight') && (
                 <li>
                   <Button
                     variant="menuPrimary"
@@ -464,7 +402,10 @@ export default function ContentCard({
                   </Button>
                 </li>
               )}
-              {(type === 'Clip' || type === 'Highlight' || type === 'Buffer') && (
+              {(type === 'Clip' ||
+                type === 'Highlight' ||
+                type === 'Buffer' ||
+                type === 'PendingEdit') && (
                 <li>
                   <Button
                     variant="menu"
@@ -480,7 +421,7 @@ export default function ContentCard({
                   </Button>
                 </li>
               )}
-              {type === 'Session' && enableAi && (
+              {(type === 'Session' || type === 'PendingEdit') && enableAi && (
                 <li>
                   {(() => {
                     const hasHighlightBookmarks = content?.bookmarks?.some((b) =>
@@ -515,6 +456,22 @@ export default function ContentCard({
                       </Button>
                     );
                   })()}
+                </li>
+              )}
+              {(type === 'Session' || type === 'Buffer') && (
+                <li>
+                  <Button
+                    variant="menu"
+                    onClick={() => {
+                      (document.activeElement as HTMLElement).blur();
+                      sendMessageToBackend('MoveToPendingEdit', {
+                        Items: [{ FileName: content!.fileName, ContentType: type }],
+                      });
+                    }}
+                  >
+                    <Inbox size={20} />
+                    <span>移至待剪輯</span>
+                  </Button>
                 </li>
               )}
               <li>
@@ -575,7 +532,7 @@ export default function ContentCard({
           <span>
             {content!.fileSize} &bull; {new Date(content!.createdAt).toLocaleDateString()}
           </span>
-          {!airplaneMode && content!.uploadId && (
+          {content!.uploadId && (
             <div className="flex absolute right-3 gap-0 pr-1">
               <span
                 className="btn btn-ghost btn-sm btn-circle relative group hover:bg-white/10 active:bg-white/10"

@@ -350,6 +350,108 @@ namespace Segra.Backend.Media
             await CreateClips(new List<Segment> { segment }, preferredOutputFileNameBase, appendTimestampToPreferredFileName);
         }
 
+        private static string ClipMbpsToBv(int mbps)
+        {
+            int m = Math.Clamp(mbps <= 0 ? 35 : mbps, 10, 100);
+            return $"{m}M";
+        }
+
+        private static int ClipVbrMidpointMbps(Settings s)
+        {
+            int mn = Math.Min(s.ClipMinBitrate, s.ClipMaxBitrate);
+            int mx = Math.Max(s.ClipMinBitrate, s.ClipMaxBitrate);
+            int mid = (mn + mx) / 2;
+            if (mid <= 0)
+                mid = s.ClipBitrate;
+            return Math.Clamp(mid, 10, 100);
+        }
+
+        private static int ClipVbrPeakMbps(Settings s) =>
+            Math.Clamp(Math.Max(s.ClipMinBitrate, s.ClipMaxBitrate), 10, 100);
+
+        private static string NormalizeClipRateControl(Settings settings)
+        {
+            string rc = (settings.ClipRateControl ?? "CRF").Trim().ToUpperInvariant();
+            bool cpuClip = settings.ClipEncoder.Equals("cpu", StringComparison.OrdinalIgnoreCase);
+            var gpu = DetectGpuVendor();
+
+            if (cpuClip && (rc == "CQP" || rc == "CQVBR"))
+                return rc == "CQVBR" ? "VBR" : "CRF";
+            if (!cpuClip && rc == "CRF")
+                return "CQP";
+            if (rc == "CQVBR" && (cpuClip || gpu != GpuVendor.Nvidia))
+                return "CQP";
+
+            return rc switch
+            {
+                "CBR" or "VBR" or "CRF" or "CQP" or "CQVBR" => rc,
+                _ => cpuClip ? "CRF" : "CQP"
+            };
+        }
+
+        private static string BuildCpuClipRateArgs(Settings settings)
+        {
+            string rc = NormalizeClipRateControl(settings);
+            bool hevc = settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase);
+
+            return rc switch
+            {
+                "CBR" =>
+                    hevc
+                        ? $"-b:v {ClipMbpsToBv(settings.ClipBitrate)}"
+                        : $"-b:v {ClipMbpsToBv(settings.ClipBitrate)} -minrate {ClipMbpsToBv(settings.ClipBitrate)} -maxrate {ClipMbpsToBv(settings.ClipBitrate)} -bufsize {ClipMbpsToBv(settings.ClipBitrate * 2)}",
+                "VBR" =>
+                    hevc
+                        ? $"-b:v {ClipMbpsToBv(ClipVbrMidpointMbps(settings))} -maxrate {ClipMbpsToBv(ClipVbrPeakMbps(settings))} -bufsize {ClipMbpsToBv(ClipVbrPeakMbps(settings) * 2)}"
+                        : $"-b:v {ClipMbpsToBv(ClipVbrMidpointMbps(settings))} -maxrate {ClipMbpsToBv(ClipVbrPeakMbps(settings))} -bufsize {ClipMbpsToBv(ClipVbrPeakMbps(settings) * 2)}",
+                _ => $"-crf {settings.ClipQualityCpu}"
+            };
+        }
+
+        private static string BuildNvidiaClipRateArgs(Settings settings)
+        {
+            string rc = NormalizeClipRateControl(settings);
+            return rc switch
+            {
+                "CBR" =>
+                    $"-rc:v cbr -b:v {ClipMbpsToBv(settings.ClipBitrate)} -bufsize {ClipMbpsToBv(settings.ClipBitrate * 2)}",
+                "VBR" =>
+                    $"-rc:v vbr -b:v {ClipMbpsToBv(ClipVbrMidpointMbps(settings))} -maxrate {ClipMbpsToBv(ClipVbrPeakMbps(settings))} -bufsize {ClipMbpsToBv(ClipVbrPeakMbps(settings) * 2)}",
+                "CQVBR" =>
+                    $"-rc:v vbr -cq {settings.ClipQualityGpu} -maxrate {ClipMbpsToBv(ClipVbrPeakMbps(settings))} -bufsize {ClipMbpsToBv(ClipVbrPeakMbps(settings) * 2)}",
+                _ =>
+                    $"-rc:v vbr -cq {settings.ClipQualityGpu}"
+            };
+        }
+
+        private static string BuildAmdClipRateArgs(Settings settings)
+        {
+            string rc = NormalizeClipRateControl(settings);
+            return rc switch
+            {
+                "CBR" =>
+                    $"-rc cbr -b:v {ClipMbpsToBv(settings.ClipBitrate)}",
+                "VBR" =>
+                    $"-rc vbr_peak -b:v {ClipMbpsToBv(ClipVbrMidpointMbps(settings))} -maxrate {ClipMbpsToBv(ClipVbrPeakMbps(settings))}",
+                _ =>
+                    $"-rc cqp -qp_i {settings.ClipQualityGpu} -qp_p {settings.ClipQualityGpu}"
+            };
+        }
+
+        private static string BuildIntelClipRateArgs(Settings settings)
+        {
+            string rc = NormalizeClipRateControl(settings);
+            return rc switch
+            {
+                "CBR" =>
+                    $"-b:v {ClipMbpsToBv(settings.ClipBitrate)} -maxrate {ClipMbpsToBv(settings.ClipBitrate)}",
+                "VBR" =>
+                    $"-b:v {ClipMbpsToBv(ClipVbrMidpointMbps(settings))} -maxrate {ClipMbpsToBv(ClipVbrPeakMbps(settings))}",
+                _ =>
+                    $"-global_quality {settings.ClipQualityGpu}"
+            };
+        }
+
         private static async Task ExtractClip(int clipId, string inputFilePath, string outputFilePath, double startTime, double endTime,
                             List<string>? audioTrackNames, List<int>? mutedAudioTracks, Dictionary<int, double>? audioTrackVolumes, List<string>? targetAudioLayout, bool losslessOnly, Action<double> progressCallback)
         {
@@ -391,86 +493,84 @@ namespace Segra.Backend.Media
                 return;
             }
 
-            var settings = Settings.Instance;
+            var settingsForCodec = Settings.Instance;
+
+            bool wantCpuEncoder = settingsForCodec.ClipEncoder.Equals("cpu", StringComparison.OrdinalIgnoreCase);
+            GpuVendor clipGpuVendor = wantCpuEncoder ? GpuVendor.Unknown : DetectGpuVendor();
+            if (!wantCpuEncoder && clipGpuVendor == GpuVendor.Unknown)
+            {
+                Log.Warning("Unknown GPU vendor detected, falling back to CPU encoding");
+                wantCpuEncoder = true;
+            }
 
             string videoCodec;
             string qualityArgs;
             string presetArgs;
-            if (settings.ClipEncoder.Equals("gpu", StringComparison.OrdinalIgnoreCase))
+            if (wantCpuEncoder)
             {
-                // GPU encoder uses hardware-accelerated codecs based on GPU vendor
-                GpuVendor gpuVendor = DetectGpuVendor();
-
-                switch (gpuVendor)
-                {
-                    case GpuVendor.Nvidia:
-                        if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "hevc_nvenc";
-                        else if (settings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "av1_nvenc";
-                        else
-                            videoCodec = "h264_nvenc";
-
-                        // NVENC uses -cq for quality control and specific presets
-                        qualityArgs = $"-cq {settings.ClipQualityGpu}";
-                        presetArgs = $"-preset {settings.ClipPreset}";
-                        break;
-
-                    case GpuVendor.AMD:
-                        if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "hevc_amf";
-                        else if (settings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "av1_amf";
-                        else
-                            videoCodec = "h264_amf";
-
-                        // AMF uses -rc cqp (Constant QP) rate control with -qp_i, -qp_p for quality control
-                        qualityArgs = $"-rc cqp -qp_i {settings.ClipQualityGpu} -qp_p {settings.ClipQualityGpu}";
-                        // Frontend sends AMD AMF usage modes directly: quality, transcoding, lowlatency, ultralowlatency
-                        presetArgs = $"-usage {settings.ClipPreset}";
-                        break;
-
-                    case GpuVendor.Intel:
-                        if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "hevc_qsv";
-                        else if (settings.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "av1_qsv";
-                        else
-                            videoCodec = "h264_qsv";
-
-                        // QSV uses -global_quality for ICQ mode
-                        qualityArgs = $"-global_quality {settings.ClipQualityGpu}";
-                        presetArgs = $"-preset {settings.ClipPreset}";
-                        break;
-
-                    default:
-                        // Fall back to CPU encoding if GPU vendor is unknown
-                        Log.Warning("Unknown GPU vendor detected, falling back to CPU encoding");
-                        if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
-                            videoCodec = "libx265";
-                        else
-                            videoCodec = "libx264";
-
-                        // CPU codecs use -crf and standard presets
-                        qualityArgs = $"-crf {settings.ClipQualityCpu}";
-                        presetArgs = $"-preset {settings.ClipPreset}";
-                        break;
-                }
-            }
-            else
-            {
-                // CPU encoder uses software codecs
-                if (settings.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                if (settingsForCodec.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
                     videoCodec = "libx265";
                 else
                     videoCodec = "libx264";
 
-                // CPU codecs use -crf and standard presets
-                qualityArgs = $"-crf {settings.ClipQualityCpu}";
-                presetArgs = $"-preset {settings.ClipPreset}";
+                qualityArgs = BuildCpuClipRateArgs(settingsForCodec);
+                presetArgs = $"-preset {settingsForCodec.ClipPreset}";
+            }
+            else
+            {
+                switch (clipGpuVendor)
+                {
+                    case GpuVendor.Nvidia:
+                        if (settingsForCodec.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "hevc_nvenc";
+                        else if (settingsForCodec.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "av1_nvenc";
+                        else
+                            videoCodec = "h264_nvenc";
+
+                        qualityArgs = BuildNvidiaClipRateArgs(settingsForCodec);
+                        presetArgs = $"-preset {settingsForCodec.ClipPreset}";
+                        break;
+
+                    case GpuVendor.AMD:
+                        if (settingsForCodec.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "hevc_amf";
+                        else if (settingsForCodec.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "av1_amf";
+                        else
+                            videoCodec = "h264_amf";
+
+                        qualityArgs = BuildAmdClipRateArgs(settingsForCodec);
+                        presetArgs = $"-usage {settingsForCodec.ClipPreset}";
+                        break;
+
+                    case GpuVendor.Intel:
+                        if (settingsForCodec.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "hevc_qsv";
+                        else if (settingsForCodec.ClipCodec.Equals("av1", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "av1_qsv";
+                        else
+                            videoCodec = "h264_qsv";
+
+                        qualityArgs = BuildIntelClipRateArgs(settingsForCodec);
+                        presetArgs = $"-preset {settingsForCodec.ClipPreset}";
+                        break;
+
+                    default:
+                        if (settingsForCodec.ClipCodec.Equals("h265", StringComparison.OrdinalIgnoreCase))
+                            videoCodec = "libx265";
+                        else
+                            videoCodec = "libx264";
+
+                        qualityArgs = BuildCpuClipRateArgs(settingsForCodec);
+                        presetArgs = $"-preset {settingsForCodec.ClipPreset}";
+                        break;
+                }
             }
 
-            string fpsArg = settings.ClipFps > 0 ? $"-r {settings.ClipFps}" : "";
+            string fpsArg = settingsForCodec.ClipFps > 0 ? $"-r {settingsForCodec.ClipFps}" : "";
+
+            var settings = settingsForCodec;
 
             // Build audio mapping, filter, and metadata based on per-segment muted tracks
             string mapArgs = "";

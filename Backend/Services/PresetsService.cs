@@ -21,7 +21,6 @@ namespace Segra.Backend.Services
             var settings = Settings.Instance;
             settings.BeginBulkUpdate();
             bool isAmd = IsAmdEncoder();
-            bool applied = false;
 
             try
             {
@@ -74,20 +73,14 @@ namespace Segra.Backend.Services
 
                 Log.Information("Applied video preset '{Preset}': {Resolution}, {FrameRate}fps, {RateControl}, {Encoder}",
                     settings.VideoQualityPreset, settings.Resolution, settings.FrameRate, settings.RateControl, settings.Encoder);
-                applied = true;
+
+                settings.EndBulkUpdateAndSaveSettings();
+                await MessageService.SendSettingsToFrontend("Video preset applied");
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to apply video preset");
-            }
-            finally
-            {
                 settings.EndBulkUpdateAndSaveSettings();
-            }
-
-            if (applied)
-            {
-                await MessageService.SendSettingsToFrontend("Video preset applied");
             }
         }
 
@@ -98,7 +91,6 @@ namespace Segra.Backend.Services
         {
             var settings = Settings.Instance;
             settings.BeginBulkUpdate();
-            bool applied = false;
 
             try
             {
@@ -107,6 +99,7 @@ namespace Segra.Backend.Services
                     case "low":
                         settings.ClipQualityPreset = "low";
                         settings.ClipEncoder = "cpu";
+                        settings.ClipRateControl = "CRF";
                         settings.ClipQualityCpu = 28;
                         settings.ClipCodec = "h264";
                         settings.ClipFps = 30;
@@ -117,6 +110,7 @@ namespace Segra.Backend.Services
                     case "standard":
                         settings.ClipQualityPreset = "standard";
                         settings.ClipEncoder = "cpu";
+                        settings.ClipRateControl = "CRF";
                         settings.ClipQualityCpu = 23;
                         settings.ClipCodec = "h264";
                         settings.ClipFps = 60;
@@ -127,6 +121,7 @@ namespace Segra.Backend.Services
                     case "high":
                         settings.ClipQualityPreset = "high";
                         settings.ClipEncoder = "cpu";
+                        settings.ClipRateControl = "CRF";
                         settings.ClipQualityCpu = 20;
                         settings.ClipCodec = "h264";
                         settings.ClipFps = 60;
@@ -143,22 +138,16 @@ namespace Segra.Backend.Services
                         return;
                 }
 
-                Log.Information("Applied clip preset '{Preset}': {Encoder}, CRF {Quality}, {Codec}, {Fps}fps, {Audio} audio, {EncoderPreset}",
-                    settings.ClipQualityPreset, settings.ClipEncoder, settings.ClipQualityCpu, settings.ClipCodec, settings.ClipFps, settings.ClipAudioQuality, settings.ClipPreset);
-                applied = true;
+                Log.Information("Applied clip preset '{Preset}': {Encoder}, {RateControl}, CRF {Quality}, {Codec}, {Fps}fps, {Audio} audio, {EncoderPreset}",
+                    settings.ClipQualityPreset, settings.ClipEncoder, settings.ClipRateControl, settings.ClipQualityCpu, settings.ClipCodec, settings.ClipFps, settings.ClipAudioQuality, settings.ClipPreset);
+
+                settings.EndBulkUpdateAndSaveSettings();
+                await MessageService.SendSettingsToFrontend("Clip preset applied");
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to apply clip preset");
-            }
-            finally
-            {
                 settings.EndBulkUpdateAndSaveSettings();
-            }
-
-            if (applied)
-            {
-                await MessageService.SendSettingsToFrontend("Clip preset applied");
             }
         }
     }

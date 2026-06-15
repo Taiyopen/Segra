@@ -69,6 +69,10 @@ namespace Segra.Backend.Core.Models
         private int _clipFps = 60; // 0 for 'Original'
         private string _clipAudioQuality = "128k";
         private string _recordingAudioBitrate = "128k";
+        private string _clipRateControl = "CRF"; // CRF, CBR, VBR, CQP, CQVBR (NVENC only)
+        private int _clipBitrate = 35;
+        private int _clipMinBitrate = 25;
+        private int _clipMaxBitrate = 55;
         private string _clipPreset = "veryfast";
         private bool _clipKeepSeparateAudioTracks = false;
         private float _soundEffectsVolume = 0.5f;
@@ -77,6 +81,9 @@ namespace Segra.Backend.Core.Models
         private bool _showAudioWaveformInTimeline = true;
         private bool _enableSeparateAudioTracks = false;
         private bool _excludeGameDiscordFromMasterMix = false;
+        private uint _gameAudioTrackMask = 1;
+        private uint _discordAudioTrackMask = 1;
+        private List<string> _recordingAudioTrackNames = new List<string>();
         private AudioOutputMode _audioOutputMode = AudioOutputMode.All;
         private bool _inputNoiseSuppression = true;
         private string _videoQualityPreset = "high";
@@ -680,6 +687,59 @@ namespace Segra.Backend.Core.Models
             }
         }
 
+        [JsonPropertyName("clipRateControl")]
+        public string ClipRateControl
+        {
+            get => _clipRateControl;
+            set
+            {
+                if (_clipRateControl != value)
+                {
+                    _clipRateControl = value;
+                }
+            }
+        }
+
+        /// <summary>Target video bitrate for clip export (Mbps), used for CPU/GPU CBR and as a fallback average for some VBR paths.</summary>
+        [JsonPropertyName("clipBitrate")]
+        public int ClipBitrate
+        {
+            get => _clipBitrate;
+            set
+            {
+                if (_clipBitrate != value)
+                {
+                    _clipBitrate = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("clipMinBitrate")]
+        public int ClipMinBitrate
+        {
+            get => _clipMinBitrate;
+            set
+            {
+                if (_clipMinBitrate != value)
+                {
+                    _clipMinBitrate = value;
+                }
+            }
+        }
+
+        [JsonPropertyName("clipMaxBitrate")]
+        public int ClipMaxBitrate
+        {
+            get => _clipMaxBitrate;
+            set
+            {
+                if (_clipMaxBitrate != value)
+                {
+                    _clipMaxBitrate = value;
+                }
+            }
+        }
+
         [JsonPropertyName("recordingAudioBitrate")]
         public string RecordingAudioBitrate
         {
@@ -785,8 +845,8 @@ namespace Segra.Backend.Core.Models
         }
 
         /// <summary>
-        /// When true with separate tracks and Game/Game+Discord modes: Track 1 is microphone + desktop only;
-        /// game capture_audio and Discord app capture go to their own tracks and are not routed to Track 1.
+        /// Deprecated: use per-source <see cref="DeviceSetting.AudioTrackMask"/> instead.
+        /// Kept for settings file compatibility only.
         /// </summary>
         [JsonPropertyName("excludeGameDiscordFromMasterMix")]
         public bool ExcludeGameDiscordFromMasterMix
@@ -799,6 +859,30 @@ namespace Segra.Backend.Core.Models
                     _excludeGameDiscordFromMasterMix = value;
                 }
             }
+        }
+
+        /// <summary>OBS mixer bitmask for game capture audio (bits 0–5 = tracks 1–6).</summary>
+        [JsonPropertyName("gameAudioTrackMask")]
+        public uint GameAudioTrackMask
+        {
+            get => _gameAudioTrackMask;
+            set => _gameAudioTrackMask = value & 0x3Fu;
+        }
+
+        /// <summary>OBS mixer bitmask for Discord app capture (bits 0–5 = tracks 1–6).</summary>
+        [JsonPropertyName("discordAudioTrackMask")]
+        public uint DiscordAudioTrackMask
+        {
+            get => _discordAudioTrackMask;
+            set => _discordAudioTrackMask = value & 0x3Fu;
+        }
+
+        /// <summary>Custom names for recording tracks 1–6 (empty = "Track N").</summary>
+        [JsonPropertyName("recordingAudioTrackNames")]
+        public List<string> RecordingAudioTrackNames
+        {
+            get => _recordingAudioTrackNames;
+            set => _recordingAudioTrackNames = value ?? new List<string>();
         }
 
         [JsonPropertyName("audioOutputMode")]
@@ -985,6 +1069,10 @@ namespace Segra.Backend.Core.Models
         public required string Name { get; set; }
         [JsonPropertyName("volume")]
         public float Volume { get; set; } = 1.0f; // Default volume for all devices initially
+
+        /// <summary>OBS mixer bitmask (bits 0–5 = tracks 1–6). Default: track 1 only.</summary>
+        [JsonPropertyName("audioTrackMask")]
+        public uint AudioTrackMask { get; set; } = 1;
     }
 
     // Equality comparer for DeviceSetting based on Id and Name
@@ -995,7 +1083,7 @@ namespace Segra.Backend.Core.Models
             if (ReferenceEquals(x, y)) return true;
             if (ReferenceEquals(x, null) || ReferenceEquals(y, null))
                 return false;
-            return x.Id == y.Id && x.Name == y.Name && x.Volume == y.Volume;
+            return x.Id == y.Id && x.Name == y.Name && x.Volume == y.Volume && x.AudioTrackMask == y.AudioTrackMask;
         }
 
         public int GetHashCode(DeviceSetting obj)
@@ -1003,7 +1091,7 @@ namespace Segra.Backend.Core.Models
             if (ReferenceEquals(obj, null)) return 0;
             int hashId = obj.Id == null ? 0 : obj.Id.GetHashCode();
             int hashName = obj.Name == null ? 0 : obj.Name.GetHashCode();
-            return hashId ^ hashName;
+            return hashId ^ hashName ^ obj.AudioTrackMask.GetHashCode();
         }
     }
 
@@ -1066,6 +1154,9 @@ namespace Segra.Backend.Core.Models
         [JsonPropertyName("coverImageId")]
         public string? CoverImageId { get; set; }
 
+        [JsonPropertyName("gameImage")]
+        public string? GameImage { get; set; }
+
         [JsonPropertyName("audioTrackNames")]
         public List<string>? AudioTrackNames { get; set; }
 
@@ -1106,7 +1197,8 @@ namespace Segra.Backend.Core.Models
             Session,
             Buffer,
             Clip,
-            Highlight
+            Highlight,
+            PendingEdit
         }
 
         public ContentType Type { get; set; } = ContentType.Session;

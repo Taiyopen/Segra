@@ -1,6 +1,3 @@
-using NAudio.CoreAudioApi;
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
 using Segra.Backend.App;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Recorder;
@@ -15,7 +12,6 @@ namespace Segra.Backend.Windows.Input
     {
         private const int WH_KEYBOARD_LL = 13;
         private const int WM_KEYDOWN = 0x0100;
-        private const int WM_SYSKEYDOWN = 0x0104;
         private const int VK_CONTROL = 0x11;
         private const int VK_ALT = 0x12;
         private const int VK_SHIFT = 0x10;
@@ -25,6 +21,7 @@ namespace Segra.Backend.Windows.Input
         private static IntPtr _hookID = IntPtr.Zero;
         private static List<Keybind>? _cachedKeybindings;
         private static HashSet<int>? _boundMainKeys;
+        private static readonly int[] _pressedKeys = new int[4];
 
         public static void Start()
         {
@@ -79,7 +76,7 @@ namespace Segra.Backend.Windows.Input
 
         private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode >= 0 && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN))
+            if (nCode >= 0 && wParam == WM_KEYDOWN)
             {
                 var boundKeys = _boundMainKeys;
                 if (boundKeys == null || boundKeys.Count == 0)
@@ -94,22 +91,20 @@ namespace Segra.Backend.Windows.Input
                     return CallNextHookEx(_hookID, nCode, wParam, lParam);
                 }
 
+                bool ctrlPressed = (GetKeyState(VK_CONTROL) & KEY_PRESSED_MASK) != 0;
+                bool altPressed = (GetKeyState(VK_ALT) & KEY_PRESSED_MASK) != 0;
+                bool shiftPressed = (GetKeyState(VK_SHIFT) & KEY_PRESSED_MASK) != 0;
+
+                int pressedCount = 0;
+                if (ctrlPressed) _pressedKeys[pressedCount++] = VK_CONTROL;
+                if (altPressed) _pressedKeys[pressedCount++] = VK_ALT;
+                if (shiftPressed) _pressedKeys[pressedCount++] = VK_SHIFT;
+                _pressedKeys[pressedCount++] = vkCode;
+
                 var keybindings = _cachedKeybindings!;
-
-                // Unrelated held keys (e.g. W while moving in a game) must not block a match,
-                // but when both F8 and Ctrl+F8 are bound, Ctrl+F8 should only fire the latter.
-                int maxMatchedKeyCount = 0;
                 foreach (var keybind in keybindings)
                 {
-                    if (DoKeysMatch(keybind.Keys, vkCode) && keybind.Keys.Count > maxMatchedKeyCount)
-                    {
-                        maxMatchedKeyCount = keybind.Keys.Count;
-                    }
-                }
-
-                foreach (var keybind in keybindings)
-                {
-                    if (keybind.Keys.Count == maxMatchedKeyCount && DoKeysMatch(keybind.Keys, vkCode))
+                    if (DoKeysMatch(keybind.Keys, pressedCount))
                     {
                         HandleKeybindAction(keybind.Action);
                     }
@@ -119,57 +114,46 @@ namespace Segra.Backend.Windows.Input
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
         }
 
-        private static bool DoKeysMatch(List<int> keybindKeys, int triggerVkCode)
+        private static bool DoKeysMatch(List<int> keybindKeys, int pressedCount)
         {
-            bool containsTrigger = false;
+            if (keybindKeys.Count != pressedCount)
+                return false;
+
             foreach (var key in keybindKeys)
             {
-                if (key == triggerVkCode)
+                bool found = false;
+                for (int i = 0; i < pressedCount; i++)
                 {
-                    containsTrigger = true;
-                    continue;
+                    if (_pressedKeys[i] == key)
+                    {
+                        found = true;
+                        break;
+                    }
                 }
-
-                // GetAsyncKeyState reflects the physical state; GetKeyState is stale on
-                // this thread because it never receives keyboard messages.
-                if ((GetAsyncKeyState(key) & KEY_PRESSED_MASK) == 0)
-                    return false;
+                if (!found) return false;
             }
 
-            return containsTrigger;
+            return true;
         }
 
         private static void HandleKeybindAction(KeybindAction action)
         {
-            var recording = AppState.Instance.Recording;
-            var preRecording = AppState.Instance.PreRecording;
-            var recordingMode = Settings.Instance.RecordingMode;
+            var recording = Settings.Instance.State.Recording;
+            var preRecording = Settings.Instance.State.PreRecording;
 
             switch (action)
             {
                 case KeybindAction.CreateBookmark:
-                    if (recording != null && (recordingMode == RecordingMode.Session || recordingMode == RecordingMode.Hybrid))
+                    if (RecordingHotkeyActions.TryCreateBookmark())
                     {
                         Log.Information("Saving bookmark...");
-                        var bookmark = new Bookmark
-                        {
-                            Type = BookmarkType.Manual,
-                            Time = DateTime.Now - recording.StartTime
-                        };
-                        recording.AddBookmark(bookmark);
-                        Task.Run(PlayBookmarkSound);
                         _ = MessageService.SendFrontendMessage("BookmarkCreated", new { });
                     }
                     break;
 
                 case KeybindAction.SaveReplayBuffer:
-                    if (recording != null && (recordingMode == RecordingMode.Buffer || recordingMode == RecordingMode.Hybrid))
-                    {
+                    if (RecordingHotkeyActions.TrySaveReplayBuffer())
                         Log.Information("Saving replay buffer...");
-                        _ = MessageService.SendFrontendMessage("ReplayBufferSaved", new { });
-                        Task.Run(OBSService.SaveReplayBuffer);
-                        Task.Run(PlayBookmarkSound);
-                    }
                     break;
 
                 case KeybindAction.ToggleRecording:
@@ -195,24 +179,6 @@ namespace Segra.Backend.Windows.Input
             }
         }
 
-        private static void PlayBookmarkSound()
-        {
-            using var audioStream = new MemoryStream(Properties.Resources.bookmark);
-            using var audioReader = new WaveFileReader(audioStream);
-            var sampleProvider = audioReader.ToSampleProvider();
-            var volumeProvider = new VolumeSampleProvider(sampleProvider)
-            {
-                Volume = Settings.Instance.SoundEffectsVolume
-            };
-
-            using var waveOut = new WasapiOut(AudioClientShareMode.Shared, 100);
-            waveOut.Init(volumeProvider);
-            waveOut.Play();
-
-            while (waveOut.PlaybackState == PlaybackState.Playing)
-                Thread.Sleep(10);
-        }
-
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook,
             LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
@@ -229,6 +195,6 @@ namespace Segra.Backend.Windows.Input
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
         [DllImport("user32.dll")]
-        private static extern short GetAsyncKeyState(int nVirtKey);
+        private static extern short GetKeyState(int nVirtKey);
     }
 }

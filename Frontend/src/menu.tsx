@@ -1,18 +1,15 @@
 import { useSettings } from './Context/SettingsContext';
-import { useAppState } from './Context/AppStateContext';
 import RecordingCard from './Components/RecordingCard';
 import CircularProgress from './Components/CircularProgress';
 import { sendMessageToBackend } from './Utils/MessageUtils';
 import { useUploads } from './Context/UploadContext';
 import { useImports } from './Context/ImportContext';
-import { useContentMigration } from './Context/ContentMigrationContext';
 import { useClipping } from './Context/ClippingContext';
 import { useUpdate } from './Context/UpdateContext';
 import { useObsDownload } from './Context/ObsDownloadContext';
 import { useAiHighlights } from './Context/AiHighlightsContext';
 import UploadCard from './Components/UploadCard';
 import ImportCard from './Components/ImportCard';
-import ContentMigrationCard from './Components/ContentMigrationCard';
 import ClippingCard from './Components/ClippingCard';
 import UpdateCard from './Components/UpdateCard';
 import UnavailableDeviceCard from './Components/UnavailableDeviceCard';
@@ -25,77 +22,79 @@ import {
   Crown,
   Monitor,
   Play,
-  LucideIcon,
+  PictureInPicture2,
+  Inbox,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import Button from './Components/Button';
-import { MenuItemId, DEFAULT_MENU_ITEMS, menuItemHasContent } from './Models/types';
+import { useMonitoringLayout } from './Context/MonitoringLayoutContext';
 
 interface MenuProps {
   selectedMenu: string;
   onSelectMenu: (menu: string) => void;
 }
 
-const MENU_ICONS: Record<MenuItemId, LucideIcon> = {
-  'Full Sessions': Play,
-  'Replay Buffer': History,
-  Clips: Clapperboard,
-  Highlights: Crown,
-  Settings: Settings,
-};
-
 export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   const settings = useSettings();
-  const appState = useAppState();
-  const { hasLoadedObs, recording, preRecording } = appState;
+  const { enterMonitoringLayout } = useMonitoringLayout();
+  const { hasLoadedObs, recording, preRecording } = settings.state;
   const { updateInfo } = useUpdate();
   const { aiProgress } = useAiHighlights();
   const { obsDownloadProgress } = useObsDownload();
-  const { migrations: contentMigrations, isMigrating } = useContentMigration();
   const [buttonCooldown, setButtonCooldown] = useState(false);
 
-  const buttonRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // Create refs for each menu button
+  const sessionsRef = useRef<HTMLButtonElement>(null);
+  const replayRef = useRef<HTMLButtonElement>(null);
+  const pendingEditRef = useRef<HTMLButtonElement>(null);
+  const clipsRef = useRef<HTMLButtonElement>(null);
+  const highlightsRef = useRef<HTMLButtonElement>(null);
+  const settingsRef = useRef<HTMLButtonElement>(null);
+
+  // State to store the indicator position
   const [indicatorPosition, setIndicatorPosition] = useState({ top: 12 });
-  const [indicatorAnimated, setIndicatorAnimated] = useState(false);
 
-  const visibleMenuItems = useMemo(() => {
-    const items =
-      settings.menuItems && settings.menuItems.length > 0 ? settings.menuItems : DEFAULT_MENU_ITEMS;
-    // Force-show items that contain content so the user always has a way to reach their files.
-    return items.filter(
-      (item) =>
-        item.id === 'Settings' || item.visible || menuItemHasContent(item.id, appState.content),
-    );
-  }, [settings.menuItems, appState.content]);
-
-  const computeIndicatorPosition = () => {
-    if (!visibleMenuItems.some((item) => item.id === selectedMenu)) return;
-    const rowEl = buttonRefs.current[selectedMenu];
-    if (!rowEl) return;
-    const buttonEl = rowEl.firstElementChild as HTMLElement | null;
-    const buttonHeight = buttonEl?.offsetHeight || 48;
-    const indicatorTop = rowEl.offsetTop + buttonHeight / 2 - 20;
-    setIndicatorPosition({ top: indicatorTop });
-  };
-
-  useLayoutEffect(() => {
-    // Skip while the active row is mid-exit (App.tsx will redirect selectedMenu to a
-    // fallback on the next tick). Otherwise we'd read a stale layout for one frame.
-    computeIndicatorPosition();
-    // After the row enter/exit animation finishes (200ms), recompute. Showing a row
-    // grows its height over the animation window so rows below settle into their final
-    // offsetTop only at the end — this second pass corrects the indicator to match.
-    const timeoutId = setTimeout(computeIndicatorPosition, 220);
-    return () => clearTimeout(timeoutId);
-  }, [selectedMenu, visibleMenuItems]);
-
-  // Enable the slide transition only after the first paint, so the initial render
-  // snaps the indicator to the correct row without animating from the default top.
+  // Update indicator position when selected menu changes
   useEffect(() => {
-    setIndicatorAnimated(true);
-  }, []);
+    const getRefForMenu = () => {
+      switch (selectedMenu) {
+        case 'Full Sessions':
+          return sessionsRef;
+        case 'Replay Buffer':
+          return replayRef;
+        case '待剪輯':
+          return pendingEditRef;
+        case 'Clips':
+          return clipsRef;
+        case 'Highlights':
+          return highlightsRef;
+        case 'Settings':
+          return settingsRef;
+        default:
+          return sessionsRef;
+      }
+    };
 
+    const activeRef = getRefForMenu();
+    if (activeRef.current) {
+      const parentRect = activeRef.current.parentElement?.getBoundingClientRect();
+      const buttonRect = activeRef.current.getBoundingClientRect();
+
+      if (parentRect) {
+        // Calculate relative position to parent with vertical centering
+        // Center the 40px indicator with the button
+        const buttonCenter = buttonRect.top - parentRect.top + buttonRect.height / 2;
+        const indicatorTop = buttonCenter - 21;
+
+        setIndicatorPosition({
+          top: indicatorTop,
+        });
+      }
+    }
+  }, [selectedMenu]);
+
+  // Check if there are any active AI highlight generations and calculate average progress
   const aiProgressValues = Object.values(aiProgress);
   const hasActiveAiHighlights = aiProgressValues.length > 0;
   const averageAiProgress = hasActiveAiHighlights
@@ -106,12 +105,12 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
     const unavailableInput = settings.inputDevices.some(
       (deviceSetting: { id: string }) =>
         deviceSetting.id !== 'default' &&
-        !appState.inputDevices.some((d) => d.id === deviceSetting.id),
+        !settings.state.inputDevices.some((d) => d.id === deviceSetting.id),
     );
     const unavailableOutput = settings.outputDevices.some(
       (deviceSetting: { id: string }) =>
         deviceSetting.id !== 'default' &&
-        !appState.outputDevices.some((d) => d.id === deviceSetting.id),
+        !settings.state.outputDevices.some((d) => d.id === deviceSetting.id),
     );
     return unavailableInput || unavailableOutput;
   };
@@ -119,88 +118,100 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   return (
     <div className="bg-base-300 w-56 h-screen flex flex-col border-r border-base-400">
       {/* Menu Items */}
-      <div className="flex flex-col px-4 text-left py-2 relative mt-2">
+      <div className="flex flex-col space-y-2 px-4 text-left py-2 relative mt-2">
         {/* Selection indicator rectangle */}
         <div
-          className={`absolute w-1.5 bg-primary rounded-r ${
-            indicatorAnimated ? 'transition-all duration-200 ease-in-out' : ''
-          }`}
+          className="absolute w-1.5 bg-primary rounded-r transition-all duration-200 ease-in-out"
           style={{
             left: 0,
             top: `${indicatorPosition.top}px`,
             height: '40px',
           }}
         />
-        <AnimatePresence initial={false} mode="popLayout">
-          {visibleMenuItems.map(({ id }) => {
-            const Icon = MENU_ICONS[id];
-            const isActive = selectedMenu === id;
-            // Disable content navigation while a migration is moving files (paths are in flux);
-            // Settings stays enabled so the user can watch progress.
-            const isDisabled = isMigrating && id !== 'Settings';
-
-            const buttonNode =
-              id === 'Highlights' ? (
-                <Button
-                  variant="nav"
-                  className={`justify-between ${isActive ? 'text-primary' : ''}`}
-                  disabled={isDisabled}
-                  onMouseDown={() => onSelectMenu(id)}
+        <Button
+          ref={sessionsRef}
+          variant="nav"
+          className={selectedMenu === 'Full Sessions' ? 'text-primary' : ''}
+          onMouseDown={() => onSelectMenu('Full Sessions')}
+        >
+          <Play className="w-5 h-5" />
+          Full Sessions
+        </Button>
+        <Button
+          ref={replayRef}
+          variant="nav"
+          className={selectedMenu === 'Replay Buffer' ? 'text-primary' : ''}
+          onMouseDown={() => onSelectMenu('Replay Buffer')}
+        >
+          <History className="w-5 h-5" />
+          Replay Buffer
+        </Button>
+        <Button
+          ref={pendingEditRef}
+          variant="nav"
+          className={selectedMenu === '待剪輯' ? 'text-primary' : ''}
+          onMouseDown={() => onSelectMenu('待剪輯')}
+        >
+          <Inbox className="w-5 h-5" />
+          待剪輯
+        </Button>
+        <Button
+          ref={clipsRef}
+          variant="nav"
+          className={selectedMenu === 'Clips' ? 'text-primary' : ''}
+          onMouseDown={() => onSelectMenu('Clips')}
+        >
+          <Clapperboard className="w-5 h-5" />
+          Clips
+        </Button>
+        <Button
+          ref={highlightsRef}
+          variant="nav"
+          className={`justify-between ${selectedMenu === 'Highlights' ? 'text-primary' : ''}`}
+          onMouseDown={() => onSelectMenu('Highlights')}
+        >
+          <span className="flex items-center gap-2">
+            <Crown className="w-5 h-5" />
+            Highlights
+          </span>
+          <div className="ml-auto flex items-center">
+            <AnimatePresence>
+              {hasActiveAiHighlights && selectedMenu !== 'Highlights' && (
+                <motion.div
+                  className="flex items-center justify-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <span className="flex items-center gap-2">
-                    <Icon className="w-5 h-5" />
-                    {id}
-                  </span>
-                  <div className="ml-auto flex items-center">
-                    <AnimatePresence>
-                      {hasActiveAiHighlights && !isActive && (
-                        <motion.div
-                          className="flex items-center justify-center"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <CircularProgress
-                            progress={averageAiProgress}
-                            size={24}
-                            strokeWidth={2}
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </Button>
-              ) : (
-                <Button
-                  variant="nav"
-                  className={isActive ? 'text-primary' : ''}
-                  disabled={isDisabled}
-                  onMouseDown={() => onSelectMenu(id)}
-                >
-                  <Icon className="w-5 h-5" />
-                  {id}
-                </Button>
-              );
+                  <CircularProgress progress={averageAiProgress} size={24} strokeWidth={2} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </Button>
+        <Button
+          ref={settingsRef}
+          variant="nav"
+          className={selectedMenu === 'Settings' ? 'text-primary' : ''}
+          onMouseDown={() => onSelectMenu('Settings')}
+        >
+          <Settings className="w-5 h-5" />
+          Settings
+        </Button>
+      </div>
 
-            return (
-              <motion.div
-                key={id}
-                ref={(el) => {
-                  buttonRefs.current[id] = el;
-                }}
-                layout
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2, ease: 'easeInOut' }}
-                className="overflow-hidden pb-2 last:pb-0"
-              >
-                {buttonNode}
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+      <div className="px-4 pb-1">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-gray-400 hover:bg-white/5 hover:text-gray-200"
+          disabled={!hasLoadedObs}
+          onClick={() => enterMonitoringLayout()}
+          title="將視窗縮小並只保留預覽與錄製控制"
+        >
+          <PictureInPicture2 className="h-5 w-5 shrink-0" />
+          極簡監控
+        </Button>
       </div>
 
       {/* Spacer to push content to the bottom */}
@@ -228,14 +239,6 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
           {Object.values(useImports().imports).map((importItem) => (
             <AnimatedCard key={importItem.id}>
               <ImportCard importItem={importItem} />
-            </AnimatedCard>
-          ))}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {Object.values(contentMigrations).map((migration) => (
-            <AnimatedCard key={migration.id}>
-              <ContentMigrationCard migration={migration} />
             </AnimatedCard>
           ))}
         </AnimatePresence>
@@ -303,18 +306,20 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
             className="w-full h-12"
             disabled={
               buttonCooldown ||
-              !appState.hasLoadedObs ||
-              (appState.recording && recording && recording.endTime !== null)
+              !settings.state.hasLoadedObs ||
+              (settings.state.recording && recording && recording.endTime !== null)
             }
             onClick={() => {
               setButtonCooldown(true);
               setTimeout(() => setButtonCooldown(false), 1000);
               sendMessageToBackend(
-                appState.recording || appState.preRecording ? 'StopRecording' : 'StartRecording',
+                settings.state.recording || settings.state.preRecording
+                  ? 'StopRecording'
+                  : 'StartRecording',
               );
             }}
           >
-            {appState.recording || appState.preRecording ? (
+            {settings.state.recording || settings.state.preRecording ? (
               <>
                 <OctagonX className="w-4 h-4" />
                 Stop

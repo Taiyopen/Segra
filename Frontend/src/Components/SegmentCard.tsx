@@ -17,6 +17,9 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
     audioTrackNames,
     onMutedAudioTracksChange,
     onAudioTrackVolumesChange,
+    onClipEditTarget,
+    onSidebarSegmentClick,
+    onSegmentCardDragBegin,
   }) => {
     const [audioMenuPos, setAudioMenuPos] = useState<{
       x: number;
@@ -35,12 +38,15 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
     const [{ isDragging }, dragRef] = useDrag(
       () => ({
         type: DRAG_TYPE,
-        item: { index },
+        item: () => {
+          onSegmentCardDragBegin?.();
+          return { index };
+        },
         collect: (monitor) => ({
           isDragging: monitor.isDragging(),
         }),
       }),
-      [index],
+      [index, onSegmentCardDragBegin],
     );
 
     const [, dropRef] = useDrop(
@@ -68,6 +74,7 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
     const trackVolumes = segment.audioTrackVolumes ?? {};
 
     const toggleTrack = (trackIndex: number) => {
+      onClipEditTarget?.(segment.id);
       if (!onMutedAudioTracksChange || !audioTrackNames) return;
       const isMuted = mutedTracks.includes(trackIndex);
       if (isMuted) {
@@ -93,6 +100,12 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
         ref={dragDropRef}
         className={`mb-2 cursor-move w-full relative rounded-xl transition-all duration-200 !outline !outline-1 ${isHovered ? '!outline-primary' : '!outline-base-400'}`}
         style={{ opacity: isDragging ? 0.3 : 1 }}
+        onMouseDown={() => onClipEditTarget?.(segment.id)}
+        onClick={(e) => {
+          const el = e.target as HTMLElement;
+          if (el.closest('button, input, textarea, label')) return;
+          onSidebarSegmentClick?.(segment);
+        }}
         onMouseEnter={() => setHoveredSegmentId(segment.id)}
         onMouseLeave={() => {
           setHoveredSegmentId(null);
@@ -128,6 +141,7 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                onClipEditTarget?.(segment.id);
                 if (audioMenuPos?.visible) {
                   setAudioMenuPos((prev) => (prev ? { ...prev, visible: false } : null));
                 } else {
@@ -190,6 +204,7 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
                           value={vol}
                           onChange={(e) => {
                             if (!onAudioTrackVolumesChange) return;
+                            onClipEditTarget?.(segment.id);
                             const newVolumes = { ...trackVolumes, [i]: parseFloat(e.target.value) };
                             onAudioTrackVolumesChange(segment.id, newVolumes);
                           }}

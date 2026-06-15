@@ -12,11 +12,20 @@ namespace Segra.Backend.Windows.Storage
 
         public static string SanitizeGameNameForFolder(string gameName)
         {
-            if (string.IsNullOrWhiteSpace(gameName))
-                return "Unknown";
+            return SanitizeFileName(gameName, "Unknown");
+        }
+
+        /// <summary>
+        /// Sanitizes a string for use as a file or folder name on Windows.
+        /// Returns empty when the input has no usable characters after sanitization.
+        /// </summary>
+        public static string SanitizeFileName(string name, string emptyFallback = "")
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return emptyFallback;
 
             char[] invalidChars = Path.GetInvalidFileNameChars();
-            string sanitized = new string(gameName
+            string sanitized = new string(name
                 .Select(c => invalidChars.Contains(c) ? '_' : c)
                 .ToArray());
 
@@ -25,7 +34,7 @@ namespace Segra.Backend.Windows.Storage
             while (sanitized.Contains("__"))
                 sanitized = sanitized.Replace("__", "_");
 
-            return string.IsNullOrWhiteSpace(sanitized) ? "Unknown" : sanitized;
+            return string.IsNullOrWhiteSpace(sanitized) ? emptyFallback : sanitized;
         }
 
         public static double GetCurrentFolderSizeGb()

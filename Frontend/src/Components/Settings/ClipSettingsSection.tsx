@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DropdownSelect from '../DropdownSelect';
 import {
@@ -8,40 +9,16 @@ import {
   ClipQualityPreset,
 } from '../../Models/types';
 import { sendMessageToBackend } from '../../Utils/MessageUtils';
-import { useAppState } from '../../Context/AppStateContext';
 
 interface ClipSettingsSectionProps {
   settings: SettingsType;
   updateSettings: (updates: Partial<SettingsType>) => void;
 }
 
-// GPU quality (CQ/QP) options. Nvidia and AMD share the 0-51 scale; Intel's ICQ scale starts at 1.
-const GPU_QUALITY_OPTIONS = [
-  { value: '0', label: '0 (Highest Quality)' },
-  { value: '10', label: '10' },
-  { value: '15', label: '15' },
-  { value: '20', label: '20 (High Quality)' },
-  { value: '23', label: '23 (Normal Quality)' },
-  { value: '26', label: '26' },
-  { value: '30', label: '30 (Low Quality)' },
-  { value: '35', label: '35' },
-  { value: '40', label: '40' },
-  { value: '45', label: '45' },
-  { value: '51', label: '51 (Lowest Quality)' },
-];
-
-const INTEL_GPU_QUALITY_OPTIONS = [
-  { value: '1', label: '1 (Highest Quality)' },
-  ...GPU_QUALITY_OPTIONS.slice(1),
-];
-
-const DEFAULT_GPU_QUALITY_OPTIONS = [{ value: '23', label: '23 (Normal Quality)' }];
-
 export default function ClipSettingsSection({
   settings,
   updateSettings,
 }: ClipSettingsSectionProps) {
-  const appState = useAppState();
   // Helper function to get available presets based on encoder settings
   const getAvailablePresets = (
     encoder: string,
@@ -110,6 +87,88 @@ export default function ClipSettingsSection({
   const handlePresetChange = (preset: ClipQualityPreset) => {
     sendMessageToBackend('ApplyClipPreset', { preset });
   };
+
+  const clipMbpsItems = useMemo(
+    () =>
+      Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
+        value: String(v),
+        label: `${v} Mbps`,
+      })),
+    [],
+  );
+
+  useEffect(() => {
+    if (settings.clipQualityPreset !== 'custom') return;
+    if (settings.clipRateControl !== 'CQVBR') return;
+    if (settings.clipEncoder !== 'gpu') return;
+    if (settings.state.gpuVendor !== GpuVendor.Nvidia) {
+      updateSettings({ clipRateControl: 'CQP' });
+    }
+  }, [
+    settings.clipQualityPreset,
+    settings.clipRateControl,
+    settings.clipEncoder,
+    settings.state.gpuVendor,
+    updateSettings,
+  ]);
+
+  const clipRc = settings.clipRateControl ?? 'CRF';
+  const showClipCpuCrf = settings.clipEncoder === 'cpu' && ['CRF'].includes(clipRc);
+  const showClipGpuQuality = settings.clipEncoder === 'gpu' && ['CQP', 'CQVBR'].includes(clipRc);
+
+  const gpuQualityLabel =
+    settings.state.gpuVendor === GpuVendor.Nvidia
+      ? 'CQ'
+      : settings.state.gpuVendor === GpuVendor.AMD
+        ? 'QP'
+        : settings.state.gpuVendor === GpuVendor.Intel
+          ? 'ICQ'
+          : 'CQ';
+
+  const gpuQualityItems =
+    settings.state.gpuVendor === GpuVendor.Nvidia
+      ? [
+          { value: '0', label: '0 (Highest Quality)' },
+          { value: '10', label: '10' },
+          { value: '15', label: '15' },
+          { value: '20', label: '20 (High Quality)' },
+          { value: '23', label: '23 (Normal Quality)' },
+          { value: '26', label: '26' },
+          { value: '30', label: '30 (Low Quality)' },
+          { value: '35', label: '35' },
+          { value: '40', label: '40' },
+          { value: '45', label: '45' },
+          { value: '51', label: '51 (Lowest Quality)' },
+        ]
+      : settings.state.gpuVendor === GpuVendor.AMD
+        ? [
+            { value: '0', label: '0 (Highest Quality)' },
+            { value: '10', label: '10' },
+            { value: '15', label: '15' },
+            { value: '20', label: '20 (High Quality)' },
+            { value: '23', label: '23 (Normal Quality)' },
+            { value: '26', label: '26' },
+            { value: '30', label: '30 (Low Quality)' },
+            { value: '35', label: '35' },
+            { value: '40', label: '40' },
+            { value: '45', label: '45' },
+            { value: '51', label: '51 (Lowest Quality)' },
+          ]
+        : settings.state.gpuVendor === GpuVendor.Intel
+          ? [
+              { value: '1', label: '1 (Highest Quality)' },
+              { value: '10', label: '10' },
+              { value: '15', label: '15' },
+              { value: '20', label: '20 (High Quality)' },
+              { value: '23', label: '23 (Normal Quality)' },
+              { value: '26', label: '26' },
+              { value: '30', label: '30 (Low Quality)' },
+              { value: '35', label: '35' },
+              { value: '40', label: '40' },
+              { value: '45', label: '45' },
+              { value: '51', label: '51 (Lowest Quality)' },
+            ]
+          : [{ value: '23', label: '23 (Normal Quality)' }];
 
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
@@ -180,7 +239,107 @@ export default function ClipSettingsSection({
             style={{ overflow: 'visible' }}
           >
             <div className="grid grid-cols-2 gap-4">
-              {/* Encoder */}
+              {/* Rate Control (FFmpeg clip export — same modes as Video Settings where applicable) */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Rate Control</span>
+                </label>
+                <DropdownSelect
+                  items={[
+                    { value: 'CBR', label: 'CBR (Constant Bitrate)' },
+                    { value: 'VBR', label: 'VBR (Variable Bitrate)' },
+                    ...(settings.clipEncoder === 'cpu'
+                      ? [{ value: 'CRF', label: 'CRF (Constant Rate Factor)' }]
+                      : []),
+                    ...(settings.clipEncoder === 'gpu'
+                      ? [{ value: 'CQP', label: 'CQP / CQ / ICQ (quality-based)' }]
+                      : []),
+                    ...(settings.clipEncoder === 'gpu' &&
+                    settings.state.gpuVendor === GpuVendor.Nvidia
+                      ? [
+                          {
+                            value: 'CQVBR',
+                            label: 'CQVBR (Target quality + max bitrate)',
+                          },
+                        ]
+                      : []),
+                  ]}
+                  value={clipRc}
+                  onChange={(val) => updateSettings({ clipRateControl: val })}
+                />
+              </div>
+
+              {clipRc === 'CBR' && (
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text text-base-content">Bitrate (Mbps)</span>
+                  </label>
+                  <DropdownSelect
+                    items={clipMbpsItems}
+                    value={String(settings.clipBitrate)}
+                    onChange={(val) => updateSettings({ clipBitrate: Number(val) })}
+                  />
+                </div>
+              )}
+
+              {clipRc === 'VBR' && (
+                <>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-base-content">Minimum Bitrate (Mbps)</span>
+                    </label>
+                    <DropdownSelect
+                      items={clipMbpsItems}
+                      value={String(settings.clipMinBitrate ?? settings.clipBitrate)}
+                      onChange={(val) => {
+                        const min = Number(val);
+                        const max = Math.max(min, settings.clipMaxBitrate ?? min);
+                        updateSettings({ clipMinBitrate: min, clipMaxBitrate: max });
+                      }}
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-base-content">Maximum Bitrate (Mbps)</span>
+                    </label>
+                    <DropdownSelect
+                      items={clipMbpsItems}
+                      value={String(
+                        settings.clipMaxBitrate ??
+                          Math.max(
+                            settings.clipMinBitrate ?? settings.clipBitrate,
+                            Math.round(((settings.clipBitrate || 35) as number) * 1.5),
+                          ),
+                      )}
+                      onChange={(val) => {
+                        const max = Number(val);
+                        const min = Math.min(max, settings.clipMinBitrate ?? settings.clipBitrate);
+                        updateSettings({ clipMaxBitrate: max, clipMinBitrate: min });
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+
+              {clipRc === 'CQVBR' && (
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text text-base-content">Maximum Bitrate (Mbps)</span>
+                  </label>
+                  <DropdownSelect
+                    items={clipMbpsItems}
+                    value={String(
+                      settings.clipMaxBitrate ??
+                        Math.max(
+                          settings.clipMinBitrate ?? settings.clipBitrate,
+                          Math.round((settings.clipBitrate || 35) * 1.5),
+                        ),
+                    )}
+                    onChange={(val) => updateSettings({ clipMaxBitrate: Number(val) })}
+                  />
+                </div>
+              )}
+
               <div className="form-control">
                 <label className="label">
                   <span className="label-text text-base-content">Encoder</span>
@@ -188,7 +347,7 @@ export default function ClipSettingsSection({
                 <DropdownSelect
                   items={[
                     { value: 'cpu', label: 'CPU' },
-                    ...(appState.gpuVendor !== GpuVendor.Unknown
+                    ...(settings.state.gpuVendor !== GpuVendor.Unknown
                       ? [{ value: 'gpu', label: 'GPU' }]
                       : []),
                   ]}
@@ -199,13 +358,22 @@ export default function ClipSettingsSection({
                     };
                     if (val === 'cpu' && settings.clipEncoder !== 'cpu') {
                       newSettings.clipPreset = 'veryfast' as ClipPreset;
+                      if (
+                        settings.clipRateControl === 'CQP' ||
+                        settings.clipRateControl === 'CQVBR'
+                      ) {
+                        newSettings.clipRateControl = 'CRF';
+                      }
                       // CPU doesn't support AV1, switch to H.264
                       if (settings.clipCodec === 'av1') {
                         newSettings.clipCodec = 'h264';
                       }
                     } else if (val === 'gpu' && settings.clipEncoder !== 'gpu') {
+                      if (settings.clipRateControl === 'CRF') {
+                        newSettings.clipRateControl = 'CQP';
+                      }
                       // Set default preset based on GPU vendor
-                      switch (appState.gpuVendor) {
+                      switch (settings.state.gpuVendor) {
                         case GpuVendor.AMD:
                           newSettings.clipPreset = 'transcoding' as ClipPreset;
                           break;
@@ -223,8 +391,8 @@ export default function ClipSettingsSection({
                 />
               </div>
 
-              {/* Quality Control - Different for CPU vs GPU */}
-              {settings.clipEncoder === 'cpu' ? (
+              {/* Quality (CRF / CQ / QP / ICQ) — only used for quality-based clip rate modes */}
+              {showClipCpuCrf && (
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text text-base-content">Quality (CRF)</span>
@@ -248,30 +416,17 @@ export default function ClipSettingsSection({
                     onChange={(val) => updateSettings({ clipQualityCpu: Number(val) })}
                   />
                 </div>
-              ) : (
+              )}
+
+              {showClipGpuQuality && (
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text text-base-content">
-                      Quality (
-                      {appState.gpuVendor === GpuVendor.Nvidia
-                        ? 'CQ'
-                        : appState.gpuVendor === GpuVendor.AMD
-                          ? 'QP'
-                          : appState.gpuVendor === GpuVendor.Intel
-                            ? 'ICQ'
-                            : 'CQ'}
-                      )
+                      Quality ({gpuQualityLabel})
                     </span>
                   </label>
                   <DropdownSelect
-                    items={
-                      appState.gpuVendor === GpuVendor.Nvidia ||
-                      appState.gpuVendor === GpuVendor.AMD
-                        ? GPU_QUALITY_OPTIONS
-                        : appState.gpuVendor === GpuVendor.Intel
-                          ? INTEL_GPU_QUALITY_OPTIONS
-                          : DEFAULT_GPU_QUALITY_OPTIONS
-                    }
+                    items={gpuQualityItems}
                     value={String(settings.clipQualityGpu)}
                     onChange={(val) => updateSettings({ clipQualityGpu: Number(val) })}
                   />
@@ -288,7 +443,7 @@ export default function ClipSettingsSection({
                     { value: 'h264', label: 'H.264' },
                     { value: 'h265', label: 'H.265' },
                     ...(settings.clipEncoder === 'gpu' &&
-                    appState.codecs.find((c) => c.internalEncoderId.includes('av1'))
+                    settings.state.codecs.find((c) => c.internalEncoderId.includes('av1'))
                       ? [{ value: 'av1', label: 'AV1' }]
                       : []),
                   ]}
@@ -298,7 +453,7 @@ export default function ClipSettingsSection({
                     const updates: Partial<SettingsType> = { clipCodec: newCodec };
 
                     // Auto-adjust preset when switching to/from AV1 on NVIDIA
-                    if (appState.gpuVendor === GpuVendor.Nvidia) {
+                    if (settings.state.gpuVendor === GpuVendor.Nvidia) {
                       if (
                         newCodec === 'av1' &&
                         !['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'].includes(settings.clipPreset)
@@ -316,7 +471,7 @@ export default function ClipSettingsSection({
 
                     updateSettings(updates);
                   }}
-                  disabled={!appState.hasLoadedObs}
+                  disabled={!settings.state.hasLoadedObs}
                 />
               </div>
 
@@ -370,7 +525,7 @@ export default function ClipSettingsSection({
                   items={getAvailablePresets(
                     settings.clipEncoder,
                     settings.clipCodec,
-                    appState.gpuVendor,
+                    settings.state.gpuVendor,
                   )}
                   value={settings.clipPreset}
                   onChange={(val) => updateSettings({ clipPreset: val as ClipPreset })}

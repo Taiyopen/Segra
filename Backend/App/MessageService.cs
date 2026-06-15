@@ -8,6 +8,8 @@ using Segra.Backend.Services;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Media;
 using Segra.Backend.Shared;
+using Segra.Backend.Utils;
+using Segra.Backend.Windows.Input;
 using Segra.Backend.Recorder;
 using Segra.Backend.Games;
 
@@ -69,6 +71,28 @@ namespace Segra.Backend.App
                                     Log.Error(ex, "Failed to toggle fullscreen");
                                 }
                             }
+                            break;
+                        case "SetMonitoringWindowLayout":
+                            if (root.TryGetProperty("Parameters", out var monitoringParams) &&
+                                monitoringParams.TryGetProperty("enabled", out var monitoringEnabledEl))
+                            {
+                                bool monitoringCompact = monitoringEnabledEl.GetBoolean();
+                                try
+                                {
+                                    Program.ApplyMonitoringWindowLayout(monitoringCompact);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.Error(ex, "Failed to apply monitoring window layout");
+                                }
+                            }
+                            break;
+                        case "CreateRecordingBookmark":
+                            if (RecordingHotkeyActions.TryCreateBookmark())
+                                await SendFrontendMessage("BookmarkCreated", new { });
+                            break;
+                        case "SaveReplayBufferFromUi":
+                            RecordingHotkeyActions.TrySaveReplayBuffer();
                             break;
                         case "Login":
                             root.TryGetProperty("Parameters", out JsonElement loginParameterElement);
@@ -132,6 +156,10 @@ namespace Segra.Backend.App
                         case "DeleteMultipleContent":
                             root.TryGetProperty("Parameters", out JsonElement deleteMultipleContentParameterElement);
                             _ = Task.Run(() => HandleDeleteMultipleContent(deleteMultipleContentParameterElement));
+                            break;
+                        case "MoveToPendingEdit":
+                            root.TryGetProperty("Parameters", out JsonElement movePendingParameterElement);
+                            _ = Task.Run(() => ContentService.HandleMoveToPendingEdit(movePendingParameterElement));
                             break;
                         case "UploadContent":
                             root.TryGetProperty("Parameters", out JsonElement uploadContentParameterElement);

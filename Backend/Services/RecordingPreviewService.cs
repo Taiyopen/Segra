@@ -11,8 +11,8 @@ using Serilog;
 namespace Segra.Backend.Services
 {
     /// <summary>
-    /// Streams a low-resolution JPEG preview of the active OBS canvas to the frontend.
-    /// Off by default per recording — toggled on by the user (issue #138 / #127).
+    /// Streams a low-resolution JPEG preview of the active OBS canvas to the frontend while recording.
+    /// Starts automatically when a recording begins; toggle keybind disables/enables streaming (save CPU / clutter).
     /// </summary>
     public static class RecordingPreviewService
     {
@@ -47,8 +47,7 @@ namespace Segra.Backend.Services
         }
 
         /// <summary>
-        /// Called when a recording starts. Caches the recording fps so a later toggle can pick the right divisor.
-        /// Preview always starts disabled; the user toggles it via the keybind.
+        /// Called when a recording starts. Subscribes to raw video at the recording fps (for frame divisor).
         /// </summary>
         public static void OnRecordingStarted(uint recordingFps)
         {
@@ -211,7 +210,10 @@ namespace Segra.Backend.Services
         private static async Task EncodeAndSendAsync(byte[] bgra, int width, int height, int packedSize)
         {
             if (_jpegCodec == null)
+            {
+                Log.Warning("Recording preview skipped: JPEG encoder not available on this machine.");
                 return;
+            }
 
             byte[] jpegBytes;
             using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))

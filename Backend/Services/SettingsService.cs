@@ -3,6 +3,7 @@ using Segra.Backend.Core.Models;
 using Segra.Backend.Media;
 using Segra.Backend.Recorder;
 using Segra.Backend.Shared;
+using Segra.Backend.Utils;
 using Segra.Backend.Windows.Display;
 using Segra.Backend.Windows.Input;
 using Serilog;
@@ -13,11 +14,11 @@ namespace Segra.Backend.Services
 {
     internal static class SettingsService
     {
-        public static readonly string SettingsFilePath = PathUtils.Normalize(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra", "settings.json"));
+        public static readonly string SettingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Segra", "settings.json");
 
-        public static void SaveSettings(bool force = false)
+        public static void SaveSettings()
         {
-            if (!force && !Program.hasLoadedInitialSettings)
+            if (Program.hasLoadedInitialSettings == false)
             {
                 Log.Error("Program has not loaded initial settings. Can't save!");
                 return;
@@ -123,6 +124,29 @@ namespace Segra.Backend.Services
                                     }
                                 }
                             }
+                            else if (property.Value.ValueKind == JsonValueKind.Object)
+                            {
+                                var propertyName = char.ToUpper(property.Name[0]) + property.Name.Substring(1);
+                                var targetProperty = typeof(Settings).GetProperty(
+                                    propertyName,
+                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                                if (targetProperty != null && targetProperty.CanWrite)
+                                {
+                                    try
+                                    {
+                                        var value = JsonSerializer.Deserialize(property.Value.GetRawText(), targetProperty.PropertyType, options);
+                                        if (value != null)
+                                        {
+                                            targetProperty.SetValue(Settings.Instance, value);
+                                        }
+                                    }
+                                    catch (Exception objEx)
+                                    {
+                                        Log.Warning($"Failed to deserialize object property {property.Name}: {objEx.Message}");
+                                    }
+                                }
+                            }
                             else
                             {
                                 var propertyName = char.ToUpper(property.Name[0]) + property.Name.Substring(1);
@@ -140,9 +164,9 @@ namespace Segra.Backend.Services
                                             targetProperty.SetValue(Settings.Instance, value);
                                         }
                                     }
-                                    catch (Exception valEx)
+                                    catch (Exception primEx)
                                     {
-                                        Log.Warning($"Failed to deserialize property {property.Name}: {valEx.Message}");
+                                        Log.Warning($"Failed to deserialize primitive property {property.Name}: {primEx.Message}");
                                     }
                                 }
                             }
@@ -155,15 +179,21 @@ namespace Segra.Backend.Services
                 }
 
                 Settings.Instance.RunOnStartup = StartupService.GetStartupStatus();
-                AppState.Instance.GpuVendor = GeneralUtils.DetectGpuVendor();
+                Settings.Instance.State.GpuVendor = GeneralUtils.DetectGpuVendor();
+                if (Settings.Instance.State.GpuVendor == GeneralUtils.GpuVendor.Nvidia)
+                {
+                    Settings.Instance.State.CudaComputeCapability = GeneralUtils.DetectCudaComputeCapability();
+                }
 
                 Log.Information("Settings loaded from {0}", SettingsFilePath);
 
                 TrySanitizeCqvbrRateControl();
 
-                // The file has been read, so forcing this save is safe even though
-                // Program.Main hasn't set hasLoadedInitialSettings yet.
-                Settings.Instance.EndBulkUpdateAndSaveSettings(force: true);
+                bool clipSanitized = TrySanitizeClipEncoderRateControl();
+                if (clipSanitized)
+                    Log.Information("Sanitized clip rate-control / bitrate defaults after loading settings");
+
+                Settings.Instance.EndBulkUpdateAndSaveSettings();
                 return true;
             }
             catch (Exception ex)
@@ -215,6 +245,7 @@ namespace Segra.Backend.Services
 
             // Update ClipEncoder
             bool hasAutoSelectedClipCodec = false;
+            bool hasAutoSelectedClipRateControl = false;
             if (settings.ClipEncoder != updatedSettings.ClipEncoder)
             {
                 Log.Information($"ClipEncoder changed from '{settings.ClipEncoder}' to '{updatedSettings.ClipEncoder}'");
@@ -223,6 +254,28 @@ namespace Segra.Backend.Services
                 Log.Information($"Automatically changing ClipCodec to 'h264' due to ClipEncoder change");
                 settings.ClipCodec = "h264";
                 hasAutoSelectedClipCodec = true;
+
+                if (string.Equals(settings.ClipEncoder, "gpu", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(settings.ClipRateControl, "CRF", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Information($"Automatically changing ClipRateControl from 'CRF' to 'CQP' because ClipEncoder is GPU");
+                    settings.ClipRateControl = "CQP";
+                    hasAutoSelectedClipRateControl = true;
+                }
+                else if (string.Equals(settings.ClipEncoder, "cpu", StringComparison.OrdinalIgnoreCase) &&
+                         string.Equals(settings.ClipRateControl, "CQP", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Information($"Automatically changing ClipRateControl from 'CQP' to 'CRF' because ClipEncoder is CPU");
+                    settings.ClipRateControl = "CRF";
+                    hasAutoSelectedClipRateControl = true;
+                }
+                else if (string.Equals(settings.ClipEncoder, "cpu", StringComparison.OrdinalIgnoreCase) &&
+                         string.Equals(settings.ClipRateControl, "CQVBR", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Information($"Automatically changing ClipRateControl from 'CQVBR' to 'VBR' because ClipEncoder is CPU");
+                    settings.ClipRateControl = "VBR";
+                    hasAutoSelectedClipRateControl = true;
+                }
 
                 hasChanges = true;
             }
@@ -291,6 +344,36 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
+            // Update ClipRateControl / clip bitrates (FFmpeg clip export — mirrors session Video Settings semantics)
+            if (!hasAutoSelectedClipRateControl &&
+                !string.Equals(settings.ClipRateControl, updatedSettings.ClipRateControl, StringComparison.Ordinal))
+            {
+                Log.Information($"ClipRateControl changed from '{settings.ClipRateControl}' to '{updatedSettings.ClipRateControl}'");
+                settings.ClipRateControl = updatedSettings.ClipRateControl;
+                hasChanges = true;
+            }
+
+            if (settings.ClipBitrate != updatedSettings.ClipBitrate)
+            {
+                Log.Information($"ClipBitrate changed from '{settings.ClipBitrate} Mbps' to '{updatedSettings.ClipBitrate} Mbps'");
+                settings.ClipBitrate = updatedSettings.ClipBitrate;
+                hasChanges = true;
+            }
+
+            if (settings.ClipMinBitrate != updatedSettings.ClipMinBitrate)
+            {
+                Log.Information($"ClipMinBitrate changed from '{settings.ClipMinBitrate} Mbps' to '{updatedSettings.ClipMinBitrate} Mbps'");
+                settings.ClipMinBitrate = updatedSettings.ClipMinBitrate;
+                hasChanges = true;
+            }
+
+            if (settings.ClipMaxBitrate != updatedSettings.ClipMaxBitrate)
+            {
+                Log.Information($"ClipMaxBitrate changed from '{settings.ClipMaxBitrate} Mbps' to '{updatedSettings.ClipMaxBitrate} Mbps'");
+                settings.ClipMaxBitrate = updatedSettings.ClipMaxBitrate;
+                hasChanges = true;
+            }
+
             // Update SoundEffectsVolume
             if (settings.SoundEffectsVolume != updatedSettings.SoundEffectsVolume)
             {
@@ -333,11 +416,32 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
-            // Update ExcludeGameDiscordFromMasterMix
+            // Update ExcludeGameDiscordFromMasterMix (deprecated, kept for compatibility)
             if (settings.ExcludeGameDiscordFromMasterMix != updatedSettings.ExcludeGameDiscordFromMasterMix)
             {
                 Log.Information($"ExcludeGameDiscordFromMasterMix changed from '{settings.ExcludeGameDiscordFromMasterMix}' to '{updatedSettings.ExcludeGameDiscordFromMasterMix}'");
                 settings.ExcludeGameDiscordFromMasterMix = updatedSettings.ExcludeGameDiscordFromMasterMix;
+                hasChanges = true;
+            }
+
+            if (settings.GameAudioTrackMask != updatedSettings.GameAudioTrackMask)
+            {
+                Log.Information($"GameAudioTrackMask changed from '0x{settings.GameAudioTrackMask:X}' to '0x{updatedSettings.GameAudioTrackMask:X}'");
+                settings.GameAudioTrackMask = updatedSettings.GameAudioTrackMask;
+                hasChanges = true;
+            }
+
+            if (settings.DiscordAudioTrackMask != updatedSettings.DiscordAudioTrackMask)
+            {
+                Log.Information($"DiscordAudioTrackMask changed from '0x{settings.DiscordAudioTrackMask:X}' to '0x{updatedSettings.DiscordAudioTrackMask:X}'");
+                settings.DiscordAudioTrackMask = updatedSettings.DiscordAudioTrackMask;
+                hasChanges = true;
+            }
+
+            if (!(settings.RecordingAudioTrackNames ?? new List<string>()).SequenceEqual(updatedSettings.RecordingAudioTrackNames ?? new List<string>()))
+            {
+                Log.Information("RecordingAudioTrackNames updated");
+                settings.RecordingAudioTrackNames = updatedSettings.RecordingAudioTrackNames ?? new List<string>();
                 hasChanges = true;
             }
 
@@ -410,42 +514,6 @@ namespace Segra.Backend.Services
                     current.RocketLeague.Enabled = updated.RocketLeague.Enabled;
                     hasChanges = true;
                 }
-                if (current.Gta.Enabled != updated.Gta.Enabled)
-                {
-                    Log.Information($"GameIntegrations.Gta.Enabled changed from '{current.Gta.Enabled}' to '{updated.Gta.Enabled}'");
-                    current.Gta.Enabled = updated.Gta.Enabled;
-                    hasChanges = true;
-                }
-                if (current.Dota2.Enabled != updated.Dota2.Enabled)
-                {
-                    Log.Information($"GameIntegrations.Dota2.Enabled changed from '{current.Dota2.Enabled}' to '{updated.Dota2.Enabled}'");
-                    current.Dota2.Enabled = updated.Dota2.Enabled;
-                    hasChanges = true;
-                }
-                if (current.Rust.Enabled != updated.Rust.Enabled)
-                {
-                    Log.Information($"GameIntegrations.Rust.Enabled changed from '{current.Rust.Enabled}' to '{updated.Rust.Enabled}'");
-                    current.Rust.Enabled = updated.Rust.Enabled;
-                    hasChanges = true;
-                }
-                if (current.Minecraft.Enabled != updated.Minecraft.Enabled)
-                {
-                    Log.Information($"GameIntegrations.Minecraft.Enabled changed from '{current.Minecraft.Enabled}' to '{updated.Minecraft.Enabled}'");
-                    current.Minecraft.Enabled = updated.Minecraft.Enabled;
-                    hasChanges = true;
-                }
-                if (current.RunescapeDragonwilds.Enabled != updated.RunescapeDragonwilds.Enabled)
-                {
-                    Log.Information($"GameIntegrations.RunescapeDragonwilds.Enabled changed from '{current.RunescapeDragonwilds.Enabled}' to '{updated.RunescapeDragonwilds.Enabled}'");
-                    current.RunescapeDragonwilds.Enabled = updated.RunescapeDragonwilds.Enabled;
-                    hasChanges = true;
-                }
-                if (current.WarThunder.Enabled != updated.WarThunder.Enabled)
-                {
-                    Log.Information($"GameIntegrations.WarThunder.Enabled changed from '{current.WarThunder.Enabled}' to '{updated.WarThunder.Enabled}'");
-                    current.WarThunder.Enabled = updated.WarThunder.Enabled;
-                    hasChanges = true;
-                }
                 if (updated.VrChat != null && current.VrChat.Enabled != updated.VrChat.Enabled)
                 {
                     Log.Information($"GameIntegrations.VrChat.Enabled changed from '{current.VrChat.Enabled}' to '{updated.VrChat.Enabled}'");
@@ -477,9 +545,12 @@ namespace Segra.Backend.Services
                 // If not proceeding, a warning modal was sent to the frontend
             }
 
+            // Update CacheFolder
+            string? oldCacheFolder = null;
             if (settings.CacheFolder != updatedSettings.CacheFolder)
             {
                 Log.Information($"CacheFolder changed from '{settings.CacheFolder}' to '{updatedSettings.CacheFolder}'");
+                oldCacheFolder = settings.CacheFolder;
                 settings.CacheFolder = updatedSettings.CacheFolder;
                 hasChanges = true;
             }
@@ -532,14 +603,6 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
-            // Update EnableHdr
-            if (settings.EnableHdr != updatedSettings.EnableHdr)
-            {
-                Log.Information($"EnableHdr changed from '{settings.EnableHdr}' to '{updatedSettings.EnableHdr}'");
-                settings.EnableHdr = updatedSettings.EnableHdr;
-                hasChanges = true;
-            }
-
             // Update Bitrate
             if (settings.Bitrate != updatedSettings.Bitrate)
             {
@@ -573,7 +636,7 @@ namespace Segra.Backend.Services
                 settings.Encoder = updatedSettings.Encoder;
 
                 // When encoder changes, automatically select an appropriate codec
-                var newCodec = OBSService.SelectDefaultCodec(settings.Encoder, AppState.Instance.Codecs);
+                var newCodec = OBSService.SelectDefaultCodec(settings.Encoder, settings.State.Codecs);
                 if (newCodec != null && (settings.Codec == null || !settings.Codec.Equals(newCodec)))
                 {
                     Log.Information($"Automatically changing codec to '{newCodec.FriendlyName}' based on encoder change");
@@ -700,11 +763,11 @@ namespace Segra.Backend.Services
                 Log.Information($"SelectedDisplay changed from '{settings.SelectedDisplay}' to '{updatedSettings.SelectedDisplay}'");
                 settings.SelectedDisplay = updatedSettings.SelectedDisplay;
 
+                // Update display source if we have a recording and it is not using game hook
                 var rec = Settings.Instance.State.Recording;
                 if (rec != null && !rec.IsUsingGameHook)
                 {
                     OBSService.RefreshMonitorCaptureForSlot(0);
-                }
                 }
                 hasChanges = true;
             }
@@ -733,30 +796,14 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
-            // Update HighlightPaddingBefore
-            if (settings.HighlightPaddingBefore != updatedSettings.HighlightPaddingBefore)
-            {
-                Log.Information($"HighlightPaddingBefore changed from '{settings.HighlightPaddingBefore}' to '{updatedSettings.HighlightPaddingBefore}'");
-                settings.HighlightPaddingBefore = updatedSettings.HighlightPaddingBefore;
-                hasChanges = true;
-            }
-
-            // Update HighlightPaddingAfter
-            if (settings.HighlightPaddingAfter != updatedSettings.HighlightPaddingAfter)
-            {
-                Log.Information($"HighlightPaddingAfter changed from '{settings.HighlightPaddingAfter}' to '{updatedSettings.HighlightPaddingAfter}'");
-                settings.HighlightPaddingAfter = updatedSettings.HighlightPaddingAfter;
-                hasChanges = true;
-            }
-
             // Update ReceiveBetaUpdates
             if (settings.ReceiveBetaUpdates != updatedSettings.ReceiveBetaUpdates)
             {
                 Log.Information($"ReceiveBetaUpdates changed from '{settings.ReceiveBetaUpdates}' to '{updatedSettings.ReceiveBetaUpdates}'");
                 settings.ReceiveBetaUpdates = updatedSettings.ReceiveBetaUpdates;
                 hasChanges = true;
-                _ = Task.Run(() => UpdateService.UpdateAppIfNecessary(forceCheck: true));
-                _ = Task.Run(() => UpdateService.GetReleaseNotes(forceCheck: true));
+                _ = Task.Run(UpdateService.UpdateAppIfNecessary);
+                _ = Task.Run(UpdateService.GetReleaseNotes);
             }
 
             // Update RunOnStartup
@@ -764,14 +811,6 @@ namespace Segra.Backend.Services
             {
                 Log.Information($"RunOnStartup changed from '{settings.RunOnStartup}' to '{updatedSettings.RunOnStartup}'");
                 settings.RunOnStartup = updatedSettings.RunOnStartup;
-                hasChanges = true;
-            }
-
-            // Update AirplaneMode
-            if (settings.AirplaneMode != updatedSettings.AirplaneMode)
-            {
-                Log.Information($"AirplaneMode changed from '{settings.AirplaneMode}' to '{updatedSettings.AirplaneMode}'");
-                settings.AirplaneMode = updatedSettings.AirplaneMode;
                 hasChanges = true;
             }
 
@@ -789,28 +828,6 @@ namespace Segra.Backend.Services
                 }
             }
 
-            // Update MenuItems
-            if (updatedSettings.MenuItems != null)
-            {
-                bool menuItemsChanged = settings.MenuItems.Count != updatedSettings.MenuItems.Count ||
-                    settings.MenuItems.Zip(updatedSettings.MenuItems, (a, b) => a.Id == b.Id && a.Visible == b.Visible).Any(eq => !eq);
-
-                if (menuItemsChanged)
-                {
-                    Log.Information("MenuItems changed");
-                    settings.MenuItems = updatedSettings.MenuItems;
-                    hasChanges = true;
-                }
-            }
-
-            // Update DefaultMenuItem
-            if (!string.IsNullOrEmpty(updatedSettings.DefaultMenuItem) && settings.DefaultMenuItem != updatedSettings.DefaultMenuItem)
-            {
-                Log.Information($"DefaultMenuItem changed from '{settings.DefaultMenuItem}' to '{updatedSettings.DefaultMenuItem}'");
-                settings.DefaultMenuItem = updatedSettings.DefaultMenuItem;
-                hasChanges = true;
-            }
-
             // Update Keybindings
             if (updatedSettings.Keybindings != null)
             {
@@ -821,6 +838,11 @@ namespace Segra.Backend.Services
 
             // CQVBR (OBS 31+ NVENC only): fix invalid combinations after other fields merge
             if (TrySanitizeCqvbrRateControl())
+            {
+                hasChanges = true;
+            }
+
+            if (TrySanitizeClipEncoderRateControl())
             {
                 hasChanges = true;
             }
@@ -866,6 +888,65 @@ namespace Segra.Backend.Services
             return false;
         }
 
+        /// <summary>
+        /// Clip FFmpeg export: keep rate-control/bitrates consistent with ClipEncoder/GPU vendor (CQVBR = NVIDIA NVENC-only).
+        /// </summary>
+        private static bool TrySanitizeClipEncoderRateControl()
+        {
+            var s = Settings.Instance;
+            bool changed = false;
+
+            // Bitrate clamps (Mbps) — aligned with frontend bitrate dropdown granularity (steps of 5, 10–100)
+            static int ClampMbps(int v)
+            {
+                double baseMbps = v <= 0 ? 35 : v;
+                return Math.Clamp((int)Math.Round(baseMbps / 5.0) * 5, 10, 100);
+            }
+
+            int b = ClampMbps(s.ClipBitrate);
+            if (s.ClipBitrate != b)
+            {
+                s.ClipBitrate = b;
+                changed = true;
+            }
+
+            int mn = ClampMbps(s.ClipMinBitrate);
+            int mx = ClampMbps(s.ClipMaxBitrate);
+            if (mn > mx)
+                (mn, mx) = (mx, mn);
+            if (s.ClipMinBitrate != mn || s.ClipMaxBitrate != mx)
+            {
+                s.ClipMinBitrate = mn;
+                s.ClipMaxBitrate = mx;
+                changed = true;
+            }
+
+            bool clipCpu = string.Equals(s.ClipEncoder, "cpu", StringComparison.OrdinalIgnoreCase);
+            string rc = (s.ClipRateControl ?? "CRF").Trim().ToUpperInvariant();
+
+            bool invalidCpuMode = clipCpu &&
+                (string.Equals(rc, "CQP", StringComparison.Ordinal) ||
+                 string.Equals(rc, "CQVBR", StringComparison.Ordinal));
+            bool invalidGpuMode = !clipCpu && string.Equals(rc, "CRF", StringComparison.Ordinal);
+
+            bool nvGpu = Settings.Instance.State.GpuVendor == GeneralUtils.GpuVendor.Nvidia;
+            bool cqVbrBlocked = string.Equals(rc, "CQVBR", StringComparison.Ordinal) && (!nvGpu || clipCpu);
+
+            if (invalidCpuMode || invalidGpuMode || cqVbrBlocked)
+            {
+                if (clipCpu && string.Equals(rc, "CQVBR", StringComparison.Ordinal))
+                    s.ClipRateControl = "VBR";
+                else if (clipCpu)
+                    s.ClipRateControl = "CRF";
+                else
+                    s.ClipRateControl = "CQP";
+
+                changed = true;
+            }
+
+            return changed;
+        }
+
         public static async Task LoadContentFromFolderIntoState(bool sendToFrontend = true)
         {
             var contentTypes = Enum.GetValues(typeof(Content.ContentType)).Cast<Content.ContentType>().ToArray();
@@ -888,7 +969,7 @@ namespace Segra.Backend.Services
 
                     foreach (var metadataFilePath in metadataFiles)
                     {
-                        var serializedMetadataFilePath = PathUtils.Normalize(metadataFilePath);
+                        var serializedMetadataFilePath = metadataFilePath.Replace("\\", "/");
                         try
                         {
                             // Read and parse metadata
@@ -951,10 +1032,10 @@ namespace Segra.Backend.Services
 
             await ContentService.ReconcileGameNamesByIgdb(content);
 
-            AppState.Instance.SetContent(content, sendToFrontend);
+            Settings.Instance.State.SetContent(content, sendToFrontend);
 
-            // Honor sendToFrontend so a silent reload doesn't leak a state send via the folder size.
-            Windows.Storage.StorageService.UpdateFolderSizeInState(sendToFrontend);
+            // Update folder size in state
+            Windows.Storage.StorageService.UpdateFolderSizeInState();
         }
 
         public static void GetPrimaryMonitorResolution(out uint boundsWidth, out uint boundsHeight)
@@ -1028,7 +1109,7 @@ namespace Segra.Backend.Services
             }
 
             Log.Information($"Setting {versions.Count} available OBS versions");
-            AppState.Instance.AvailableOBSVersions = versions;
+            Settings.Instance.State.AvailableOBSVersions = versions;
 
             // If the selected version is not in the list anymore, reset it to null (automatic)
             if (!string.IsNullOrEmpty(Settings.Instance.SelectedOBSVersion) &&

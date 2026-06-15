@@ -13,12 +13,15 @@ namespace Segra.Backend.Shared
         public const string Buffers = "Replay Buffers";
         public const string Clips = "Clips";
         public const string Highlights = "Highlights";
+        /// <summary>Videos moved here are excluded from automatic storage cleanup (unlike Full Sessions / Replay Buffers).</summary>
+        public const string PendingEdit = "待剪輯";
 
         // Legacy folder names (for migration purposes)
         public const string LegacySessions = "sessions";
         public const string LegacyBuffers = "buffers";
         public const string LegacyClips = "clips";
         public const string LegacyHighlights = "highlights";
+        public const string LegacyPendingEdit = "pending_edit";
 
         // Metadata folder names (stored in AppData)
         public const string Metadata = "metadata";
@@ -47,6 +50,7 @@ namespace Segra.Backend.Shared
                 Content.ContentType.Buffer => Buffers,
                 Content.ContentType.Clip => Clips,
                 Content.ContentType.Highlight => Highlights,
+                Content.ContentType.PendingEdit => PendingEdit,
                 _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown content type")
             };
         }
@@ -62,6 +66,7 @@ namespace Segra.Backend.Shared
                 Content.ContentType.Buffer => LegacyBuffers,
                 Content.ContentType.Clip => LegacyClips,
                 Content.ContentType.Highlight => LegacyHighlights,
+                Content.ContentType.PendingEdit => LegacyPendingEdit,
                 _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown content type")
             };
         }
@@ -126,6 +131,10 @@ namespace Segra.Backend.Shared
                 return Content.ContentType.Clip;
             if (normalizedPath.Contains($"/{Highlights.ToLower()}/"))
                 return Content.ContentType.Highlight;
+            // Unicode folder name: match on original path casing as well
+            string pathNorm = path.Replace("\\", "/");
+            if (pathNorm.Contains($"/{PendingEdit}/", StringComparison.OrdinalIgnoreCase))
+                return Content.ContentType.PendingEdit;
 
             // Check legacy folder names for backwards compatibility
             if (normalizedPath.Contains($"/{LegacySessions}/"))
@@ -136,6 +145,8 @@ namespace Segra.Backend.Shared
                 return Content.ContentType.Clip;
             if (normalizedPath.Contains($"/{LegacyHighlights}/"))
                 return Content.ContentType.Highlight;
+            if (normalizedPath.Contains($"/{LegacyPendingEdit}/"))
+                return Content.ContentType.PendingEdit;
 
             return null;
         }

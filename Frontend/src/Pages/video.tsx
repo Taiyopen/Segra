@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallba
 import { Content, BookmarkType, Segment, Bookmark } from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
-import { useAppState } from '../Context/AppStateContext';
 import { openFileLocation } from '../Utils/FileUtils';
 import { useSelectedVideo } from '../Context/SelectedVideoContext';
 import { DndProvider } from 'react-dnd';
@@ -42,11 +41,30 @@ import {
   Headphones,
   Copy,
   Check,
+  Repeat,
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  ChevronLeft,
+  ChevronRight,
+  Inbox,
+  PenLine,
 } from 'lucide-react';
+import { useContentPlaylist } from '../Hooks/useContentPlaylist';
+import VideoPlaylistPanel from '../Components/VideoPlaylistPanel';
 import SegmentCard from '../Components/SegmentCard';
 import { useAudioTracks } from '../Hooks/useAudioTracks';
 import { AnimatePresence, motion } from 'framer-motion';
 import Button from '../Components/Button';
+
+const MAX_SEGMENT_UNDO = 40;
+
+function cloneSegmentsForUndo(segs: Segment[]): Segment[] {
+  return segs.map((s) => ({
+    ...s,
+    mutedAudioTracks: s.mutedAudioTracks ? [...s.mutedAudioTracks] : undefined,
+    audioTrackVolumes: s.audioTrackVolumes ? { ...s.audioTrackVolumes } : undefined,
+  }));
+}
 
 const Crosshair2Dot = React.forwardRef<SVGSVGElement, React.ComponentProps<typeof Icon>>(
   (props, ref) => <Icon {...props} ref={ref} iconNode={crosshair2Dot} />,
@@ -124,8 +142,61 @@ function getIconMapping(igdbId?: number): Record<BookmarkType, LucideIcon> {
   return DEFAULT_ICON_MAPPING;
 }
 
-function TopInfoBar({ video }: { video: Content }) {
+interface TopInfoBarProps {
+  video: Content;
+  currentIndex: number;
+  playlistCount: number;
+  prevVideo: Content | null;
+  nextVideo: Content | null;
+  onSelectVideo: (video: Content) => void;
+  onDelete: () => void;
+  onMoveToPendingEdit: () => void;
+  showMoveToPendingEdit: boolean;
+}
+
+function TopInfoBar({
+  video,
+  currentIndex,
+  playlistCount,
+  prevVideo,
+  nextVideo,
+  onSelectVideo,
+  onDelete,
+  onMoveToPendingEdit,
+  showMoveToPendingEdit,
+}: TopInfoBarProps) {
   const { setSelectedVideo } = useSelectedVideo();
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setIsRenaming(false);
+  }, [video.fileName]);
+
+  const startRenaming = () => {
+    setRenameValue(video.title || video.fileName || '');
+    setIsRenaming(true);
+    setTimeout(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }, 0);
+  };
+
+  const commitRename = () => {
+    if (!isRenaming) return;
+    setIsRenaming(false);
+    const trimmed = renameValue.trim();
+    const invalidChars = /[<>:"/\\|?*]/;
+    if (!trimmed || invalidChars.test(trimmed)) return;
+    if (trimmed === (video.title || video.fileName || '')) return;
+    sendMessageToBackend('RenameContent', {
+      FileName: video.fileName,
+      ContentType: video.type,
+      Title: trimmed,
+    });
+  };
+
   const created = new Date(video.createdAt);
   const isValidDate = !isNaN(created.getTime());
   const locale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase() || '';
@@ -144,6 +215,13 @@ function TopInfoBar({ video }: { video: Content }) {
         hour12: isUS,
       });
 
+  const positionLabel =
+    currentIndex >= 0 && playlistCount > 0
+      ? `${currentIndex + 1} / ${playlistCount}`
+      : playlistCount > 0
+        ? `— / ${playlistCount}`
+        : null;
+
   return (
     <div className="flex items-center gap-2 px-2 py-1 mb-2 text-xs leading-tight text-gray-300 border rounded-lg shrink-0 bg-base-300 border-base-400">
       <Button
@@ -152,25 +230,124 @@ function TopInfoBar({ video }: { video: Content }) {
         className="h-6 min-h-0 px-1"
         onClick={() => setSelectedVideo(null)}
         aria-label="Back"
+        title="返回列表"
       >
         <ArrowLeft className="w-4 h-4" />
       </Button>
-      <div className="flex items-center gap-2 overflow-hidden">
-        <span className="whitespace-nowrap">
+
+      {playlistCount > 1 && (
+        <div className="flex items-center border rounded-md join border-base-400 shrink-0">
+          <Button
+            variant="ghost"
+            size="xs"
+            className="h-6 min-h-0 px-1 join-item"
+            disabled={!prevVideo}
+            onClick={() => prevVideo && onSelectVideo(prevVideo)}
+            aria-label="上一部"
+            title="上一部"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          {positionLabel && (
+            <span className="px-1 text-[10px] tabular-nums text-gray-400 join-item">
+              {positionLabel}
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="xs"
+            className="h-6 min-h-0 px-1 join-item"
+            disabled={!nextVideo}
+            onClick={() => nextVideo && onSelectVideo(nextVideo)}
+            aria-label="下一部"
+            title="下一部"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-1 shrink-0">
+        {showMoveToPendingEdit && (
+          <Button
+            variant="ghost"
+            size="xs"
+            className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
+            onClick={onMoveToPendingEdit}
+            title="移至待剪輯（不會被儲存空間自動清理刪除）"
+          >
+            <Inbox className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">待剪輯</span>
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="xs"
+          className="h-6 min-h-0 px-1.5 border border-base-400"
+          onClick={startRenaming}
+          aria-label="Rename"
+          title="重新命名（同步更新磁碟檔名）"
+        >
+          <PenLine className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          className="h-6 min-h-0 px-1.5 text-error hover:text-error"
+          onClick={onDelete}
+          aria-label="Delete"
+          title="刪除影片"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-2 overflow-hidden min-w-0">
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitRename();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setIsRenaming(false);
+              }
+            }}
+            className="min-w-0 max-w-48 px-1 py-0 font-medium truncate bg-base-200 border rounded outline-none border-base-400 focus:border-primary"
+            placeholder={video.game || 'Untitled'}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={startRenaming}
+            className="min-w-0 font-medium truncate whitespace-nowrap hover:underline"
+            title="點擊重新命名"
+          >
+            {video.title || video.game}
+          </button>
+        )}
+        <span className="shrink-0">•</span>
+        <span className="whitespace-nowrap shrink-0">
           Created: {createdDateStr}
           {createdTimeStr ? ` ${createdTimeStr}` : ''}
         </span>
-        <span>•</span>
-        <span className="whitespace-nowrap">Size: {video.fileSize}</span>
-        <span>•</span>
+        <span className="shrink-0">•</span>
+        <span className="whitespace-nowrap shrink-0">Size: {video.fileSize}</span>
+        <span className="shrink-0">•</span>
         <span className="flex items-center gap-1 min-w-0">
-          <span className="whitespace-nowrap">Location:</span>
+          <span className="whitespace-nowrap shrink-0">Location:</span>
           <a
             className="text-gray-300 cursor-pointer hover:underline hover:text-gray-200 truncate"
             onClick={() => openFileLocation(video.filePath)}
             title={video.filePath}
           >
-            {video.filePath}
+            {video.filePath.replace(/\\/g, '/')}
           </a>
         </span>
       </div>
@@ -194,8 +371,8 @@ const fetchThumbnailAtTime = async (videoPath: string, timeInSeconds: number): P
 export default function VideoComponent({ video }: { video: Content }) {
   // Context hooks
   const settings = useSettings();
-  const appState = useAppState();
   const updateSettings = useSettingsUpdater();
+  const { setSelectedVideo } = useSelectedVideo();
   const { session } = useAuth();
   const { uploads } = useUploads();
   const { openModal, closeModal } = useModal();
@@ -207,6 +384,84 @@ export default function VideoComponent({ video }: { video: Content }) {
     updateSegmentsArray,
     clearAllSegments,
   } = useSegments();
+
+  const { playlist, currentIndex, prevVideo, nextVideo } = useContentPlaylist(video);
+  const showMoveToPendingEdit = video.type === 'Session' || video.type === 'Buffer';
+
+  const navigateAfterRemoval = useCallback(() => {
+    if (nextVideo) {
+      setSelectedVideo(nextVideo);
+    } else if (prevVideo) {
+      setSelectedVideo(prevVideo);
+    } else {
+      setSelectedVideo(null);
+    }
+  }, [nextVideo, prevVideo, setSelectedVideo]);
+
+  const handleSelectPlaylistVideo = useCallback(
+    (item: Content) => {
+      setSelectedVideo(item);
+    },
+    [setSelectedVideo],
+  );
+
+  const handleDeleteVideo = useCallback(() => {
+    sendMessageToBackend('DeleteContent', {
+      FileName: video.fileName,
+      ContentType: video.type,
+    });
+    navigateAfterRemoval();
+  }, [video.fileName, video.type, navigateAfterRemoval]);
+
+  const handleMoveToPendingEdit = useCallback(() => {
+    sendMessageToBackend('MoveToPendingEdit', {
+      Items: [{ FileName: video.fileName, ContentType: video.type }],
+    });
+  }, [video.fileName, video.type]);
+
+  useEffect(() => {
+    const updated = settings.state.content.find((item) => item.fileName === video.fileName);
+    if (updated) {
+      if (updated.type !== video.type || updated.filePath !== video.filePath) {
+        setSelectedVideo(updated);
+      }
+      return;
+    }
+
+    // Renamed on disk: fileName changes but metadata identity stays the same
+    const renamed = settings.state.content.find(
+      (item) =>
+        item.type === video.type &&
+        item.createdAt === video.createdAt &&
+        item.game === video.game &&
+        item.duration === video.duration &&
+        item.fileSizeKb === video.fileSizeKb,
+    );
+    if (renamed) {
+      setSelectedVideo(renamed);
+      return;
+    }
+
+    if (nextVideo) setSelectedVideo(nextVideo);
+    else if (prevVideo) setSelectedVideo(prevVideo);
+    else setSelectedVideo(null);
+  }, [
+    settings.state.content,
+    video.fileName,
+    video.type,
+    video.filePath,
+    video.createdAt,
+    video.game,
+    video.duration,
+    video.fileSizeKb,
+    setSelectedVideo,
+    prevVideo,
+    nextVideo,
+  ]);
+
+  const supportsClipWorkflow =
+    video.type === 'Session' || video.type === 'Buffer' || video.type === 'PendingEdit';
+  const showBufferStyleCopy = video.type === 'Buffer' || video.type === 'PendingEdit';
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -246,6 +501,7 @@ export default function VideoComponent({ video }: { video: Content }) {
   const [isPanning, setIsPanning] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const videoPanStartRef = useRef<{ x: number; y: number } | null>(null);
+  const videoLastPointerRef = useRef<number | null>(null);
   const panMovedRef = useRef(false);
   const videoScaleRef = useRef<number>(videoScale);
 
@@ -388,16 +644,13 @@ export default function VideoComponent({ video }: { video: Content }) {
     const saved = localStorage.getItem('segra-playbackRate');
     return saved ? parseFloat(saved) : 1;
   });
-  const [controlsVisible, setControlsVisible] = useState(false);
-  const controlsVisibleRef = useRef(false);
-  const cursorHiddenRef = useRef(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
   const controlsHideTimeoutRef = useRef<number | null>(null);
-  const controlsShowTimeoutRef = useRef<number | null>(null);
   const isPointerOverControlsRef = useRef(false);
+  const [isPointerInPlayer, setIsPointerInPlayer] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
-    controlsVisibleRef.current = controlsVisible;
     if (!controlsVisible) {
       setShowSpeedMenu(false);
       setShowAudioTracks(false);
@@ -409,6 +662,8 @@ export default function VideoComponent({ video }: { video: Content }) {
   const [isDragging, setIsDragging] = useState(false);
   const [isInteracting, setIsInteracting] = useState(false);
   const [hoveredSegmentId, setHoveredSegmentId] = useState<number | null>(null);
+  /** 剪輯「起點／終點」按鈕作用的片段：上次在時間軸或側欄選取、或曾修改過的片段 */
+  const [clipEditTargetSegmentId, setClipEditTargetSegmentId] = useState<number | null>(null);
   const [dragState, setDragState] = useState<{ id: number | null; offset: number }>({
     id: null,
     offset: 0,
@@ -446,10 +701,115 @@ export default function VideoComponent({ video }: { video: Content }) {
     () => [...segments].sort((a, b) => a.startTime - b.startTime),
     [segments],
   );
+  /** Segments for this video only, sorted by start time — used for clip preview / playhead snapping */
+  const sortedClipSegments = useMemo(
+    () =>
+      [...segments]
+        .filter((s) => s.filePath === video.filePath)
+        .sort((a, b) => a.startTime - b.startTime),
+    [segments, video.filePath],
+  );
+  const sortedClipSegmentsRef = useRef(sortedClipSegments);
+  useEffect(() => {
+    sortedClipSegmentsRef.current = sortedClipSegments;
+  }, [sortedClipSegments]);
+
+  const [clipPreviewLoop, setClipPreviewLoop] = useState(false);
+  const clipPreviewLoopRef = useRef(false);
+  useEffect(() => {
+    clipPreviewLoopRef.current = clipPreviewLoop;
+  }, [clipPreviewLoop]);
+
+  const [segmentUndoPast, setSegmentUndoPast] = useState<Segment[][]>([]);
+  const [segmentUndoFuture, setSegmentUndoFuture] = useState<Segment[][]>([]);
+
+  useEffect(() => {
+    if (sortedClipSegments.length === 0 && clipPreviewLoop) {
+      setClipPreviewLoop(false);
+    }
+  }, [sortedClipSegments.length, clipPreviewLoop]);
+
+  useEffect(() => {
+    setClipPreviewLoop(false);
+    setClipEditTargetSegmentId(null);
+    setSegmentUndoPast([]);
+    setSegmentUndoFuture([]);
+  }, [video.filePath]);
+
+  useEffect(() => {
+    if (clipEditTargetSegmentId == null) return;
+    const exists = segments.some(
+      (s) => s.id === clipEditTargetSegmentId && s.filePath === video.filePath,
+    );
+    if (!exists) setClipEditTargetSegmentId(null);
+  }, [segments, video.filePath, clipEditTargetSegmentId]);
+
   const segmentsRef = useRef(segments);
   useEffect(() => {
     segmentsRef.current = segments;
   }, [segments]);
+
+  const pushSegmentUndoSnapshot = useCallback(() => {
+    setSegmentUndoFuture([]);
+    setSegmentUndoPast((past) => {
+      const next = [...past, cloneSegmentsForUndo(segments)];
+      while (next.length > MAX_SEGMENT_UNDO) next.shift();
+      return next;
+    });
+  }, [segments]);
+
+  const undoSegmentHistory = useCallback(() => {
+    setSegmentUndoPast((past) => {
+      if (past.length === 0) return past;
+      const restored = past[past.length - 1];
+      setSegmentUndoFuture((future) => [...future, cloneSegmentsForUndo(segments)]);
+      updateSegmentsArray(restored);
+      return past.slice(0, -1);
+    });
+  }, [updateSegmentsArray, segments]);
+
+  const redoSegmentHistory = useCallback(() => {
+    setSegmentUndoFuture((future) => {
+      if (future.length === 0) return future;
+      const restored = future[future.length - 1];
+      setSegmentUndoPast((past) => [...past, cloneSegmentsForUndo(segments)]);
+      updateSegmentsArray(restored);
+      return future.slice(0, -1);
+    });
+  }, [updateSegmentsArray, segments]);
+
+  const removeSegmentWithUndo = useCallback(
+    (id: number) => {
+      pushSegmentUndoSnapshot();
+      removeSegment(id);
+    },
+    [pushSegmentUndoSnapshot, removeSegment],
+  );
+
+  const clearAllSegmentsWithUndo = useCallback(() => {
+    pushSegmentUndoSnapshot();
+    clearAllSegments();
+  }, [pushSegmentUndoSnapshot, clearAllSegments]);
+
+  const handleSidebarSegmentSeek = useCallback(
+    (segment: Segment) => {
+      if (segment.filePath !== video.filePath) return;
+      setClipEditTargetSegmentId(segment.id);
+      const el = videoRef.current;
+      const dur =
+        duration > 0 && Number.isFinite(duration)
+          ? duration
+          : el && Number.isFinite(el.duration) && el.duration > 0
+            ? el.duration
+            : segment.startTime + 1;
+      const t = Math.max(0, Math.min(segment.startTime, dur));
+      if (el) {
+        el.currentTime = t;
+      }
+      setCurrentTime(t);
+    },
+    [video.filePath, duration],
+  );
 
   // Track in-flight thumbnail requests to avoid stale overwrites
   const thumbnailReqTokenRef = useRef<Map<number, number>>(new Map());
@@ -457,20 +817,19 @@ export default function VideoComponent({ video }: { video: Content }) {
   // Refreshes the thumbnail for a segment without overwriting live fields
   const refreshSegmentThumbnail = async (segment: Segment): Promise<void> => {
     const id = segment.id;
-    // Read the latest segment from state (may be undefined immediately after add)
+    // Ref updates after render; right after updateSegment(...), ref can still hold stale row.
+    // Merge caller `segment` over ref so start/end changes from the caller are never clobbered.
     const current = segmentsRef.current.find((s) => s.id === id);
+    const merged = current ? { ...current, ...segment } : segment;
 
-    // Mark loading on latest state if present (new segment already has isLoading=true)
-    if (current) {
-      updateSegment({ ...current, isLoading: true });
-    }
+    updateSegment({ ...merged, isLoading: true });
 
     // Bump request token for this id
     const nextToken = (thumbnailReqTokenRef.current.get(id) ?? 0) + 1;
     thumbnailReqTokenRef.current.set(id, nextToken);
 
     try {
-      const latest = segmentsRef.current.find((s) => s.id === id) ?? current ?? segment;
+      const latest = segmentsRef.current.find((s) => s.id === id) ?? merged;
       // Use the video's filePath from metadata instead of constructing it
       const thumbnailUrl = await fetchThumbnailAtTime(video.filePath, latest.startTime);
 
@@ -481,7 +840,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       }
     } catch {
       if (thumbnailReqTokenRef.current.get(id) === nextToken) {
-        const newest = segmentsRef.current.find((s) => s.id === id) ?? current ?? segment;
+        const newest = segmentsRef.current.find((s) => s.id === id) ?? merged;
         updateSegment({ ...newest, isLoading: false });
       }
     }
@@ -594,6 +953,27 @@ export default function VideoComponent({ video }: { video: Content }) {
         showControlsTemporarily();
         return;
       }
+
+      // 片段復原／重做（Ctrl+Z、Ctrl+Y；Mac：⌘+Z、⌘+⇧+Z 或 Ctrl+Y）
+      if (supportsClipWorkflow && (e.ctrlKey || e.metaKey) && !isTyping) {
+        const yz = e.key === 'z' || e.key === 'Z';
+        const yy = e.key === 'y' || e.key === 'Y';
+        if (yy || (yz && e.shiftKey)) {
+          if (e.repeat) return;
+          e.preventDefault();
+          redoSegmentHistory();
+          showControlsTemporarily();
+          return;
+        }
+        if (yz && !e.shiftKey) {
+          if (e.repeat) return;
+          e.preventDefault();
+          undoSegmentHistory();
+          showControlsTemporarily();
+          return;
+        }
+      }
+
       if (e.key === 'Escape' && isFullscreen) {
         e.preventDefault();
         exitFullscreen();
@@ -603,6 +983,8 @@ export default function VideoComponent({ video }: { video: Content }) {
     const keyOptions: AddEventListenerOptions & EventListenerOptions = { capture: true };
     window.addEventListener('keydown', handleKeyDown, keyOptions);
 
+    // No DOM fullscreen; overlay UI + backend Photino OS fullscreen (not work-area maximize)
+
     return () => {
       vid.removeEventListener('loadedmetadata', onLoadedMetadata);
       vid.removeEventListener('play', onPlay);
@@ -611,7 +993,15 @@ export default function VideoComponent({ video }: { video: Content }) {
       vid.removeEventListener('ratechange', onRateChange);
       window.removeEventListener('keydown', handleKeyDown, keyOptions as any);
     };
-  }, [volume, isMuted, isFullscreen, audioTracks.isMultiTrack]);
+  }, [
+    volume,
+    isMuted,
+    isFullscreen,
+    audioTracks.isMultiTrack,
+    supportsClipWorkflow,
+    undoSegmentHistory,
+    redoSegmentHistory,
+  ]);
 
   // Per-segment audio override state, kept in refs for the rAF loop below.
   // `segmentsDirtyRef` is separate from the id ref because `null` is already
@@ -653,12 +1043,29 @@ export default function VideoComponent({ video }: { video: Content }) {
     if (!vid) return;
     let rafId = 0;
     const tick = () => {
-      setCurrentTime(vid.currentTime);
+      let t = vid.currentTime;
+
+      if (clipPreviewLoopRef.current) {
+        const sorted = sortedClipSegmentsRef.current;
+        if (sorted.length > 0) {
+          const eps = 1e-3;
+          const inside = sorted.some((s) => t >= s.startTime - eps && t <= s.endTime + eps);
+          if (!inside) {
+            const nextStart = sorted.find((s) => s.startTime > t)?.startTime;
+            const seekTo = nextStart ?? sorted[0].startTime;
+            if (Math.abs(vid.currentTime - seekTo) > 1e-4) {
+              vid.currentTime = seekTo;
+              t = seekTo;
+            }
+          }
+        }
+      }
+
+      setCurrentTime(t);
 
       // Per-segment audio mute/volume override
       const at = audioTracksRef.current;
       if (at.isMultiTrack) {
-        const t = vid.currentTime;
         const segs = segmentsRef.current;
         const activeSeg = segs.find((s) => t >= s.startTime && t <= s.endTime);
         const activeId = activeSeg?.id ?? null;
@@ -731,65 +1138,35 @@ export default function VideoComponent({ video }: { video: Content }) {
     wheelZoomRef.current = zoom;
   }, [zoom]);
 
-  const hideCursor = () => {
-    cursorHiddenRef.current = true;
-    if (playerContainerRef.current) {
-      playerContainerRef.current.style.cursor = 'none';
-    }
-  };
+  // TODO: refactor
+  const showControlsTemporarily = () => {
+    setControlsVisible(true);
 
-  const showCursor = () => {
-    if (!cursorHiddenRef.current) return;
-    cursorHiddenRef.current = false;
-    if (playerContainerRef.current) {
-      playerContainerRef.current.style.cursor = '';
-    }
-  };
-
-  const scheduleControlsHide = () => {
     if (controlsHideTimeoutRef.current) {
       clearTimeout(controlsHideTimeoutRef.current);
       controlsHideTimeoutRef.current = null;
     }
-    if (isPointerOverControlsRef.current) return;
+
+    if (isPointerOverControlsRef.current) {
+      return;
+    }
+
     controlsHideTimeoutRef.current = window.setTimeout(() => {
       if (!isPointerOverControlsRef.current) {
         setControlsVisible(false);
-        hideCursor();
       }
       controlsHideTimeoutRef.current = null;
     }, 2500);
   };
 
-  const showControlsTemporarily = () => {
-    showCursor();
-
-    if (controlsVisibleRef.current) {
-      scheduleControlsHide();
-      return;
-    }
-
-    if (controlsShowTimeoutRef.current) return;
-    controlsShowTimeoutRef.current = window.setTimeout(() => {
-      controlsShowTimeoutRef.current = null;
-      setControlsVisible(true);
-      scheduleControlsHide();
-    }, 200);
-  };
-
   const handleControlsMouseEnter = () => {
     isPointerOverControlsRef.current = true;
 
-    if (controlsShowTimeoutRef.current) {
-      clearTimeout(controlsShowTimeoutRef.current);
-      controlsShowTimeoutRef.current = null;
-    }
     if (controlsHideTimeoutRef.current) {
       clearTimeout(controlsHideTimeoutRef.current);
       controlsHideTimeoutRef.current = null;
     }
 
-    showCursor();
     setControlsVisible(true);
   };
 
@@ -910,8 +1287,11 @@ export default function VideoComponent({ video }: { video: Content }) {
 
   const skipTime = (seconds: number) => {
     if (videoRef.current) {
-      const newTime = videoRef.current.currentTime + seconds;
-      videoRef.current.currentTime = Math.max(0, Math.min(newTime, videoRef.current.duration));
+      const el = videoRef.current;
+      const dur = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : duration;
+      const newTime = Math.max(0, Math.min(el.currentTime + seconds, dur));
+      el.currentTime = newTime;
+      setCurrentTime(newTime);
     }
   };
 
@@ -922,22 +1302,15 @@ export default function VideoComponent({ video }: { video: Content }) {
       setVolume(target);
       return;
     }
-    // Track the intended muted state locally; audioTracks.masterMuted is React state that
-    // still holds the pre-update value within this synchronous call, so it can't be read back.
-    let nextMuted: boolean;
     if (audioTracks.isMultiTrack) {
       // Route to master volume -- purely a preview control
       audioTracks.setMasterVolume(target);
       if (target === 0) {
         audioTracks.setMasterMuted(true);
         setIsMuted(true);
-        nextMuted = true;
-      } else {
-        if (audioTracks.masterMuted) {
-          audioTracks.setMasterMuted(false);
-          setIsMuted(false);
-        }
-        nextMuted = false;
+      } else if (audioTracks.masterMuted) {
+        audioTracks.setMasterMuted(false);
+        setIsMuted(false);
       }
     } else {
       el.volume = target;
@@ -948,11 +1321,13 @@ export default function VideoComponent({ video }: { video: Content }) {
         el.muted = false;
         setIsMuted(false);
       }
-      nextMuted = el.muted;
     }
     setVolume(target);
     localStorage.setItem('segra-volume', target.toString());
-    localStorage.setItem('segra-muted', nextMuted.toString());
+    localStorage.setItem(
+      'segra-muted',
+      (audioTracks.isMultiTrack ? audioTracks.masterMuted : el.muted).toString(),
+    );
   };
 
   // Pointer handlers for panning the video when zoomed
@@ -963,6 +1338,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     // Reset pan-moved flag for this gesture
     panMovedRef.current = false;
     videoPanStartRef.current = { x: e.clientX - videoTranslate.x, y: e.clientY - videoTranslate.y };
+    videoLastPointerRef.current = e.pointerId;
   };
 
   const onVideoPointerMove = (e: React.PointerEvent) => {
@@ -978,11 +1354,13 @@ export default function VideoComponent({ video }: { video: Content }) {
   const onVideoPointerUp = (e: React.PointerEvent) => {
     try {
       (e.target as Element).releasePointerCapture?.(e.pointerId);
-    } catch {
+    } catch (err) {
       // ignore pointer release errors
+      // console.debug('pointer release error', err);
     }
     setIsPanning(false);
     videoPanStartRef.current = null;
+    videoLastPointerRef.current = null;
   };
 
   // Click handler for the video element which suppresses clicks that are actually pans
@@ -993,10 +1371,15 @@ export default function VideoComponent({ video }: { video: Content }) {
       e.stopPropagation();
       return;
     }
+    togglePlayPause();
+  };
+
+  // Toggle video play/pause state
+  const togglePlayPause = () => {
     handlePlayPause();
   };
 
-  // Fullscreen controls: request browser fullscreen and ask backend for OS-level fullscreen
+  // Fullscreen: backend Photino OS fullscreen (+ in-page overlay for controls)
   const enterFullscreen = () => {
     setIsFullscreen(true);
     sendMessageToBackend('ToggleFullscreen', { enabled: true });
@@ -1132,9 +1515,74 @@ export default function VideoComponent({ video }: { video: Content }) {
             ? [...audioTracks.mutedTracks]
             : undefined,
     };
+    pushSegmentUndoSnapshot();
     addSegment(newSegment);
+    setClipEditTargetSegmentId(newSegment.id);
     // Kick off thumbnail generation; uses latest state and guards against stale overwrites
     refreshSegmentThumbnail(newSegment);
+  };
+
+  const CLIP_MIN_DURATION_SEC = 0.1;
+
+  const clipEditTargetSegment = useMemo((): Segment | null => {
+    if (clipEditTargetSegmentId == null) return null;
+    const segs = segments.filter((s) => s.filePath === video.filePath);
+    return segs.find((s) => s.id === clipEditTargetSegmentId) ?? null;
+  }, [segments, video.filePath, clipEditTargetSegmentId]);
+
+  const handleSetClipStartFromPlayhead = () => {
+    const seg = clipEditTargetSegment;
+    if (!seg || duration <= 0) {
+      setShowNoSegmentsIndicator(true);
+      setTimeout(() => setShowNoSegmentsIndicator(false), 2000);
+      return;
+    }
+    const t = Math.max(0, Math.min(videoRef.current?.currentTime ?? currentTime, duration));
+    const newStart = Math.max(0, Math.min(t, seg.endTime - CLIP_MIN_DURATION_SEC));
+    const updated = { ...seg, startTime: newStart };
+    pushSegmentUndoSnapshot();
+    updateSegment(updated);
+    void refreshSegmentThumbnail(updated);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newStart;
+      setCurrentTime(newStart);
+    }
+  };
+
+  const handleSetClipEndFromPlayhead = () => {
+    const seg = clipEditTargetSegment;
+    if (!seg || duration <= 0) {
+      setShowNoSegmentsIndicator(true);
+      setTimeout(() => setShowNoSegmentsIndicator(false), 2000);
+      return;
+    }
+    const t = Math.max(0, Math.min(videoRef.current?.currentTime ?? currentTime, duration));
+    const newEnd = Math.max(seg.startTime + CLIP_MIN_DURATION_SEC, Math.min(t, duration));
+    const updated = { ...seg, endTime: newEnd };
+    pushSegmentUndoSnapshot();
+    updateSegment(updated);
+    void refreshSegmentThumbnail(updated);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newEnd;
+      setCurrentTime(newEnd);
+    }
+  };
+
+  const handleToggleClipPreviewLoop = () => {
+    if (sortedClipSegments.length === 0) {
+      setShowNoSegmentsIndicator(true);
+      setTimeout(() => setShowNoSegmentsIndicator(false), 2000);
+      return;
+    }
+    setClipPreviewLoop((prev) => {
+      const next = !prev;
+      if (next && videoRef.current && sortedClipSegments.length > 0) {
+        const start = sortedClipSegments[0].startTime;
+        videoRef.current.currentTime = start;
+        setCurrentTime(start);
+      }
+      return next;
+    });
   };
 
   // Create a clip from current segments
@@ -1205,6 +1653,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       if (!cand) return;
       const delta = Math.abs(e.clientX - cand.startClientX);
       if (delta <= 3) return; // not enough movement yet
+      pushSegmentUndoSnapshot();
       setDragState({ id: cand.id, offset: cand.offset });
       setIsInteracting(true);
     }
@@ -1220,6 +1669,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       newStart = Math.max(0, Math.min(newStart, duration - segLength));
       const updatedSegment = { ...seg, startTime: newStart, endTime: newStart + segLength };
       updateSegment(updatedSegment);
+      setClipEditTargetSegmentId(updatedSegment.id);
       latestDraggedSegmentRef.current = updatedSegment;
     }
   };
@@ -1262,6 +1712,9 @@ export default function VideoComponent({ video }: { video: Content }) {
     const dragPos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
     const cursorTime = dragPos / pixelsPerSecond;
     const seg = segments.find((s) => s.id === id);
+    if (seg?.filePath === video.filePath) {
+      setClipEditTargetSegmentId(id);
+    }
     if (seg) {
       dragCandidateRef.current = {
         id,
@@ -1379,6 +1832,10 @@ export default function VideoComponent({ video }: { video: Content }) {
   ) => {
     // Do not stop propagation so timeline click can still happen
     resizeCandidateRef.current = { id, direction, startClientX: e.clientX };
+    const s = segments.find((x) => x.id === id);
+    if (s?.filePath === video.filePath) {
+      setClipEditTargetSegmentId(id);
+    }
   };
 
   const handleSegmentResize = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1393,6 +1850,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       if (!cand) return;
       const delta = Math.abs(e.clientX - cand.startClientX);
       if (delta <= 3) return; // not enough movement
+      pushSegmentUndoSnapshot();
       setResizingSegmentId(cand.id);
       setResizeDirection(cand.direction);
       setIsInteracting(true);
@@ -1414,6 +1872,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     }
     latestDraggedSegmentRef.current = updatedSegment;
     updateSegment(updatedSegment);
+    setClipEditTargetSegmentId(updatedSegment.id);
 
     // While resizing, keep the video time at the active edge and update marker state
     const edgeTime = activeDir === 'start' ? updatedSegment.startTime : updatedSegment.endTime;
@@ -1436,12 +1895,17 @@ export default function VideoComponent({ video }: { video: Content }) {
     }
   };
 
+  // Right-click to remove segment disabled to keep segments click-through
+
   // Move segment card in the sidebar
   const moveCard = (dragIndex: number, hoverIndex: number) => {
     const newSegments = [...segments];
     const [removed] = newSegments.splice(dragIndex, 1);
     newSegments.splice(hoverIndex, 0, removed);
     updateSegmentsArray(newSegments);
+    if (removed.filePath === video.filePath) {
+      setClipEditTargetSegmentId(removed.id);
+    }
   };
 
   // Get video source URL - use the filePath from metadata
@@ -1459,8 +1923,10 @@ export default function VideoComponent({ video }: { video: Content }) {
           ? 'Replay Buffers'
           : video.type === 'Clip'
             ? 'Clips'
-            : 'Highlights';
-    const waveformPath = `${appState.cacheFolder}/waveforms/${folderName}/${video.fileName}.peaks.json`;
+            : video.type === 'PendingEdit'
+              ? '待剪輯'
+              : 'Highlights';
+    const waveformPath = `${settings.state.cacheFolder}/waveforms/${folderName}/${video.fileName}.peaks.json`;
     return `http://localhost:2222/api/content?input=${encodeURIComponent(waveformPath)}&type=${video.type.toLowerCase()}`;
   };
 
@@ -1631,20 +2097,27 @@ export default function VideoComponent({ video }: { video: Content }) {
     <DndProvider backend={HTML5Backend}>
       <div className="flex w-full h-full overflow-hidden bg-base-200" ref={containerRef}>
         <div className="flex flex-col flex-1 w-full h-full p-4 pb-2 overflow-hidden lg:w-3/4">
-          <TopInfoBar video={video} />
+          <TopInfoBar
+            video={video}
+            currentIndex={currentIndex}
+            playlistCount={playlist.length}
+            prevVideo={prevVideo}
+            nextVideo={nextVideo}
+            onSelectVideo={handleSelectPlaylistVideo}
+            onDelete={handleDeleteVideo}
+            onMoveToPendingEdit={handleMoveToPendingEdit}
+            showMoveToPendingEdit={showMoveToPendingEdit}
+          />
           <div
-            className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen overflow-hidden bg-black' : 'relative flex-1 min-h-0 overflow-hidden rounded-lg'}`}
+            className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen overflow-hidden bg-black' : 'relative flex-1 min-h-0 overflow-hidden'} ${!controlsVisible && isPointerInPlayer ? 'cursor-none' : ''}`}
             ref={playerContainerRef}
             onMouseMove={() => {
+              setIsPointerInPlayer(true);
               showControlsTemporarily();
             }}
             onMouseLeave={() => {
+              setIsPointerInPlayer(false);
               isPointerOverControlsRef.current = false;
-              showCursor();
-              if (controlsShowTimeoutRef.current) {
-                clearTimeout(controlsShowTimeoutRef.current);
-                controlsShowTimeoutRef.current = null;
-              }
               if (controlsHideTimeoutRef.current) {
                 clearTimeout(controlsHideTimeoutRef.current);
                 controlsHideTimeoutRef.current = null;
@@ -1661,6 +2134,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                 className="w-full h-full object-contain"
                 src={getVideoPath()}
                 ref={videoRef}
+                onSeeked={(e) => setCurrentTime(e.currentTarget.currentTime)}
                 onClick={onVideoClick}
                 onDoubleClick={toggleFullscreen}
                 onPointerDown={onVideoPointerDown}
@@ -1679,7 +2153,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             </div>
 
             <div
-              className={`absolute left-0 right-0 bottom-0 bg-black/70 pb-2 flex flex-col gap-2 transition-transform duration-300 select-none ${isFullscreen ? '' : 'rounded-b-lg'} ${controlsVisible ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}
+              className={`absolute left-0 right-0 bottom-0 bg-black/70 pb-2 flex flex-col gap-2 transition-transform duration-300 select-none ${controlsVisible ? 'translate-y-0' : 'translate-y-full'}`}
               onMouseEnter={handleControlsMouseEnter}
               onMouseLeave={handleControlsMouseLeave}
             >
@@ -1706,7 +2180,7 @@ export default function VideoComponent({ video }: { video: Content }) {
               <div className="flex items-center justify-between px-3">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={handlePlayPause}
+                    onClick={togglePlayPause}
                     className="text-white transition-colors cursor-pointer hover:text-accent"
                     aria-label={isPlaying ? 'Pause' : 'Play'}
                   >
@@ -1719,7 +2193,9 @@ export default function VideoComponent({ video }: { video: Content }) {
                       className="text-white transition-colors cursor-pointer hover:text-accent"
                       aria-label={isMuted ? 'Unmute' : 'Mute'}
                     >
-                      {isMuted || volume < 0.2 ? (
+                      {isMuted || volume === 0 ? (
+                        <VolumeX className="w-5 h-5" />
+                      ) : volume < 0.2 ? (
                         <VolumeX className="w-5 h-5" />
                       ) : volume < 0.7 ? (
                         <Volume1 className="w-5 h-5" />
@@ -1754,25 +2230,52 @@ export default function VideoComponent({ video }: { video: Content }) {
                     <div className="relative">
                       <button
                         onClick={() => setShowAudioTracks(!showAudioTracks)}
-                        className={`flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 ${showAudioTracks ? 'text-accent bg-accent/20' : ''}`}
+                        className={`flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 ${showAudioTracks ? 'text-accent bg-accent/20' : ''} ${audioTracks.soloTrack != null ? 'ring-1 ring-accent/50' : ''}`}
+                        title={
+                          audioTracks.soloTrack != null
+                            ? '多音軌：Solo 模式中（僅播出選取音軌）'
+                            : '多音軌音量與 Solo'
+                        }
                       >
                         <Headphones className="w-4 h-4" />
                       </button>
                       <div
-                        className={`absolute bottom-full right-0 mb-2 p-2 bg-black/90 rounded-lg border border-base-400 min-w-48 z-50 transition-all duration-300 origin-bottom-right ${showAudioTracks ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-2 pointer-events-none'}`}
+                        className={`absolute bottom-full right-0 mb-2 p-2 bg-black/90 rounded-lg border border-base-400 min-w-[17rem] z-50 transition-all duration-300 origin-bottom-right ${showAudioTracks ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-2 pointer-events-none'}`}
                       >
                         {audioTracks.tracks.map((track) => {
-                          const isMuted = audioTracks.mutedTracks.has(track.index);
+                          const solo = audioTracks.soloTrack;
+                          const isEffectivelyMuted =
+                            solo !== null
+                              ? solo !== track.index
+                              : audioTracks.mutedTracks.has(track.index);
+                          const isSolo = solo === track.index;
                           const vol = audioTracks.volumes[track.index] ?? 1;
                           return (
                             <div
                               key={track.index}
                               className="flex items-center justify-between gap-2 py-0.5"
                             >
-                              <label className="flex items-center gap-2 min-w-0 cursor-pointer">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  audioTracks.toggleSolo(track.index);
+                                }}
+                                className={`shrink-0 min-w-[1.5rem] h-5 px-1 text-[10px] font-semibold rounded border transition-colors ${
+                                  isSolo
+                                    ? 'border-accent text-accent bg-accent/20'
+                                    : 'border-white/30 text-white/60 hover:border-white/50 hover:text-white/90'
+                                }`}
+                                title="單獨播出此音軌（再按一次可解除 Solo）"
+                                aria-label="Solo 此音軌"
+                                aria-pressed={isSolo}
+                              >
+                                S
+                              </button>
+                              <label className="flex items-center gap-2 min-w-0 cursor-pointer flex-1">
                                 <input
                                   type="checkbox"
-                                  checked={!isMuted}
+                                  checked={!isEffectivelyMuted}
                                   onChange={() => audioTracks.toggleTrackMute(track.index)}
                                   className="checkbox checkbox-primary checkbox-xs shrink-0"
                                 />
@@ -1794,12 +2297,12 @@ export default function VideoComponent({ video }: { video: Content }) {
                                     )
                                   }
                                   className={`w-16 h-1 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-moz-range-thumb]:border-0 ${
-                                    isMuted
+                                    isEffectivelyMuted
                                       ? '[&::-webkit-slider-thumb]:w-0 [&::-webkit-slider-thumb]:h-0 [&::-moz-range-thumb]:w-0 [&::-moz-range-thumb]:h-0'
                                       : '[&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-accent)] [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[var(--color-accent)]'
                                   }`}
                                   style={{
-                                    backgroundImage: `linear-gradient(to right, var(--color-accent) ${(isMuted ? 0 : vol) * 100}%, #4b5563 ${(isMuted ? 0 : vol) * 100}%)`,
+                                    backgroundImage: `linear-gradient(to right, var(--color-accent) ${(isEffectivelyMuted ? 0 : vol) * 100}%, #4b5563 ${(isEffectivelyMuted ? 0 : vol) * 100}%)`,
                                   }}
                                 />
                                 <span className="text-[10px] text-white/50 w-7 text-right tabular-nums">
@@ -1882,9 +2385,9 @@ export default function VideoComponent({ video }: { video: Content }) {
 
                   <button
                     onClick={toggleFullscreen}
-                    onPointerUp={(e) => e.currentTarget.blur()}
-                    onMouseUp={(e) => e.currentTarget.blur()}
-                    onTouchEnd={(e) => e.currentTarget.blur()}
+                    onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                    onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                    onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
                     className="text-white cursor-pointer transition-colors hover:text-accent"
                     aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                   >
@@ -2012,78 +2515,86 @@ export default function VideoComponent({ video }: { video: Content }) {
                 const width = (seg.endTime - seg.startTime) * pixelsPerSecond;
                 const hidden = seg.fileName !== video.fileName;
                 return (
-                  <div
-                    key={seg.id}
-                    className={`absolute top-0 left-0 h-full cursor-move ${hidden ? 'hidden' : ''} transition-colors overflow-hidden rounded-r-sm rounded-l-sm shadow-md
+                  <>
+                    <div
+                      key={seg.id}
+                      className={`absolute top-0 left-0 h-full cursor-move ${hidden ? 'hidden' : ''} transition-colors overflow-hidden rounded-r-sm rounded-l-sm shadow-md
                                                 bg-primary/20 border border-primary/20`}
-                    style={{ left: `${left}px`, width: `${width}px` }}
-                    onMouseEnter={() => {
-                      setHoveredSegmentId(seg.id);
-                    }}
-                    onMouseLeave={() => {
-                      setHoveredSegmentId(null);
-                    }}
-                    onMouseDown={(e) => handleSegmentMouseDown(e, seg.id)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      removeSegment(seg.id);
-                    }}
-                  >
-                    <div className="absolute left-0 top-0 h-full w-[4px] bg-accent/80 rounded-l-sm pointer-events-none" />
-                    <div className="absolute right-0 top-0 h-full w-[4px] bg-accent/80 rounded-r-sm pointer-events-none" />
+                      style={{ left: `${left}px`, width: `${width}px` }}
+                      onMouseEnter={() => {
+                        setHoveredSegmentId(seg.id);
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredSegmentId(null);
+                      }}
+                      onMouseDown={(e) => handleSegmentMouseDown(e, seg.id)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        removeSegmentWithUndo(seg.id);
+                      }}
+                    >
+                      <div className="absolute left-0 top-0 h-full w-[4px] bg-accent/80 rounded-l-sm pointer-events-none" />
+                      <div className="absolute right-0 top-0 h-full w-[4px] bg-accent/80 rounded-r-sm pointer-events-none" />
 
-                    {audioTracks.isMultiTrack &&
-                      video.audioTrackNames &&
-                      video.audioTrackNames.length > 1 && (
-                        <button
-                          className={`absolute top-[4px] right-[8px] flex items-center justify-center w-4 h-4 rounded z-10 pointer-events-auto cursor-pointer transition-opacity bg-black/45 text-white/70 hover:bg-black/65 ${hoveredSegmentId === seg.id || (timelineAudioMenu?.segId === seg.id && timelineAudioMenu.visible) ? 'opacity-100' : 'opacity-0'}`}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (timelineAudioMenu?.segId === seg.id && timelineAudioMenu.visible) {
-                              setTimelineAudioMenu((prev) =>
-                                prev ? { ...prev, visible: false } : null,
+                      {audioTracks.isMultiTrack &&
+                        video.audioTrackNames &&
+                        video.audioTrackNames.length > 1 && (
+                          <button
+                            className={`absolute top-[4px] right-[8px] flex items-center justify-center w-4 h-4 rounded z-10 pointer-events-auto cursor-pointer transition-opacity bg-black/45 text-white/70 hover:bg-black/65 ${hoveredSegmentId === seg.id || (timelineAudioMenu?.segId === seg.id && timelineAudioMenu.visible) ? 'opacity-100' : 'opacity-0'}`}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (seg.filePath === video.filePath) {
+                                setClipEditTargetSegmentId(seg.id);
+                              }
+                              if (
+                                timelineAudioMenu?.segId === seg.id &&
+                                timelineAudioMenu.visible
+                              ) {
+                                setTimelineAudioMenu((prev) =>
+                                  prev ? { ...prev, visible: false } : null,
+                                );
+                                return;
+                              }
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const trackCount = video.audioTrackNames?.length ?? 0;
+                              const estimatedHeight = 16 + trackCount * 24;
+                              const fitsBelow =
+                                rect.bottom + 4 + estimatedHeight <= window.innerHeight;
+                              const top = fitsBelow
+                                ? rect.bottom + 4
+                                : Math.max(8, rect.top - 4 - estimatedHeight);
+                              const next = {
+                                segId: seg.id,
+                                x: rect.left,
+                                y: top,
+                                flipUp: !fitsBelow,
+                                visible: false,
+                              };
+                              setTimelineAudioMenu(next);
+                              requestAnimationFrame(() =>
+                                setTimelineAudioMenu((prev) =>
+                                  prev ? { ...prev, visible: true } : null,
+                                ),
                               );
-                              return;
-                            }
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const trackCount = video.audioTrackNames?.length ?? 0;
-                            const estimatedHeight = 16 + trackCount * 24;
-                            const fitsBelow =
-                              rect.bottom + 4 + estimatedHeight <= window.innerHeight;
-                            const top = fitsBelow
-                              ? rect.bottom + 4
-                              : Math.max(8, rect.top - 4 - estimatedHeight);
-                            const next = {
-                              segId: seg.id,
-                              x: rect.left,
-                              y: top,
-                              flipUp: !fitsBelow,
-                              visible: false,
-                            };
-                            setTimelineAudioMenu(next);
-                            requestAnimationFrame(() =>
-                              setTimelineAudioMenu((prev) =>
-                                prev ? { ...prev, visible: true } : null,
-                              ),
-                            );
-                          }}
-                        >
-                          <Headphones className="w-2.5 h-2.5" />
-                        </button>
-                      )}
+                            }}
+                          >
+                            <Headphones className="w-2.5 h-2.5" />
+                          </button>
+                        )}
 
-                    <div
-                      className="absolute top-0 -left-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto"
-                      onMouseDown={(e) => handleResizeMouseDown(e, seg.id, 'start')}
-                      aria-label="Resize segment start"
-                    />
-                    <div
-                      className="absolute top-0 -right-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto"
-                      onMouseDown={(e) => handleResizeMouseDown(e, seg.id, 'end')}
-                      aria-label="Resize segment end"
-                    />
-                  </div>
+                      <div
+                        className="absolute top-0 -left-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto"
+                        onMouseDown={(e) => handleResizeMouseDown(e, seg.id, 'start')}
+                        aria-label="Resize segment start"
+                      />
+                      <div
+                        className="absolute top-0 -right-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto"
+                        onMouseDown={(e) => handleResizeMouseDown(e, seg.id, 'end')}
+                        aria-label="Resize segment end"
+                      />
+                    </div>
+                  </>
                 );
               })}
               {resizingSegmentId == null && (
@@ -2124,6 +2635,8 @@ export default function VideoComponent({ video }: { video: Content }) {
                             type="checkbox"
                             checked={!isMuted}
                             onChange={() => {
+                              setClipEditTargetSegmentId(menuSeg.id);
+                              pushSegmentUndoSnapshot();
                               let newMuted: number[];
                               if (isMuted) {
                                 // Enabling this track
@@ -2157,6 +2670,8 @@ export default function VideoComponent({ video }: { video: Content }) {
                             step="0.02"
                             value={vol}
                             onChange={(e) => {
+                              setClipEditTargetSegmentId(menuSeg.id);
+                              pushSegmentUndoSnapshot();
                               const newVolumes = {
                                 ...trackVolumes,
                                 [i]: parseFloat(e.target.value),
@@ -2208,21 +2723,19 @@ export default function VideoComponent({ video }: { video: Content }) {
               </div>
               {(video.type === 'Clip' || video.type === 'Highlight') && (
                 <>
-                  {!settings.airplaneMode && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      className="h-10 px-5 hover:text-accent"
-                      onClick={handleUpload}
-                      disabled={
-                        uploads[video.fileName + '.mp4']?.status === 'uploading' ||
-                        uploads[video.fileName + '.mp4']?.status === 'processing'
-                      }
-                    >
-                      <Upload className="w-5 h-5" />
-                      <span>Upload</span>
-                    </Button>
-                  )}
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="h-10 px-5 hover:text-accent"
+                    onClick={handleUpload}
+                    disabled={
+                      uploads[video.fileName + '.mp4']?.status === 'uploading' ||
+                      uploads[video.fileName + '.mp4']?.status === 'processing'
+                    }
+                  >
+                    <Upload className="w-5 h-5" />
+                    <span>Upload</span>
+                  </Button>
                   <Button
                     variant="primary"
                     size="sm"
@@ -2243,7 +2756,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                   </Button>
                 </>
               )}
-              {(video.type === 'Session' || video.type === 'Buffer') && (
+              {supportsClipWorkflow && (
                 <>
                   <Button
                     variant="primary"
@@ -2263,6 +2776,40 @@ export default function VideoComponent({ video }: { video: Content }) {
                     <Clapperboard className="w-5 h-5" />
                     <span>Lossless Clip</span>
                   </Button>
+                  <div className="flex items-center border rounded-lg join bg-base-300 border-base-400">
+                    <button
+                      type="button"
+                      onClick={handleSetClipStartFromPlayhead}
+                      disabled={sortedClipSegments.length === 0 || clipEditTargetSegment == null}
+                      title="將播放頭設為「上次選取或修改片段」的剪輯起點（時間軸／側欄點片段、拖曳、調整邊界或 Add Segment 後會記住該片段）"
+                      className="h-10 px-2 text-gray-300 btn btn-sm btn-secondary hover:text-accent join-item gap-1 disabled:opacity-40"
+                    >
+                      <ArrowLeftToLine className="w-4 h-4 shrink-0" />
+                      <span className="hidden sm:inline text-xs">起點</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSetClipEndFromPlayhead}
+                      disabled={sortedClipSegments.length === 0 || clipEditTargetSegment == null}
+                      title="將播放頭設為「上次選取或修改片段」的剪輯終點（選取規則與起點按鈕相同）"
+                      className="h-10 px-2 text-gray-300 btn btn-sm btn-secondary hover:text-accent join-item gap-1 disabled:opacity-40"
+                    >
+                      <ArrowRightToLine className="w-4 h-4 shrink-0" />
+                      <span className="hidden sm:inline text-xs">終點</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleToggleClipPreviewLoop}
+                      disabled={sortedClipSegments.length === 0}
+                      title="預覽剪輯：依時間順序播放所有片段，離開片段區間會自動跳到下一個片段起點；最後一段結束後回到第一段（循環）"
+                      className={`h-10 px-2 btn btn-sm btn-secondary join-item gap-1 disabled:opacity-40 ${
+                        clipPreviewLoop ? 'text-accent' : 'text-gray-300 hover:text-accent'
+                      }`}
+                    >
+                      <Repeat className="w-4 h-4 shrink-0" />
+                      <span className="hidden sm:inline text-xs">預覽</span>
+                    </button>
+                  </div>
                   <div className="indicator">
                     <Button
                       variant="primary"
@@ -2279,7 +2826,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                   </div>
                 </>
               )}
-              {video.type === 'Buffer' && (
+              {showBufferStyleCopy && (
                 <Button
                   variant="primary"
                   size="sm"
@@ -2302,7 +2849,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             </div>
 
             <div className="flex items-center gap-3">
-              {(video.type === 'Session' || video.type === 'Buffer') && (
+              {supportsClipWorkflow && (
                 <>
                   {availableBookmarkTypes.length > 0 && (
                     <div className="flex items-center h-10 gap-0 px-0 border rounded-lg bg-base-300 join border-base-400">
@@ -2353,8 +2900,14 @@ export default function VideoComponent({ video }: { video: Content }) {
               </div>
             </div>
           </div>
+          <VideoPlaylistPanel
+            playlist={playlist}
+            currentVideo={video}
+            currentIndex={currentIndex}
+            onSelectVideo={handleSelectPlaylistVideo}
+          />
         </div>
-        {(video.type === 'Session' || video.type === 'Buffer') && (
+        {supportsClipWorkflow && (
           <div className="flex flex-col h-full pt-4 pl-4 pr-1 border-l bg-base-300 text-neutral-content w-52 2xl:w-70.25 border-base-400">
             <div className="flex-1 p-1 mt-1 overflow-y-scroll">
               {segments.map((seg, index) => (
@@ -2366,20 +2919,25 @@ export default function VideoComponent({ video }: { video: Content }) {
                   formatTime={formatTime}
                   isHovered={hoveredSegmentId === seg.id}
                   setHoveredSegmentId={setHoveredSegmentId}
-                  removeSegment={removeSegment}
+                  removeSegment={removeSegmentWithUndo}
                   audioTrackNames={video.audioTrackNames}
-                  onMutedAudioTracksChange={(id, mutedTracks) =>
+                  onMutedAudioTracksChange={(id, mutedTracks) => {
+                    pushSegmentUndoSnapshot();
                     updateSegment({
                       ...segments.find((s) => s.id === id)!,
                       mutedAudioTracks: mutedTracks,
-                    })
-                  }
-                  onAudioTrackVolumesChange={(id, volumes) =>
+                    });
+                  }}
+                  onAudioTrackVolumesChange={(id, volumes) => {
+                    pushSegmentUndoSnapshot();
                     updateSegment({
                       ...segments.find((s) => s.id === id)!,
                       audioTrackVolumes: volumes,
-                    })
-                  }
+                    });
+                  }}
+                  onClipEditTarget={setClipEditTargetSegmentId}
+                  onSidebarSegmentClick={handleSidebarSegmentSeek}
+                  onSegmentCardDragBegin={pushSegmentUndoSnapshot}
                 />
               ))}
             </div>
@@ -2402,7 +2960,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                 variant="primary"
                 size="sm"
                 className="w-full h-10 py-0 hover:text-accent"
-                onClick={clearAllSegments}
+                onClick={clearAllSegmentsWithUndo}
                 disabled={segments.length === 0}
               >
                 <Trash2 className="w-4 h-4" />
