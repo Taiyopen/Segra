@@ -22,6 +22,32 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 Set-Location $root
 
+function Initialize-DotNetSdk {
+    $userDotNetRoot = Join-Path $env:USERPROFILE ".dotnet"
+    if (Test-Path $userDotNetRoot) {
+        $env:DOTNET_ROOT = $userDotNetRoot
+        $env:PATH = "$userDotNetRoot;$env:PATH"
+    }
+
+    $sdkVersion = & dotnet --version 2>$null
+    if ($sdkVersion) {
+        $sdkVersion = $sdkVersion.Trim()
+    }
+    if ($sdkVersion -notmatch '^10\.') {
+        throw @"
+需要 .NET 10 SDK 才能建置此專案（目前: $sdkVersion）。
+
+安裝方式（擇一）:
+  winget install Microsoft.DotNet.SDK.10
+  或 https://dotnet.microsoft.com/download/dotnet/10.0
+"@
+    }
+
+    Write-Host "Using .NET SDK $sdkVersion" -ForegroundColor DarkGray
+}
+
+Initialize-DotNetSdk
+
 Write-Host "=== Building Frontend ===" -ForegroundColor Cyan
 Push-Location (Join-Path $root "Frontend")
 try {

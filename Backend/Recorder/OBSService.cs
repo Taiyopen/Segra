@@ -952,7 +952,7 @@ namespace Segra.Backend.Recorder
             }
 
             // Set scene as program output (channel 0 = main mix, 1 = first aux mix for dual session)
-            _mainScene.SetAsProgram((uint)slot);
+            Obs.SetOutputSource((uint)slot, _mainScene);
 
             // Create video encoder
             string encoderId = Settings.Instance.Codec!.InternalEncoderId;
