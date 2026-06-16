@@ -1,5 +1,6 @@
 using Segra.Backend.App;
 using Segra.Backend.Core.Models;
+using Segra.Backend.Shared;
 using Segra.Backend.Windows.Display;
 using Serilog;
 
@@ -84,13 +85,29 @@ namespace Segra.Backend.Services
             }
         }
 
+        private static bool IsAmdClipGpu()
+        {
+            return GeneralUtils.DetectGpuVendor() == GeneralUtils.GpuVendor.AMD;
+        }
+
+        private static string DefaultClipEncoderPreset()
+        {
+            return GeneralUtils.DetectGpuVendor() switch
+            {
+                GeneralUtils.GpuVendor.AMD => "transcoding",
+                GeneralUtils.GpuVendor.Intel => "medium",
+                _ => "medium",
+            };
+        }
+
         /// <summary>
-        /// Applies a clip quality preset to the settings
+        /// Applies a clip quality preset to the settings (aligned with video/recording presets)
         /// </summary>
         public static async Task ApplyClipPreset(string presetName)
         {
             var settings = Settings.Instance;
             settings.BeginBulkUpdate();
+            bool isAmd = IsAmdClipGpu();
 
             try
             {
@@ -98,35 +115,44 @@ namespace Segra.Backend.Services
                 {
                     case "low":
                         settings.ClipQualityPreset = "low";
-                        settings.ClipEncoder = "cpu";
-                        settings.ClipRateControl = "CRF";
-                        settings.ClipQualityCpu = 28;
-                        settings.ClipCodec = "h264";
                         settings.ClipFps = 30;
+                        settings.ClipRateControl = "VBR";
+                        settings.ClipQualityGpu = isAmd ? 22 : 24;
+                        settings.ClipBitrate = isAmd ? 20 : 15;
+                        settings.ClipMinBitrate = 10;
+                        settings.ClipMaxBitrate = isAmd ? 20 : 15;
+                        settings.ClipEncoder = "gpu";
+                        settings.ClipCodec = "h264";
                         settings.ClipAudioQuality = "96k";
-                        settings.ClipPreset = "ultrafast";
+                        settings.ClipPreset = DefaultClipEncoderPreset();
                         break;
 
                     case "standard":
                         settings.ClipQualityPreset = "standard";
-                        settings.ClipEncoder = "cpu";
-                        settings.ClipRateControl = "CRF";
-                        settings.ClipQualityCpu = 23;
-                        settings.ClipCodec = "h264";
                         settings.ClipFps = 60;
+                        settings.ClipRateControl = "VBR";
+                        settings.ClipQualityGpu = isAmd ? 20 : 22;
+                        settings.ClipBitrate = isAmd ? 40 : 30;
+                        settings.ClipMinBitrate = isAmd ? 25 : 20;
+                        settings.ClipMaxBitrate = isAmd ? 50 : 40;
+                        settings.ClipEncoder = "gpu";
+                        settings.ClipCodec = "h264";
                         settings.ClipAudioQuality = "128k";
-                        settings.ClipPreset = "veryfast";
+                        settings.ClipPreset = DefaultClipEncoderPreset();
                         break;
 
                     case "high":
                         settings.ClipQualityPreset = "high";
-                        settings.ClipEncoder = "cpu";
-                        settings.ClipRateControl = "CRF";
-                        settings.ClipQualityCpu = 20;
-                        settings.ClipCodec = "h264";
                         settings.ClipFps = 60;
+                        settings.ClipRateControl = "VBR";
+                        settings.ClipQualityGpu = isAmd ? 18 : 20;
+                        settings.ClipBitrate = isAmd ? 60 : 50;
+                        settings.ClipMinBitrate = isAmd ? 45 : 40;
+                        settings.ClipMaxBitrate = isAmd ? 90 : 70;
+                        settings.ClipEncoder = "gpu";
+                        settings.ClipCodec = "h264";
                         settings.ClipAudioQuality = "192k";
-                        settings.ClipPreset = "medium";
+                        settings.ClipPreset = DefaultClipEncoderPreset();
                         break;
 
                     case "custom":
@@ -138,8 +164,8 @@ namespace Segra.Backend.Services
                         return;
                 }
 
-                Log.Information("Applied clip preset '{Preset}': {Encoder}, {RateControl}, CRF {Quality}, {Codec}, {Fps}fps, {Audio} audio, {EncoderPreset}",
-                    settings.ClipQualityPreset, settings.ClipEncoder, settings.ClipRateControl, settings.ClipQualityCpu, settings.ClipCodec, settings.ClipFps, settings.ClipAudioQuality, settings.ClipPreset);
+                Log.Information("Applied clip preset '{Preset}': {Encoder}, {RateControl}, {Fps}fps, {Codec}, {Audio} audio, {EncoderPreset}",
+                    settings.ClipQualityPreset, settings.ClipEncoder, settings.ClipRateControl, settings.ClipFps, settings.ClipCodec, settings.ClipAudioQuality, settings.ClipPreset);
 
                 settings.EndBulkUpdateAndSaveSettings();
                 await MessageService.SendSettingsToFrontend("Clip preset applied");

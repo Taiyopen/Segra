@@ -15,6 +15,7 @@ namespace Segra.Backend.Core.Models
         {
             "Full Sessions",
             "Replay Buffer",
+            "\u5F85\u526A\u8F2F", // ???
             "Clips",
             "Highlights",
             "Settings"

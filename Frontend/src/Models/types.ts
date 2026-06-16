@@ -206,24 +206,50 @@ export type ClipPreset =
 export type VideoQualityPreset = 'low' | 'standard' | 'high' | 'custom';
 export type ClipQualityPreset = 'low' | 'standard' | 'high' | 'custom';
 
-export type MenuItemId = 'Full Sessions' | 'Replay Buffer' | 'Clips' | 'Highlights' | 'Settings';
+export type MenuItemId =
+  | 'Full Sessions'
+  | 'Replay Buffer'
+  | '待剪輯'
+  | 'Clips'
+  | 'Highlights'
+  | 'Settings';
 
 export interface MenuItemPreference {
   id: MenuItemId;
   visible: boolean;
 }
 
-export const DEFAULT_MENU_ITEMS: MenuItemPreference[] = [
-  { id: 'Full Sessions', visible: true },
-  { id: 'Replay Buffer', visible: true },
-  { id: 'Clips', visible: true },
-  { id: 'Highlights', visible: true },
-  { id: 'Settings', visible: true },
+export const ALL_MENU_ITEM_IDS: MenuItemId[] = [
+  'Full Sessions',
+  'Replay Buffer',
+  '待剪輯',
+  'Clips',
+  'Highlights',
+  'Settings',
 ];
+
+export const DEFAULT_MENU_ITEMS: MenuItemPreference[] = ALL_MENU_ITEM_IDS.map((id) => ({
+  id,
+  visible: true,
+}));
+
+/** Ensures every known menu item exists (e.g. after adding 待剪輯 in a later version). */
+export function normalizeMenuItems(
+  items: MenuItemPreference[] | undefined | null,
+): MenuItemPreference[] {
+  const source = items && items.length > 0 ? items : DEFAULT_MENU_ITEMS;
+  const byId = new Map(source.map((item) => [item.id, item]));
+  return ALL_MENU_ITEM_IDS.map((id) => {
+    const existing = byId.get(id);
+    if (existing) return existing;
+    return { id, visible: true };
+  });
+}
 
 export const MENU_ITEM_CONTENT_TYPES: Record<MenuItemId, ContentType[]> = {
   'Full Sessions': ['Session'],
   'Replay Buffer': ['Buffer'],
+  待剪輯: ['PendingEdit'],
   Clips: ['Clip'],
   Highlights: ['Highlight'],
   Settings: [],

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PreRecording, Recording, GameResponse, Game } from '../Models/types';
 import { Gamepad2, Monitor, Ellipsis, Ban } from 'lucide-react';
 import { useSettings } from '../Context/SettingsContext';
+import { useAppState } from '../Context/AppStateContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import Button from './Button';
 import RecordingPreviewAudioMeters from './RecordingPreviewAudioMeters';
@@ -17,7 +18,8 @@ interface RecordingCardProps {
 
 const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }) => {
   const timerRef = useRef<HTMLSpanElement>(null);
-  const { showGameBackground, state } = useSettings();
+  const { showGameBackground } = useSettings();
+  const { gameList } = useAppState();
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const lastFetchedGameRef = useRef<string | null>(null);
   const [showShockwave, setShowShockwave] = useState(false);
@@ -34,7 +36,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
   const showMonitoringPanel = !!preRecording || (!!recording && recordingOngoing);
 
   const gameName = preRecording ? preRecording.game : recording?.game;
-  const gameListEntry = state.gameList.find((g) => g.name === gameName);
+  const gameListEntry = gameList.find((g) => g.name === gameName);
   const canBlockGame = !!gameListEntry && gameListEntry.executables.length > 0;
 
   const handleAddToBlocklist = useCallback(() => {

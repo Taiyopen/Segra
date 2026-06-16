@@ -1,15 +1,18 @@
 import { useSettings } from './Context/SettingsContext';
+import { useAppState } from './Context/AppStateContext';
 import RecordingCard from './Components/RecordingCard';
 import CircularProgress from './Components/CircularProgress';
 import { sendMessageToBackend } from './Utils/MessageUtils';
 import { useUploads } from './Context/UploadContext';
 import { useImports } from './Context/ImportContext';
+import { useContentMigration } from './Context/ContentMigrationContext';
 import { useClipping } from './Context/ClippingContext';
 import { useUpdate } from './Context/UpdateContext';
 import { useObsDownload } from './Context/ObsDownloadContext';
 import { useAiHighlights } from './Context/AiHighlightsContext';
 import UploadCard from './Components/UploadCard';
 import ImportCard from './Components/ImportCard';
+import ContentMigrationCard from './Components/ContentMigrationCard';
 import ClippingCard from './Components/ClippingCard';
 import UpdateCard from './Components/UpdateCard';
 import UnavailableDeviceCard from './Components/UnavailableDeviceCard';
@@ -24,77 +27,72 @@ import {
   Play,
   PictureInPicture2,
   Inbox,
+  LucideIcon,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import Button from './Components/Button';
 import { useMonitoringLayout } from './Context/MonitoringLayoutContext';
+import { MenuItemId, menuItemHasContent, normalizeMenuItems } from './Models/types';
 
 interface MenuProps {
   selectedMenu: string;
   onSelectMenu: (menu: string) => void;
 }
 
+const MENU_ICONS: Record<MenuItemId, LucideIcon> = {
+  'Full Sessions': Play,
+  'Replay Buffer': History,
+  待剪輯: Inbox,
+  Clips: Clapperboard,
+  Highlights: Crown,
+  Settings: Settings,
+};
+
 export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   const settings = useSettings();
+  const appState = useAppState();
   const { enterMonitoringLayout, monitoringWindowOpen } = useMonitoringLayout();
-  const { hasLoadedObs, recording, preRecording } = settings.state;
+  const { hasLoadedObs, recording, preRecording } = appState;
   const { updateInfo } = useUpdate();
   const { aiProgress } = useAiHighlights();
   const { obsDownloadProgress } = useObsDownload();
+  const { migrations: contentMigrations, isMigrating } = useContentMigration();
   const [buttonCooldown, setButtonCooldown] = useState(false);
 
-  // Create refs for each menu button
-  const sessionsRef = useRef<HTMLButtonElement>(null);
-  const replayRef = useRef<HTMLButtonElement>(null);
-  const pendingEditRef = useRef<HTMLButtonElement>(null);
-  const clipsRef = useRef<HTMLButtonElement>(null);
-  const highlightsRef = useRef<HTMLButtonElement>(null);
-  const settingsRef = useRef<HTMLButtonElement>(null);
-
-  // State to store the indicator position
+  const buttonRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [indicatorPosition, setIndicatorPosition] = useState({ top: 12 });
+  const [indicatorAnimated, setIndicatorAnimated] = useState(false);
 
-  // Update indicator position when selected menu changes
+  const visibleMenuItems = useMemo(() => {
+    const items = normalizeMenuItems(settings.menuItems);
+    // Force-show items that contain content so the user always has a way to reach their files.
+    return items.filter(
+      (item) =>
+        item.id === 'Settings' || item.visible || menuItemHasContent(item.id, appState.content),
+    );
+  }, [settings.menuItems, appState.content]);
+
+  const computeIndicatorPosition = () => {
+    if (!visibleMenuItems.some((item) => item.id === selectedMenu)) return;
+    const rowEl = buttonRefs.current[selectedMenu];
+    if (!rowEl) return;
+    const buttonEl = rowEl.firstElementChild as HTMLElement | null;
+    const buttonHeight = buttonEl?.offsetHeight || 48;
+    const indicatorTop = rowEl.offsetTop + buttonHeight / 2 - 20;
+    setIndicatorPosition({ top: indicatorTop });
+  };
+
+  useLayoutEffect(() => {
+    computeIndicatorPosition();
+    const timeoutId = setTimeout(computeIndicatorPosition, 220);
+    return () => clearTimeout(timeoutId);
+  }, [selectedMenu, visibleMenuItems]);
+
   useEffect(() => {
-    const getRefForMenu = () => {
-      switch (selectedMenu) {
-        case 'Full Sessions':
-          return sessionsRef;
-        case 'Replay Buffer':
-          return replayRef;
-        case '待剪輯':
-          return pendingEditRef;
-        case 'Clips':
-          return clipsRef;
-        case 'Highlights':
-          return highlightsRef;
-        case 'Settings':
-          return settingsRef;
-        default:
-          return sessionsRef;
-      }
-    };
+    setIndicatorAnimated(true);
+  }, []);
 
-    const activeRef = getRefForMenu();
-    if (activeRef.current) {
-      const parentRect = activeRef.current.parentElement?.getBoundingClientRect();
-      const buttonRect = activeRef.current.getBoundingClientRect();
-
-      if (parentRect) {
-        // Calculate relative position to parent with vertical centering
-        // Center the 40px indicator with the button
-        const buttonCenter = buttonRect.top - parentRect.top + buttonRect.height / 2;
-        const indicatorTop = buttonCenter - 21;
-
-        setIndicatorPosition({
-          top: indicatorTop,
-        });
-      }
-    }
-  }, [selectedMenu]);
-
-  // Check if there are any active AI highlight generations and calculate average progress
   const aiProgressValues = Object.values(aiProgress);
   const hasActiveAiHighlights = aiProgressValues.length > 0;
   const averageAiProgress = hasActiveAiHighlights
@@ -105,12 +103,12 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
     const unavailableInput = settings.inputDevices.some(
       (deviceSetting: { id: string }) =>
         deviceSetting.id !== 'default' &&
-        !settings.state.inputDevices.some((d) => d.id === deviceSetting.id),
+        !appState.inputDevices.some((d) => d.id === deviceSetting.id),
     );
     const unavailableOutput = settings.outputDevices.some(
       (deviceSetting: { id: string }) =>
         deviceSetting.id !== 'default' &&
-        !settings.state.outputDevices.some((d) => d.id === deviceSetting.id),
+        !appState.outputDevices.some((d) => d.id === deviceSetting.id),
     );
     return unavailableInput || unavailableOutput;
   };
@@ -118,87 +116,85 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   return (
     <div className="bg-base-300 w-56 h-screen flex flex-col border-r border-base-400">
       {/* Menu Items */}
-      <div className="flex flex-col space-y-2 px-4 text-left py-2 relative mt-2">
-        {/* Selection indicator rectangle */}
+      <div className="flex flex-col px-4 text-left py-2 relative mt-2">
         <div
-          className="absolute w-1.5 bg-primary rounded-r transition-all duration-200 ease-in-out"
+          className={`absolute w-1.5 bg-primary rounded-r ${
+            indicatorAnimated ? 'transition-all duration-200 ease-in-out' : ''
+          }`}
           style={{
             left: 0,
             top: `${indicatorPosition.top}px`,
             height: '40px',
           }}
         />
-        <Button
-          ref={sessionsRef}
-          variant="nav"
-          className={selectedMenu === 'Full Sessions' ? 'text-primary' : ''}
-          onMouseDown={() => onSelectMenu('Full Sessions')}
-        >
-          <Play className="w-5 h-5" />
-          Full Sessions
-        </Button>
-        <Button
-          ref={replayRef}
-          variant="nav"
-          className={selectedMenu === 'Replay Buffer' ? 'text-primary' : ''}
-          onMouseDown={() => onSelectMenu('Replay Buffer')}
-        >
-          <History className="w-5 h-5" />
-          Replay Buffer
-        </Button>
-        <Button
-          ref={pendingEditRef}
-          variant="nav"
-          className={selectedMenu === '待剪輯' ? 'text-primary' : ''}
-          onMouseDown={() => onSelectMenu('待剪輯')}
-        >
-          <Inbox className="w-5 h-5" />
-          待剪輯
-        </Button>
-        <Button
-          ref={clipsRef}
-          variant="nav"
-          className={selectedMenu === 'Clips' ? 'text-primary' : ''}
-          onMouseDown={() => onSelectMenu('Clips')}
-        >
-          <Clapperboard className="w-5 h-5" />
-          Clips
-        </Button>
-        <Button
-          ref={highlightsRef}
-          variant="nav"
-          className={`justify-between ${selectedMenu === 'Highlights' ? 'text-primary' : ''}`}
-          onMouseDown={() => onSelectMenu('Highlights')}
-        >
-          <span className="flex items-center gap-2">
-            <Crown className="w-5 h-5" />
-            Highlights
-          </span>
-          <div className="ml-auto flex items-center">
-            <AnimatePresence>
-              {hasActiveAiHighlights && selectedMenu !== 'Highlights' && (
-                <motion.div
-                  className="flex items-center justify-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+        <AnimatePresence initial={false} mode="popLayout">
+          {visibleMenuItems.map(({ id }) => {
+            const Icon = MENU_ICONS[id];
+            const isActive = selectedMenu === id;
+            const isDisabled = isMigrating && id !== 'Settings';
+
+            const buttonNode =
+              id === 'Highlights' ? (
+                <Button
+                  variant="nav"
+                  className={`justify-between ${isActive ? 'text-primary' : ''}`}
+                  disabled={isDisabled}
+                  onMouseDown={() => onSelectMenu(id)}
                 >
-                  <CircularProgress progress={averageAiProgress} size={24} strokeWidth={2} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </Button>
-        <Button
-          ref={settingsRef}
-          variant="nav"
-          className={selectedMenu === 'Settings' ? 'text-primary' : ''}
-          onMouseDown={() => onSelectMenu('Settings')}
-        >
-          <Settings className="w-5 h-5" />
-          Settings
-        </Button>
+                  <span className="flex items-center gap-2">
+                    <Icon className="w-5 h-5" />
+                    {id}
+                  </span>
+                  <div className="ml-auto flex items-center">
+                    <AnimatePresence>
+                      {hasActiveAiHighlights && !isActive && (
+                        <motion.div
+                          className="flex items-center justify-center"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <CircularProgress
+                            progress={averageAiProgress}
+                            size={24}
+                            strokeWidth={2}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </Button>
+              ) : (
+                <Button
+                  variant="nav"
+                  className={isActive ? 'text-primary' : ''}
+                  disabled={isDisabled}
+                  onMouseDown={() => onSelectMenu(id)}
+                >
+                  <Icon className="w-5 h-5" />
+                  {id}
+                </Button>
+              );
+
+            return (
+              <motion.div
+                key={id}
+                ref={(el) => {
+                  buttonRefs.current[id] = el;
+                }}
+                layout
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="overflow-hidden pb-2 last:pb-0"
+              >
+                {buttonNode}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
 
       <div className="px-4 pb-1">
@@ -217,7 +213,6 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         </Button>
       </div>
 
-      {/* Spacer to push content to the bottom */}
       <div className="grow"></div>
 
       {/* Status Cards */}
@@ -246,7 +241,14 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
           ))}
         </AnimatePresence>
 
-        {/* Show warning if there are unavailable audio devices */}
+        <AnimatePresence>
+          {Object.values(contentMigrations).map((migration) => (
+            <AnimatedCard key={migration.id}>
+              <ContentMigrationCard migration={migration} />
+            </AnimatedCard>
+          ))}
+        </AnimatePresence>
+
         <AnimatePresence>
           {hasUnavailableDevices() && (
             <AnimatedCard key="unavailable-device-card">
@@ -272,7 +274,6 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         </AnimatePresence>
       </div>
 
-      {/* OBS Loading Section */}
       {!hasLoadedObs && (
         <div className="mb-4 flex flex-col items-center px-4">
           {obsDownloadProgress !== null && obsDownloadProgress < 100 ? (
@@ -301,7 +302,6 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         </div>
       )}
 
-      {/* Start and Stop Buttons */}
       <div className="mb-4 px-4">
         <div className="flex flex-col items-center z-50">
           <Button
@@ -309,20 +309,18 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
             className="w-full h-12"
             disabled={
               buttonCooldown ||
-              !settings.state.hasLoadedObs ||
-              (settings.state.recording && recording && recording.endTime !== null)
+              !appState.hasLoadedObs ||
+              (appState.recording && recording && recording.endTime !== null)
             }
             onClick={() => {
               setButtonCooldown(true);
               setTimeout(() => setButtonCooldown(false), 1000);
               sendMessageToBackend(
-                settings.state.recording || settings.state.preRecording
-                  ? 'StopRecording'
-                  : 'StartRecording',
+                appState.recording || appState.preRecording ? 'StopRecording' : 'StartRecording',
               );
             }}
           >
-            {settings.state.recording || settings.state.preRecording ? (
+            {appState.recording || appState.preRecording ? (
               <>
                 <OctagonX className="w-4 h-4" />
                 Stop

@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { isMonitoringWindowLocation } from '../Utils/monitoringWindow';
-import { useSettings } from './SettingsContext';
+import { useAppState } from './AppStateContext';
 import { useWebSocketContext } from './WebSocketContext';
 
 type MonitoringLayoutContextValue = {
@@ -36,7 +36,7 @@ function isRecordingLive(recording?: { endTime?: Date | null }, preRecording?: u
 
 export function MonitoringLayoutProvider({ children }: { children: ReactNode }) {
   const { sendRawMessage } = useWebSocketContext();
-  const { recording, preRecording } = useSettings().state;
+  const { recording, preRecording } = useAppState();
   const isMainApp = !isMonitoringWindowLocation();
   const isLive = isRecordingLive(recording, preRecording);
   const wasLiveRef = useRef(isLive);

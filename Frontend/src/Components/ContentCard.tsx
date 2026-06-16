@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { useSettings } from '../Context/SettingsContext';
+import { useAppState } from '../Context/AppStateContext';
 import { Content, includeInHighlight } from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { openFileLocation } from '../Utils/FileUtils';
@@ -33,6 +34,7 @@ interface VideoCardProps {
   isLoading?: boolean; // Indicates if this is a loading (skeleton) card
   isSelected?: boolean; // Whether this card is selected in multi-select mode
   isSelectionMode?: boolean; // Whether multi-select mode is active
+  isHighlighted?: boolean; // Briefly pulse the card to draw attention (e.g. after import)
 }
 
 export default function ContentCard({
@@ -42,9 +44,10 @@ export default function ContentCard({
   isLoading,
   isSelected = false,
   isSelectionMode = false,
+  isHighlighted = false,
 }: VideoCardProps) {
-  const { enableAi, showNewBadgeOnVideos, state } = useSettings();
-  const { cacheFolder } = state;
+  const { enableAi, showNewBadgeOnVideos } = useSettings();
+  const { cacheFolder } = useAppState();
   const { session } = useAuth();
   const { openModal, closeModal } = useModal();
   const { aiProgress } = useAiHighlights();
@@ -274,7 +277,7 @@ export default function ContentCard({
 
   return (
     <div
-      className={`card card-compact bg-base-300 text-gray-300 w-full border border-[#49515b] ${isSelected ? '!outline !outline-1 !outline-primary' : ''} ${isBeingCompressed ? 'cursor-default opacity-75' : 'cursor-pointer'} ${isSelectionMode ? 'select-none' : ''}`}
+      className={`card card-compact bg-base-300 text-gray-300 w-full border border-[#49515b] ${isSelected ? '!outline !outline-1 !outline-primary' : ''} ${isHighlighted ? 'import-pulse' : ''} ${isBeingCompressed ? 'cursor-default opacity-75' : 'cursor-pointer'} ${isSelectionMode ? 'select-none' : ''}`}
       onClick={() => {
         if (isBeingCompressed) return;
         if (!isSelectionMode) markAsViewed();

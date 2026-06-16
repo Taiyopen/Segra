@@ -3,6 +3,7 @@ import { BookmarkPlus, GripHorizontal, History, Pin, PinOff, Square, Video, X } 
 import RecordingPreviewAudioMeters from './RecordingPreviewAudioMeters';
 import { useMonitoringLayout } from '../Context/MonitoringLayoutContext';
 import { useSettings } from '../Context/SettingsContext';
+import { useAppState } from '../Context/AppStateContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { useRecordingPreview } from '../Hooks/useRecordingPreview';
 
@@ -50,7 +51,8 @@ function PipIconButton({
 
 export default function MonitoringCompactShell() {
   const settings = useSettings();
-  const { hasLoadedObs, recording, preRecording } = settings.state;
+  const appState = useAppState();
+  const { hasLoadedObs, recording, preRecording } = appState;
   const recordingMode = settings.recordingMode;
   const { exitMonitoringLayout } = useMonitoringLayout();
   const [buttonCooldown, setButtonCooldown] = useState(false);
@@ -84,7 +86,7 @@ export default function MonitoringCompactShell() {
     !!recording && recordingOngoing && (recordingMode === 'Buffer' || recordingMode === 'Hybrid');
 
   const stopDisabledWhileFinalizing = !!(
-    settings.state.recording &&
+    appState.recording &&
     recording &&
     recording.endTime !== null
   );
@@ -137,7 +139,7 @@ export default function MonitoringCompactShell() {
     setButtonCooldown(true);
     window.setTimeout(() => setButtonCooldown(false), 1000);
     sendMessageToBackend(
-      settings.state.recording || settings.state.preRecording ? 'StopRecording' : 'StartRecording',
+      appState.recording || appState.preRecording ? 'StopRecording' : 'StartRecording',
     );
   };
 

@@ -147,7 +147,8 @@ internal static class MigrationService
             new("0007_rename_video_folders", Apply_0007_RenameVideoFolders),
             new("0008_move_metadata_to_appdata", Apply_0008_MoveMetadataToAppData),
             new("0009_rename_clip_clear_selections_setting", Apply_0009_RenameClipClearSelectionsSetting),
-            new("0010_rename_titled_content_files", Apply_0010_RenameTitledContentFiles)
+            new("0010_rename_titled_content_files", Apply_0010_RenameTitledContentFiles),
+            new("0011_fix_pending_edit_folder_name", Apply_0011_FixPendingEditFolderName)
         };
     }
 
@@ -1012,5 +1013,88 @@ internal static class MigrationService
         }
 
         SettingsService.LoadContentFromFolderIntoState().GetAwaiter().GetResult();
+    }
+
+    // Migration 0011: Fix corrupted PendingEdit folder name (??? -> 待剪輯) in video and cache folders.
+    private static void Apply_0011_FixPendingEditFolderName()
+    {
+        const string corruptedName = "???";
+        string correctName = FolderNames.PendingEdit;
+
+        try
+        {
+            int renamedCount = 0;
+
+            renamedCount += TryRenameOrMergeFolder(
+                Path.Combine(Settings.Instance.ContentFolder, corruptedName),
+                Path.Combine(Settings.Instance.ContentFolder, correctName));
+
+            string cacheRoot = FolderNames.CacheFolder;
+            foreach (string cacheKind in new[] { FolderNames.Metadata, FolderNames.Thumbnails, FolderNames.Waveforms })
+            {
+                renamedCount += TryRenameOrMergeFolder(
+                    Path.Combine(cacheRoot, cacheKind, corruptedName),
+                    Path.Combine(cacheRoot, cacheKind, correctName));
+            }
+
+            // Legacy English folder name under the recording path
+            renamedCount += TryRenameOrMergeFolder(
+                Path.Combine(Settings.Instance.ContentFolder, FolderNames.LegacyPendingEdit),
+                Path.Combine(Settings.Instance.ContentFolder, correctName));
+
+            if (renamedCount > 0)
+            {
+                Log.Information(
+                    "PendingEdit folder migration completed ({Count} folder operations)",
+                    renamedCount);
+                SettingsService.LoadContentFromFolderIntoState(sendToFrontend: false).GetAwaiter().GetResult();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to fix PendingEdit folder name");
+        }
+    }
+
+    private static int TryRenameOrMergeFolder(string sourcePath, string destPath)
+    {
+        if (!Directory.Exists(sourcePath))
+            return 0;
+
+        try
+        {
+            if (!Directory.Exists(destPath))
+            {
+                Log.Information("Renaming folder: {Source} -> {Dest}", sourcePath, destPath);
+                Directory.Move(sourcePath, destPath);
+                return 1;
+            }
+
+            Log.Information("Merging folder into existing destination: {Source} -> {Dest}", sourcePath, destPath);
+            foreach (string entry in Directory.EnumerateFileSystemEntries(sourcePath))
+            {
+                string name = Path.GetFileName(entry);
+                string target = Path.Combine(destPath, name);
+                if (Directory.Exists(entry))
+                {
+                    if (!Directory.Exists(target))
+                        Directory.Move(entry, target);
+                    else
+                        Log.Warning("Skipping merge conflict for directory: {Path}", target);
+                }
+                else if (!File.Exists(target))
+                    File.Move(entry, target);
+                else
+                    Log.Warning("Skipping merge conflict for file: {Path}", target);
+            }
+
+            Directory.Delete(sourcePath, recursive: true);
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to rename/merge folder: {Source} -> {Dest}", sourcePath, destPath);
+            return 0;
+        }
     }
 }

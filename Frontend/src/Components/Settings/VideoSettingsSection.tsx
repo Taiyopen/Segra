@@ -19,22 +19,8 @@ export default function VideoSettingsSection({
   updateSettings,
 }: VideoSettingsSectionProps) {
   const appState = useAppState();
-  const [localReplayBufferDuration, setLocalReplayBufferDuration] = useState<string>(
-    String(settings.replayBufferDuration),
-  );
-  const [localReplayBufferMaxSize, setLocalReplayBufferMaxSize] = useState<string>(
-    String(settings.replayBufferMaxSize),
-  );
   const [localCrfValue, setLocalCrfValue] = useState<string>(String(settings.crfValue));
   const [localCqLevel, setLocalCqLevel] = useState<string>(String(settings.cqLevel));
-
-  useEffect(() => {
-    setLocalReplayBufferDuration(String(settings.replayBufferDuration));
-  }, [settings.replayBufferDuration]);
-
-  useEffect(() => {
-    setLocalReplayBufferMaxSize(String(settings.replayBufferMaxSize));
-  }, [settings.replayBufferMaxSize]);
 
   useEffect(() => {
     setLocalCrfValue(String(settings.crfValue));
@@ -110,90 +96,6 @@ export default function VideoSettingsSection({
           </div>
         </div>
       </div>
-
-      {/* Replay Buffer Settings - Only show when Replay Buffer mode is selected */}
-      <AnimatePresence>
-        {(settings.recordingMode === 'Buffer' || settings.recordingMode === 'Hybrid') && (
-          <motion.div
-            className="bg-base-300"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{
-              opacity: 1,
-              height: 'fit-content',
-              transition: {
-                duration: 0.3,
-                height: { type: 'spring', stiffness: 300, damping: 30 },
-              },
-            }}
-            exit={{
-              opacity: 0,
-              height: 0,
-              transition: {
-                duration: 0.2,
-              },
-            }}
-            style={{ overflow: 'visible' }}
-          >
-            <motion.div
-              className="grid grid-cols-2 gap-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1, transition: { delay: 0.2 } }}
-            >
-              {/* Buffer Duration */}
-              <div className="form-control w-full">
-                <label
-                  htmlFor="replayBufferDuration"
-                  className="label text-base-content px-0 !block mb-1"
-                >
-                  <span className="label-text">Buffer Duration (seconds)</span>
-                </label>
-                <input
-                  id="replayBufferDuration"
-                  type="number"
-                  name="replayBufferDuration"
-                  value={localReplayBufferDuration}
-                  onChange={(e) => setLocalReplayBufferDuration(e.target.value)}
-                  onBlur={() => {
-                    const val = Number(localReplayBufferDuration) || 30;
-                    if (!localReplayBufferDuration) setLocalReplayBufferDuration('30');
-                    updateSettings({ replayBufferDuration: val });
-                  }}
-                  min="5"
-                  max="600"
-                  disabled={isRecording}
-                  className={`input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80 w-full outline-none focus:border-base-400`}
-                />
-              </div>
-
-              {/* Buffer Max Size */}
-              <div className="form-control w-full">
-                <label
-                  htmlFor="replayBufferMaxSize"
-                  className="label text-base-content px-0 !block mb-1"
-                >
-                  <span className="label-text">Buffer Maximum Size (MB)</span>
-                </label>
-                <input
-                  id="replayBufferMaxSize"
-                  type="number"
-                  name="replayBufferMaxSize"
-                  value={localReplayBufferMaxSize}
-                  onChange={(e) => setLocalReplayBufferMaxSize(e.target.value)}
-                  onBlur={() => {
-                    const val = Number(localReplayBufferMaxSize) || 1000;
-                    if (!localReplayBufferMaxSize) setLocalReplayBufferMaxSize('1000');
-                    updateSettings({ replayBufferMaxSize: val });
-                  }}
-                  min="100"
-                  max="5000"
-                  disabled={isRecording}
-                  className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:input-bordered disabled:opacity-80 w-full outline-none focus:border-base-400"
-                />
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Advanced Settings - Only show when Custom preset is selected */}
       <AnimatePresence>

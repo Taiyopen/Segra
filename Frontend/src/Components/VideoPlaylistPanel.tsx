@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Content } from '../Models/types';
-import { useSettings } from '../Context/SettingsContext';
+import { useAppState } from '../Context/AppStateContext';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -56,7 +56,7 @@ export default function VideoPlaylistPanel({
   currentIndex,
   onSelectVideo,
 }: VideoPlaylistPanelProps) {
-  const { state } = useSettings();
+  const { cacheFolder } = useAppState();
   const [expanded, setExpanded] = useState(() => {
     try {
       return localStorage.getItem('video-playlist-expanded') === 'true';
@@ -137,7 +137,7 @@ export default function VideoPlaylistPanel({
                   >
                     <div className="relative w-full h-[72px] shrink-0 overflow-hidden bg-black">
                       <img
-                        src={getThumbnailPath(state.cacheFolder, item)}
+                        src={getThumbnailPath(cacheFolder, item)}
                         alt=""
                         className="w-full h-full object-cover"
                         loading="lazy"

@@ -632,7 +632,6 @@ export function useAudioTracks(
         masterGainRef.current = null;
         ctx.close().catch(() => {});
         audioCtxRef.current = null;
-        fileSizeRef.current = 0;
         setTracks([]);
         return;
       }

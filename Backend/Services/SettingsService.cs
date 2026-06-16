@@ -921,6 +921,10 @@ namespace Segra.Backend.Services
             bool invalidGpuMode = !clipCpu && string.Equals(rc, "CRF", StringComparison.Ordinal);
 
             bool nvGpu = AppState.Instance.GpuVendor == GeneralUtils.GpuVendor.Nvidia;
+            if (!nvGpu && AppState.Instance.GpuVendor == GeneralUtils.GpuVendor.Unknown)
+            {
+                nvGpu = GeneralUtils.DetectGpuVendor() == GeneralUtils.GpuVendor.Nvidia;
+            }
             bool cqVbrBlocked = string.Equals(rc, "CQVBR", StringComparison.Ordinal) && (!nvGpu || clipCpu);
 
             if (invalidCpuMode || invalidGpuMode || cqVbrBlocked)
@@ -947,68 +951,77 @@ namespace Segra.Backend.Services
             {
                 foreach (var contentType in contentTypes)
                 {
-                    string metadataPath = FolderNames.GetMetadataFolderPath(contentType);
+                    var loadedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                    if (!Directory.Exists(metadataPath))
+                    foreach (string metadataPath in GetMetadataFolderPaths(contentType))
                     {
-                        continue;
-                    }
-
-                    // Get metadata files in the current folder
-                    var metadataFiles = Directory.EnumerateFiles(metadataPath, "*.json", SearchOption.TopDirectoryOnly)
-                                                 .Where(file => IsMetadataFile(file));
-
-                    foreach (var metadataFilePath in metadataFiles)
-                    {
-                        var serializedMetadataFilePath = metadataFilePath.Replace("\\", "/");
-                        try
+                        if (!Directory.Exists(metadataPath))
                         {
-                            // Read and parse metadata
-                            var metadataContent = File.ReadAllText(serializedMetadataFilePath);
-                            var metadata = JsonSerializer.Deserialize<Content>(metadataContent);
-
-                            if (metadata == null || !File.Exists(metadata.FilePath))
-                            {
-                                Log.Warning($"Invalid or missing metadata for file: {serializedMetadataFilePath}");
-                                continue;
-                            }
-
-                            // Update FileSizeKb if it is 0 (migration, remove this in the future)
-                            if (metadata.FileSizeKb == 0)
-                            {
-                                Log.Information($"[MIGRATION] Adding FileSizeKb to {metadata.FilePath}");
-                                var updatedMetadata = await ContentService.UpdateMetadataFile(metadataFilePath, c =>
-                                {
-                                    c.FileSizeKb = ContentService.GetFileSize(c.FilePath).sizeKb;
-                                });
-
-                                if (updatedMetadata != null)
-                                {
-                                    metadata = updatedMetadata;
-                                }
-                            }
-
-                            content.Add(new Content
-                            {
-                                Type = metadata.Type,
-                                Title = metadata.Title,
-                                Game = metadata.Game,
-                                Bookmarks = metadata.Bookmarks,
-                                FileName = metadata.FileName,
-                                FilePath = metadata.FilePath,
-                                FileSize = metadata.FileSize,
-                                FileSizeKb = metadata.FileSizeKb,
-                                Duration = metadata.Duration,
-                                CreatedAt = metadata.CreatedAt,
-                                UploadId = metadata.UploadId,
-                                IgdbId = metadata.IgdbId,
-                                AudioTrackNames = metadata.AudioTrackNames,
-                                IsImported = metadata.IsImported
-                            });
+                            continue;
                         }
-                        catch (Exception ex)
+
+                        // Get metadata files in the current folder
+                        var metadataFiles = Directory.EnumerateFiles(metadataPath, "*.json", SearchOption.TopDirectoryOnly)
+                                                     .Where(file => IsMetadataFile(file));
+
+                        foreach (var metadataFilePath in metadataFiles)
                         {
-                            Log.Error($"Error processing metadata file '{serializedMetadataFilePath}': {ex.Message}");
+                            var serializedMetadataFilePath = metadataFilePath.Replace("\\", "/");
+                            try
+                            {
+                                // Read and parse metadata
+                                var metadataContent = File.ReadAllText(serializedMetadataFilePath);
+                                var metadata = JsonSerializer.Deserialize<Content>(metadataContent);
+
+                                if (metadata == null || !File.Exists(metadata.FilePath))
+                                {
+                                    Log.Warning($"Invalid or missing metadata for file: {serializedMetadataFilePath}");
+                                    continue;
+                                }
+
+                                string contentKey = $"{metadata.Type}:{metadata.FileName}";
+                                if (!loadedKeys.Add(contentKey))
+                                {
+                                    continue;
+                                }
+
+                                // Update FileSizeKb if it is 0 (migration, remove this in the future)
+                                if (metadata.FileSizeKb == 0)
+                                {
+                                    Log.Information($"[MIGRATION] Adding FileSizeKb to {metadata.FilePath}");
+                                    var updatedMetadata = await ContentService.UpdateMetadataFile(metadataFilePath, c =>
+                                    {
+                                        c.FileSizeKb = ContentService.GetFileSize(c.FilePath).sizeKb;
+                                    });
+
+                                    if (updatedMetadata != null)
+                                    {
+                                        metadata = updatedMetadata;
+                                    }
+                                }
+
+                                content.Add(new Content
+                                {
+                                    Type = metadata.Type,
+                                    Title = metadata.Title,
+                                    Game = metadata.Game,
+                                    Bookmarks = metadata.Bookmarks,
+                                    FileName = metadata.FileName,
+                                    FilePath = metadata.FilePath,
+                                    FileSize = metadata.FileSize,
+                                    FileSizeKb = metadata.FileSizeKb,
+                                    Duration = metadata.Duration,
+                                    CreatedAt = metadata.CreatedAt,
+                                    UploadId = metadata.UploadId,
+                                    IgdbId = metadata.IgdbId,
+                                    AudioTrackNames = metadata.AudioTrackNames,
+                                    IsImported = metadata.IsImported
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error($"Error processing metadata file '{serializedMetadataFilePath}': {ex.Message}");
+                            }
                         }
                     }
                 }
@@ -1082,6 +1095,26 @@ namespace Segra.Backend.Services
                     height = 1080;
                     break;
             }
+        }
+
+        private static IEnumerable<string> GetMetadataFolderPaths(Content.ContentType contentType)
+        {
+            var paths = new List<string> { FolderNames.GetMetadataFolderPath(contentType) };
+
+            if (contentType == Content.ContentType.PendingEdit)
+            {
+                string metaRoot = Path.Combine(FolderNames.CacheFolder, FolderNames.Metadata);
+                foreach (string altName in new[] { FolderNames.LegacyPendingEdit, "???" })
+                {
+                    string altPath = Path.Combine(metaRoot, altName);
+                    if (!paths.Any(p => string.Equals(p, altPath, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        paths.Add(altPath);
+                    }
+                }
+            }
+
+            return paths;
         }
 
         private static bool IsMetadataFile(string filePath)

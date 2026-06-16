@@ -1,11 +1,66 @@
 {
+  "_framer-motion.DeFn3rrU.js": {
+    "file": "assets/framer-motion.DeFn3rrU.js",
+    "name": "framer-motion",
+    "imports": [
+      "_react.PUn1mh59.js",
+      "_vendor.BBH0yepx.js"
+    ]
+  },
+  "_lucide.DqZl2c12.js": {
+    "file": "assets/lucide.DqZl2c12.js",
+    "name": "lucide",
+    "imports": [
+      "_react.PUn1mh59.js"
+    ]
+  },
+  "_mp4box.CivaKMi2.js": {
+    "file": "assets/mp4box.CivaKMi2.js",
+    "name": "mp4box"
+  },
+  "_react-dnd.BzCS81p8.js": {
+    "file": "assets/react-dnd.BzCS81p8.js",
+    "name": "react-dnd",
+    "imports": [
+      "_react.PUn1mh59.js",
+      "_vendor.BBH0yepx.js"
+    ]
+  },
+  "_react.PUn1mh59.js": {
+    "file": "assets/react.PUn1mh59.js",
+    "name": "react"
+  },
+  "_tanstack.D2eCO0B-.js": {
+    "file": "assets/tanstack.D2eCO0B-.js",
+    "name": "tanstack",
+    "imports": [
+      "_react.PUn1mh59.js"
+    ]
+  },
+  "_vendor.BBH0yepx.js": {
+    "file": "assets/vendor.BBH0yepx.js",
+    "name": "vendor",
+    "imports": [
+      "_react.PUn1mh59.js",
+      "_react-dnd.BzCS81p8.js"
+    ]
+  },
   "index.html": {
-    "file": "assets/index.DII0Rjec.js",
+    "file": "assets/index.BGiBiV3C.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
+    "imports": [
+      "_react.PUn1mh59.js",
+      "_tanstack.D2eCO0B-.js",
+      "_vendor.BBH0yepx.js",
+      "_lucide.DqZl2c12.js",
+      "_framer-motion.DeFn3rrU.js",
+      "_react-dnd.BzCS81p8.js",
+      "_mp4box.CivaKMi2.js"
+    ],
     "css": [
-      "assets/index.DMF4xSt0.css"
+      "assets/index.PyarERvV.css"
     ]
   }
 }

@@ -684,14 +684,14 @@ namespace Segra.Backend.App
                 try
                 {
                     MonitoringWindow = CreateMonitoringPhotinoWindow(monitoringUrl, chromeless: true);
-                    MonitoringWindow.SetTitle("Segra ??");
+                    MonitoringWindow.SetTitle("Segra \u76e3\u63a7");
                     MonitoringWindow.WaitForClose();
                 }
                 catch (Exception ex)
                 {
                     Log.Warning(ex, "Chromeless monitoring window failed; falling back to framed window");
                     MonitoringWindow = CreateMonitoringPhotinoWindow(monitoringUrl, chromeless: false);
-                    MonitoringWindow.SetTitle("Segra ??");
+                    MonitoringWindow.SetTitle("Segra \u76e3\u63a7");
                     MonitoringWindow.WaitForClose();
                 }
 

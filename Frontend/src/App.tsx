@@ -7,6 +7,7 @@ import ReplayBuffer from './Pages/replay-buffer';
 import PendingEdit from './Pages/pending-edit';
 import Highlights from './Pages/highlights';
 import { SettingsProvider } from './Context/SettingsContext';
+import { AppStateProvider } from './Context/AppStateContext';
 import Video from './Pages/video';
 import { useSelectedVideo } from './Context/SelectedVideoContext';
 import { useSelectedMenu } from './Context/SelectedMenuContext';
@@ -14,9 +15,12 @@ import { themeChange } from 'theme-change';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { DndProvider } from 'react-dnd';
 import { SegmentsProvider, useSegments } from './Context/SegmentsContext';
-import { Content } from './Models/types';
+import { Content, MenuItemId, menuItemHasContent, normalizeMenuItems } from './Models/types';
+import { useSettings } from './Context/SettingsContext';
+import { useAppState } from './Context/AppStateContext';
 import { UploadProvider } from './Context/UploadContext';
 import { ImportProvider } from './Context/ImportContext';
+import { ContentMigrationProvider } from './Context/ContentMigrationContext';
 import { WebSocketProvider } from './Context/WebSocketContext';
 import { ClippingProvider } from './Context/ClippingContext';
 import { AiHighlightsProvider } from './Context/AiHighlightsContext';
@@ -51,6 +55,8 @@ function App() {
   const { data: profile } = useProfile();
   const needsUsername = session && profile?.username?.startsWith('user_');
 
+  const settings = useSettings();
+  const appState = useAppState();
   const { selectedVideo, setSelectedVideo } = useSelectedVideo();
   const { selectedMenu, setSelectedMenu } = useSelectedMenu();
   const { renameSegmentsForVideo } = useSegments();
@@ -58,6 +64,32 @@ function App() {
   useEffect(() => {
     selectedVideoRef.current = selectedVideo;
   }, [selectedVideo]);
+
+  // If the current menu becomes hidden (and has no content keeping it visible),
+  // fall back to the default (or first reachable item).
+  useEffect(() => {
+    const items = normalizeMenuItems(settings.menuItems);
+
+    const isReachable = (id: MenuItemId) =>
+      id === 'Settings' ||
+      items.find((m) => m.id === id)?.visible === true ||
+      menuItemHasContent(id, appState.content);
+
+    if (isReachable(selectedMenu as MenuItemId)) return;
+
+    const defaultId = (settings.defaultMenuItem ?? 'Full Sessions') as MenuItemId;
+    const fallback =
+      (isReachable(defaultId) ? defaultId : null) ?? items.find((m) => isReachable(m.id))?.id;
+    if (fallback) {
+      setSelectedMenu(fallback);
+    }
+  }, [
+    settings.menuItems,
+    settings.defaultMenuItem,
+    selectedMenu,
+    setSelectedMenu,
+    appState.content,
+  ]);
 
   useEffect(() => {
     const handleContentRenamed = (event: CustomEvent<any>) => {
@@ -95,7 +127,7 @@ function App() {
       window.removeEventListener('websocket-message', handleContentRenamed as EventListener);
   }, [setSelectedVideo, renameSegmentsForVideo]);
 
-  const handleMenuSelection = (menu: any) => {
+  const handleMenuSelection = (menu: MenuItemId | string) => {
     setSelectedVideo(null);
     setSelectedMenu(menu);
   };
@@ -146,33 +178,37 @@ export default function AppWrapper() {
       <MigrationOverlay />
       <ScrollProvider>
         <SettingsProvider>
-          <MonitoringLayoutProvider>
-            <ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
-              <ModalProvider>
-                <GeneralMessagesProvider>
-                  <SegmentsProvider>
-                    <DndProvider backend={HTML5Backend}>
-                      <UploadProvider>
-                        <ImportProvider>
-                          <ClippingProvider>
-                            <AiHighlightsProvider>
-                              <CompressionProvider>
-                                <UpdateProvider>
-                                  <ObsDownloadProvider>
-                                    <App />
-                                  </ObsDownloadProvider>
-                                </UpdateProvider>
-                              </CompressionProvider>
-                            </AiHighlightsProvider>
-                          </ClippingProvider>
-                        </ImportProvider>
-                      </UploadProvider>
-                    </DndProvider>
-                  </SegmentsProvider>
-                </GeneralMessagesProvider>
-              </ModalProvider>
-            </ReleaseNotesContext.Provider>
-          </MonitoringLayoutProvider>
+          <AppStateProvider>
+            <MonitoringLayoutProvider>
+              <ReleaseNotesContext.Provider value={{ releaseNotes, setReleaseNotes }}>
+                <ModalProvider>
+                  <GeneralMessagesProvider>
+                    <SegmentsProvider>
+                      <DndProvider backend={HTML5Backend}>
+                        <UploadProvider>
+                          <ImportProvider>
+                            <ContentMigrationProvider>
+                              <ClippingProvider>
+                                <AiHighlightsProvider>
+                                  <CompressionProvider>
+                                    <UpdateProvider>
+                                      <ObsDownloadProvider>
+                                        <App />
+                                      </ObsDownloadProvider>
+                                    </UpdateProvider>
+                                  </CompressionProvider>
+                                </AiHighlightsProvider>
+                              </ClippingProvider>
+                            </ContentMigrationProvider>
+                          </ImportProvider>
+                        </UploadProvider>
+                      </DndProvider>
+                    </SegmentsProvider>
+                  </GeneralMessagesProvider>
+                </ModalProvider>
+              </ReleaseNotesContext.Provider>
+            </MonitoringLayoutProvider>
+          </AppStateProvider>
         </SettingsProvider>
       </ScrollProvider>
     </WebSocketProvider>

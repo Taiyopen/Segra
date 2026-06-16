@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { State, initialState, GameListEntry } from '../Models/types';
+import { SETTINGS_STORAGE_KEY } from './SettingsContext';
 
 const AppStateContext = createContext<State>(initialState);
 
@@ -15,19 +16,34 @@ export function AppStateProvider({ children }: AppStateProviderProps) {
   const STORAGE_KEY = 'segra.appstate.v1';
 
   const loadCachedState = (): State => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return initialState;
-      const cached = JSON.parse(raw);
-      const revived: State = { ...initialState, ...cached };
+    const reviveState = (raw: Record<string, unknown>): State => {
+      const revived: State = { ...initialState, ...raw };
       // Do not restore live recording info from cache
       revived.recording = undefined;
       revived.preRecording = undefined;
       revived.hasLoadedObs = false;
       return revived;
+    };
+
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        return reviveState(JSON.parse(raw));
+      }
+
+      // Migrate state embedded in the legacy settings blob (pre AppState split).
+      const settingsRaw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (settingsRaw) {
+        const settings = JSON.parse(settingsRaw) as { state?: Record<string, unknown> };
+        if (settings.state && typeof settings.state === 'object') {
+          return reviveState(settings.state);
+        }
+      }
     } catch {
-      return initialState;
+      /* fall through */
     }
+
+    return initialState;
   };
 
   const saveCachedState = (value: State) => {

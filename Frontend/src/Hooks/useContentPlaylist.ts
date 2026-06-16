@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useSettings } from '../Context/SettingsContext';
+import { useAppState } from '../Context/AppStateContext';
 import { Content, ContentType } from '../Models/types';
 import type { SortOption } from '../Components/ContentFilters';
 
@@ -47,11 +47,11 @@ function sortContentItems(items: Content[], sortOption: SortOption): Content[] {
 }
 
 export function useContentPlaylist(currentVideo: Content) {
-  const { state } = useSettings();
+  const appState = useAppState();
   const sectionId = getSectionId(currentVideo.type);
 
   const playlist = useMemo(() => {
-    const contentItems = state.content.filter((video) => video.type === currentVideo.type);
+    const contentItems = appState.content.filter((video) => video.type === currentVideo.type);
 
     let selectedGames: string[] = [];
     let sortOption: SortOption = 'newest';
@@ -73,7 +73,7 @@ export function useContentPlaylist(currentVideo: Content) {
     }
 
     return sortContentItems(filtered, sortOption);
-  }, [state.content, currentVideo.type, sectionId]);
+  }, [appState.content, currentVideo.type, sectionId]);
 
   const currentIndex = playlist.findIndex((v) => v.fileName === currentVideo.fileName);
   const prevVideo = currentIndex > 0 ? playlist[currentIndex - 1] : null;

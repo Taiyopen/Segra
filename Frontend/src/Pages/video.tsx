@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallba
 import { Content, BookmarkType, Segment, Bookmark } from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
+import { useAppState } from '../Context/AppStateContext';
 import { openFileLocation } from '../Utils/FileUtils';
 import { useSelectedVideo } from '../Context/SelectedVideoContext';
 import { DndProvider } from 'react-dnd';
@@ -371,6 +372,7 @@ const fetchThumbnailAtTime = async (videoPath: string, timeInSeconds: number): P
 export default function VideoComponent({ video }: { video: Content }) {
   // Context hooks
   const settings = useSettings();
+  const appState = useAppState();
   const updateSettings = useSettingsUpdater();
   const { setSelectedVideo } = useSelectedVideo();
   const { session } = useAuth();
@@ -420,7 +422,7 @@ export default function VideoComponent({ video }: { video: Content }) {
   }, [video.fileName, video.type]);
 
   useEffect(() => {
-    const updated = settings.state.content.find((item) => item.fileName === video.fileName);
+    const updated = appState.content.find((item) => item.fileName === video.fileName);
     if (updated) {
       if (updated.type !== video.type || updated.filePath !== video.filePath) {
         setSelectedVideo(updated);
@@ -429,7 +431,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     }
 
     // Renamed on disk: fileName changes but metadata identity stays the same
-    const renamed = settings.state.content.find(
+    const renamed = appState.content.find(
       (item) =>
         item.type === video.type &&
         item.createdAt === video.createdAt &&
@@ -446,7 +448,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     else if (prevVideo) setSelectedVideo(prevVideo);
     else setSelectedVideo(null);
   }, [
-    settings.state.content,
+    appState.content,
     video.fileName,
     video.type,
     video.filePath,
@@ -1926,7 +1928,7 @@ export default function VideoComponent({ video }: { video: Content }) {
             : video.type === 'PendingEdit'
               ? '待剪輯'
               : 'Highlights';
-    const waveformPath = `${settings.state.cacheFolder}/waveforms/${folderName}/${video.fileName}.peaks.json`;
+    const waveformPath = `${appState.cacheFolder}/waveforms/${folderName}/${video.fileName}.peaks.json`;
     return `http://localhost:2222/api/content?input=${encodeURIComponent(waveformPath)}&type=${video.type.toLowerCase()}`;
   };
 

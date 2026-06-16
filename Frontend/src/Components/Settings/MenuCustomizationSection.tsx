@@ -9,15 +9,16 @@ import {
   GripVertical,
   History,
   Home,
+  Inbox,
   LucideIcon,
   Play,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import {
-  DEFAULT_MENU_ITEMS,
   MenuItemId,
   MenuItemPreference,
   menuItemHasContent,
+  normalizeMenuItems,
   Settings as SettingsType,
 } from '../../Models/types';
 import { useAppState } from '../../Context/AppStateContext';
@@ -32,6 +33,7 @@ const DRAG_TYPE = 'MENU_ITEM_ROW';
 const MENU_ICONS: Record<MenuItemId, LucideIcon> = {
   'Full Sessions': Play,
   'Replay Buffer': History,
+  待剪輯: Inbox,
   Clips: Clapperboard,
   Highlights: Crown,
   Settings: SettingsIcon,
@@ -193,8 +195,7 @@ export default function MenuCustomizationSection({
   const appState = useAppState();
   const defaultItem = settings.defaultMenuItem ?? 'Full Sessions';
 
-  const sourceItems: MenuItemPreference[] =
-    settings.menuItems && settings.menuItems.length > 0 ? settings.menuItems : DEFAULT_MENU_ITEMS;
+  const sourceItems: MenuItemPreference[] = normalizeMenuItems(settings.menuItems);
 
   const [localItems, setLocalItems] = useState<MenuItemPreference[]>(sourceItems);
   const localItemsRef = useRef(localItems);
@@ -207,8 +208,7 @@ export default function MenuCustomizationSection({
   // Pull in external setting changes (visibility toggle, etc.) unless a drag is in progress.
   useEffect(() => {
     if (isDraggingRef.current) return;
-    const next =
-      settings.menuItems && settings.menuItems.length > 0 ? settings.menuItems : DEFAULT_MENU_ITEMS;
+    const next = normalizeMenuItems(settings.menuItems);
     setLocalItems(next);
   }, [settings.menuItems]);
 
@@ -228,8 +228,7 @@ export default function MenuCustomizationSection({
   const handleDragEnd = useCallback(() => {
     isDraggingRef.current = false;
     const latest = localItemsRef.current;
-    const current =
-      settings.menuItems && settings.menuItems.length > 0 ? settings.menuItems : DEFAULT_MENU_ITEMS;
+    const current = normalizeMenuItems(settings.menuItems);
     if (!sameOrder(latest, current)) {
       updateSettings({ menuItems: latest });
     }

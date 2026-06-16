@@ -7,7 +7,7 @@ import {
   useCallback,
   useRef,
 } from 'react';
-import { Settings, initialSettings } from '../Models/types';
+import { Settings, initialSettings, normalizeMenuItems } from '../Models/types';
 import { useWebSocketContext } from './WebSocketContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 
@@ -31,13 +31,22 @@ interface SettingsProviderProps {
   children: ReactNode;
 }
 
+function normalizeSettings(value: Settings): Settings {
+  return {
+    ...value,
+    menuItems: normalizeMenuItems(value.menuItems),
+  };
+}
+
 export function SettingsProvider({ children }: SettingsProviderProps) {
   const loadCachedSettings = (): Settings | null => {
     try {
       const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (!raw) return null;
       const cached = JSON.parse(raw);
-      return { ...initialSettings, ...cached };
+      // Drop legacy embedded app state (migrated via AppStateContext).
+      const { state: _legacyState, ...settingsOnly } = cached;
+      return normalizeSettings({ ...initialSettings, ...settingsOnly });
     } catch {
       return null;
     }
@@ -51,7 +60,9 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     }
   };
 
-  const [settings, setSettings] = useState<Settings>(() => loadCachedSettings() ?? initialSettings);
+  const [settings, setSettings] = useState<Settings>(() =>
+    normalizeSettings(loadCachedSettings() ?? initialSettings),
+  );
   useWebSocketContext();
 
   const pendingBackendUpdateRef = useRef<Settings | null>(null);
@@ -59,7 +70,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const updateSettings = useCallback<SettingsUpdateContextType>(
     (newSettings, fromBackend = false) => {
       setSettings((prev) => {
-        const updatedSettings: Settings = { ...prev, ...newSettings };
+        const updatedSettings = normalizeSettings({ ...prev, ...newSettings });
         saveCachedSettings(updatedSettings);
         if (!fromBackend) {
           pendingBackendUpdateRef.current = updatedSettings;
