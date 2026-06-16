@@ -111,13 +111,13 @@ namespace Segra.Backend.Media
 
         public static async Task SyncContentGameNamesByIgdb()
         {
-            var list = Settings.Instance.State.Content;
+            var list = AppState.Instance.Content;
             if (list == null || list.Count == 0) return;
 
             int changed = await ReconcileGameNamesByIgdb(list);
             if (changed > 0)
             {
-                Settings.Instance.State.SetContent(list, sendToFrontend: true);
+                AppState.Instance.SetContent(list, sendToFrontend: true);
             }
         }
 
@@ -675,7 +675,7 @@ namespace Segra.Backend.Media
                     if (!seen.Add(key))
                         return;
 
-                    Content? c = Settings.Instance.State.Content.FirstOrDefault(x =>
+                    Content? c = AppState.Instance.Content.FirstOrDefault(x =>
                         x.FileName == fileName && x.Type == sourceType);
                     if (c != null)
                         snapshots.Add((c, sourceType));
@@ -783,7 +783,7 @@ namespace Segra.Backend.Media
                     }
 
                     // Update the bookmark in the in-memory content collection
-                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c =>
+                    var contentItem = AppState.Instance.Content.FirstOrDefault(c =>
                         c.FilePath == filePath &&
                         c.Type.ToString() == contentTypeStr);
 
@@ -855,7 +855,7 @@ namespace Segra.Backend.Media
                     }
 
                     // Update the bookmark in the in-memory content collection
-                    var contentItem = Settings.Instance?.State.Content.FirstOrDefault(c =>
+                    var contentItem = AppState.Instance.Content.FirstOrDefault(c =>
                         c.FilePath == filePath &&
                         c.Type.ToString() == contentTypeStr);
 
@@ -1000,7 +1000,7 @@ namespace Segra.Backend.Media
 
                     await SettingsService.LoadContentFromFolderIntoState(true);
 
-                    var updatedContent = Settings.Instance.State.Content.FirstOrDefault(c =>
+                    var updatedContent = AppState.Instance.Content.FirstOrDefault(c =>
                         c.FileName.Equals(sanitizedNewFileName, StringComparison.OrdinalIgnoreCase) &&
                         c.Type == contentType);
 

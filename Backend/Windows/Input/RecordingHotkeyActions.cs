@@ -13,7 +13,7 @@ namespace Segra.Backend.Windows.Input
         /// <summary>Returns true when a manual bookmark was added (same rules as F8).</summary>
         public static bool TryCreateBookmark()
         {
-            var recording = Settings.Instance.State.Recording;
+            var recording = AppState.Instance.Recording;
             var recordingMode = Settings.Instance.RecordingMode;
 
             if (recording != null && (recordingMode == RecordingMode.Session || recordingMode == RecordingMode.Hybrid))
@@ -33,7 +33,7 @@ namespace Segra.Backend.Windows.Input
         /// <summary>Returns true when save replay was triggered (same rules as F10).</summary>
         public static bool TrySaveReplayBuffer()
         {
-            var recording = Settings.Instance.State.Recording;
+            var recording = AppState.Instance.Recording;
             var recordingMode = Settings.Instance.RecordingMode;
 
             if (recording != null && (recordingMode == RecordingMode.Buffer || recordingMode == RecordingMode.Hybrid))

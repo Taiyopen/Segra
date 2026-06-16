@@ -108,7 +108,7 @@ namespace Segra.Backend.Windows.Audio
         }
 
         /// <summary>
-        /// Peak level (0–1) for a capture or render endpoint, using Windows' mixer meter (same devices as Segra routes into OBS).
+        /// Peak level (0??) for a capture or render endpoint, using Windows' mixer meter (same devices as Segra routes into OBS).
         /// </summary>
         public static float GetEndpointPeak(string deviceId, DataFlow flow)
         {

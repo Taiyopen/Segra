@@ -18,7 +18,7 @@ namespace Segra.Backend.Shared
         private static readonly List<string> internalGpuIdentifiers = new List<string>
         {
             // Intel integrated GPUs
-            "HD Graphics",         // Broadwell (5xxx), Skylake (510–530), Kaby Lake (610/620), Comet Lake, etc.
+            "HD Graphics",         // Broadwell (5xxx), Skylake (510??30), Kaby Lake (610/620), Comet Lake, etc.
             "Iris Graphics",       // Skylake Iris 540/550
             "Iris Pro Graphics",   // Broadwell Iris Pro 6200
             "Iris Plus Graphics",  // Kaby Lake / Whiskey Lake
@@ -29,7 +29,7 @@ namespace Segra.Backend.Shared
             "Radeon R7 Graphics",    // Kaveri / Carrizo APU series
             "Radeon R5 Graphics",    // Kaveri / Carrizo APU series
             "Radeon Vega",           // Raven Ridge / Picasso / Renoir APUs (e.g. Vega 8, Vega 11)
-            "Radeon Graphics",       // Zen+ / Zen2 APUs (generic naming on 4000/5000G “Graphics”)
+            "Radeon Graphics",       // Zen+ / Zen2 APUs (generic naming on 4000/5000G ?raphics??
             "Radeon(TM) Graphics"
         };
 

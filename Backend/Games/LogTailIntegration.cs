@@ -175,7 +175,7 @@ namespace Segra.Backend.Games
                 return;
             }
 
-            // Compensate for the average polling lag — on a PollIntervalMs cycle the
+            // Compensate for the average polling lag ??on a PollIntervalMs cycle the
             // line we just read was on average half an interval old.
             var compensation = TimeSpan.FromMilliseconds(PollIntervalMs / 2.0);
 

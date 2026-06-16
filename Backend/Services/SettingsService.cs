@@ -3,7 +3,6 @@ using Segra.Backend.Core.Models;
 using Segra.Backend.Media;
 using Segra.Backend.Recorder;
 using Segra.Backend.Shared;
-using Segra.Backend.Utils;
 using Segra.Backend.Windows.Display;
 using Segra.Backend.Windows.Input;
 using Serilog;
@@ -179,10 +178,10 @@ namespace Segra.Backend.Services
                 }
 
                 Settings.Instance.RunOnStartup = StartupService.GetStartupStatus();
-                Settings.Instance.State.GpuVendor = GeneralUtils.DetectGpuVendor();
-                if (Settings.Instance.State.GpuVendor == GeneralUtils.GpuVendor.Nvidia)
+                AppState.Instance.GpuVendor = GeneralUtils.DetectGpuVendor();
+                if (AppState.Instance.GpuVendor == GeneralUtils.GpuVendor.Nvidia)
                 {
-                    Settings.Instance.State.CudaComputeCapability = GeneralUtils.DetectCudaComputeCapability();
+                    AppState.Instance.CudaComputeCapability = null;
                 }
 
                 Log.Information("Settings loaded from {0}", SettingsFilePath);
@@ -344,7 +343,7 @@ namespace Segra.Backend.Services
                 hasChanges = true;
             }
 
-            // Update ClipRateControl / clip bitrates (FFmpeg clip export — mirrors session Video Settings semantics)
+            // Update ClipRateControl / clip bitrates (FFmpeg clip export ??mirrors session Video Settings semantics)
             if (!hasAutoSelectedClipRateControl &&
                 !string.Equals(settings.ClipRateControl, updatedSettings.ClipRateControl, StringComparison.Ordinal))
             {
@@ -522,14 +521,6 @@ namespace Segra.Backend.Services
                 }
             }
 
-            // Update Theme
-            if (settings.Theme != updatedSettings.Theme)
-            {
-                Log.Information($"Theme changed from '{settings.Theme}' to '{updatedSettings.Theme}'");
-                settings.Theme = updatedSettings.Theme;
-                hasChanges = true;
-            }
-
             // Update ContentFolder
             if (settings.ContentFolder != updatedSettings.ContentFolder)
             {
@@ -636,7 +627,7 @@ namespace Segra.Backend.Services
                 settings.Encoder = updatedSettings.Encoder;
 
                 // When encoder changes, automatically select an appropriate codec
-                var newCodec = OBSService.SelectDefaultCodec(settings.Encoder, settings.State.Codecs);
+                var newCodec = OBSService.SelectDefaultCodec(settings.Encoder, AppState.Instance.Codecs);
                 if (newCodec != null && (settings.Codec == null || !settings.Codec.Equals(newCodec)))
                 {
                     Log.Information($"Automatically changing codec to '{newCodec.FriendlyName}' based on encoder change");
@@ -764,7 +755,7 @@ namespace Segra.Backend.Services
                 settings.SelectedDisplay = updatedSettings.SelectedDisplay;
 
                 // Update display source if we have a recording and it is not using game hook
-                var rec = Settings.Instance.State.Recording;
+                var rec = AppState.Instance.Recording;
                 if (rec != null && !rec.IsUsingGameHook)
                 {
                     OBSService.RefreshMonitorCaptureForSlot(0);
@@ -802,8 +793,8 @@ namespace Segra.Backend.Services
                 Log.Information($"ReceiveBetaUpdates changed from '{settings.ReceiveBetaUpdates}' to '{updatedSettings.ReceiveBetaUpdates}'");
                 settings.ReceiveBetaUpdates = updatedSettings.ReceiveBetaUpdates;
                 hasChanges = true;
-                _ = Task.Run(UpdateService.UpdateAppIfNecessary);
-                _ = Task.Run(UpdateService.GetReleaseNotes);
+                _ = Task.Run(() => UpdateService.UpdateAppIfNecessary());
+                _ = Task.Run(() => UpdateService.GetReleaseNotes());
             }
 
             // Update RunOnStartup
@@ -896,7 +887,7 @@ namespace Segra.Backend.Services
             var s = Settings.Instance;
             bool changed = false;
 
-            // Bitrate clamps (Mbps) — aligned with frontend bitrate dropdown granularity (steps of 5, 10–100)
+            // Bitrate clamps (Mbps) ??aligned with frontend bitrate dropdown granularity (steps of 5, 10??00)
             static int ClampMbps(int v)
             {
                 double baseMbps = v <= 0 ? 35 : v;
@@ -929,7 +920,7 @@ namespace Segra.Backend.Services
                  string.Equals(rc, "CQVBR", StringComparison.Ordinal));
             bool invalidGpuMode = !clipCpu && string.Equals(rc, "CRF", StringComparison.Ordinal);
 
-            bool nvGpu = Settings.Instance.State.GpuVendor == GeneralUtils.GpuVendor.Nvidia;
+            bool nvGpu = AppState.Instance.GpuVendor == GeneralUtils.GpuVendor.Nvidia;
             bool cqVbrBlocked = string.Equals(rc, "CQVBR", StringComparison.Ordinal) && (!nvGpu || clipCpu);
 
             if (invalidCpuMode || invalidGpuMode || cqVbrBlocked)
@@ -1032,7 +1023,7 @@ namespace Segra.Backend.Services
 
             await ContentService.ReconcileGameNamesByIgdb(content);
 
-            Settings.Instance.State.SetContent(content, sendToFrontend);
+            AppState.Instance.SetContent(content, sendToFrontend);
 
             // Update folder size in state
             Windows.Storage.StorageService.UpdateFolderSizeInState();
@@ -1109,7 +1100,7 @@ namespace Segra.Backend.Services
             }
 
             Log.Information($"Setting {versions.Count} available OBS versions");
-            Settings.Instance.State.AvailableOBSVersions = versions;
+            AppState.Instance.AvailableOBSVersions = versions;
 
             // If the selected version is not in the list anymore, reset it to null (automatic)
             if (!string.IsNullOrEmpty(Settings.Instance.SelectedOBSVersion) &&
@@ -1132,7 +1123,7 @@ namespace Segra.Backend.Services
 
             foreach (DeviceSetting selectedDevice in selectedDevices)
             {
-                // "default" is a virtual device that always resolves at capture time — skip reconciliation
+                // "default" is a virtual device that always resolves at capture time ??skip reconciliation
                 if (selectedDevice.Id == "default")
                 {
                     continue;

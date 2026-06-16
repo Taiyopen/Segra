@@ -17,7 +17,7 @@ namespace Segra.Backend.Games.Minecraft
 
         // Minecraft death verbs that appear in chat as "<player> <verb> ..."
         // Trailing "whilst/while ..." qualifiers are dropped so matches survive Mojang's
-        // whilst→while wording change and cover both base and .player variants.
+        // whilst?hile wording change and cover both base and .player variants.
         private static readonly string[] DeathVerbs =
         {
             "was slain by", "was shot by", "was killed by", "was blown up by",

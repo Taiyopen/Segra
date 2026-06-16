@@ -8,7 +8,6 @@ using Segra.Backend.Services;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Media;
 using Segra.Backend.Shared;
-using Segra.Backend.Utils;
 using Segra.Backend.Windows.Input;
 using Segra.Backend.Recorder;
 using Segra.Backend.Games;
@@ -265,7 +264,7 @@ namespace Segra.Backend.App
                             await HandleSelectGameExecutable();
                             break;
                         case "StartRecording":
-                            if (Settings.Instance.State.Recording != null)
+                            if (AppState.Instance.Recording != null)
                             {
                                 Log.Information("Recording already in progress. Skipping...");
                                 return;
@@ -273,9 +272,9 @@ namespace Segra.Backend.App
 
                             // Manual display capture should be able to start even when auto-detection
                             // currently shows a pre-recording card.
-                            if (Settings.Instance.State.PreRecording != null)
+                            if (AppState.Instance.PreRecording != null)
                             {
-                                Settings.Instance.State.PreRecording = null;
+                                AppState.Instance.PreRecording = null;
                             }
 
                             _ = Task.Run(() => OBSService.StartRecording(startManually: true));

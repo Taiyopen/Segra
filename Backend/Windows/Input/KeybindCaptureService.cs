@@ -138,8 +138,8 @@ namespace Segra.Backend.Windows.Input
 
         private static void HandleKeybindAction(KeybindAction action)
         {
-            var recording = Settings.Instance.State.Recording;
-            var preRecording = Settings.Instance.State.PreRecording;
+            var recording = AppState.Instance.Recording;
+            var preRecording = AppState.Instance.PreRecording;
 
             switch (action)
             {

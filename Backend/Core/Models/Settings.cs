@@ -126,7 +126,7 @@ namespace Segra.Backend.Core.Models
             _isBulkUpdating = false;
             Log.Information("End bulk update");
             SendToFrontend("End bulk update");
-            SettingsService.SaveSettings(force);
+            SettingsService.SaveSettings();
         }
 
         private void SendToFrontend(string cause)
@@ -290,7 +290,7 @@ namespace Segra.Backend.Core.Models
             }
         }
 
-        // Maximum bitrate in Mbps (VBR min–max range upper; CQVBR peak cap)
+        // Maximum bitrate in Mbps (VBR min??max range upper; CQVBR peak cap)
         [JsonPropertyName("maxBitrate")]
         public int MaxBitrate
         {
@@ -861,7 +861,7 @@ namespace Segra.Backend.Core.Models
             }
         }
 
-        /// <summary>OBS mixer bitmask for game capture audio (bits 0–5 = tracks 1–6).</summary>
+        /// <summary>OBS mixer bitmask for game capture audio (bits 0?? = tracks 1??).</summary>
         [JsonPropertyName("gameAudioTrackMask")]
         public uint GameAudioTrackMask
         {
@@ -869,7 +869,7 @@ namespace Segra.Backend.Core.Models
             set => _gameAudioTrackMask = value & 0x3Fu;
         }
 
-        /// <summary>OBS mixer bitmask for Discord app capture (bits 0–5 = tracks 1–6).</summary>
+        /// <summary>OBS mixer bitmask for Discord app capture (bits 0?? = tracks 1??).</summary>
         [JsonPropertyName("discordAudioTrackMask")]
         public uint DiscordAudioTrackMask
         {
@@ -877,7 +877,7 @@ namespace Segra.Backend.Core.Models
             set => _discordAudioTrackMask = value & 0x3Fu;
         }
 
-        /// <summary>Custom names for recording tracks 1–6 (empty = "Track N").</summary>
+        /// <summary>Custom names for recording tracks 1?? (empty = "Track N").</summary>
         [JsonPropertyName("recordingAudioTrackNames")]
         public List<string> RecordingAudioTrackNames
         {
@@ -1070,7 +1070,7 @@ namespace Segra.Backend.Core.Models
         [JsonPropertyName("volume")]
         public float Volume { get; set; } = 1.0f; // Default volume for all devices initially
 
-        /// <summary>OBS mixer bitmask (bits 0–5 = tracks 1–6). Default: track 1 only.</summary>
+        /// <summary>OBS mixer bitmask (bits 0?? = tracks 1??). Default: track 1 only.</summary>
         [JsonPropertyName("audioTrackMask")]
         public uint AudioTrackMask { get; set; } = 1;
     }

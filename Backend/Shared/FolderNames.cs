@@ -14,7 +14,7 @@ namespace Segra.Backend.Shared
         public const string Clips = "Clips";
         public const string Highlights = "Highlights";
         /// <summary>Videos moved here are excluded from automatic storage cleanup (unlike Full Sessions / Replay Buffers).</summary>
-        public const string PendingEdit = "待剪輯";
+        public const string PendingEdit = "???";
 
         // Legacy folder names (for migration purposes)
         public const string LegacySessions = "sessions";

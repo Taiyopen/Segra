@@ -67,7 +67,7 @@ namespace Segra.Backend.Media
                     return;
                 }
 
-                // Lossless clips ignore track metadata / union layout — each segment is just -ss/-t/-c copy.
+                // Lossless clips ignore track metadata / union layout ??each segment is just -ss/-t/-c copy.
                 var perSegmentTrackNames = new List<List<string>?>();
                 List<string>? unionAudioLayout = null;
                 if (!losslessOnly)
@@ -461,7 +461,7 @@ namespace Segra.Backend.Media
             {
                 string ss = startTime.ToString(CultureInfo.InvariantCulture);
                 string durStr = duration.ToString(CultureInfo.InvariantCulture);
-                // -map 0 keeps every stream (all audio tracks, video, subtitles) — default mapping would often drop extra audio.
+                // -map 0 keeps every stream (all audio tracks, video, subtitles) ??default mapping would often drop extra audio.
                 string losslessArgs = $"-y -ss {ss} -i \"{inputFilePath}\" -t {durStr} -map 0 -c copy \"{outputFilePath}\"";
                 Log.Information("Extracting clip (lossless remux: -ss, -i, -t, -map 0, -c copy)");
                 Log.Information($"FFmpeg arguments: {losslessArgs}");

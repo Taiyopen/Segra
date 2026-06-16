@@ -233,7 +233,7 @@ namespace Segra.Backend.Games
                     }
                     else
                     {
-                        // No exclude fragments — confirm immediately
+                        // No exclude fragments ??confirm immediately
                         _lastEventTime[keyword.BookmarkType] = now;
                         AddBookmark(keyword.BookmarkType);
                         Log.Information($"[{_config.LogPrefix}] Detected '{keyword.Text}' in OCR text -> {keyword.BookmarkType}");
@@ -355,7 +355,7 @@ namespace Segra.Backend.Games
                 if (ocrText.Length > 0 &&
                     pending.ExcludeFragments.Any(f => ocrText.Contains(f, StringComparison.OrdinalIgnoreCase)))
                 {
-                    Log.Debug($"[{_config.LogPrefix}] Cancelled pending '{pending.Keyword}' — exclude fragment detected");
+                    Log.Debug($"[{_config.LogPrefix}] Cancelled pending '{pending.Keyword}' ??exclude fragment detected");
                     toRemove.Add(bookmarkType);
                     continue;
                 }
@@ -366,7 +366,7 @@ namespace Segra.Backend.Games
                     // Another keyword (e.g. "+100") may have already fired for this type
                     if (now - _lastEventTime[bookmarkType] < _config.EventCooldown)
                     {
-                        Log.Debug($"[{_config.LogPrefix}] Dropped pending '{pending.Keyword}' — already bookmarked by another keyword");
+                        Log.Debug($"[{_config.LogPrefix}] Dropped pending '{pending.Keyword}' ??already bookmarked by another keyword");
                         toRemove.Add(bookmarkType);
                         continue;
                     }

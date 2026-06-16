@@ -302,7 +302,7 @@ namespace Segra.Backend.Windows.Display
                 }
             }
 
-            return fallback; // give up – use whatever the driver said
+            return fallback; // give up ??use whatever the driver said
         }
     }
 }

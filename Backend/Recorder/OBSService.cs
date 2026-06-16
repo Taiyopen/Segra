@@ -10,13 +10,12 @@ using ObsKit.NET.Sources;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Services;
 using Segra.Backend.Shared;
-using Segra.Backend.Utils;
 using Serilog;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
-using static Segra.Backend.Utils.GeneralUtils;
+using static Segra.Backend.Shared.GeneralUtils;
 using static Segra.Backend.App.MessageService;
 using System.Net.Http.Json;
 using Segra.Backend.Media;
@@ -248,8 +247,8 @@ namespace Segra.Backend.Recorder
                     return false;
 
                 Log.Information($"Replay buffer saved to: {savedPath}");
-                string game = Settings.Instance.State.Recording?.Game ?? "Unknown";
-                string? exePath = Settings.Instance.State.Recording?.ExePath;
+                string game = AppState.Instance.Recording?.Game ?? "Unknown";
+                string? exePath = AppState.Instance.Recording?.ExePath;
                 int? igdbId = !string.IsNullOrEmpty(exePath) ? GameUtils.GetIgdbIdFromExePath(exePath) : null;
 
                 await EnsureFileReady(savedPath);
@@ -279,7 +278,7 @@ namespace Segra.Backend.Recorder
                     return false;
                 }
 
-                await ContentService.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game, igdbId: igdbId, audioTrackNames: Settings.Instance.State.Recording?.AudioTrackNames);
+                await ContentService.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game, igdbId: igdbId, audioTrackNames: AppState.Instance.Recording?.AudioTrackNames);
                 await ContentService.CreateThumbnail(savedPath, Content.ContentType.Buffer);
                 _ = Task.Run(async () => await ContentService.CreateWaveformFile(savedPath, Content.ContentType.Buffer));
 
@@ -301,8 +300,8 @@ namespace Segra.Backend.Recorder
 
         /// <summary>
         /// VRChat VVMW: triggers a replay buffer save, then keeps only the last <paramref name="tailDurationSeconds"/>
-        /// (PlaybackEnded − PlaybackStart wall time) into Clips via FFmpeg <c>-sseof</c>. Does not register a full Replay Buffer item.
-        /// Requires Hybrid or Replay Buffer mode with an active buffer. Set replay buffer duration ≥ longest expected playback.
+        /// (PlaybackEnded ??PlaybackStart wall time) into Clips via FFmpeg <c>-sseof</c>. Does not register a full Replay Buffer item.
+        /// Requires Hybrid or Replay Buffer mode with an active buffer. Set replay buffer duration ??longest expected playback.
         /// </summary>
         public static async Task<bool> TrySaveReplayBufferTailAsClipAsync(
             double tailDurationSeconds,
@@ -329,7 +328,7 @@ namespace Segra.Backend.Recorder
 
                 await EnsureFileReady(savedPath);
 
-                var recording = Settings.Instance.State.Recording;
+                var recording = AppState.Instance.Recording;
                 if (recording == null)
                 {
                     Log.Warning("[VRChat VVMW] No active recording state; discarding replay save");
@@ -452,7 +451,7 @@ namespace Segra.Backend.Recorder
         }
 
         /// <summary>
-        /// Uses <c>{baseName}.mp4</c>, or <c>{baseName}_2.mp4</c>, <c>{baseName}_3.mp4</c>, … when the base name is already taken (same pattern intent as manual clips avoiding collisions).
+        /// Uses <c>{baseName}.mp4</c>, or <c>{baseName}_2.mp4</c>, <c>{baseName}_3.mp4</c>, ??when the base name is already taken (same pattern intent as manual clips avoiding collisions).
         /// </summary>
         private static string GetNextAvailableVvmwClipPath(string clipsRoot, string baseName)
         {
@@ -650,7 +649,7 @@ namespace Segra.Backend.Recorder
         {
             bool wantsSessionFile = Settings.Instance.RecordingMode == RecordingMode.Session
                 || Settings.Instance.RecordingMode == RecordingMode.Hybrid;
-            if (wantsSessionFile && Settings.Instance.State.Recording != null)
+            if (wantsSessionFile && AppState.Instance.Recording != null)
                 return -1;
             return 0;
         }
@@ -660,12 +659,12 @@ namespace Segra.Backend.Recorder
         private static void ClearPendingPreRecordingForSlot(int slot)
         {
             if (slot == 0)
-                Settings.Instance.State.PreRecording = null;
+                AppState.Instance.PreRecording = null;
         }
 
         private static void ClearAllPendingPreRecordings()
         {
-            Settings.Instance.State.PreRecording = null;
+            AppState.Instance.PreRecording = null;
         }
 
         public static async Task InitializeAsync()
@@ -689,7 +688,7 @@ namespace Segra.Backend.Recorder
                     "error",
                     "Could not install recorder"
                 );
-                Settings.Instance.State.HasLoadedObs = true;
+                AppState.Instance.HasLoadedObs = true;
                 return;
             }
 
@@ -738,7 +737,7 @@ namespace Segra.Backend.Recorder
                 SetAvailableEncodersInState();
 
                 IsInitialized = true;
-                Settings.Instance.State.HasLoadedObs = true;
+                AppState.Instance.HasLoadedObs = true;
                 Log.Information("OBS initialized successfully!");
 
                 _ = Task.Run(RecoveryService.CheckForOrphanedFilesAsync);
@@ -754,7 +753,7 @@ namespace Segra.Backend.Recorder
                     "error",
                     "Could not initialize recorder"
                 );
-                Settings.Instance.State.HasLoadedObs = true;
+                AppState.Instance.HasLoadedObs = true;
             }
         }
 
@@ -823,7 +822,7 @@ namespace Segra.Backend.Recorder
                 outputHeight = maxHeight;
 
                 // Round to nearest multiple of 4 (required by video encoders)
-                // Example: 1279 → 1280 instead of OBS rounding down to 1276
+                // Example: 1279 ??1280 instead of OBS rounding down to 1276
                 outputWidth = (uint)(Math.Round(outputWidth / 4.0) * 4);
                 outputHeight = (uint)(Math.Round(outputHeight / 4.0) * 4);
 
@@ -1015,8 +1014,8 @@ namespace Segra.Backend.Recorder
 
             // Disable HEVC b-frames on older NVIDIA GPUs (requires compute capability >= 7.0)
             if (encoderId.Equals("jim_hevc_nvenc", StringComparison.OrdinalIgnoreCase) &&
-                Settings.Instance.State.CudaComputeCapability != null &&
-                Settings.Instance.State.CudaComputeCapability < 7.0)
+                AppState.Instance.CudaComputeCapability != null &&
+                AppState.Instance.CudaComputeCapability < 7.0)
             {
                 videoEncoderSettings.Set("bf", 0);
                 Log.Information("NVENC b-frames disabled (CUDA compute capability < 7.0)");
@@ -1119,8 +1118,8 @@ namespace Segra.Backend.Recorder
             }
 
             // Configure mixers and audio encoders.
-            // Single-track mode: all sources → Track 1.
-            // Multi-track mode: each source uses its configured OBS mixer bitmask (tracks 1–6).
+            // Single-track mode: all sources ??Track 1.
+            // Multi-track mode: each source uses its configured OBS mixer bitmask (tracks 1??).
             const int maxTracks = 6;
             bool separateTracks = Settings.Instance.EnableSeparateAudioTracks;
             _audioEncoders.Clear();
@@ -1334,9 +1333,8 @@ namespace Segra.Backend.Recorder
                 ExePath = exePath,
                 CoverImageId = GameUtils.GetCoverImageIdFromExePath(exePath),
                 AudioTrackNames = actualAudioTrackNames,
-                Slot = slot
             };
-            Settings.Instance.State.Recording = newRecording;
+            AppState.Instance.Recording = newRecording;
 
             ClearPendingPreRecordingForSlot(slot);
             Program.ShowMonitoringWindowIfClosed();
@@ -1344,7 +1342,7 @@ namespace Segra.Backend.Recorder
             _ = Task.Run(async () =>
             {
                 await MessageService.SendSettingsToFrontend("OBS Start recording");
-                if (_isStoppingOrStopped || Settings.Instance.State.Recording == null)
+                if (_isStoppingOrStopped || AppState.Instance.Recording == null)
                     return;
                 RecordingPreviewService.OnRecordingStarted(previewFps);
             });
@@ -1361,7 +1359,7 @@ namespace Segra.Backend.Recorder
                      !string.IsNullOrEmpty(exePath) &&
                      exePath.EndsWith("VRChat.exe", StringComparison.OrdinalIgnoreCase))
             {
-                // Replay Buffer mode: no session file — VRChat VVMW clips use replay buffer tail instead.
+                // Replay Buffer mode: no session file ??VRChat VVMW clips use replay buffer tail instead.
                 _ = GameIntegrationService.Start(GameUtils.GetIgdbIdFromExePath(exePath), exePath);
             }
             Task.Run(KeybindCaptureService.Start);
@@ -1388,7 +1386,7 @@ namespace Segra.Backend.Recorder
 
             if (Settings.Instance.SelectedDisplay != null)
             {
-                int? foundIndex = Settings.Instance.State.Displays
+                int? foundIndex = AppState.Instance.Displays
                     .Select((d, i) => new { Display = d, Index = i })
                     .Where(x => x.Display.DeviceId == Settings.Instance.SelectedDisplay?.DeviceId)
                     .Select(x => (int?)x.Index)
@@ -1480,8 +1478,8 @@ namespace Segra.Backend.Recorder
                 }
                 else if (!isReplayBufferMode && !isHybridMode && AnySessionOutputActive())
                 {
-                    if (Settings.Instance.State.Recording != null)
-                        Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
+                    if (AppState.Instance.Recording != null)
+                        AppState.Instance.UpdateRecordingEndTime(DateTime.Now);
 
                     var outp = _pipeline.SessionOutput;
                     if (outp != null)
@@ -1547,14 +1545,14 @@ namespace Segra.Backend.Recorder
                         string sessionFilePath = rec.FilePath!;
                         _ = Task.Run(async () => await ContentService.CreateWaveformFile(sessionFilePath, Content.ContentType.Session));
 
-                        Log.Information($"Recording details (slot {rec.Slot}):");
+                        Log.Information("Recording details:");
                         Log.Information($"Start Time: {rec.StartTime}");
                         Log.Information($"End Time: {rec.EndTime}");
                         Log.Information($"Duration: {rec.Duration}");
                         Log.Information($"File Path: {rec.FilePath}");
                     }
 
-                    var sessionRec0 = Settings.Instance.State.Recording;
+                    var sessionRec0 = AppState.Instance.Recording;
 
                     await FinalizeSessionFileAsync(sessionRec0);
 
@@ -1568,13 +1566,13 @@ namespace Segra.Backend.Recorder
 
                     await SettingsService.LoadContentFromFolderIntoState(false);
 
-                    Settings.Instance.State.Recording = null;
+                    AppState.Instance.Recording = null;
                     ClearAllPendingPreRecordings();
                 }
                 else if (isHybridMode)
                 {
-                    if (Settings.Instance.State.Recording != null)
-                        Settings.Instance.State.UpdateRecordingEndTime(DateTime.Now);
+                    if (AppState.Instance.Recording != null)
+                        AppState.Instance.UpdateRecordingEndTime(DateTime.Now);
 
                     // Stop replay buffer first if running
                     if (_bufferOutput != null)
@@ -1627,19 +1625,19 @@ namespace Segra.Backend.Recorder
                     _ = GameIntegrationService.Shutdown();
                     KeybindCaptureService.Stop();
 
-                    if (Settings.Instance.State.Recording != null && Settings.Instance.State.Recording.FilePath != null)
+                    if (AppState.Instance.Recording != null && AppState.Instance.Recording.FilePath != null)
                     {
                         // Check if we should discard the session due to no manual bookmarks
-                        bool hasManualBookmarks = Settings.Instance.State.Recording.Bookmarks.Any(b => b.Type == BookmarkType.Manual);
+                        bool hasManualBookmarks = AppState.Instance.Recording.Bookmarks.Any(b => b.Type == BookmarkType.Manual);
                         if (Settings.Instance.DiscardSessionsWithoutBookmarks && !hasManualBookmarks)
                         {
                             Log.Information("Hybrid: Discarding session recording without manual bookmarks");
                             try
                             {
-                                if (File.Exists(Settings.Instance.State.Recording.FilePath))
+                                if (File.Exists(AppState.Instance.Recording.FilePath))
                                 {
-                                    File.Delete(Settings.Instance.State.Recording.FilePath);
-                                    Log.Information($"Deleted video file: {Settings.Instance.State.Recording.FilePath}");
+                                    File.Delete(AppState.Instance.Recording.FilePath);
+                                    Log.Information($"Deleted video file: {AppState.Instance.Recording.FilePath}");
                                 }
                             }
                             catch (Exception ex)
@@ -1650,13 +1648,13 @@ namespace Segra.Backend.Recorder
                         else
                         {
                             // Ensure file is fully written to disk/network before thumbnail generation
-                            await EnsureFileReady(Settings.Instance.State.Recording.FilePath!);
+                            await EnsureFileReady(AppState.Instance.Recording.FilePath!);
 
-                            int? igdbId = !string.IsNullOrEmpty(Settings.Instance.State.Recording.ExePath)
-                                ? GameUtils.GetIgdbIdFromExePath(Settings.Instance.State.Recording.ExePath)
+                            int? igdbId = !string.IsNullOrEmpty(AppState.Instance.Recording.ExePath)
+                                ? GameUtils.GetIgdbIdFromExePath(AppState.Instance.Recording.ExePath)
                                 : null;
-                            string hybridSessionFilePath = Settings.Instance.State.Recording.FilePath!;
-                            await ContentService.CreateMetadataFile(hybridSessionFilePath, Content.ContentType.Session, Settings.Instance.State.Recording.Game, Settings.Instance.State.Recording.Bookmarks, igdbId: igdbId, audioTrackNames: Settings.Instance.State.Recording.AudioTrackNames);
+                            string hybridSessionFilePath = AppState.Instance.Recording.FilePath!;
+                            await ContentService.CreateMetadataFile(hybridSessionFilePath, Content.ContentType.Session, AppState.Instance.Recording.Game, AppState.Instance.Recording.Bookmarks, igdbId: igdbId, audioTrackNames: AppState.Instance.Recording.AudioTrackNames);
                             await ContentService.CreateThumbnail(hybridSessionFilePath, Content.ContentType.Session);
                             _ = Task.Run(async () => await ContentService.CreateWaveformFile(hybridSessionFilePath, Content.ContentType.Session));
                             await VrChatVvmwIntegration.FlushDeferredClipsAsync();
@@ -1670,7 +1668,7 @@ namespace Segra.Backend.Recorder
                     DisposeOutput();
                     DisposeSources();
                     DisposeEncoders();
-                    Settings.Instance.State.Recording = null;
+                    AppState.Instance.Recording = null;
                     ClearAllPendingPreRecordings();
                 }
 
@@ -1682,20 +1680,20 @@ namespace Segra.Backend.Recorder
                 CapturedWindowHeight = null;
 
                 // If the recording ends before it started, don't do anything (session+dual paths clear state earlier)
-                if (Settings.Instance.State.Recording == null || (!isReplayBufferMode && Settings.Instance.State.Recording.FilePath == null))
+                if (AppState.Instance.Recording == null || (!isReplayBufferMode && AppState.Instance.Recording.FilePath == null))
                 {
                     ClearAllPendingPreRecordings();
                     return;
                 }
 
                 // Get the file path before nullifying the recording (FilePath is not null at this point because of the previous check)
-                string filePath = Settings.Instance.State.Recording.FilePath!;
+                string filePath = AppState.Instance.Recording.FilePath!;
 
                 // Get the bookmarks before nullifying the recording
-                List<Bookmark> bookmarks = Settings.Instance.State.Recording.Bookmarks;
+                List<Bookmark> bookmarks = AppState.Instance.Recording.Bookmarks;
 
                 // Reset the recording and pre-recording
-                Settings.Instance.State.Recording = null;
+                AppState.Instance.Recording = null;
                 ClearAllPendingPreRecordings();
 
                 // If the recording is not a replay buffer recording, AI is enabled, user is authenticated, and auto generate highlights is enabled -> analyze the video!
@@ -1735,7 +1733,7 @@ namespace Segra.Backend.Recorder
                 var sl = _pipeline;
                 // Switch output audio: mute desktop sources and unmute game/discord sources.
                 // When using hybrid multi-track (master = mic+desktop, game/discord on other tracks), do not mute
-                // desktop — muting removes it from all mixers so Track 1 would lose desktop audio.
+                // desktop ??muting removes it from all mixers so Track 1 would lose desktop audio.
                 var audioOutputMode = Settings.Instance.AudioOutputMode;
                 if (audioOutputMode != AudioOutputMode.All)
                 {
@@ -1765,9 +1763,9 @@ namespace Segra.Backend.Recorder
                     }
                 }
 
-                if (Settings.Instance.State.Recording != null)
+                if (AppState.Instance.Recording != null)
                 {
-                    Settings.Instance.State.Recording.IsUsingGameHook = true;
+                    AppState.Instance.Recording.IsUsingGameHook = true;
                     _ = SendSettingsToFrontend("Updated game hook");
                 }
             }
@@ -2160,7 +2158,7 @@ namespace Segra.Backend.Recorder
             // If a specific version is selected, try to find it
             if (!string.IsNullOrEmpty(selectedVersion))
             {
-                versionToDownload = Settings.Instance.State.AvailableOBSVersions
+                versionToDownload = AppState.Instance.AvailableOBSVersions
                     .FirstOrDefault(v => v.Version == selectedVersion);
 
                 if (versionToDownload == null)
@@ -2172,7 +2170,7 @@ namespace Segra.Backend.Recorder
             // If no specific version was selected or found, use the latest non-beta version
             if (versionToDownload == null)
             {
-                versionToDownload = Settings.Instance.State.AvailableOBSVersions
+                versionToDownload = AppState.Instance.AvailableOBSVersions
                     .Where(v => !v.IsBeta)
                     .OrderByDescending(v => v.Version)
                     .FirstOrDefault();
@@ -2349,22 +2347,22 @@ namespace Segra.Backend.Recorder
         private static readonly Dictionary<string, string> EncoderFriendlyNames =
             new(StringComparer.OrdinalIgnoreCase)
             {
-                // ── NVIDIA NVENC ────────────────────────────────────
+                // ???? NVIDIA NVENC ????????????????????????????????????????????????????????????????????????
                 ["jim_nvenc"] = "NVIDIA NVENC H.264",
                 ["jim_hevc_nvenc"] = "NVIDIA NVENC H.265",
                 ["jim_av1_nvenc"] = "NVIDIA NVENC AV1",
 
-                // ── AMD AMF ────────────────────────────────────────
+                // ???? AMD AMF ????????????????????????????????????????????????????????????????????????????????
                 ["h264_texture_amf"] = "AMD AMF H.264",
                 ["h265_texture_amf"] = "AMD AMF H.265",
                 ["av1_texture_amf"] = "AMD AMF AV1",
 
-                // ── Intel Quick Sync ───────────────────────────────
+                // ???? Intel Quick Sync ??????????????????????????????????????????????????????????????
                 ["obs_qsv11_v2"] = "Intel QSV H.264",
                 ["obs_qsv11_hevc"] = "Intel QSV H.265",
                 ["obs_qsv11_av1"] = "Intel QSV AV1",
 
-                // ── CPU / software paths ───────────────────────────
+                // ???? CPU / software paths ??????????????????????????????????????????????????????
                 ["obs_x264"] = "Software x264",
                 ["ffmpeg_openh264"] = "Software OpenH264",
             };
@@ -2388,7 +2386,7 @@ namespace Segra.Backend.Recorder
                 Log.Information($"{idx} - {friendlyName} | {encoderId} | {(isHardware ? "Hardware" : "Software")}");
                 if (name != null)
                 {
-                    Settings.Instance.State.Codecs.Add(new Codec { InternalEncoderId = encoderId, FriendlyName = friendlyName, IsHardwareEncoder = isHardware });
+                    AppState.Instance.Codecs.Add(new Codec { InternalEncoderId = encoderId, FriendlyName = friendlyName, IsHardwareEncoder = isHardware });
                 }
                 idx++;
             }
@@ -2397,7 +2395,7 @@ namespace Segra.Backend.Recorder
 
             if (Settings.Instance.Codec == null)
             {
-                Settings.Instance.Codec = SelectDefaultCodec(Settings.Instance.Encoder, Settings.Instance.State.Codecs);
+                Settings.Instance.Codec = SelectDefaultCodec(Settings.Instance.Encoder, AppState.Instance.Codecs);
             }
         }
 

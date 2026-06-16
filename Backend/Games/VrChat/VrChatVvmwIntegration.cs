@@ -11,7 +11,7 @@ using Segra.Backend.Media;
 using Segra.Backend.Recorder;
 using Segra.Backend.Windows.Storage;
 using Serilog;
-using static Segra.Backend.Utils.GeneralUtils;
+using static Segra.Backend.Shared.GeneralUtils;
 
 namespace Segra.Backend.Games.VrChat
 {
@@ -707,7 +707,7 @@ namespace Segra.Backend.Games.VrChat
 
         private static Recording? FindVrChatSessionRecording()
         {
-            var r = Settings.Instance.State.Recording;
+            var r = AppState.Instance.Recording;
             if (r?.FilePath == null)
                 return null;
             string exe = r.ExePath ?? "";

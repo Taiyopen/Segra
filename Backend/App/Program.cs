@@ -52,7 +52,7 @@ namespace Segra.Backend.App
         const int SM_CYFULLSCREEN = 17;
         /// <summary>Win32: restore normal position/size before applying real maximize.</summary>
         private const int SW_RESTORE = 9;
-        /// <summary>Win32 <c>SW_SHOWMAXIMIZED</c> — maximize into work area.</summary>
+        /// <summary>Win32 <c>SW_SHOWMAXIMIZED</c> ??maximize into work area.</summary>
         private const int SW_SHOWMAXIMIZED = 3;
         public static bool IsFirstRun { get; private set; } = false;
         private static readonly AutoResetEvent ShowWindowEvent = new AutoResetEvent(false);
@@ -308,7 +308,7 @@ namespace Segra.Backend.App
                 // Run the OBS Initializer in a separate thread and application to make sure someting on the main thread doesn't block
                 Task.Run(() => Application.Run(new OBSWindow()));
 
-                // Global keybind hook (low-level keyboard hook + message loop) — runs for the lifetime of the app.
+                // Global keybind hook (low-level keyboard hook + message loop) ??runs for the lifetime of the app.
                 Task.Run(KeybindCaptureService.Start);
 
                 if (!startMinimized)
@@ -437,7 +437,7 @@ namespace Segra.Backend.App
 
         /// <summary>
         /// After OS fullscreen on Windows, <see cref="PhotinoWindow.SetMaximized"/> alone can leave the HWND sized to the monitor
-        /// instead of the work area; bounce via Win32 Restore → ShowMaximized when possible.
+        /// instead of the work area; bounce via Win32 Restore ??ShowMaximized when possible.
         /// </summary>
         private static void RestoreMaximizedAfterFullscreen(PhotinoWindow window)
         {
@@ -456,7 +456,7 @@ namespace Segra.Backend.App
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning(ex, "Win32 restore→maximize after fullscreen failed; Photino maximize only.");
+                    Log.Warning(ex, "Win32 restore?aximize after fullscreen failed; Photino maximize only.");
                 }
             }
 
@@ -684,14 +684,14 @@ namespace Segra.Backend.App
                 try
                 {
                     MonitoringWindow = CreateMonitoringPhotinoWindow(monitoringUrl, chromeless: true);
-                    MonitoringWindow.SetTitle("Segra 監控");
+                    MonitoringWindow.SetTitle("Segra ??");
                     MonitoringWindow.WaitForClose();
                 }
                 catch (Exception ex)
                 {
                     Log.Warning(ex, "Chromeless monitoring window failed; falling back to framed window");
                     MonitoringWindow = CreateMonitoringPhotinoWindow(monitoringUrl, chromeless: false);
-                    MonitoringWindow.SetTitle("Segra 監控");
+                    MonitoringWindow.SetTitle("Segra ??");
                     MonitoringWindow.WaitForClose();
                 }
 
