@@ -204,9 +204,9 @@ namespace Segra.Backend.Games.WarThunder
             }
         }
 
-        private static void AddBookmark(BookmarkType type)
+        private void AddBookmark(BookmarkType type)
         {
-            var recording = AppState.Instance.Recording;
+            var recording = ActiveRecording;
             if (recording == null)
             {
                 Log.Debug($"[WT] No recording active, skipping {type} bookmark");

@@ -27,13 +27,22 @@ import {
   Play,
   PictureInPicture2,
   Inbox,
+  FolderOpen,
   LucideIcon,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import Button from './Components/Button';
 import { useMonitoringLayout } from './Context/MonitoringLayoutContext';
-import { MenuItemId, menuItemHasContent, normalizeMenuItems } from './Models/types';
+import {
+  MenuItemId,
+  menuItemHasContent,
+  normalizeMenuItems,
+  getActiveRecordings,
+  getActivePreRecordings,
+  hasLiveRecordingActivity,
+  isRecordingFinishing,
+} from './Models/types';
 
 interface MenuProps {
   selectedMenu: string;
@@ -44,6 +53,7 @@ const MENU_ICONS: Record<MenuItemId, LucideIcon> = {
   'Full Sessions': Play,
   'Replay Buffer': History,
   待剪輯: Inbox,
+  瀏覽影片: FolderOpen,
   Clips: Clapperboard,
   Highlights: Crown,
   Settings: Settings,
@@ -53,7 +63,14 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   const settings = useSettings();
   const appState = useAppState();
   const { enterMonitoringLayout, monitoringWindowOpen } = useMonitoringLayout();
-  const { hasLoadedObs, recording, preRecording } = appState;
+  const { hasLoadedObs } = appState;
+  const activeRecordings = getActiveRecordings(appState);
+  const activePreRecordings = getActivePreRecordings(appState);
+  const hasLiveActivity = hasLiveRecordingActivity(appState);
+  const liveActivityCount =
+    activePreRecordings.length +
+    activeRecordings.filter((r) => r.endTime == null || r.endTime === undefined).length;
+  const useGlobalStop = !hasLiveActivity || liveActivityCount <= 1;
   const { updateInfo } = useUpdate();
   const { aiProgress } = useAiHighlights();
   const { obsDownloadProgress } = useObsDownload();
@@ -216,7 +233,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
       <div className="grow"></div>
 
       {/* Status Cards */}
-      <div className="mt-auto p-2 space-y-2">
+      <div className="mt-auto p-2 space-y-1.5 max-h-[min(52vh,28rem)] overflow-y-auto overflow-x-hidden shrink-0">
         <AnimatePresence>
           {updateInfo && (
             <AnimatedCard key="update-card">
@@ -258,11 +275,18 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         </AnimatePresence>
 
         <AnimatePresence>
-          {(preRecording || (recording && recording.endTime == null)) && (
-            <AnimatedCard key="recording-card">
-              <RecordingCard recording={recording} preRecording={preRecording} />
+          {activePreRecordings.map((pre) => (
+            <AnimatedCard key={`pre-recording-${pre.slot ?? pre.game}`}>
+              <RecordingCard preRecording={pre} />
             </AnimatedCard>
-          )}
+          ))}
+          {activeRecordings
+            .filter((r) => r.endTime == null || r.endTime === undefined)
+            .map((rec) => (
+              <AnimatedCard key={`recording-${rec.slot ?? rec.game}`}>
+                <RecordingCard recording={rec} />
+              </AnimatedCard>
+            ))}
         </AnimatePresence>
 
         <AnimatePresence>
@@ -310,21 +334,29 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
             disabled={
               buttonCooldown ||
               !appState.hasLoadedObs ||
-              (appState.recording && recording && recording.endTime !== null)
+              isRecordingFinishing(appState) ||
+              (hasLiveActivity && !useGlobalStop)
+            }
+            title={
+              hasLiveActivity && !useGlobalStop
+                ? '雙路錄製中：請在各 Recording 卡片上個別停止'
+                : undefined
             }
             onClick={() => {
               setButtonCooldown(true);
               setTimeout(() => setButtonCooldown(false), 1000);
-              sendMessageToBackend(
-                appState.recording || appState.preRecording ? 'StopRecording' : 'StartRecording',
-              );
+              sendMessageToBackend(hasLiveActivity ? 'StopRecording' : 'StartRecording');
             }}
           >
-            {appState.recording || appState.preRecording ? (
-              <>
-                <OctagonX className="w-4 h-4" />
-                Stop
-              </>
+            {hasLiveActivity ? (
+              useGlobalStop ? (
+                <>
+                  <OctagonX className="w-4 h-4" />
+                  Stop
+                </>
+              ) : (
+                <>雙路錄製中</>
+              )
             ) : (
               <>
                 <Monitor className="w-4 h-4" />

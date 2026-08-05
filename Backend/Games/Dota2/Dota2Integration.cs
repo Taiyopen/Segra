@@ -259,9 +259,9 @@ namespace Segra.Backend.Games.Dota2
             return false;
         }
 
-        private static void AddBookmark(BookmarkType type)
+        private void AddBookmark(BookmarkType type)
         {
-            var recording = AppState.Instance.Recording;
+            var recording = ActiveRecording;
             if (recording == null)
             {
                 Log.Debug($"No recording active, skipping {type} bookmark");

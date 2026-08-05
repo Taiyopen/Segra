@@ -184,6 +184,10 @@ namespace Segra.Backend.App
                             root.TryGetProperty("Parameters", out JsonElement movePendingParameterElement);
                             _ = Task.Run(() => ContentService.HandleMoveToPendingEdit(movePendingParameterElement));
                             break;
+                        case "MoveOutOfPendingEdit":
+                            root.TryGetProperty("Parameters", out JsonElement moveOutPendingParameterElement);
+                            _ = Task.Run(() => ContentService.HandleMoveOutOfPendingEdit(moveOutPendingParameterElement));
+                            break;
                         case "UploadContent":
                             root.TryGetProperty("Parameters", out JsonElement uploadContentParameterElement);
                             _ = Task.Run(() => UploadService.HandleUploadContent(uploadContentParameterElement));
@@ -264,23 +268,30 @@ namespace Segra.Backend.App
                             await HandleSelectGameExecutable();
                             break;
                         case "StartRecording":
-                            if (AppState.Instance.Recording != null)
+                            if (AppState.Instance.GetFreeSlot() == null)
                             {
-                                Log.Information("Recording already in progress. Skipping...");
+                                Log.Information("No free recording slot. Skipping manual start...");
                                 return;
                             }
 
-                            // Manual display capture should be able to start even when auto-detection
-                            // currently shows a pre-recording card.
-                            if (AppState.Instance.PreRecording != null)
-                            {
-                                AppState.Instance.PreRecording = null;
-                            }
+                            AppState.Instance.ClearAllPreRecordings();
 
                             _ = Task.Run(() => OBSService.StartRecording(startManually: true));
                             break;
                         case "StopRecording":
                             _ = Task.Run(OBSService.StopRecording);
+                            break;
+                        case "StopRecordingSlot":
+                            if (root.TryGetProperty("Parameters", out JsonElement stopSlotParams)
+                                && stopSlotParams.TryGetProperty("slot", out JsonElement slotElement)
+                                && slotElement.TryGetInt32(out int slotToStop))
+                            {
+                                _ = Task.Run(() => OBSService.StopRecordingSlot(slotToStop));
+                            }
+                            else
+                            {
+                                Log.Warning("StopRecordingSlot missing or invalid slot parameter.");
+                            }
                             break;
                         case "NewConnection":
                             Log.Information("NewConnection command received.");
@@ -336,6 +347,13 @@ namespace Segra.Backend.App
                             root.TryGetProperty("Parameters", out JsonElement importParameterElement);
                             _ = Task.Run(() => ImportService.HandleImportFile(importParameterElement));
                             Log.Information("ImportFile command received.");
+                            break;
+                        case "BrowseListDirectory":
+                            root.TryGetProperty("Parameters", out JsonElement browseListParameterElement);
+                            _ = Task.Run(() => BrowseService.HandleListDirectory(browseListParameterElement));
+                            break;
+                        case "BrowseSelectFolder":
+                            _ = Task.Run(() => BrowseService.HandleSelectFolder());
                             break;
                         case "MigrateContent":
                             _ = Task.Run(ContentMigrationService.HandleMigrateContent);

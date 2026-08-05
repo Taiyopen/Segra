@@ -172,7 +172,7 @@ export default function AudioDevicesSection({
         <input
           type="range"
           min="0"
-          max="3"
+          max="5"
           step="0.02"
           value={isDragging ? (draggingVolume.volume ?? 0) : volume}
           className="range range-xs range-primary [--range-fill:0]"

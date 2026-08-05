@@ -1,13 +1,13 @@
 import { Play } from 'lucide-react';
 import ContentPage from '../Components/ContentPage';
 import { useAppState } from '../Context/AppStateContext';
+import { isRecordingFinishing as isAnyRecordingFinishing } from '../Models/types';
 import ContentCard from '../Components/ContentCard';
 
 export default function Sessions() {
-  const { recording } = useAppState();
+  const appState = useAppState();
 
-  // Pre-render the progress card element
-  const isRecordingFinishing = recording && recording.endTime !== null;
+  const isRecordingFinishing = isAnyRecordingFinishing(appState);
   const progressCardElement = isRecordingFinishing ? (
     <ContentCard key="recording-progress" type="Session" isLoading />
   ) : null;

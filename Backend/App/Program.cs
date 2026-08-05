@@ -607,8 +607,10 @@ namespace Segra.Backend.App
         {
             LoadMonitoringWindowBounds();
 
-            var defaultSize = new Size(336, 348);
+            var defaultSize = new Size(336, 400);
             var size = _monitoringWindowSize ?? defaultSize;
+            if (size.Height < defaultSize.Height)
+                size = new Size(Math.Max(size.Width, defaultSize.Width), defaultSize.Height);
 
             var windowBuilder = new PhotinoWindow(Window)
                 .SetBrowserControlInitParameters(MonitoringBrowserInitParameters)

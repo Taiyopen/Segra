@@ -48,7 +48,7 @@ export default function Settings() {
   const activeLabel = NAV_ITEMS.find((item) => item.id === activeSection)?.label ?? 'Settings';
 
   return (
-    <div className="min-h-full bg-base-200 dark:bg-base-300">
+    <div className="h-full overflow-y-auto bg-base-200 dark:bg-base-300">
       <div className="sticky top-0 z-50 bg-base-200 dark:bg-base-300 border-b border-base-400 px-5 py-3">
         <div className="flex items-center gap-6">
           <h1 className="text-2xl font-bold">Settings</h1>

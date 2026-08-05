@@ -13,8 +13,36 @@ namespace Segra.Backend.Shared
         public const string Buffers = "Replay Buffers";
         public const string Clips = "Clips";
         public const string Highlights = "Highlights";
-        /// <summary>Videos moved here are excluded from automatic storage cleanup (unlike Full Sessions / Replay Buffers).</summary>
-        public const string PendingEdit = "\u5F85\u526A\u8F2F"; // ???
+        /// <summary>Videos moved here are excluded from automatic storage cleanup and storage limit (unlike Full Sessions / Replay Buffers).</summary>
+        public const string PendingEdit = "\u5F85\u526A\u8F2F"; // 待剪輯
+        /// <summary>Imported external videos; excluded from automatic storage cleanup and storage limit.</summary>
+        public const string External = "\u5916\u90E8\u5F71\u7247\u5EAB"; // 外部影片庫
+
+        /// <summary>Content types that count toward the storage limit.</summary>
+        private static readonly Content.ContentType[] StorageLimitedContentTypes =
+        {
+            Content.ContentType.Session,
+            Content.ContentType.Buffer
+        };
+
+        /// <summary>
+        /// Video folder names (current and legacy) that count toward the storage limit.
+        /// Clips, Highlights, PendingEdit, and External are excluded.
+        /// </summary>
+        public static IEnumerable<string> GetStorageLimitedVideoFolderNames()
+        {
+            foreach (Content.ContentType type in StorageLimitedContentTypes)
+            {
+                yield return GetVideoFolderName(type);
+                yield return GetLegacyVideoFolderName(type);
+            }
+        }
+
+        /// <summary>Returns true if the content type counts toward the storage limit and can be auto-deleted.</summary>
+        public static bool IsStorageLimitedContentType(Content.ContentType type)
+        {
+            return Array.IndexOf(StorageLimitedContentTypes, type) >= 0;
+        }
 
         // Legacy folder names (for migration purposes)
         public const string LegacySessions = "sessions";
@@ -22,6 +50,7 @@ namespace Segra.Backend.Shared
         public const string LegacyClips = "clips";
         public const string LegacyHighlights = "highlights";
         public const string LegacyPendingEdit = "pending_edit";
+        public const string LegacyExternal = "external";
 
         // Metadata folder names (stored in AppData)
         public const string Metadata = "metadata";
@@ -51,6 +80,7 @@ namespace Segra.Backend.Shared
                 Content.ContentType.Clip => Clips,
                 Content.ContentType.Highlight => Highlights,
                 Content.ContentType.PendingEdit => PendingEdit,
+                Content.ContentType.External => External,
                 _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown content type")
             };
         }
@@ -67,6 +97,7 @@ namespace Segra.Backend.Shared
                 Content.ContentType.Clip => LegacyClips,
                 Content.ContentType.Highlight => LegacyHighlights,
                 Content.ContentType.PendingEdit => LegacyPendingEdit,
+                Content.ContentType.External => LegacyExternal,
                 _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown content type")
             };
         }
@@ -135,6 +166,8 @@ namespace Segra.Backend.Shared
             string pathNorm = path.Replace("\\", "/");
             if (pathNorm.Contains($"/{PendingEdit}/", StringComparison.OrdinalIgnoreCase))
                 return Content.ContentType.PendingEdit;
+            if (pathNorm.Contains($"/{External}/", StringComparison.OrdinalIgnoreCase))
+                return Content.ContentType.External;
 
             // Check legacy folder names for backwards compatibility
             if (normalizedPath.Contains($"/{LegacySessions}/"))
@@ -147,6 +180,8 @@ namespace Segra.Backend.Shared
                 return Content.ContentType.Highlight;
             if (normalizedPath.Contains($"/{LegacyPendingEdit}/"))
                 return Content.ContentType.PendingEdit;
+            if (normalizedPath.Contains($"/{LegacyExternal}/"))
+                return Content.ContentType.External;
 
             return null;
         }

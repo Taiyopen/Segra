@@ -7,3 +7,7 @@ export const sendMessageToBackend = (method: string, parameters?: any) => {
     console.error('window.external.sendMessage is not available.');
   }
 };
+
+export const stopRecordingSlot = (slot: number) => {
+  sendMessageToBackend('StopRecordingSlot', { slot });
+};

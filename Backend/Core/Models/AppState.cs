@@ -17,8 +17,8 @@ namespace Segra.Backend.Core.Models
 
         private GpuVendor _gpuVendor = GpuVendor.Unknown;
         private double? _cudaComputeCapability = null;
-        private PreRecording? _preRecording = null;
-        private Recording? _recording = null;
+        private PreRecording?[] _preRecordingsBySlot = new PreRecording?[RecordingSlots.Max];
+        private Recording?[] _recordingsBySlot = new Recording?[RecordingSlots.Max];
         private bool _hasLoadedObs = false;
         private List<Content> _content = [];
 
@@ -84,32 +84,193 @@ namespace Segra.Backend.Core.Models
             }
         }
 
-        [JsonPropertyName("preRecording")]
-        public PreRecording? PreRecording
+        [JsonPropertyName("preRecordings")]
+        public List<PreRecording> PreRecordings
         {
-            get => _preRecording;
-            set
+            get
             {
-                if (_preRecording != value)
+                var list = new List<PreRecording>();
+                for (int i = 0; i < RecordingSlots.Max; i++)
                 {
-                    _preRecording = value;
-                    SendToFrontend("State update: PreRecording");
+                    if (_preRecordingsBySlot[i] != null)
+                        list.Add(_preRecordingsBySlot[i]!);
                 }
+                return list;
             }
         }
 
+        [JsonPropertyName("recordings")]
+        public List<Recording> Recordings
+        {
+            get
+            {
+                var list = new List<Recording>();
+                for (int i = 0; i < RecordingSlots.Max; i++)
+                {
+                    if (_recordingsBySlot[i] != null)
+                        list.Add(_recordingsBySlot[i]!);
+                }
+                return list;
+            }
+        }
+
+        /// <summary>First active pre-recording (slot 0, then slot 1). Backward compat for single-recording UI.</summary>
+        [JsonPropertyName("preRecording")]
+        public PreRecording? PreRecording
+        {
+            get => GetPreRecording(0) ?? GetPreRecording(1);
+            set
+            {
+                if (value == null)
+                {
+                    ClearAllPreRecordings();
+                    return;
+                }
+                SetPreRecording(value.Slot, value);
+            }
+        }
+
+        /// <summary>First active recording (slot 0, then slot 1). Backward compat for single-recording UI.</summary>
         [JsonPropertyName("recording")]
         public Recording? Recording
         {
-            get => _recording;
+            get => GetRecording(0) ?? GetRecording(1);
             set
             {
-                if (_recording != value)
+                if (value == null)
                 {
-                    _recording = value;
-                    SendToFrontend("State update: Recording");
+                    ClearAllRecordings();
+                    return;
+                }
+                SetRecording(value.Slot, value);
+            }
+        }
+
+        public PreRecording? GetPreRecording(int slot)
+        {
+            if (slot < 0 || slot >= RecordingSlots.Max) return null;
+            return _preRecordingsBySlot[slot];
+        }
+
+        public void SetPreRecording(int slot, PreRecording? value)
+        {
+            if (slot < 0 || slot >= RecordingSlots.Max) return;
+            if (_preRecordingsBySlot[slot] == value) return;
+            _preRecordingsBySlot[slot] = value;
+            SendToFrontend("State update: PreRecording");
+        }
+
+        public Recording? GetRecording(int slot)
+        {
+            if (slot < 0 || slot >= RecordingSlots.Max) return null;
+            return _recordingsBySlot[slot];
+        }
+
+        public void SetRecording(int slot, Recording? value)
+        {
+            if (slot < 0 || slot >= RecordingSlots.Max) return;
+            if (_recordingsBySlot[slot] == value) return;
+            _recordingsBySlot[slot] = value;
+            SendToFrontend("State update: Recording");
+        }
+
+        public bool HasAnyRecording()
+        {
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                if (_recordingsBySlot[i] != null) return true;
+            }
+            return false;
+        }
+
+        public bool HasAnyPreRecording()
+        {
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                if (_preRecordingsBySlot[i] != null) return true;
+            }
+            return false;
+        }
+
+        public bool IsSlotOccupied(int slot) =>
+            GetRecording(slot) != null || GetPreRecording(slot) != null;
+
+        public int? GetFreeSlot()
+        {
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                if (!IsSlotOccupied(i)) return i;
+            }
+            return null;
+        }
+
+        public Recording? GetRecordingByPid(int pid)
+        {
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                var rec = _recordingsBySlot[i];
+                if (rec?.Pid == pid) return rec;
+            }
+            return null;
+        }
+
+        public PreRecording? GetPreRecordingByPid(int pid)
+        {
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                var pre = _preRecordingsBySlot[i];
+                if (pre?.Pid == pid) return pre;
+            }
+            return null;
+        }
+
+        public bool IsPidBeingRecorded(int pid) =>
+            GetRecordingByPid(pid) != null || GetPreRecordingByPid(pid) != null;
+
+        public void ClearRecording(int slot)
+        {
+            if (slot < 0 || slot >= RecordingSlots.Max) return;
+            if (_recordingsBySlot[slot] == null) return;
+            _recordingsBySlot[slot] = null;
+            SendToFrontend("State update: Recording");
+        }
+
+        public void ClearPreRecording(int slot)
+        {
+            if (slot < 0 || slot >= RecordingSlots.Max) return;
+            if (_preRecordingsBySlot[slot] == null) return;
+            _preRecordingsBySlot[slot] = null;
+            SendToFrontend("State update: PreRecording");
+        }
+
+        public void ClearAllRecordings()
+        {
+            bool changed = false;
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                if (_recordingsBySlot[i] != null)
+                {
+                    _recordingsBySlot[i] = null;
+                    changed = true;
                 }
             }
+            if (changed)
+                SendToFrontend("State update: Recording");
+        }
+
+        public void ClearAllPreRecordings()
+        {
+            bool changed = false;
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                if (_preRecordingsBySlot[i] != null)
+                {
+                    _preRecordingsBySlot[i] = null;
+                    changed = true;
+                }
+            }
+            if (changed)
+                SendToFrontend("State update: PreRecording");
         }
 
         [JsonPropertyName("hasLoadedObs")]
@@ -332,13 +493,31 @@ namespace Segra.Backend.Core.Models
             }
         }
 
-        public void UpdateRecordingEndTime(DateTime endTime)
+        public void UpdateRecordingEndTime(DateTime endTime, int? slot = null)
         {
-            if (_recording != null)
+            if (slot.HasValue)
             {
-                _recording.EndTime = endTime;
-                SendToFrontend("State update: Recording end time");
+                var rec = GetRecording(slot.Value);
+                if (rec != null)
+                {
+                    rec.EndTime = endTime;
+                    SendToFrontend("State update: Recording end time");
+                }
+                return;
             }
+
+            bool changed = false;
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                var rec = _recordingsBySlot[i];
+                if (rec != null)
+                {
+                    rec.EndTime = endTime;
+                    changed = true;
+                }
+            }
+            if (changed)
+                SendToFrontend("State update: Recording end time");
         }
 
         public void NotifyRecordingUpdated()

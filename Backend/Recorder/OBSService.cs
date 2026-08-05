@@ -75,21 +75,21 @@ namespace Segra.Backend.Recorder
         public static GpuVendor DetectedGpuVendor { get; private set; } = DetectGpuVendor();
         public static uint? CapturedWindowWidth { get; private set; } = null;
         public static uint? CapturedWindowHeight { get; private set; } = null;
+        private static int _lastGameCaptureLogSlot = -1;
         public static string? InstalledOBSVersion { get; private set; } = null;
 
         // OBS context
         private static ObsContext? _obsContext;
 
-        // OBS output resources (replay buffer uses the same pipeline as session recording)
-        private static ReplayBuffer? _bufferOutput;
-
-        /// <summary>Holds scene, sources, encoders and outputs for the single active session recording (dual-slot SessionSlots removed).</summary>
+        /// <summary>Holds scene, sources, encoders and outputs for one recording slot.</summary>
         private sealed class SessionPipeline
         {
             public Scene? MainScene;
             public SceneItem? GameCaptureItem;
             public SceneItem? DisplayItem;
             public RecordingOutput? SessionOutput;
+            public ReplayBuffer? BufferOutput;
+            public SignalConnection? ReplaySavedConnection;
             public MonitorCapture? DisplaySource;
             public readonly List<AudioInputCapture> MicSources = new();
             public readonly List<AudioOutputCapture> DesktopSources = new();
@@ -101,79 +101,299 @@ namespace Segra.Backend.Recorder
             public GameCapture? GameCapture;
             public Action<GameCapture>? HookedSubscription;
             public Action<GameCapture>? UnhookedSubscription;
+            /// <summary>Secondary canvas for slot 1+; slot 0 uses the main canvas.</summary>
+            public Canvas? RecordingCanvas;
         }
 
-        private static readonly SessionPipeline _pipeline = new();
+        private const int MaxSessionSlots = RecordingSlots.Max;
+        private static readonly uint?[] _capturedWindowWidthBySlot = new uint?[MaxSessionSlots];
+        private static readonly uint?[] _capturedWindowHeightBySlot = new uint?[MaxSessionSlots];
+        private static readonly SessionPipeline[] _pipelines = [new SessionPipeline(), new SessionPipeline()];
+        private static SessionPipeline Pipeline(int slot) => _pipelines[slot];
 
-        private static Scene? _mainScene
-        {
-            get => _pipeline.MainScene;
-            set => _pipeline.MainScene = value;
-        }
-        private static SceneItem? _gameCaptureItem
-        {
-            get => _pipeline.GameCaptureItem;
-            set => _pipeline.GameCaptureItem = value;
-        }
-        private static SceneItem? _displayItem
-        {
-            get => _pipeline.DisplayItem;
-            set => _pipeline.DisplayItem = value;
-        }
-        private static RecordingOutput? _output
-        {
-            get => _pipeline.SessionOutput;
-            set => _pipeline.SessionOutput = value;
-        }
-        private static MonitorCapture? _displaySource
-        {
-            get => _pipeline.DisplaySource;
-            set => _pipeline.DisplaySource = value;
-        }
-        private static List<AudioInputCapture> _micSources => _pipeline.MicSources;
-        private static List<AudioOutputCapture> _desktopSources => _pipeline.DesktopSources;
-        private static Source? _discordAudioSource
-        {
-            get => _pipeline.DiscordAudioSource;
-            set => _pipeline.DiscordAudioSource = value;
-        }
-        private static VideoEncoder? _videoEncoder
-        {
-            get => _pipeline.VideoEncoder;
-            set => _pipeline.VideoEncoder = value;
-        }
-        private static List<AudioEncoder> _audioEncoders => _pipeline.AudioEncoders;
+        /// <summary>OBS source/encoder names must be globally unique across dual slots.</summary>
+        private static string ObsName(int slot, string name) => $"s{slot}_{name}";
 
-        private static string? _hookedExecutableFileName
+        private static bool IsAnotherSlotRecording(int slot)
         {
-            get => _pipeline.HookedExecutableFileName;
-            set => _pipeline.HookedExecutableFileName = value;
-        }
-        private static System.Threading.Timer? _gameCaptureHookTimeoutTimer
-        {
-            get => _pipeline.GameCaptureHookTimeoutTimer;
-            set => _pipeline.GameCaptureHookTimeoutTimer = value;
+            for (int i = 0; i < MaxSessionSlots; i++)
+            {
+                if (i == slot) continue;
+                if (AppState.Instance.GetRecording(i) != null)
+                    return true;
+                if (_pipelines[i].SessionOutput != null)
+                    return true;
+                if (_pipelines[i].BufferOutput != null)
+                    return true;
+            }
+            return false;
         }
 
-        /// <summary>Current game capture (used by OCR, game detection, audio routing).</summary>
-        public static GameCapture? GameCaptureSource
+        /// <summary>
+        /// Mic/desktop WASAPI and Discord captures must exist only once across dual slots;
+        /// duplicating the same device feeds the global OBS mix twice.
+        /// </summary>
+        private static readonly object _sharedAudioLock = new();
+
+        private static bool PipelineOwnsSharedAudio(SessionPipeline pl) =>
+            pl.MicSources.Count > 0 || pl.DesktopSources.Count > 0 || pl.DiscordAudioSource != null;
+
+        private static SessionPipeline? FindSharedAudioOwner(int excludeSlot = -1)
         {
-            get => _pipeline.GameCapture;
-            private set => _pipeline.GameCapture = value;
+            for (int i = 0; i < MaxSessionSlots; i++)
+            {
+                if (i == excludeSlot) continue;
+                if (PipelineOwnsSharedAudio(_pipelines[i]))
+                    return _pipelines[i];
+            }
+            return null;
         }
+
+        private static int FindOtherActiveSlot(int slot)
+        {
+            for (int i = 0; i < MaxSessionSlots; i++)
+            {
+                if (i == slot) continue;
+                if (AppState.Instance.GetRecording(i) != null
+                    || _pipelines[i].SessionOutput != null
+                    || _pipelines[i].BufferOutput != null
+                    || _pipelines[i].MainScene != null)
+                    return i;
+            }
+            return -1;
+        }
+
+        private static IEnumerable<AudioOutputCapture> EnumerateDesktopSources()
+        {
+            foreach (var p in _pipelines)
+            {
+                foreach (var source in p.DesktopSources)
+                    yield return source;
+            }
+        }
+
+        private static Source? FindDiscordAudioSource()
+        {
+            foreach (var p in _pipelines)
+            {
+                if (p.DiscordAudioSource != null)
+                    return p.DiscordAudioSource;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Attach an existing shared audio source to another slot's scene so it stays active
+        /// on that canvas without opening a second WASAPI/Discord capture.
+        /// </summary>
+        private static void AttachSharedAudioSourceToScene(Scene scene, Source source, string label)
+        {
+            try
+            {
+                scene.AddSource(source);
+                Log.Information("Attached shared {Label} audio source to secondary slot scene", label);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("Failed to attach shared {Label} audio source to scene: {Message}", label, ex.Message);
+            }
+        }
+
+        private static void TransferSharedAudioOwnership(SessionPipeline from, SessionPipeline to)
+        {
+            if (!PipelineOwnsSharedAudio(from))
+                return;
+
+            to.MicSources.AddRange(from.MicSources);
+            from.MicSources.Clear();
+
+            to.DesktopSources.AddRange(from.DesktopSources);
+            from.DesktopSources.Clear();
+
+            if (from.DiscordAudioSource != null)
+            {
+                to.DiscordAudioSource = from.DiscordAudioSource;
+                from.DiscordAudioSource = null;
+            }
+
+            Log.Information("Transferred shared WASAPI/Discord audio ownership to remaining recording slot");
+        }
+
+        private static void DisposeOwnedSharedAudioSources(SessionPipeline pl)
+        {
+            foreach (var micSource in pl.MicSources)
+            {
+                try
+                {
+                    micSource.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"Failed to dispose mic source: {ex.Message}");
+                }
+            }
+            pl.MicSources.Clear();
+
+            foreach (var desktopSource in pl.DesktopSources)
+            {
+                try
+                {
+                    desktopSource.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"Failed to dispose desktop source: {ex.Message}");
+                }
+            }
+            pl.DesktopSources.Clear();
+
+            if (pl.DiscordAudioSource != null)
+            {
+                try
+                {
+                    pl.DiscordAudioSource.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"Failed to dispose Discord audio source: {ex.Message}");
+                }
+                pl.DiscordAudioSource = null;
+            }
+        }
+
+        public static GameCapture? GetGameCaptureSource(int slot) => Pipeline(slot).GameCapture;
+
+        public static bool IsSlotCaptureHooked(int slot) => Pipeline(slot).GameCapture?.IsHooked ?? false;
+
+        public static string? GetTrackedExecutableFileName(int slot) =>
+            Pipeline(slot).HookedExecutableFileName
+            ?? AppState.Instance.GetRecording(slot)?.FileName;
+
+        private static int? TryResolveHookedProcessId(string hookedExecutable, int slot)
+        {
+            string hookedFileName = Path.GetFileName(hookedExecutable);
+            if (string.IsNullOrEmpty(hookedFileName))
+                return null;
+
+            var otherPids = new HashSet<int>();
+            for (int i = 0; i < MaxSessionSlots; i++)
+            {
+                if (i == slot) continue;
+                if (AppState.Instance.GetRecording(i)?.Pid is int otherPid)
+                    otherPids.Add(otherPid);
+            }
+
+            int? bestPid = null;
+            long bestMemory = -1;
+
+            foreach (var process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(hookedFileName)))
+            {
+                try
+                {
+                    if (process.HasExited || otherPids.Contains(process.Id))
+                        continue;
+
+                    string? path = null;
+                    try
+                    {
+                        path = process.MainModule?.FileName;
+                    }
+                    catch
+                    {
+                        // Access denied for some processes
+                    }
+
+                    if (path != null
+                        && !path.EndsWith(hookedFileName, StringComparison.OrdinalIgnoreCase)
+                        && !hookedFileName.Equals(Path.GetFileName(path), StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    long mem = process.WorkingSet64;
+                    if (mem > bestMemory)
+                    {
+                        bestMemory = mem;
+                        bestPid = process.Id;
+                    }
+                }
+                catch
+                {
+                    // Ignore processes we cannot inspect
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+
+            return bestPid;
+        }
+
+        /// <summary>First hooked game capture (slot 0, then slot 1), otherwise first available.</summary>
+        public static GameCapture? GameCaptureSource =>
+            GetGameCaptureSource(0) is { IsHooked: true } gc0 ? gc0
+            : GetGameCaptureSource(1) is { IsHooked: true } gc1 ? gc1
+            : GetGameCaptureSource(0) ?? GetGameCaptureSource(1);
+
         /// <summary>Used by OBS log processing to avoid false-positive stop when capture blips.</summary>
-        private static bool _isStillHookedAfterUnhook = false;
+        private static readonly bool[] _isStillHookedAfterUnhookBySlot = new bool[MaxSessionSlots];
 
         // Recording/output state
-        private static bool _isStoppingOrStopped = false;
+        private static readonly bool[] _isStoppingSlot = new bool[MaxSessionSlots];
+        private static readonly SemaphoreSlim[] _slotLifecycleLocks =
+            Enumerable.Range(0, MaxSessionSlots).Select(_ => new SemaphoreSlim(1, 1)).ToArray();
         private static uint _currentBaseWidth;
         private static uint _currentBaseHeight;
 
-        // Replay buffer state
-        private static bool _replaySaved = false;
+        private static (uint width, uint height) EnsureEvenDimensions(uint width, uint height)
+        {
+            if (width % 2 != 0)
+                width--;
+            if (height % 2 != 0)
+                height--;
+            return (Math.Max(2, width), Math.Max(2, height));
+        }
 
-        // Signal connection for replay buffer saved event
-        private static SignalConnection? _replaySavedConnection;
+        public static bool TryGetCapturedWindowDimensions(int slot, out uint width, out uint height)
+        {
+            if (slot >= 0
+                && slot < MaxSessionSlots
+                && _capturedWindowWidthBySlot[slot].HasValue
+                && _capturedWindowHeightBySlot[slot].HasValue)
+            {
+                width = _capturedWindowWidthBySlot[slot]!.Value;
+                height = _capturedWindowHeightBySlot[slot]!.Value;
+                return true;
+            }
+
+            width = 0;
+            height = 0;
+            return false;
+        }
+
+        private static void ClearCapturedWindowDimensions(int slot)
+        {
+            if (slot < 0 || slot >= MaxSessionSlots)
+                return;
+
+            _capturedWindowWidthBySlot[slot] = null;
+            _capturedWindowHeightBySlot[slot] = null;
+
+            if (slot == 0)
+            {
+                CapturedWindowWidth = null;
+                CapturedWindowHeight = null;
+            }
+        }
+
+        private static void ClearAllCapturedWindowDimensions()
+        {
+            for (int i = 0; i < MaxSessionSlots; i++)
+                ClearCapturedWindowDimensions(i);
+            _lastGameCaptureLogSlot = -1;
+        }
+
+        // Replay buffer save callbacks (one per slot)
+        private static readonly bool[] _replaySavedBySlot = new bool[MaxSessionSlots];
 
         /// <summary>
         /// Parses settings recording audio bitrate (e.g. "128k") to kbps for AAC encoders.
@@ -231,24 +451,26 @@ namespace Segra.Backend.Recorder
         private static DateTime _lastSuppressedAudioTsLogAtUtc = DateTime.MinValue;
         private static int _suppressedAudioTsLogCount = 0;
 
-        public static async Task<bool> SaveReplayBuffer()
+        public static async Task<bool> SaveReplayBuffer(int slot = 0)
         {
-            if (_bufferOutput == null || !_bufferOutput.IsActive)
+            var pl = Pipeline(slot);
+            if (pl.BufferOutput == null || !pl.BufferOutput.IsActive)
             {
-                Log.Warning("Cannot save replay buffer: buffer is not active");
+                Log.Warning("Cannot save replay buffer: buffer is not active for slot {Slot}", slot);
                 return false;
             }
 
             await ReplayBufferSaveLock.WaitAsync();
             try
             {
-                string? savedPath = await SaveReplayBufferInternalGetPathAsync();
+                string? savedPath = await SaveReplayBufferInternalGetPathAsync(slot);
                 if (string.IsNullOrEmpty(savedPath))
                     return false;
 
                 Log.Information($"Replay buffer saved to: {savedPath}");
-                string game = AppState.Instance.Recording?.Game ?? "Unknown";
-                string? exePath = AppState.Instance.Recording?.ExePath;
+                var recording = AppState.Instance.GetRecording(slot);
+                string game = recording?.Game ?? "Unknown";
+                string? exePath = recording?.ExePath;
                 int? igdbId = !string.IsNullOrEmpty(exePath) ? GameUtils.GetIgdbIdFromExePath(exePath) : null;
 
                 await EnsureFileReady(savedPath);
@@ -262,8 +484,8 @@ namespace Segra.Backend.Recorder
                 {
                     Log.Warning(ex, "Could not read replay buffer save duration");
                     TryDeleteReplayTempFile(savedPath);
-                    await ResetReplayBuffer();
-                    _replaySaved = false;
+                    await ResetReplayBuffer(slot);
+                    _replaySavedBySlot[slot] = false;
                     return false;
                 }
 
@@ -273,22 +495,22 @@ namespace Segra.Backend.Recorder
                         "Replay buffer save too short ({Seconds:0.###}s), discarding duplicate/empty save",
                         savedDuration.TotalSeconds);
                     TryDeleteReplayTempFile(savedPath);
-                    await ResetReplayBuffer();
-                    _replaySaved = false;
+                    await ResetReplayBuffer(slot);
+                    _replaySavedBySlot[slot] = false;
                     return false;
                 }
 
-                await ContentService.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game, igdbId: igdbId, audioTrackNames: AppState.Instance.Recording?.AudioTrackNames);
+                await ContentService.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game, igdbId: igdbId, audioTrackNames: recording?.AudioTrackNames);
                 await ContentService.CreateThumbnail(savedPath, Content.ContentType.Buffer);
                 _ = Task.Run(async () => await ContentService.CreateWaveformFile(savedPath, Content.ContentType.Buffer));
 
                 await SettingsService.LoadContentFromFolderIntoState(true);
 
-                Log.Information("Replay buffer save process completed successfully");
+                Log.Information("Replay buffer save process completed successfully (slot {Slot})", slot);
 
-                await ResetReplayBuffer();
+                await ResetReplayBuffer(slot);
 
-                _replaySaved = false;
+                _replaySavedBySlot[slot] = false;
 
                 return true;
             }
@@ -304,12 +526,14 @@ namespace Segra.Backend.Recorder
         /// Requires Hybrid or Replay Buffer mode with an active buffer. Set replay buffer duration ??longest expected playback.
         /// </summary>
         public static async Task<bool> TrySaveReplayBufferTailAsClipAsync(
+            int slot,
             double tailDurationSeconds,
             string clipTitle,
             string preferredOutputFileNameBase,
             int clipIgdbId)
         {
-            if (_bufferOutput == null || !_bufferOutput.IsActive)
+            var buffer = Pipeline(slot).BufferOutput;
+            if (buffer == null || !buffer.IsActive)
                 return false;
             if (tailDurationSeconds < VrChatVvmwIntegration.MinWallClipSeconds)
                 return false;
@@ -322,19 +546,19 @@ namespace Segra.Backend.Recorder
             await ReplayBufferSaveLock.WaitAsync();
             try
             {
-                string? savedPath = await SaveReplayBufferInternalGetPathAsync();
+                string? savedPath = await SaveReplayBufferInternalGetPathAsync(slot);
                 if (string.IsNullOrEmpty(savedPath))
                     return false;
 
                 await EnsureFileReady(savedPath);
 
-                var recording = AppState.Instance.Recording;
+                var recording = AppState.Instance.GetRecording(slot);
                 if (recording == null)
                 {
-                    Log.Warning("[VRChat VVMW] No active recording state; discarding replay save");
+                    Log.Warning("[VRChat VVMW] No active recording state for slot {Slot}; discarding replay save", slot);
                     TryDeleteReplayTempFile(savedPath);
-                    await ResetReplayBuffer();
-                    _replaySaved = false;
+                    await ResetReplayBuffer(slot);
+                    _replaySavedBySlot[slot] = false;
                     return false;
                 }
 
@@ -347,8 +571,8 @@ namespace Segra.Backend.Recorder
                 {
                     Log.Warning(ex, "[VRChat VVMW] Could not read replay save duration");
                     TryDeleteReplayTempFile(savedPath);
-                    await ResetReplayBuffer();
-                    _replaySaved = false;
+                    await ResetReplayBuffer(slot);
+                    _replaySavedBySlot[slot] = false;
                     return false;
                 }
 
@@ -375,8 +599,8 @@ namespace Segra.Backend.Recorder
                 if (tail <= 0.25)
                 {
                     TryDeleteReplayTempFile(savedPath);
-                    await ResetReplayBuffer();
-                    _replaySaved = false;
+                    await ResetReplayBuffer(slot);
+                    _replaySavedBySlot[slot] = false;
                     return false;
                 }
 
@@ -404,8 +628,8 @@ namespace Segra.Backend.Recorder
                     Log.Warning(ex, "[VRChat VVMW] FFmpeg failed to trim replay buffer save");
                     TryDeleteReplayTempFile(tempOut);
                     TryDeleteReplayTempFile(savedPath);
-                    await ResetReplayBuffer();
-                    _replaySaved = false;
+                    await ResetReplayBuffer(slot);
+                    _replaySavedBySlot[slot] = false;
                     return false;
                 }
 
@@ -413,8 +637,8 @@ namespace Segra.Backend.Recorder
 
                 if (!File.Exists(tempOut))
                 {
-                    await ResetReplayBuffer();
-                    _replaySaved = false;
+                    await ResetReplayBuffer(slot);
+                    _replaySavedBySlot[slot] = false;
                     return false;
                 }
 
@@ -426,8 +650,8 @@ namespace Segra.Backend.Recorder
                 {
                     Log.Warning(ex, "[VRChat VVMW] Failed to move trimmed clip");
                     TryDeleteReplayTempFile(tempOut);
-                    await ResetReplayBuffer();
-                    _replaySaved = false;
+                    await ResetReplayBuffer(slot);
+                    _replaySavedBySlot[slot] = false;
                     return false;
                 }
 
@@ -440,8 +664,8 @@ namespace Segra.Backend.Recorder
 
                 Log.Information("[VRChat VVMW] Saved replay tail clip: {Path}", outPath);
 
-                await ResetReplayBuffer();
-                _replaySaved = false;
+                await ResetReplayBuffer(slot);
+                _replaySavedBySlot[slot] = false;
                 return true;
             }
             finally
@@ -480,47 +704,51 @@ namespace Segra.Backend.Recorder
         }
 
         /// <summary>Waits for OBS replay save callback and returns the saved file path, or null on failure.</summary>
-        private static async Task<string?> SaveReplayBufferInternalGetPathAsync()
+        private static async Task<string?> SaveReplayBufferInternalGetPathAsync(int slot)
         {
-            Log.Information("Attempting to save replay buffer...");
-            _replaySaved = false;
+            var buffer = Pipeline(slot).BufferOutput;
+            if (buffer == null)
+                return null;
+
+            Log.Information("Attempting to save replay buffer (slot {Slot})...", slot);
+            _replaySavedBySlot[slot] = false;
 
             try
             {
-                _bufferOutput!.Save();
+                buffer.Save();
             }
             catch (Exception ex)
             {
-                Log.Warning($"Failed to save replay buffer: {ex.Message}");
+                Log.Warning($"Failed to save replay buffer (slot {slot}): {ex.Message}");
                 return null;
             }
 
-            Log.Information("Waiting for replay buffer saved callback...");
+            Log.Information("Waiting for replay buffer saved callback (slot {Slot})...", slot);
             int attempts = 0;
-            while (!_replaySaved && attempts < 50)
+            while (!_replaySavedBySlot[slot] && attempts < 50)
             {
                 await Task.Delay(100);
                 attempts++;
             }
 
-            if (!_replaySaved)
+            if (!_replaySavedBySlot[slot])
             {
-                Log.Warning("Replay buffer may not have saved correctly");
+                Log.Warning("Replay buffer may not have saved correctly (slot {Slot})", slot);
                 return null;
             }
 
-            string? savedPath = _bufferOutput.GetLastReplayPath();
+            string? savedPath = buffer.GetLastReplayPath();
 
             for (int i = 0; i < 10 && string.IsNullOrEmpty(savedPath); i++)
             {
-                savedPath = _bufferOutput.GetLastReplayPath();
+                savedPath = buffer.GetLastReplayPath();
                 if (string.IsNullOrEmpty(savedPath))
                     await Task.Delay(100);
             }
 
             if (string.IsNullOrEmpty(savedPath))
             {
-                Log.Error("Replay buffer path is null or empty");
+                Log.Error("Replay buffer path is null or empty (slot {Slot})", slot);
                 return null;
             }
 
@@ -531,32 +759,33 @@ namespace Segra.Backend.Recorder
         /// Stops and restarts the replay buffer so that subsequent saves
         /// only contain footage recorded after the last save.
         /// </summary>
-        private static async Task ResetReplayBuffer()
+        private static async Task ResetReplayBuffer(int slot)
         {
-            if (_bufferOutput == null)
+            var buffer = Pipeline(slot).BufferOutput;
+            if (buffer == null)
                 return;
 
-            Log.Information("Resetting replay buffer...");
+            Log.Information("Resetting replay buffer (slot {Slot})...", slot);
 
-            bool stopped = _bufferOutput.Stop(waitForCompletion: true, timeoutMs: 30000);
+            bool stopped = buffer.Stop(waitForCompletion: true, timeoutMs: 30000);
 
             if (!stopped)
             {
-                Log.Warning("Replay buffer did not stop within timeout for reset. Forcing stop.");
-                _bufferOutput.ForceStop();
+                Log.Warning("Replay buffer did not stop within timeout for reset (slot {Slot}). Forcing stop.", slot);
+                buffer.ForceStop();
                 await Task.Delay(500);
             }
 
-            bool started = _bufferOutput.Start();
+            bool started = buffer.Start();
 
             if (!started)
             {
-                string error = _bufferOutput.LastError ?? "Unknown error";
-                Log.Error($"Failed to restart replay buffer after reset: {error}");
+                string error = buffer.LastError ?? "Unknown error";
+                Log.Error($"Failed to restart replay buffer after reset (slot {slot}): {error}");
             }
             else
             {
-                Log.Information("Replay buffer restarted successfully");
+                Log.Information("Replay buffer restarted successfully (slot {Slot})", slot);
             }
         }
 
@@ -590,24 +819,69 @@ namespace Segra.Backend.Recorder
 
                     if (formattedMessage.Contains("capture window no longer exists, terminating capture"))
                     {
-                        // Some games will show the "capture window no longer exists" message when they are still running, so we wait a second to make sure it's not a false positive
+                        int? affectedSlot = null;
+                        for (int i = 0; i < MaxSessionSlots; i++)
+                        {
+                            if (formattedMessage.Contains($"gameplay_{i}", StringComparison.Ordinal))
+                            {
+                                affectedSlot = i;
+                                break;
+                            }
+                        }
+
                         Log.Information("Capture window no longer exists, waiting a second to make sure it's not a false positive.");
                         await Task.Delay(1000);
-                        Log.Information("Checking if hook is still active: {_isStillHookedAfterUnhook}", _isStillHookedAfterUnhook);
 
-                        // Check if any output is still active
-                        if ((AnySessionOutputActive() || _bufferOutput != null) && !_isStillHookedAfterUnhook)
+                        if (affectedSlot is int slot)
                         {
-                            Log.Information("Capture stopped. Stopping recording.");
-                            _ = Task.Run(StopRecording);
+                            Log.Information("Checking if hook is still active for slot {Slot}: {StillHooked}", slot, _isStillHookedAfterUnhookBySlot[slot]);
+                            if (AppState.Instance.GetRecording(slot) != null
+                                && Pipeline(slot).GameCapture != null
+                                && !IsSlotCaptureHooked(slot)
+                                && !_isStillHookedAfterUnhookBySlot[slot])
+                            {
+                                Log.Information("Capture stopped for slot {Slot}. Stopping recording.", slot);
+                                ScheduleStopRecordingSlot(slot);
+                            }
+                            _isStillHookedAfterUnhookBySlot[slot] = false;
                         }
-                        _isStillHookedAfterUnhook = false;
+                        else
+                        {
+                            for (int i = 0; i < MaxSessionSlots; i++)
+                            {
+                                Log.Information("Checking if hook is still active for slot {Slot}: {StillHooked}", i, _isStillHookedAfterUnhookBySlot[i]);
+                                if (AppState.Instance.GetRecording(i) != null
+                                    && Pipeline(i).GameCapture != null
+                                    && !IsSlotCaptureHooked(i)
+                                    && !_isStillHookedAfterUnhookBySlot[i])
+                                {
+                                    Log.Information("Capture stopped for slot {Slot}. Stopping recording.", i);
+                                    ScheduleStopRecordingSlot(i);
+                                }
+                                _isStillHookedAfterUnhookBySlot[i] = false;
+                            }
+                        }
                     }
 
-                    // This means the game is still running after unhooking. We need this to prevent the method above to accidentally stop the recording.
                     if (formattedMessage.Contains("existing hook found"))
                     {
-                        _isStillHookedAfterUnhook = true;
+                        for (int i = 0; i < MaxSessionSlots; i++)
+                        {
+                            if (formattedMessage.Contains($"gameplay_{i}", StringComparison.Ordinal))
+                                _isStillHookedAfterUnhookBySlot[i] = true;
+                        }
+                    }
+
+                    if (formattedMessage.Contains("[game-capture: 'gameplay_", StringComparison.Ordinal))
+                    {
+                        for (int i = 0; i < MaxSessionSlots; i++)
+                        {
+                            if (formattedMessage.Contains($"gameplay_{i}", StringComparison.Ordinal))
+                            {
+                                _lastGameCaptureLogSlot = i;
+                                break;
+                            }
+                        }
                     }
 
                     // Parse window dimensions from OBS game capture logs
@@ -616,8 +890,11 @@ namespace Segra.Backend.Recorder
                         var match = BufferDescWidthRegex().Match(formattedMessage);
                         if (match.Success && uint.TryParse(match.Groups[1].Value, out uint width))
                         {
-                            CapturedWindowWidth = width;
-                            Log.Information($"Captured window width: {width}");
+                            int slot = _lastGameCaptureLogSlot >= 0 ? _lastGameCaptureLogSlot : 0;
+                            _capturedWindowWidthBySlot[slot] = width;
+                            if (slot == 0)
+                                CapturedWindowWidth = width;
+                            Log.Information($"Captured window width for slot {slot}: {width}");
                         }
                     }
 
@@ -626,8 +903,11 @@ namespace Segra.Backend.Recorder
                         var match = BufferDescHeightRegex().Match(formattedMessage);
                         if (match.Success && uint.TryParse(match.Groups[1].Value, out uint height))
                         {
-                            CapturedWindowHeight = height;
-                            Log.Information($"Captured window height: {height}");
+                            int slot = _lastGameCaptureLogSlot >= 0 ? _lastGameCaptureLogSlot : 0;
+                            _capturedWindowHeightBySlot[slot] = height;
+                            if (slot == 0)
+                                CapturedWindowHeight = height;
+                            Log.Information($"Captured window height for slot {slot}: {height}");
                         }
                     }
 
@@ -643,28 +923,104 @@ namespace Segra.Backend.Recorder
             }
         }
 
-        private static bool AnySessionOutputActive() => _pipeline.SessionOutput != null;
+        private static bool AnySessionOutputActive()
+        {
+            for (int i = 0; i < MaxSessionSlots; i++)
+            {
+                if (Pipeline(i).SessionOutput != null)
+                    return true;
+            }
+            return false;
+        }
 
         private static int AllocateSessionSlotIndex(bool startManually)
         {
-            bool wantsSessionFile = Settings.Instance.RecordingMode == RecordingMode.Session
-                || Settings.Instance.RecordingMode == RecordingMode.Hybrid;
-            if (wantsSessionFile && AppState.Instance.Recording != null)
-                return -1;
-            return 0;
+            _ = startManually;
+            for (int i = 0; i < MaxSessionSlots; i++)
+            {
+                if (AppState.Instance.GetRecording(i) != null)
+                    continue;
+                if (Pipeline(i).SessionOutput != null)
+                    continue;
+                if (Pipeline(i).BufferOutput != null)
+                    continue;
+                return i;
+            }
+            return -1;
         }
 
-        private static bool IsSlotCaptureHooked(int slot) => _pipeline.GameCapture?.IsHooked ?? false;
+        private static void ClearPendingPreRecordingForSlot(int slot) =>
+            AppState.Instance.ClearPreRecording(slot);
 
-        private static void ClearPendingPreRecordingForSlot(int slot)
+        private static void ClearAllPendingPreRecordings() =>
+            AppState.Instance.ClearAllPreRecordings();
+
+        private static bool SlotHasPipelineResources(int slot)
         {
-            if (slot == 0)
-                AppState.Instance.PreRecording = null;
+            var pl = Pipeline(slot);
+            return pl.MainScene != null
+                || pl.SessionOutput != null
+                || pl.BufferOutput != null
+                || pl.GameCapture != null
+                || pl.VideoEncoder != null;
         }
 
-        private static void ClearAllPendingPreRecordings()
+        private static bool ShouldStopSlot(int slot)
         {
-            AppState.Instance.PreRecording = null;
+            if (AppState.Instance.GetRecording(slot) != null)
+                return true;
+            if (SlotHasPipelineResources(slot))
+                return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Tears down a slot that never reached a stable recording state (e.g. start cancelled or failed mid-setup).
+        /// </summary>
+        private static void CleanupPartialSlot(int slot)
+        {
+            if (slot < 0 || slot >= MaxSessionSlots)
+                return;
+
+            StopGameCaptureHookTimeoutTimer(slot);
+
+            var pl = Pipeline(slot);
+            try
+            {
+                if (pl.BufferOutput != null)
+                {
+                    if (!pl.BufferOutput.Stop(waitForCompletion: false))
+                        pl.BufferOutput.ForceStop();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("Failed to stop replay buffer during partial cleanup (slot {Slot}): {Message}", slot, ex.Message);
+            }
+
+            try
+            {
+                if (pl.SessionOutput != null)
+                {
+                    if (!pl.SessionOutput.Stop(waitForCompletion: false))
+                        pl.SessionOutput.ForceStop();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("Failed to stop session output during partial cleanup (slot {Slot}): {Message}", slot, ex.Message);
+            }
+
+            DisposeOutput(slot);
+            DisposeSources(slot);
+            DisposeEncoders(slot);
+
+            if (slot == 0 && !IsAnotherSlotRecording(slot))
+                Obs.SetOutputSource(0, (Scene?)null);
+
+            pl.HookedExecutableFileName = null;
+            ClearPendingPreRecordingForSlot(slot);
+            ClearCapturedWindowDimensions(slot);
         }
 
         public static async Task InitializeAsync()
@@ -829,6 +1185,8 @@ namespace Segra.Backend.Recorder
                 Log.Information($"Downscaling from {baseWidth}x{baseHeight} to {outputWidth}x{outputHeight} (max height: {maxHeight})");
             }
 
+            (baseWidth, baseHeight) = EnsureEvenDimensions(baseWidth, baseHeight);
+
             _currentBaseWidth = baseWidth;
             _currentBaseHeight = baseHeight;
 
@@ -838,7 +1196,7 @@ namespace Segra.Backend.Recorder
                 .Fps(customFps ?? 60));
         }
 
-        public static bool StartRecording(string name = "Manual Recording", string exePath = "Unknown", bool startManually = false, int? pid = null)
+        public static bool StartRecording(string name = "Manual Recording", string exePath = "Unknown", bool startManually = false, int? pid = null, int? reservedSlot = null)
         {
             // Wait for pending StopRecording to complete before starting. Prevents race conditions where a new recording starts before cleanup finishes
             _stopRecordingSemaphore.Wait();
@@ -862,521 +1220,629 @@ namespace Segra.Backend.Recorder
 
             string fileName = Path.GetFileName(exePath);
 
-            int slot = AllocateSessionSlotIndex(startManually);
-            if (slot < 0)
+            int slot;
+            if (reservedSlot.HasValue)
             {
-                Log.Information("Cannot start recording: no free output slot or invalid mode.");
-                ClearAllPendingPreRecordings();
-                return false;
-            }
-
-            // Reset the stopping flag when starting a new recording
-            _isStoppingOrStopped = false;
-
-            // Configure video settings specifically for this recording/buffer
-            ResetVideoSettings(out _, customFps: (uint)Settings.Instance.FrameRate);
-
-            // Create main scene for this recording
-            _mainScene = new Scene($"Recording Scene {slot}");
-            Log.Information($"Created recording scene (slot {slot})");
-
-            // For manual recording, use display capture directly without game hooking
-            if (startManually)
-            {
-                Log.Information("Manual recording started - using display capture");
-                AddMonitorCapture();
-                // Use base dimensions for bounds - scene canvas is at base resolution
-                _displayItem?.SetBounds(ObsBoundsType.ScaleInner, _currentBaseWidth, _currentBaseHeight).SetPosition(0, 0);
+                slot = reservedSlot.Value;
+                if (slot < 0 || slot >= MaxSessionSlots)
+                {
+                    Log.Information("Cannot start recording: invalid reserved slot {Slot}.", slot);
+                    ClearAllPendingPreRecordings();
+                    return false;
+                }
+                if (AppState.Instance.GetRecording(slot) != null)
+                {
+                    Log.Information("Cannot start recording: slot {Slot} already has an active recording.", slot);
+                    ClearPendingPreRecordingForSlot(slot);
+                    return false;
+                }
             }
             else
             {
-                // Add display capture first (bottom layer - fallback)
-                AddMonitorCapture();
-
-                // Create game capture source for automatic game detection
-                try
+                slot = AllocateSessionSlotIndex(startManually);
+                if (slot < 0)
                 {
-                    GameCaptureSource = new GameCapture($"gameplay_{slot}", GameCapture.CaptureMode.SpecificWindow);
-                    GameCaptureSource.SetWindow($"*:*:{fileName}");
-
-                    // Enable capture_audio on game capture when using GameOnly or GameAndDiscord mode
-                    if (Settings.Instance.AudioOutputMode != AudioOutputMode.All)
-                    {
-                        GameCaptureSource.Update(s => s.Set("capture_audio", true));
-                        Log.Information($"Game capture audio enabled (mode: {Settings.Instance.AudioOutputMode})");
-                    }
-
-                    Log.Information($"Game capture configured for: {fileName}");
-
-                    // Add game capture to scene (top layer - visible when hooked)
-                    _gameCaptureItem = _mainScene.AddSource(GameCaptureSource);
-
-                    // Start a timer to check if game capture hooks within 90 seconds
-                    StartGameCaptureHookTimeoutTimer(slot);
-
-                    // Subscribe to GameCapture's hooked/unhooked events (IsHooked is tracked automatically)
-                    _pipeline.HookedSubscription = c => OnGameCaptureHookedEvent(c, slot);
-                    _pipeline.UnhookedSubscription = c => OnGameCaptureUnhookedEvent(c, slot);
-                    GameCaptureSource!.Hooked += _pipeline.HookedSubscription;
-                    GameCaptureSource.Unhooked += _pipeline.UnhookedSubscription;
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"Game Capture source not available: {ex.Message}. Using Display Capture only.");
-                    GameCaptureSource = null;
-                }
-
-                // Try to get the window dimensions for the game
-                if (WindowUtils.GetWindowDimensionsByPreRecordingExeOrPid(out uint windowWidth, out uint windowHeight))
-                {
-                    ResetVideoSettings(
-                        out bool is4by3,
-                        customFps: (uint)Settings.Instance.FrameRate,
-                        customOutputWidth: windowWidth,
-                        customOutputHeight: windowHeight
-                    );
-
-                    // Scene item bounds must use BASE dimensions (not output) because the scene canvas is at base resolution.
-                    // For 4:3 content: base is 4:3, output is 16:9 - OBS handles the stretch at the output level.
-                    // For non-4:3: base == output, ScaleInner ensures content scales with black bars if window shrinks.
-                    var boundsType = is4by3 ? ObsBoundsType.Stretch : ObsBoundsType.ScaleInner;
-                    _gameCaptureItem?.SetBounds(boundsType, _currentBaseWidth, _currentBaseHeight).SetPosition(0, 0);
-                    _displayItem?.SetBounds(boundsType, _currentBaseWidth, _currentBaseHeight).SetPosition(0, 0);
-                }
-                else
-                {
-                    _ = Task.Run(StopRecording);
+                    Log.Information("Cannot start recording: no free output slot or invalid mode.");
+                    ClearAllPendingPreRecordings();
                     return false;
                 }
             }
 
-            // Set scene as program output (channel 0 = main mix, 1 = first aux mix for dual session)
-            Obs.SetOutputSource((uint)slot, _mainScene);
-
-            // Create video encoder
-            string encoderId = Settings.Instance.Codec!.InternalEncoderId;
-            Log.Information($"Using encoder: {Settings.Instance.Codec!.FriendlyName} ({encoderId})");
-
-            using var videoEncoderSettings = new ObsKit.NET.Core.Settings();
-            videoEncoderSettings.Set("preset", "Quality");
-            videoEncoderSettings.Set("profile", "high");
-            videoEncoderSettings.Set("use_bufsize", true);
-            videoEncoderSettings.Set("rate_control", Settings.Instance.RateControl);
-            videoEncoderSettings.Set("keyint_sec", 1);
-
-            switch (Settings.Instance.RateControl)
+            _slotLifecycleLocks[slot].Wait();
+            try
             {
-                case "CBR":
-                    int targetBitrateKbps = Settings.Instance.Bitrate * 1000;
-                    videoEncoderSettings.Set("bitrate", targetBitrateKbps);
-                    videoEncoderSettings.Set("max_bitrate", targetBitrateKbps);
-                    videoEncoderSettings.Set("bufsize", targetBitrateKbps);
-                    break;
+                if (!startManually && reservedSlot.HasValue && AppState.Instance.GetPreRecording(slot) == null)
+                {
+                    Log.Information("Start recording for slot {Slot} was cancelled.", slot);
+                    return false;
+                }
 
-                case "VBR":
-                    int minBitrateKbps = Settings.Instance.MinBitrate * 1000;
-                    int maxBitrateKbps = Settings.Instance.MaxBitrate * 1000;
-                    videoEncoderSettings.Set("bitrate", minBitrateKbps);
-                    videoEncoderSettings.Set("max_bitrate", maxBitrateKbps);
-                    videoEncoderSettings.Set("bufsize", maxBitrateKbps);
-                    break;
+                _isStoppingSlot[slot] = false;
 
-                case "CRF":
-                    // Software x264 path mainly; no explicit bitrate
-                    videoEncoderSettings.Set("crf", Settings.Instance.CrfValue);
-                    break;
+                var pl = Pipeline(slot);
+                bool anotherSlotActive = IsAnotherSlotRecording(slot);
+                bool usesDedicatedCanvas = slot >= 1;
+                uint? dedicatedCanvasWidth = null;
+                uint? dedicatedCanvasHeight = null;
 
-                case "CQP":
-                    // Hardware encoders (NVENC/QSV/AMF) often use cqp/cq; provide both cqp and qp for compatibility
-                    videoEncoderSettings.Set("cqp", Settings.Instance.CqLevel);
-                    videoEncoderSettings.Set("qp", Settings.Instance.CqLevel);
-                    break;
+                // OBS video settings are global; slot 1+ uses a dedicated canvas and must not touch global video.
+                if (slot == 0 && !anotherSlotActive)
+                    ResetVideoSettings(out _, customFps: (uint)Settings.Instance.FrameRate);
+                else if (slot == 0 && anotherSlotActive)
+                    Log.Information("Skipping global video settings change for slot {Slot}: another slot is already recording", slot);
+                else
+                    Log.Information("Skipping global video settings change for slot {Slot}: uses dedicated canvas", slot);
 
-                case "CQVBR":
-                    // OBS 31+ NVENC: Variable Bitrate with Target Quality (caps peak bitrate while targeting CQ)
-                    if (!encoderId.Contains("nvenc", StringComparison.OrdinalIgnoreCase))
+                // Secondary slots always resolve game dimensions before creating their canvas.
+                if (!startManually && usesDedicatedCanvas)
+                {
+                    if (!WindowUtils.GetWindowDimensionsByPreRecordingExeOrPid(out uint windowWidth, out uint windowHeight, slot))
                     {
-                        ClearAllPendingPreRecordings();
-                        throw new Exception("CQVBR is only supported with NVIDIA NVENC encoders (OBS 31+).");
+                        CleanupPartialSlot(slot);
+                        return false;
                     }
 
-                    int cqvbrMaxKbps = Settings.Instance.MaxBitrate * 1000;
-                    videoEncoderSettings.Set("max_bitrate", cqvbrMaxKbps);
-                    int maxTq = encoderId.Contains("av1", StringComparison.OrdinalIgnoreCase) ? 63 : 51;
-                    int targetQ = Math.Clamp(Settings.Instance.CqLevel, 1, maxTq);
-                    videoEncoderSettings.Set("target_quality", targetQ);
-                    break;
+                    (windowWidth, windowHeight) = EnsureEvenDimensions(windowWidth, windowHeight);
+                    dedicatedCanvasWidth = windowWidth;
+                    dedicatedCanvasHeight = windowHeight;
+                    Log.Information(
+                        "Using dedicated canvas dimensions for slot {Slot}: {Width}x{Height}",
+                        slot, windowWidth, windowHeight);
+                }
 
-                default:
-                    ClearAllPendingPreRecordings();
-                    throw new Exception("Unsupported Rate Control method.");
-            }
+                CreateRecordingScene(slot, pl, dedicatedCanvasWidth, dedicatedCanvasHeight);
 
-            // Disable HEVC b-frames on older NVIDIA GPUs (requires compute capability >= 7.0)
-            if (encoderId.Equals("jim_hevc_nvenc", StringComparison.OrdinalIgnoreCase) &&
-                AppState.Instance.CudaComputeCapability != null &&
-                AppState.Instance.CudaComputeCapability < 7.0)
-            {
-                videoEncoderSettings.Set("bf", 0);
-                Log.Information("NVENC b-frames disabled (CUDA compute capability < 7.0)");
-            }
-
-            _videoEncoder = new VideoEncoder(encoderId, "Segra Recorder", videoEncoderSettings);
-
-            // Create audio sources and add to scene
-            if (Settings.Instance.InputDevices != null && Settings.Instance.InputDevices.Count > 0)
-            {
-                foreach (var deviceSetting in Settings.Instance.InputDevices)
+                // For manual recording, use display capture directly without game hooking
+                if (startManually)
                 {
-                    if (!string.IsNullOrEmpty(deviceSetting.Id))
+                    Log.Information("Manual recording started - using display capture");
+                    AddMonitorCapture(slot);
+                    pl.DisplayItem?.SetBounds(ObsBoundsType.ScaleInner, _currentBaseWidth, _currentBaseHeight).SetPosition(0, 0);
+                }
+                else
+                {
+                    AddMonitorCapture(slot);
+
+                    try
                     {
-                        string sourceName = $"Microphone_{_micSources.Count + 1}";
-                        var micSource = deviceSetting.Id == "default"
-                            ? AudioInputCapture.FromDefault(sourceName)
-                            : AudioInputCapture.FromDevice(deviceSetting.Id, sourceName);
+                        pl.GameCapture = new GameCapture($"gameplay_{slot}", GameCapture.CaptureMode.SpecificWindow);
+                        pl.GameCapture.SetWindow($"*:*:{fileName}");
 
-                        // Apply Force Mono if enabled
-                        SetForceMono(micSource, Settings.Instance.ForceMonoInputSources);
-
-                        micSource.Volume = deviceSetting.Volume;
-
-                        _mainScene!.AddSource(micSource);
-                        _micSources.Add(micSource);
-
-                        if (Settings.Instance.InputNoiseSuppression)
+                        if (Settings.Instance.AudioOutputMode != AudioOutputMode.All)
                         {
-                            try
+                            pl.GameCapture.Update(s => s.Set("capture_audio", true));
+                            Log.Information($"Game capture audio enabled (mode: {Settings.Instance.AudioOutputMode})");
+                        }
+
+                        Log.Information($"Game capture configured for: {fileName}");
+
+                        pl.GameCaptureItem = pl.MainScene!.AddSource(pl.GameCapture);
+
+                        StartGameCaptureHookTimeoutTimer(slot);
+
+                        pl.HookedSubscription = c => OnGameCaptureHookedEvent(c, slot);
+                        pl.UnhookedSubscription = c => OnGameCaptureUnhookedEvent(c, slot);
+                        pl.GameCapture.Hooked += pl.HookedSubscription;
+                        pl.GameCapture.Unhooked += pl.UnhookedSubscription;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning($"Game Capture source not available: {ex.Message}. Using Display Capture only.");
+                        pl.GameCapture = null;
+                    }
+
+                    if (dedicatedCanvasWidth.HasValue && dedicatedCanvasHeight.HasValue)
+                    {
+                        pl.GameCaptureItem?.SetBounds(
+                            ObsBoundsType.ScaleInner,
+                            dedicatedCanvasWidth.Value,
+                            dedicatedCanvasHeight.Value).SetPosition(0, 0);
+                        pl.DisplayItem?.SetBounds(
+                            ObsBoundsType.ScaleInner,
+                            dedicatedCanvasWidth.Value,
+                            dedicatedCanvasHeight.Value).SetPosition(0, 0);
+                    }
+                    else if (WindowUtils.GetWindowDimensionsByPreRecordingExeOrPid(out uint windowWidth, out uint windowHeight, slot))
+                    {
+                        if (slot == 0 && !anotherSlotActive)
+                        {
+                            ResetVideoSettings(
+                                out bool is4by3,
+                                customFps: (uint)Settings.Instance.FrameRate,
+                                customOutputWidth: windowWidth,
+                                customOutputHeight: windowHeight
+                            );
+
+                            var boundsType = is4by3 ? ObsBoundsType.Stretch : ObsBoundsType.ScaleInner;
+                            pl.GameCaptureItem?.SetBounds(boundsType, _currentBaseWidth, _currentBaseHeight).SetPosition(0, 0);
+                            pl.DisplayItem?.SetBounds(boundsType, _currentBaseWidth, _currentBaseHeight).SetPosition(0, 0);
+                        }
+                        else if (usesDedicatedCanvas)
+                        {
+                            (windowWidth, windowHeight) = EnsureEvenDimensions(windowWidth, windowHeight);
+                            Log.Information(
+                                "Applying dedicated canvas bounds for slot {Slot} ({Width}x{Height})",
+                                slot, windowWidth, windowHeight);
+                            pl.GameCaptureItem?.SetBounds(ObsBoundsType.ScaleInner, windowWidth, windowHeight).SetPosition(0, 0);
+                            pl.DisplayItem?.SetBounds(ObsBoundsType.ScaleInner, windowWidth, windowHeight).SetPosition(0, 0);
+                        }
+                        else
+                        {
+                            (windowWidth, windowHeight) = EnsureEvenDimensions(windowWidth, windowHeight);
+                            Log.Information(
+                                "Using existing canvas dimensions for slot {Slot} game bounds ({Width}x{Height})",
+                                slot, windowWidth, windowHeight);
+                            pl.GameCaptureItem?.SetBounds(ObsBoundsType.ScaleInner, windowWidth, windowHeight).SetPosition(0, 0);
+                            pl.DisplayItem?.SetBounds(ObsBoundsType.ScaleInner, windowWidth, windowHeight).SetPosition(0, 0);
+                        }
+                    }
+                    else
+                    {
+                        CleanupPartialSlot(slot);
+                        return false;
+                    }
+                }
+
+                // Only slot 0 drives the main program mix. Additional slots record from their own canvas.
+                if (slot == 0)
+                    Obs.SetOutputSource(0, pl.MainScene);
+
+                // Create video encoder
+                string encoderId = Settings.Instance.Codec!.InternalEncoderId;
+                Log.Information($"Using encoder: {Settings.Instance.Codec!.FriendlyName} ({encoderId})");
+
+                using var videoEncoderSettings = new ObsKit.NET.Core.Settings();
+                videoEncoderSettings.Set("preset", "Quality");
+                videoEncoderSettings.Set("profile", "high");
+                videoEncoderSettings.Set("use_bufsize", true);
+                videoEncoderSettings.Set("rate_control", Settings.Instance.RateControl);
+                videoEncoderSettings.Set("keyint_sec", 1);
+
+                switch (Settings.Instance.RateControl)
+                {
+                    case "CBR":
+                        int targetBitrateKbps = Settings.Instance.Bitrate * 1000;
+                        videoEncoderSettings.Set("bitrate", targetBitrateKbps);
+                        videoEncoderSettings.Set("max_bitrate", targetBitrateKbps);
+                        videoEncoderSettings.Set("bufsize", targetBitrateKbps);
+                        break;
+
+                    case "VBR":
+                        int minBitrateKbps = Settings.Instance.MinBitrate * 1000;
+                        int maxBitrateKbps = Settings.Instance.MaxBitrate * 1000;
+                        videoEncoderSettings.Set("bitrate", minBitrateKbps);
+                        videoEncoderSettings.Set("max_bitrate", maxBitrateKbps);
+                        videoEncoderSettings.Set("bufsize", maxBitrateKbps);
+                        break;
+
+                    case "CRF":
+                        // Software x264 path mainly; no explicit bitrate
+                        videoEncoderSettings.Set("crf", Settings.Instance.CrfValue);
+                        break;
+
+                    case "CQP":
+                        // Hardware encoders (NVENC/QSV/AMF) often use cqp/cq; provide both cqp and qp for compatibility
+                        videoEncoderSettings.Set("cqp", Settings.Instance.CqLevel);
+                        videoEncoderSettings.Set("qp", Settings.Instance.CqLevel);
+                        break;
+
+                    case "CQVBR":
+                        // OBS 31+ NVENC: Variable Bitrate with Target Quality (caps peak bitrate while targeting CQ)
+                        if (!encoderId.Contains("nvenc", StringComparison.OrdinalIgnoreCase))
+                        {
+                            ClearAllPendingPreRecordings();
+                            throw new Exception("CQVBR is only supported with NVIDIA NVENC encoders (OBS 31+).");
+                        }
+
+                        int cqvbrMaxKbps = Settings.Instance.MaxBitrate * 1000;
+                        videoEncoderSettings.Set("max_bitrate", cqvbrMaxKbps);
+                        int maxTq = encoderId.Contains("av1", StringComparison.OrdinalIgnoreCase) ? 63 : 51;
+                        int targetQ = Math.Clamp(Settings.Instance.CqLevel, 1, maxTq);
+                        videoEncoderSettings.Set("target_quality", targetQ);
+                        break;
+
+                    default:
+                        ClearAllPendingPreRecordings();
+                        throw new Exception("Unsupported Rate Control method.");
+                }
+
+                // Disable HEVC b-frames on older NVIDIA GPUs (requires compute capability >= 7.0)
+                if (encoderId.Equals("jim_hevc_nvenc", StringComparison.OrdinalIgnoreCase) &&
+                    AppState.Instance.CudaComputeCapability != null &&
+                    AppState.Instance.CudaComputeCapability < 7.0)
+                {
+                    videoEncoderSettings.Set("bf", 0);
+                    Log.Information("NVENC b-frames disabled (CUDA compute capability < 7.0)");
+                }
+
+                pl.VideoEncoder = new VideoEncoder(encoderId, ObsName(slot, "Segra Recorder"), videoEncoderSettings);
+
+                var audioOutputMode = Settings.Instance.AudioOutputMode;
+
+                // Mic/desktop WASAPI + Discord must be created once across dual slots (game capture_audio may duplicate).
+                lock (_sharedAudioLock)
+                {
+                    var existingSharedAudio = FindSharedAudioOwner(excludeSlot: slot);
+                    if (existingSharedAudio != null)
+                    {
+                        Log.Information(
+                            "Skipping new WASAPI/Discord audio sources for slot {Slot}: reusing sources from the other recording slot",
+                            slot);
+
+                        foreach (var micSource in existingSharedAudio.MicSources)
+                            AttachSharedAudioSourceToScene(pl.MainScene!, micSource, "microphone");
+                        foreach (var desktopSource in existingSharedAudio.DesktopSources)
+                            AttachSharedAudioSourceToScene(pl.MainScene!, desktopSource, "desktop");
+                        if (existingSharedAudio.DiscordAudioSource != null)
+                            AttachSharedAudioSourceToScene(pl.MainScene!, existingSharedAudio.DiscordAudioSource, "discord");
+                    }
+                    else
+                    {
+                        // Create audio sources and add to scene
+                        if (Settings.Instance.InputDevices != null && Settings.Instance.InputDevices.Count > 0)
+                        {
+                            foreach (var deviceSetting in Settings.Instance.InputDevices)
                             {
-                                var noiseGate = new Source("noise_gate_filter", $"{sourceName}_NoiseGate");
-                                noiseGate.Update(s =>
+                                if (!string.IsNullOrEmpty(deviceSetting.Id))
                                 {
-                                    s.Set("close_threshold", -48.0);
-                                    s.Set("open_threshold", -42.0);
-                                    s.Set("attack_time", 25L);
-                                    s.Set("hold_time", 200L);
-                                    s.Set("release_time", 150L);
-                                });
-                                micSource.AddFilter(noiseGate);
-                                Log.Information($"Added noise suppression filter to {sourceName}");
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Warning($"Failed to add noise suppression filter to {sourceName}: {ex.Message}");
+                                    string sourceName = ObsName(slot, $"Microphone_{pl.MicSources.Count + 1}");
+                                    var micSource = deviceSetting.Id == "default"
+                                        ? AudioInputCapture.FromDefault(sourceName)
+                                        : AudioInputCapture.FromDevice(deviceSetting.Id, sourceName);
+
+                                    SetForceMono(micSource, Settings.Instance.ForceMonoInputSources);
+
+                                    micSource.Volume = deviceSetting.Volume;
+
+                                    pl.MainScene!.AddSource(micSource);
+                                    pl.MicSources.Add(micSource);
+
+                                    if (Settings.Instance.InputNoiseSuppression)
+                                    {
+                                        try
+                                        {
+                                            var noiseGate = new Source("noise_gate_filter", $"{sourceName}_NoiseGate");
+                                            noiseGate.Update(s =>
+                                            {
+                                                s.Set("close_threshold", -48.0);
+                                                s.Set("open_threshold", -42.0);
+                                                s.Set("attack_time", 25L);
+                                                s.Set("hold_time", 200L);
+                                                s.Set("release_time", 150L);
+                                            });
+                                            micSource.AddFilter(noiseGate);
+                                            Log.Information($"Added noise suppression filter to {sourceName}");
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Log.Warning($"Failed to add noise suppression filter to {sourceName}: {ex.Message}");
+                                        }
+                                    }
+
+                                    Log.Information($"Added input device: {deviceSetting.Id} as {sourceName} with volume {deviceSetting.Volume}");
+                                }
                             }
                         }
 
-                        Log.Information($"Added input device: {deviceSetting.Id} as {sourceName} with volume {deviceSetting.Volume}");
+                        // Always add desktop audio sources - they serve as fallback until game hooks in GameOnly/GameAndDiscord modes
+                        if (Settings.Instance.OutputDevices != null && Settings.Instance.OutputDevices.Count > 0)
+                        {
+                            foreach (var deviceSetting in Settings.Instance.OutputDevices)
+                            {
+                                if (!string.IsNullOrEmpty(deviceSetting.Id))
+                                {
+                                    string sourceName = ObsName(slot, $"DesktopAudio_{pl.DesktopSources.Count + 1}");
+                                    var desktopSource = deviceSetting.Id == "default"
+                                        ? AudioOutputCapture.FromDefault(sourceName)
+                                        : AudioOutputCapture.FromDevice(deviceSetting.Id, sourceName);
+
+                                    desktopSource.Volume = deviceSetting.Volume;
+
+                                    pl.MainScene!.AddSource(desktopSource);
+                                    pl.DesktopSources.Add(desktopSource);
+
+                                    Log.Information($"Added output device: {deviceSetting.Name} ({deviceSetting.Id}) as {sourceName} with volume {deviceSetting.Volume}");
+                                }
+                            }
+                        }
+
+                        // In GameAndDiscord mode, also create Discord application audio capture (starts muted until game hooks)
+                        if (audioOutputMode == AudioOutputMode.GameAndDiscord && pl.GameCapture != null)
+                        {
+                            try
+                            {
+                                pl.DiscordAudioSource = new Source("wasapi_process_output_capture", ObsName(slot, "Discord Audio"));
+                                pl.DiscordAudioSource.Update(s =>
+                                {
+                                    s.Set("window", "Discord:Chrome_WidgetWin_1:Discord.exe");
+                                    s.Set("priority", 2);
+                                });
+                                pl.DiscordAudioSource.IsMuted = true;
+                                pl.MainScene!.AddSource(pl.DiscordAudioSource);
+                                Log.Information("Added Discord application audio capture source (muted until game hooks)");
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Warning($"Failed to create Discord audio capture source: {ex.Message}");
+                                pl.DiscordAudioSource = null;
+                            }
+                        }
                     }
                 }
-            }
 
-            var audioOutputMode = Settings.Instance.AudioOutputMode;
+                const int maxTracks = 6;
+                bool separateTracks = Settings.Instance.EnableSeparateAudioTracks;
+                pl.AudioEncoders.Clear();
+                var actualAudioTrackNames = new List<string>();
+                uint recordingTracksMask;
+                int trackCount;
 
-            // Always add desktop audio sources - they serve as fallback until game hooks in GameOnly/GameAndDiscord modes
-            if (Settings.Instance.OutputDevices != null && Settings.Instance.OutputDevices.Count > 0)
-            {
-                foreach (var deviceSetting in Settings.Instance.OutputDevices)
+                if (!separateTracks)
                 {
-                    if (!string.IsNullOrEmpty(deviceSetting.Id))
-                    {
-                        string sourceName = $"DesktopAudio_{_desktopSources.Count + 1}";
-                        var desktopSource = deviceSetting.Id == "default"
-                            ? AudioOutputCapture.FromDefault(sourceName)
-                            : AudioOutputCapture.FromDevice(deviceSetting.Id, sourceName);
+                    const uint singleTrackMask = 1u;
+                    ApplyAudioTrackMask(pl.MicSources, singleTrackMask, "microphone");
+                    ApplyAudioTrackMask(pl.DesktopSources, singleTrackMask, "desktop");
+                    if (pl.GameCapture != null)
+                        ApplyAudioTrackMask(pl.GameCapture, singleTrackMask, "game");
+                    if (pl.DiscordAudioSource != null)
+                        ApplyAudioTrackMask(pl.DiscordAudioSource, singleTrackMask, "discord");
 
-                        desktopSource.Volume = deviceSetting.Volume;
-
-                        _mainScene!.AddSource(desktopSource);
-                        _desktopSources.Add(desktopSource);
-
-                        Log.Information($"Added output device: {deviceSetting.Name} ({deviceSetting.Id}) as {sourceName} with volume {deviceSetting.Volume}");
-                    }
-                }
-            }
-
-            // In GameAndDiscord mode, also create Discord application audio capture (starts muted until game hooks)
-            if (audioOutputMode == AudioOutputMode.GameAndDiscord && GameCaptureSource != null)
-            {
-                try
-                {
-                    _discordAudioSource = new Source("wasapi_process_output_capture", "Discord Audio");
-                    _discordAudioSource.Update(s =>
-                    {
-                        // Window format: title:class:executable
-                        s.Set("window", "Discord:Chrome_WidgetWin_1:Discord.exe");
-                        s.Set("priority", 2); // WINDOW_PRIORITY_EXE
-                    });
-                    _discordAudioSource.IsMuted = true; // Muted until game hooks (desktop audio covers Discord until then)
-                    _mainScene!.AddSource(_discordAudioSource);
-                    Log.Information("Added Discord application audio capture source (muted until game hooks)");
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"Failed to create Discord audio capture source: {ex.Message}");
-                    _discordAudioSource = null;
-                }
-            }
-
-            // Configure mixers and audio encoders.
-            // Single-track mode: all sources ??Track 1.
-            // Multi-track mode: each source uses its configured OBS mixer bitmask (tracks 1??).
-            const int maxTracks = 6;
-            bool separateTracks = Settings.Instance.EnableSeparateAudioTracks;
-            _audioEncoders.Clear();
-            var actualAudioTrackNames = new List<string>();
-            uint recordingTracksMask;
-            int trackCount;
-
-            if (!separateTracks)
-            {
-                const uint singleTrackMask = 1u;
-                ApplyAudioTrackMask(_micSources, singleTrackMask, "microphone");
-                ApplyAudioTrackMask(_desktopSources, singleTrackMask, "desktop");
-                if (GameCaptureSource != null)
-                    ApplyAudioTrackMask(GameCaptureSource, singleTrackMask, "game");
-                if (_discordAudioSource != null)
-                    ApplyAudioTrackMask(_discordAudioSource, singleTrackMask, "discord");
-
-                trackCount = 1;
-                recordingTracksMask = 1;
-                actualAudioTrackNames.Add("Full Mix");
-
-                int recordingAudioKbps = GetRecordingAudioBitrateKbps();
-                _audioEncoders.Add(AudioEncoder.CreateAac("Full Mix", recordingAudioKbps, 0));
-            }
-            else
-            {
-                var inputDevices = Settings.Instance.InputDevices ?? new List<DeviceSetting>();
-                for (int i = 0; i < _micSources.Count; i++)
-                {
-                    uint mask = i < inputDevices.Count
-                        ? SanitizeAudioTrackMask(inputDevices[i].AudioTrackMask)
-                        : 1u;
-                    ApplyAudioTrackMask(_micSources[i], mask, $"microphone {i + 1}");
-                }
-
-                var outputDevices = Settings.Instance.OutputDevices ?? new List<DeviceSetting>();
-                for (int i = 0; i < _desktopSources.Count; i++)
-                {
-                    uint mask = i < outputDevices.Count
-                        ? SanitizeAudioTrackMask(outputDevices[i].AudioTrackMask)
-                        : 1u;
-                    ApplyAudioTrackMask(_desktopSources[i], mask, $"desktop {i + 1}");
-                }
-
-                if (GameCaptureSource != null)
-                {
-                    ApplyAudioTrackMask(
-                        GameCaptureSource,
-                        SanitizeAudioTrackMask(Settings.Instance.GameAudioTrackMask),
-                        "game");
-                }
-
-                if (_discordAudioSource != null)
-                {
-                    ApplyAudioTrackMask(
-                        _discordAudioSource,
-                        SanitizeAudioTrackMask(Settings.Instance.DiscordAudioTrackMask),
-                        "discord");
-                }
-
-                recordingTracksMask = 0;
-                foreach (var device in inputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
-                    recordingTracksMask |= SanitizeAudioTrackMask(device.AudioTrackMask);
-                foreach (var device in outputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
-                    recordingTracksMask |= SanitizeAudioTrackMask(device.AudioTrackMask);
-                if (GameCaptureSource != null)
-                    recordingTracksMask |= SanitizeAudioTrackMask(Settings.Instance.GameAudioTrackMask);
-                if (_discordAudioSource != null)
-                    recordingTracksMask |= SanitizeAudioTrackMask(Settings.Instance.DiscordAudioTrackMask);
-
-                if (recordingTracksMask == 0)
+                    trackCount = 1;
                     recordingTracksMask = 1;
+                    actualAudioTrackNames.Add("Full Mix");
 
-                trackCount = maxTracks;
-                int recordingAudioKbps = GetRecordingAudioBitrateKbps();
-                var customTrackNames = Settings.Instance.RecordingAudioTrackNames;
-                for (int t = 0; t < maxTracks; t++)
-                {
-                    string trackName = customTrackNames != null
-                        && t < customTrackNames.Count
-                        && !string.IsNullOrWhiteSpace(customTrackNames[t])
-                        ? customTrackNames[t].Trim()
-                        : $"Track {t + 1}";
-
-                    actualAudioTrackNames.Add(trackName);
-                    _audioEncoders.Add(AudioEncoder.CreateAac(trackName, recordingAudioKbps, t));
-                }
-
-                Log.Information(
-                    $"Multi-track recording: output mask 0x{recordingTracksMask:X}, {trackCount} encoder(s).");
-            }
-
-            // Paths for session recordings and buffer, organized by game
-            string sanitizedGameName = StorageService.SanitizeGameNameForFolder(name);
-            string sessionDir = Path.Combine(Settings.Instance.ContentFolder, FolderNames.Sessions, sanitizedGameName);
-            string bufferDir = Path.Combine(Settings.Instance.ContentFolder, FolderNames.Buffers, sanitizedGameName);
-            if (!Directory.Exists(sessionDir)) Directory.CreateDirectory(sessionDir);
-            if (!Directory.Exists(bufferDir)) Directory.CreateDirectory(bufferDir);
-
-            string? videoOutputPath = null; // only set for session/hybrid session output
-
-            // Configure outputs depending on mode
-            if (isReplayBufferMode || isHybridMode)
-            {
-                uint bufferTracksMask = recordingTracksMask;
-
-                _bufferOutput = new ReplayBuffer("replay_buffer_output", Settings.Instance.ReplayBufferDuration, Settings.Instance.ReplayBufferMaxSize);
-                _bufferOutput.SetDirectory(bufferDir);
-                _bufferOutput.SetFilenameFormat("%CCYY-%MM-%DD_%hh-%mm-%ss");
-                _bufferOutput.Update(s => s.Set("extension", "mp4").Set("tracks", (long)bufferTracksMask));
-
-                // Set encoders
-                _bufferOutput.WithVideoEncoder(_videoEncoder);
-                for (int t = 0; t < _audioEncoders.Count; t++)
-                {
-                    _bufferOutput.WithAudioEncoder(_audioEncoders[t], track: t);
-                }
-
-                // Connect signal handler for replay saved
-                _replaySavedConnection = _bufferOutput!.ConnectSignal(OutputSignal.Saved, OnReplaySaved);
-            }
-
-            if (isSessionMode || isHybridMode)
-            {
-                videoOutputPath = $"{sessionDir}/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
-
-                uint recordTracksMask = recordingTracksMask;
-
-                bool useHybridMp4 = SupportsHybridMp4();
-                Log.Information($"Using recording output type: {(useHybridMp4 ? "mp4_output" : "ffmpeg_muxer")} (Hybrid MP4: {useHybridMp4})");
-
-                if (useHybridMp4)
-                {
-                    _output = new RecordingOutput($"simple_output_{slot}", videoOutputPath);
-                    _output.SetFormat(RecordingFormat.HybridMp4);
+                    int recordingAudioKbps = GetRecordingAudioBitrateKbps();
+                    pl.AudioEncoders.Add(AudioEncoder.CreateAac(ObsName(slot, "Full Mix"), recordingAudioKbps, 0));
                 }
                 else
                 {
-                    _output = new RecordingOutput($"simple_output_{slot}", videoOutputPath, "mp4");
+                    var inputDevices = Settings.Instance.InputDevices ?? new List<DeviceSetting>();
+                    for (int i = 0; i < pl.MicSources.Count; i++)
+                    {
+                        uint mask = i < inputDevices.Count
+                            ? SanitizeAudioTrackMask(inputDevices[i].AudioTrackMask)
+                            : 1u;
+                        ApplyAudioTrackMask(pl.MicSources[i], mask, $"microphone {i + 1}");
+                    }
+
+                    var outputDevices = Settings.Instance.OutputDevices ?? new List<DeviceSetting>();
+                    for (int i = 0; i < pl.DesktopSources.Count; i++)
+                    {
+                        uint mask = i < outputDevices.Count
+                            ? SanitizeAudioTrackMask(outputDevices[i].AudioTrackMask)
+                            : 1u;
+                        ApplyAudioTrackMask(pl.DesktopSources[i], mask, $"desktop {i + 1}");
+                    }
+
+                    if (pl.GameCapture != null)
+                    {
+                        ApplyAudioTrackMask(
+                            pl.GameCapture,
+                            SanitizeAudioTrackMask(Settings.Instance.GameAudioTrackMask),
+                            "game");
+                    }
+
+                    if (pl.DiscordAudioSource != null)
+                    {
+                        ApplyAudioTrackMask(
+                            pl.DiscordAudioSource,
+                            SanitizeAudioTrackMask(Settings.Instance.DiscordAudioTrackMask),
+                            "discord");
+                    }
+
+                    recordingTracksMask = 0;
+                    foreach (var device in inputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
+                        recordingTracksMask |= SanitizeAudioTrackMask(device.AudioTrackMask);
+                    foreach (var device in outputDevices.Where(d => !string.IsNullOrEmpty(d.Id)))
+                        recordingTracksMask |= SanitizeAudioTrackMask(device.AudioTrackMask);
+                    if (pl.GameCapture != null)
+                        recordingTracksMask |= SanitizeAudioTrackMask(Settings.Instance.GameAudioTrackMask);
+                    // Discord may live on the other slot; still encode its track from the global mix.
+                    if (pl.DiscordAudioSource != null || FindDiscordAudioSource() != null)
+                        recordingTracksMask |= SanitizeAudioTrackMask(Settings.Instance.DiscordAudioTrackMask);
+
+                    if (recordingTracksMask == 0)
+                        recordingTracksMask = 1;
+
+                    trackCount = maxTracks;
+                    int recordingAudioKbps = GetRecordingAudioBitrateKbps();
+                    var customTrackNames = Settings.Instance.RecordingAudioTrackNames;
+                    for (int t = 0; t < maxTracks; t++)
+                    {
+                        string trackName = customTrackNames != null
+                            && t < customTrackNames.Count
+                            && !string.IsNullOrWhiteSpace(customTrackNames[t])
+                            ? customTrackNames[t].Trim()
+                            : $"Track {t + 1}";
+
+                        actualAudioTrackNames.Add(trackName);
+                        pl.AudioEncoders.Add(AudioEncoder.CreateAac(ObsName(slot, trackName), recordingAudioKbps, t));
+                    }
+
+                    Log.Information(
+                        $"Multi-track recording: output mask 0x{recordingTracksMask:X}, {trackCount} encoder(s).");
                 }
-                _output.Update(s => s.Set("tracks", (long)recordTracksMask));
 
-                // Set encoders
-                _output.WithVideoEncoder(_videoEncoder);
-                for (int t = 0; t < _audioEncoders.Count; t++)
+                // Paths for session recordings and buffer, organized by game
+                string sanitizedGameName = StorageService.SanitizeGameNameForFolder(name);
+                string sessionDir = Path.Combine(Settings.Instance.ContentFolder, FolderNames.Sessions, sanitizedGameName);
+                string bufferDir = Path.Combine(Settings.Instance.ContentFolder, FolderNames.Buffers, sanitizedGameName);
+                if (!Directory.Exists(sessionDir)) Directory.CreateDirectory(sessionDir);
+                if (!Directory.Exists(bufferDir)) Directory.CreateDirectory(bufferDir);
+
+                string? videoOutputPath = null; // only set for session/hybrid session output
+
+                // Configure outputs depending on mode
+                if (isReplayBufferMode || isHybridMode)
                 {
-                    _output.WithAudioEncoder(_audioEncoders[t], track: t);
-                }
-            }
+                    uint bufferTracksMask = recordingTracksMask;
 
-            // Overwrite the file name with the hooked executable name if using game hook
-            fileName = _hookedExecutableFileName ?? fileName;
+                    pl.BufferOutput = new ReplayBuffer(ObsName(slot, "replay_buffer"), Settings.Instance.ReplayBufferDuration, Settings.Instance.ReplayBufferMaxSize);
+                    pl.BufferOutput.SetDirectory(bufferDir);
+                    pl.BufferOutput.SetFilenameFormat("%CCYY-%MM-%DD_%hh-%mm-%ss");
+                    pl.BufferOutput.Update(s => s.Set("extension", "mp4").Set("tracks", (long)bufferTracksMask));
 
-            DateTime? startTime = null;
-            bool hasPlayedStartSound = false;
+                    if (pl.RecordingCanvas != null)
+                        pl.BufferOutput.WithVideoEncoder(pl.VideoEncoder, pl.RecordingCanvas);
+                    else
+                        pl.BufferOutput.WithVideoEncoder(pl.VideoEncoder);
 
-            if (_output != null)
-            {
-                if (!_output.Start())
-                {
-                    string error = _output.LastError ?? "Unknown error";
-                    Log.Error($"Failed to start recording: {error}");
-                    Task.Run(() => ShowModal("Recording failed", "Failed to start recording. Check the log for more details.", "error"));
-                    Task.Run(() => PlaySound("error", 500));
-                    ClearAllPendingPreRecordings();
-                    _ = Task.Run(StopRecording);
-                    return false;
-                }
+                    for (int t = 0; t < pl.AudioEncoders.Count; t++)
+                    {
+                        pl.BufferOutput.WithAudioEncoder(pl.AudioEncoders[t], track: t);
+                    }
 
-                // Set the exact start time for session recording (Full Session has bookmarks)
-                startTime = DateTime.Now;
-                _ = Task.Run(() => PlaySound("start"));
-                hasPlayedStartSound = true;
-
-                Log.Information("Session recording started successfully");
-            }
-
-            if (_bufferOutput != null)
-            {
-                if (!_bufferOutput.Start())
-                {
-                    string error = _bufferOutput.LastError ?? "Unknown error";
-                    Log.Error($"Failed to start replay buffer: {error}");
-                    Task.Run(() => ShowModal("Replay buffer failed", "Failed to start replay buffer. Check the log for more details.", "error"));
-                    Task.Run(() => PlaySound("error", 500));
-                    ClearAllPendingPreRecordings();
-                    _ = Task.Run(StopRecording);
-                    return false;
+                    pl.ReplaySavedConnection = pl.BufferOutput.ConnectSignal(OutputSignal.Saved, _ => OnReplaySaved(slot));
                 }
 
-                if (!hasPlayedStartSound)
+                if (isSessionMode || isHybridMode)
                 {
+                    videoOutputPath = $"{sessionDir}/{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
+
+                    uint recordTracksMask = recordingTracksMask;
+
+                    bool useHybridMp4 = SupportsHybridMp4();
+                    Log.Information($"Using recording output type: {(useHybridMp4 ? "mp4_output" : "ffmpeg_muxer")} (Hybrid MP4: {useHybridMp4})");
+
+                    if (useHybridMp4)
+                    {
+                        pl.SessionOutput = new RecordingOutput($"simple_output_{slot}", videoOutputPath);
+                        pl.SessionOutput.SetFormat(RecordingFormat.HybridMp4);
+                    }
+                    else
+                    {
+                        pl.SessionOutput = new RecordingOutput($"simple_output_{slot}", videoOutputPath, "mp4");
+                    }
+                    pl.SessionOutput.Update(s => s.Set("tracks", (long)recordTracksMask));
+
+                    if (pl.RecordingCanvas != null)
+                        pl.SessionOutput.WithVideoEncoder(pl.VideoEncoder, pl.RecordingCanvas);
+                    else
+                        pl.SessionOutput.WithVideoEncoder(pl.VideoEncoder);
+
+                    for (int t = 0; t < pl.AudioEncoders.Count; t++)
+                    {
+                        pl.SessionOutput.WithAudioEncoder(pl.AudioEncoders[t], track: t);
+                    }
+                }
+
+                fileName = pl.HookedExecutableFileName ?? fileName;
+
+                DateTime? startTime = null;
+                bool hasPlayedStartSound = false;
+
+                if (pl.SessionOutput != null)
+                {
+                    if (!pl.SessionOutput.Start())
+                    {
+                        string error = pl.SessionOutput.LastError ?? "Unknown error";
+                        Log.Error($"Failed to start recording: {error}");
+                        Task.Run(() => ShowModal("Recording failed", "Failed to start recording. Check the log for more details.", "error"));
+                        Task.Run(() => PlaySound("error", 500));
+                        ClearPendingPreRecordingForSlot(slot);
+                        CleanupPartialSlot(slot);
+                        return false;
+                    }
+
+                    // Set the exact start time for session recording (Full Session has bookmarks)
+                    startTime = DateTime.Now;
                     _ = Task.Run(() => PlaySound("start"));
                     hasPlayedStartSound = true;
+
+                    Log.Information("Session recording started successfully");
                 }
 
-                Log.Information("Replay buffer started successfully");
+                if (pl.BufferOutput != null)
+                {
+                    if (!pl.BufferOutput.Start())
+                    {
+                        string error = pl.BufferOutput.LastError ?? "Unknown error";
+                        Log.Error($"Failed to start replay buffer (slot {slot}): {error}");
+                        Task.Run(() => ShowModal("Replay buffer failed", "Failed to start replay buffer. Check the log for more details.", "error"));
+                        Task.Run(() => PlaySound("error", 500));
+                        ClearPendingPreRecordingForSlot(slot);
+                        CleanupPartialSlot(slot);
+                        return false;
+                    }
+
+                    if (!hasPlayedStartSound)
+                    {
+                        _ = Task.Run(() => PlaySound("start"));
+                        hasPlayedStartSound = true;
+                    }
+
+                    Log.Information("Replay buffer started successfully (slot {Slot})", slot);
+                }
+
+                string? gameImage = GameIconUtils.ExtractIconAsBase64(exePath);
+
+                var newRecording = new Recording()
+                {
+                    Slot = slot,
+                    StartTime = startTime ?? DateTime.Now,
+                    Game = name,
+                    FilePath = videoOutputPath,
+                    FileName = fileName,
+                    Pid = pid,
+                    IsUsingGameHook = IsSlotCaptureHooked(slot),
+                    GameImage = gameImage,
+                    ExePath = exePath,
+                    CoverImageId = GameUtils.GetCoverImageIdFromExePath(exePath),
+                    AudioTrackNames = actualAudioTrackNames,
+                };
+                AppState.Instance.SetRecording(slot, newRecording);
+
+                ClearPendingPreRecordingForSlot(slot);
+                Program.ShowMonitoringWindowIfClosed();
+                uint previewFps = (uint)Math.Max(1, Settings.Instance.FrameRate);
+                _ = Task.Run(async () =>
+                {
+                    await MessageService.SendSettingsToFrontend("OBS Start recording");
+                    if (_isStoppingSlot[slot] || AppState.Instance.GetRecording(slot) == null)
+                        return;
+                    RecordingPreviewService.OnRecordingStarted(previewFps, slot);
+                });
+
+                NotifyIconService.SetNotifyIconStatus(NotifyIconState.Recording);
+
+                Log.Information("Recording started: " + videoOutputPath);
+                GeneralUtils.SetProcessPriority(ProcessPriorityClass.High);
+                if (!isReplayBufferMode)
+                {
+                    _ = GameIntegrationService.Start(GameUtils.GetIgdbIdFromExePath(exePath), name, exePath, slot: slot);
+                }
+                else if (Settings.Instance.GameIntegrations.VrChat.Enabled &&
+                         !string.IsNullOrEmpty(exePath) &&
+                         exePath.EndsWith("VRChat.exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    _ = GameIntegrationService.Start(GameUtils.GetIgdbIdFromExePath(exePath), name, exePath, slot: slot);
+                }
+                Task.Run(KeybindCaptureService.Start);
+                return true;
             }
-
-            string? gameImage = GameIconUtils.ExtractIconAsBase64(exePath);
-
-            var newRecording = new Recording()
+            catch (Exception ex)
             {
-                StartTime = startTime ?? DateTime.Now,
-                Game = name,
-                FilePath = videoOutputPath,
-                FileName = fileName,
-                Pid = pid,
-                IsUsingGameHook = IsSlotCaptureHooked(slot),
-                GameImage = gameImage,
-                ExePath = exePath,
-                CoverImageId = GameUtils.GetCoverImageIdFromExePath(exePath),
-                AudioTrackNames = actualAudioTrackNames,
-            };
-            AppState.Instance.Recording = newRecording;
-
-            ClearPendingPreRecordingForSlot(slot);
-            Program.ShowMonitoringWindowIfClosed();
-            uint previewFps = (uint)Math.Max(1, Settings.Instance.FrameRate);
-            _ = Task.Run(async () =>
-            {
-                await MessageService.SendSettingsToFrontend("OBS Start recording");
-                if (_isStoppingOrStopped || AppState.Instance.Recording == null)
-                    return;
-                RecordingPreviewService.OnRecordingStarted(previewFps);
-            });
-
-            NotifyIconService.SetNotifyIconStatus(NotifyIconState.Recording);
-
-            Log.Information("Recording started: " + videoOutputPath);
-            GeneralUtils.SetProcessPriority(ProcessPriorityClass.High);
-            if (!isReplayBufferMode)
-            {
-                _ = GameIntegrationService.Start(GameUtils.GetIgdbIdFromExePath(exePath), exePath);
+                Log.Error(ex, "StartRecording failed for slot {Slot}", slot);
+                CleanupPartialSlot(slot);
+                return false;
             }
-            else if (Settings.Instance.GameIntegrations.VrChat.Enabled &&
-                     !string.IsNullOrEmpty(exePath) &&
-                     exePath.EndsWith("VRChat.exe", StringComparison.OrdinalIgnoreCase))
+            finally
             {
-                // Replay Buffer mode: no session file ??VRChat VVMW clips use replay buffer tail instead.
-                _ = GameIntegrationService.Start(GameUtils.GetIgdbIdFromExePath(exePath), exePath);
+                _slotLifecycleLocks[slot].Release();
             }
-            Task.Run(KeybindCaptureService.Start);
-            return true;
         }
 
         /// <summary>Re-creates monitor capture (e.g. after display settings change while not game-hooked).</summary>
         public static void RefreshMonitorCaptureForSlot(int slotIndex)
         {
-            _ = slotIndex;
-            DisposeDisplaySource();
-            AddMonitorCapture();
+            DisposeDisplaySource(slotIndex);
+            AddMonitorCapture(slotIndex);
         }
 
-        public static void AddMonitorCapture()
+        public static void AddMonitorCapture(int slot)
         {
-            if (_mainScene == null)
+            var pl = Pipeline(slot);
+            if (pl.MainScene == null)
             {
                 Log.Warning("Cannot add monitor capture: scene not created");
                 return;
@@ -1409,304 +1875,224 @@ namespace Segra.Backend.Recorder
                 _ => MonitorCaptureMethod.Auto
             };
 
-            _displaySource = MonitorCapture.FromMonitor(monitorIndex, "display")
+            pl.DisplaySource = MonitorCapture.FromMonitor(monitorIndex, ObsName(slot, "display"))
                 .SetCaptureMethod(captureMethod);
 
-            // Add to scene (display is behind game capture in layer order)
-            _displayItem = _mainScene.AddSource(_displaySource);
+            pl.DisplayItem = pl.MainScene.AddSource(pl.DisplaySource);
 
             Log.Information($"Display capture added for monitor {monitorIndex} using {Settings.Instance.DisplayCaptureMethod} method");
         }
 
-        public static async Task StopRecording()
+        private static async Task FinalizeSessionFileAsync(Recording? rec)
         {
-            // Prevent race conditions when multiple callers try to stop recording simultaneously
-            await _stopRecordingSemaphore.WaitAsync();
+            if (rec == null || rec.FilePath == null)
+                return;
+
+            bool hasManualBookmarks = rec.Bookmarks.Any(b => b.Type == BookmarkType.Manual);
+            if (Settings.Instance.DiscardSessionsWithoutBookmarks && !hasManualBookmarks)
+            {
+                Log.Information("Discarding session recording without manual bookmarks");
+                try
+                {
+                    if (File.Exists(rec.FilePath))
+                    {
+                        File.Delete(rec.FilePath);
+                        Log.Information($"Deleted video file: {rec.FilePath}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"Failed to delete discarded session file: {ex.Message}");
+                }
+                return;
+            }
+
+            await EnsureFileReady(rec.FilePath!);
+
+            int? igdbId = !string.IsNullOrEmpty(rec.ExePath)
+                ? GameUtils.GetIgdbIdFromExePath(rec.ExePath)
+                : null;
+            await ContentService.CreateMetadataFile(rec.FilePath!, Content.ContentType.Session, rec.Game, rec.Bookmarks, igdbId: igdbId, audioTrackNames: rec.AudioTrackNames);
+            await ContentService.CreateThumbnail(rec.FilePath!, Content.ContentType.Session);
+            string sessionFilePath = rec.FilePath!;
+            _ = Task.Run(async () => await ContentService.CreateWaveformFile(sessionFilePath, Content.ContentType.Session));
+
+            Log.Information("Recording details:");
+            Log.Information($"Start Time: {rec.StartTime}");
+            Log.Information($"End Time: {rec.EndTime}");
+            Log.Information($"Duration: {rec.Duration}");
+            Log.Information($"File Path: {rec.FilePath}");
+        }
+
+        private static async Task StopRecordingSlotCore(int slot)
+        {
+            if (slot < 0 || slot >= MaxSessionSlots)
+                return;
+
+            if (_isStoppingSlot[slot])
+            {
+                Log.Information("StopRecordingSlot({Slot}) called but slot is already stopping.", slot);
+                return;
+            }
+
+            _isStoppingSlot[slot] = true;
+
             try
             {
-                // Check if already stopping or stopped
-                if (_isStoppingOrStopped)
-                {
-                    Log.Information("StopRecording called but already stopping or stopped.");
-                    return;
-                }
-
-                // Mark as stopping to prevent concurrent stop attempts
-                _isStoppingOrStopped = true;
-
-                GeneralUtils.SetProcessPriority(ProcessPriorityClass.Normal);
-
-                StopGameCaptureHookTimeoutTimer();
-
-                RecordingPreviewService.OnRecordingStopped();
+                var pl = Pipeline(slot);
+                var recording = AppState.Instance.GetRecording(slot);
 
                 bool isReplayBufferMode = Settings.Instance.RecordingMode == RecordingMode.Buffer;
                 bool isHybridMode = Settings.Instance.RecordingMode == RecordingMode.Hybrid;
+                bool isSessionMode = Settings.Instance.RecordingMode == RecordingMode.Session;
 
-                if (isReplayBufferMode && _bufferOutput != null)
+                StopGameCaptureHookTimeoutTimer(slot);
+
+                if (recording != null)
+                    AppState.Instance.UpdateRecordingEndTime(DateTime.Now, slot);
+
+                if ((isReplayBufferMode || isHybridMode) && pl.BufferOutput != null)
                 {
-                    // Stop replay buffer
-                    Log.Information("Stopping replay buffer...");
-                    bool successfullyStopped = _bufferOutput.Stop(waitForCompletion: true, timeoutMs: 30000);
+                    Log.Information(isHybridMode ? "Hybrid: Stopping replay buffer (slot {Slot})..." : "Stopping replay buffer (slot {Slot})...", slot);
+                    bool successfullyStopped = pl.BufferOutput.Stop(waitForCompletion: true, timeoutMs: 30000);
 
                     if (successfullyStopped)
                     {
-                        Log.Information("Replay buffer stopped.");
-                        // Small delay just to be sure
+                        Log.Information(isHybridMode ? "Hybrid: Replay buffer stopped (slot {Slot})." : "Replay buffer stopped (slot {Slot}).", slot);
                         Thread.Sleep(200);
                     }
                     else
                     {
-                        Log.Warning("Replay buffer did not stop within timeout. Forcing stop.");
-                        _bufferOutput.ForceStop();
-                        Thread.Sleep(500); // Brief wait after force stop
+                        Log.Warning(isHybridMode ? "Hybrid: Replay buffer did not stop within timeout (slot {Slot}). Forcing stop." : "Replay buffer did not stop within timeout (slot {Slot}). Forcing stop.", slot);
+                        pl.BufferOutput.ForceStop();
+                        Thread.Sleep(500);
                     }
-
-                    DisposeOutput();
-                    DisposeSources();
-                    DisposeEncoders();
-
-                    NotifyIconService.SetNotifyIconStatus(NotifyIconState.Idle);
-
-                    Log.Information("Replay buffer stopped and disposed.");
-
-                    _ = GameIntegrationService.Shutdown();
-                    KeybindCaptureService.Stop();
-
-                    // Reload content list
-                    await SettingsService.LoadContentFromFolderIntoState(false);
                 }
-                else if (!isReplayBufferMode && !isHybridMode && AnySessionOutputActive())
+
+                if (pl.SessionOutput != null)
                 {
-                    if (AppState.Instance.Recording != null)
-                        AppState.Instance.UpdateRecordingEndTime(DateTime.Now);
+                    Log.Information(isHybridMode ? "Hybrid: Stopping recording..." : "Stopping recording...");
+                    bool successfullyStopped = pl.SessionOutput.Stop(waitForCompletion: true, timeoutMs: 30000);
 
-                    var outp = _pipeline.SessionOutput;
-                    if (outp != null)
+                    if (successfullyStopped)
                     {
-                        Log.Information("Stopping recording...");
-                        bool successfullyStopped = outp.Stop(waitForCompletion: true, timeoutMs: 30000);
-
-                        if (successfullyStopped)
-                        {
-                            Log.Information("Recording stopped.");
-                            Thread.Sleep(200);
-                        }
-                        else
-                        {
-                            Log.Warning("Recording did not stop within timeout. Forcing stop.");
-                            outp.ForceStop();
-                            Thread.Sleep(500);
-                        }
+                        Log.Information(isHybridMode ? "Hybrid: Recording stopped." : "Recording stopped.");
+                        Thread.Sleep(200);
                     }
+                    else
+                    {
+                        Log.Warning(isHybridMode ? "Hybrid: Recording did not stop within timeout. Forcing stop." : "Recording did not stop within timeout. Forcing stop.");
+                        pl.SessionOutput.ForceStop();
+                        Thread.Sleep(500);
+                    }
+                }
 
-                    DisposeOutput();
-                    DisposeSources();
-                    DisposeEncoders();
+                DisposeOutput(slot);
+                DisposeSources(slot);
+                DisposeEncoders(slot);
 
-                    NotifyIconService.SetNotifyIconStatus(NotifyIconState.Idle);
+                if (slot == 0)
+                    Obs.SetOutputSource(0, (Scene?)null);
+                DisposeRecordingCanvas(slot);
+                pl.HookedExecutableFileName = null;
 
-                    Log.Information("Session recording(s) stopped and disposed.");
+                if (isSessionMode || isHybridMode)
+                {
+                    await FinalizeSessionFileAsync(recording);
 
-                    _ = GameIntegrationService.Shutdown();
+                    // Load session metadata into AppState before highlight creation (CreateHighlight reads AppState.Content).
+                    await SettingsService.LoadContentFromFolderIntoState(true);
+
+                    if (Settings.Instance.EnableAi && Settings.Instance.AutoGenerateHighlights
+                        && recording?.FilePath != null
+                        && recording.Bookmarks.Any(b => b.Type.IncludeInHighlight()))
+                    {
+                        await AiService.CreateHighlight(Path.GetFileNameWithoutExtension(recording.FilePath));
+                    }
+                }
+
+                AppState.Instance.ClearRecording(slot);
+                ClearPendingPreRecordingForSlot(slot);
+
+                _ = GameIntegrationService.Shutdown(slot);
+
+                RecordingPreviewService.OnRecordingStopped(slot);
+                ClearCapturedWindowDimensions(slot);
+
+                if (!AppState.Instance.HasAnyRecording())
+                {
+                    GeneralUtils.SetProcessPriority(ProcessPriorityClass.Normal);
                     KeybindCaptureService.Stop();
-
-                    async Task FinalizeSessionFileAsync(Recording? rec)
-                    {
-                        if (rec == null || rec.FilePath == null)
-                            return;
-
-                        bool hasManualBookmarks = rec.Bookmarks.Any(b => b.Type == BookmarkType.Manual);
-                        if (Settings.Instance.DiscardSessionsWithoutBookmarks && !hasManualBookmarks)
-                        {
-                            Log.Information("Discarding session recording without manual bookmarks");
-                            try
-                            {
-                                if (File.Exists(rec.FilePath))
-                                {
-                                    File.Delete(rec.FilePath);
-                                    Log.Information($"Deleted video file: {rec.FilePath}");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Warning($"Failed to delete discarded session file: {ex.Message}");
-                            }
-                            return;
-                        }
-
-                        await EnsureFileReady(rec.FilePath!);
-
-                        int? igdbId = !string.IsNullOrEmpty(rec.ExePath)
-                            ? GameUtils.GetIgdbIdFromExePath(rec.ExePath)
-                            : null;
-                        await ContentService.CreateMetadataFile(rec.FilePath!, Content.ContentType.Session, rec.Game, rec.Bookmarks, igdbId: igdbId, audioTrackNames: rec.AudioTrackNames);
-                        await ContentService.CreateThumbnail(rec.FilePath!, Content.ContentType.Session);
-                        string sessionFilePath = rec.FilePath!;
-                        _ = Task.Run(async () => await ContentService.CreateWaveformFile(sessionFilePath, Content.ContentType.Session));
-
-                        Log.Information("Recording details:");
-                        Log.Information($"Start Time: {rec.StartTime}");
-                        Log.Information($"End Time: {rec.EndTime}");
-                        Log.Information($"Duration: {rec.Duration}");
-                        Log.Information($"File Path: {rec.FilePath}");
-                    }
-
-                    var sessionRec0 = AppState.Instance.Recording;
-
-                    await FinalizeSessionFileAsync(sessionRec0);
-
+                    NotifyIconService.SetNotifyIconStatus(NotifyIconState.Idle);
+                    CapturedWindowWidth = null;
+                    CapturedWindowHeight = null;
+                    ClearAllCapturedWindowDimensions();
                     await VrChatVvmwIntegration.FlushDeferredClipsAsync();
-
-                    if (Settings.Instance.EnableAi && Settings.Instance.AutoGenerateHighlights)
-                    {
-                        if (sessionRec0 != null && sessionRec0.FilePath != null && sessionRec0.Bookmarks.Any(b => b.Type.IncludeInHighlight()))
-                            _ = AiService.CreateHighlight(Path.GetFileNameWithoutExtension(sessionRec0.FilePath));
-                    }
-
-                    await SettingsService.LoadContentFromFolderIntoState(false);
-
-                    AppState.Instance.Recording = null;
-                    ClearAllPendingPreRecordings();
                 }
-                else if (isHybridMode)
+            }
+            finally
+            {
+                _isStoppingSlot[slot] = false;
+            }
+        }
+
+        /// <summary>
+        /// Schedules an async slot stop. Uses a method parameter so the slot is captured by value,
+        /// avoiding C# for-loop closure bugs where all lambdas see the final loop index.
+        /// </summary>
+        private static void ScheduleStopRecordingSlot(int slot)
+        {
+            _ = Task.Run(() => StopRecordingSlot(slot));
+        }
+
+        public static async Task StopRecordingSlot(int slot)
+        {
+            if (slot < 0 || slot >= MaxSessionSlots)
+                return;
+
+            Log.Information("StopRecordingSlot({Slot}) requested.", slot);
+
+            // Unblock StartRecording window-wait loops waiting on this pre-recording entry.
+            ClearPendingPreRecordingForSlot(slot);
+
+            await _slotLifecycleLocks[slot].WaitAsync();
+            _slotLifecycleLocks[slot].Release();
+
+            await _stopRecordingSemaphore.WaitAsync();
+            try
+            {
+                if (!ShouldStopSlot(slot))
                 {
-                    if (AppState.Instance.Recording != null)
-                        AppState.Instance.UpdateRecordingEndTime(DateTime.Now);
-
-                    // Stop replay buffer first if running
-                    if (_bufferOutput != null)
-                    {
-                        Log.Information("Hybrid: Stopping replay buffer...");
-                        bool successfullyStopped = _bufferOutput.Stop(waitForCompletion: true, timeoutMs: 30000);
-
-                        if (successfullyStopped)
-                        {
-                            Log.Information("Hybrid: Replay buffer stopped.");
-                            // Small delay just to be sure
-                            Thread.Sleep(200);
-                        }
-                        else
-                        {
-                            Log.Warning("Hybrid: Replay buffer did not stop within timeout. Forcing stop.");
-                            _bufferOutput.ForceStop();
-                            Thread.Sleep(500);
-                        }
-                    }
-
-                    // Stop session recording
-                    if (_output != null)
-                    {
-                        Log.Information("Hybrid: Stopping recording...");
-                        bool successfullyStopped = _output.Stop(waitForCompletion: true, timeoutMs: 30000);
-
-                        if (successfullyStopped)
-                        {
-                            Log.Information("Hybrid: Recording stopped.");
-                            // Small delay just to be sure
-                            Thread.Sleep(200);
-                        }
-                        else
-                        {
-                            Log.Warning("Hybrid: Recording did not stop within timeout. Forcing stop.");
-                            _output.ForceStop();
-                            Thread.Sleep(500);
-                        }
-                    }
-
-                    DisposeOutput();
-                    DisposeSources();
-                    DisposeEncoders();
-
-                    NotifyIconService.SetNotifyIconStatus(NotifyIconState.Idle);
-
-                    Log.Information("Hybrid: All outputs stopped and disposed.");
-
-                    _ = GameIntegrationService.Shutdown();
-                    KeybindCaptureService.Stop();
-
-                    if (AppState.Instance.Recording != null && AppState.Instance.Recording.FilePath != null)
-                    {
-                        // Check if we should discard the session due to no manual bookmarks
-                        bool hasManualBookmarks = AppState.Instance.Recording.Bookmarks.Any(b => b.Type == BookmarkType.Manual);
-                        if (Settings.Instance.DiscardSessionsWithoutBookmarks && !hasManualBookmarks)
-                        {
-                            Log.Information("Hybrid: Discarding session recording without manual bookmarks");
-                            try
-                            {
-                                if (File.Exists(AppState.Instance.Recording.FilePath))
-                                {
-                                    File.Delete(AppState.Instance.Recording.FilePath);
-                                    Log.Information($"Deleted video file: {AppState.Instance.Recording.FilePath}");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Warning($"Failed to delete discarded session file: {ex.Message}");
-                            }
-                        }
-                        else
-                        {
-                            // Ensure file is fully written to disk/network before thumbnail generation
-                            await EnsureFileReady(AppState.Instance.Recording.FilePath!);
-
-                            int? igdbId = !string.IsNullOrEmpty(AppState.Instance.Recording.ExePath)
-                                ? GameUtils.GetIgdbIdFromExePath(AppState.Instance.Recording.ExePath)
-                                : null;
-                            string hybridSessionFilePath = AppState.Instance.Recording.FilePath!;
-                            await ContentService.CreateMetadataFile(hybridSessionFilePath, Content.ContentType.Session, AppState.Instance.Recording.Game, AppState.Instance.Recording.Bookmarks, igdbId: igdbId, audioTrackNames: AppState.Instance.Recording.AudioTrackNames);
-                            await ContentService.CreateThumbnail(hybridSessionFilePath, Content.ContentType.Session);
-                            _ = Task.Run(async () => await ContentService.CreateWaveformFile(hybridSessionFilePath, Content.ContentType.Session));
-                            await VrChatVvmwIntegration.FlushDeferredClipsAsync();
-                        }
-                    }
-
-                    await SettingsService.LoadContentFromFolderIntoState(false);
-                }
-                else
-                {
-                    DisposeOutput();
-                    DisposeSources();
-                    DisposeEncoders();
-                    AppState.Instance.Recording = null;
-                    ClearAllPendingPreRecordings();
-                }
-
-                await StorageService.EnsureStorageBelowLimit();
-
-                // Reset hooked executable file name and captured dimensions
-                _hookedExecutableFileName = null;
-                CapturedWindowWidth = null;
-                CapturedWindowHeight = null;
-
-                // If the recording ends before it started, don't do anything (session+dual paths clear state earlier)
-                if (AppState.Instance.Recording == null || (!isReplayBufferMode && AppState.Instance.Recording.FilePath == null))
-                {
-                    ClearAllPendingPreRecordings();
+                    Log.Information("StopRecordingSlot({Slot}) called but slot is not active.", slot);
                     return;
                 }
 
-                // Get the file path before nullifying the recording (FilePath is not null at this point because of the previous check)
-                string filePath = AppState.Instance.Recording.FilePath!;
-
-                // Get the bookmarks before nullifying the recording
-                List<Bookmark> bookmarks = AppState.Instance.Recording.Bookmarks;
-
-                // Reset the recording and pre-recording
-                AppState.Instance.Recording = null;
-                ClearAllPendingPreRecordings();
-
-                // If the recording is not a replay buffer recording, AI is enabled, user is authenticated, and auto generate highlights is enabled -> analyze the video!
-                if (Settings.Instance.EnableAi && Settings.Instance.AutoGenerateHighlights && !isReplayBufferMode && bookmarks.Any(b => b.Type.IncludeInHighlight()))
-                {
-                    string fileName = Path.GetFileNameWithoutExtension(filePath);
-                    _ = AiService.CreateHighlight(fileName);
-                }
+                await StopRecordingSlotCore(slot);
+                await StorageService.EnsureStorageBelowLimit();
             }
             finally
             {
                 _stopRecordingSemaphore.Release();
             }
+        }
+
+        public static async Task StopRecording()
+        {
+            var slotsToStop = new List<int>();
+            for (int i = 0; i < MaxSessionSlots; i++)
+            {
+                if (AppState.Instance.GetPreRecording(i) != null || ShouldStopSlot(i))
+                    slotsToStop.Add(i);
+            }
+
+            if (slotsToStop.Count == 0)
+            {
+                Log.Information("StopRecording called but no active slots.");
+                return;
+            }
+
+            foreach (int slot in slotsToStop)
+                await StopRecordingSlot(slot);
         }
 
         /// <summary>
@@ -1716,34 +2102,25 @@ namespace Segra.Backend.Recorder
         {
             try
             {
-                _ = slotIndex;
-                // GameCapture now provides hooked info directly via its properties
+                var pl = Pipeline(slotIndex);
                 string? title = capture.HookedWindowTitle?.Trim();
                 string? windowClass = capture.HookedWindowClass?.Trim();
                 string? executable = capture.HookedExecutable?.Trim();
 
-                // IsHooked is now managed by GameCapture automatically
                 Log.Information($"Game hooked: Title='{title}', Class='{windowClass}', Executable='{executable}'");
 
-                StopGameCaptureHookTimeoutTimer();
+                StopGameCaptureHookTimeoutTimer(slotIndex);
 
-                // Remove display capture to save resources while game is hooked
-                DisposeDisplaySource();
+                DisposeDisplaySource(slotIndex);
 
-                var sl = _pipeline;
-                // Switch output audio: mute desktop sources and unmute game/discord sources.
-                // When using hybrid multi-track (master = mic+desktop, game/discord on other tracks), do not mute
-                // desktop ??muting removes it from all mixers so Track 1 would lose desktop audio.
                 var audioOutputMode = Settings.Instance.AudioOutputMode;
                 if (audioOutputMode != AudioOutputMode.All)
                 {
-                    // Separate tracks implies output capture may be routed to iso tracks + master; muting on hook
-                    // would drop those tracks entirely (not only the old "fallback duplicate" case).
                     bool preserveDesktopForHybridTracks = Settings.Instance.EnableSeparateAudioTracks;
 
                     if (!preserveDesktopForHybridTracks)
                     {
-                        foreach (var desktopSource in sl.DesktopSources)
+                        foreach (var desktopSource in EnumerateDesktopSources())
                         {
                             try { desktopSource.IsMuted = true; }
                             catch (Exception ex) { Log.Warning($"Failed to mute desktop source: {ex.Message}"); }
@@ -1755,17 +2132,33 @@ namespace Segra.Backend.Recorder
                         Log.Information("Keeping desktop audio sources active (separate audio tracks: do not mute output capture on hook).");
                     }
 
-                    if (audioOutputMode == AudioOutputMode.GameAndDiscord && sl.DiscordAudioSource != null)
+                    var discordSource = FindDiscordAudioSource();
+                    if (audioOutputMode == AudioOutputMode.GameAndDiscord && discordSource != null)
                     {
-                        try { sl.DiscordAudioSource.IsMuted = false; }
+                        try { discordSource.IsMuted = false; }
                         catch (Exception ex) { Log.Warning($"Failed to unmute Discord source: {ex.Message}"); }
                         Log.Information("Unmuted Discord audio source (game hooked)");
                     }
                 }
 
-                if (AppState.Instance.Recording != null)
+                var recording = AppState.Instance.GetRecording(slotIndex);
+                if (recording != null)
                 {
-                    AppState.Instance.Recording.IsUsingGameHook = true;
+                    recording.IsUsingGameHook = true;
+
+                    if (!string.IsNullOrEmpty(executable))
+                    {
+                        pl.HookedExecutableFileName = Path.GetFileName(executable);
+                        recording.FileName = pl.HookedExecutableFileName;
+
+                        int? hookedPid = TryResolveHookedProcessId(executable, slotIndex);
+                        if (hookedPid.HasValue)
+                        {
+                            recording.Pid = hookedPid;
+                            Log.Information("Updated recording slot {Slot} tracked PID to {Pid} ({Exe})", slotIndex, hookedPid, pl.HookedExecutableFileName);
+                        }
+                    }
+
                     _ = SendSettingsToFrontend("Updated game hook");
                 }
             }
@@ -1781,35 +2174,57 @@ namespace Segra.Backend.Recorder
         /// </summary>
         private static void OnGameCaptureUnhookedEvent(GameCapture capture, int slotIndex)
         {
-            _ = slotIndex;
-            // IsHooked is now managed by GameCapture automatically
+            _ = capture;
             Log.Information("Game unhooked.");
 
-            var sl = _pipeline;
-            // Switch output audio back: unmute desktop sources and mute discord source
             var audioOutputMode = Settings.Instance.AudioOutputMode;
             if (audioOutputMode != AudioOutputMode.All)
             {
-                foreach (var desktopSource in sl.DesktopSources)
+                // Only restore desktop/Discord fallback when no other slot still has a hooked game.
+                bool anotherSlotStillHooked = false;
+                for (int i = 0; i < MaxSessionSlots; i++)
                 {
-                    try { desktopSource.IsMuted = false; }
-                    catch (Exception ex) { Log.Warning($"Failed to unmute desktop source: {ex.Message}"); }
+                    if (i == slotIndex) continue;
+                    if (IsSlotCaptureHooked(i))
+                    {
+                        anotherSlotStillHooked = true;
+                        break;
+                    }
                 }
-                Log.Information("Unmuted desktop audio sources (game unhooked, falling back to desktop audio)");
 
-                if (audioOutputMode == AudioOutputMode.GameAndDiscord && sl.DiscordAudioSource != null)
+                if (!anotherSlotStillHooked)
                 {
-                    try { sl.DiscordAudioSource.IsMuted = true; }
-                    catch (Exception ex) { Log.Warning($"Failed to mute Discord source: {ex.Message}"); }
-                    Log.Information("Muted Discord audio source (game unhooked)");
+                    foreach (var desktopSource in EnumerateDesktopSources())
+                    {
+                        try { desktopSource.IsMuted = false; }
+                        catch (Exception ex) { Log.Warning($"Failed to unmute desktop source: {ex.Message}"); }
+                    }
+                    Log.Information("Unmuted desktop audio sources (game unhooked, falling back to desktop audio)");
+
+                    var discordSource = FindDiscordAudioSource();
+                    if (audioOutputMode == AudioOutputMode.GameAndDiscord && discordSource != null)
+                    {
+                        try { discordSource.IsMuted = true; }
+                        catch (Exception ex) { Log.Warning($"Failed to mute Discord source: {ex.Message}"); }
+                        Log.Information("Muted Discord audio source (game unhooked)");
+                    }
+                }
+                else
+                {
+                    Log.Information(
+                        "Keeping shared desktop/Discord mute state (another slot is still hooked)");
                 }
             }
+
+            var recording = AppState.Instance.GetRecording(slotIndex);
+            if (recording != null)
+                recording.IsUsingGameHook = false;
         }
 
-        private static void OnReplaySaved(nint calldata)
+        private static void OnReplaySaved(int slot)
         {
-            _replaySaved = true;
-            Log.Information("Replay buffer saved callback received");
+            _replaySavedBySlot[slot] = true;
+            Log.Information("Replay buffer saved callback received (slot {Slot})", slot);
         }
 
         private static void SetForceMono(Source source, bool forceMono)
@@ -1833,210 +2248,240 @@ namespace Segra.Backend.Recorder
             }
         }
 
-        public static void DisposeSources()
+        private static void CreateRecordingScene(int slot, SessionPipeline pl, uint? canvasWidth = null, uint? canvasHeight = null)
         {
-            var sl = _pipeline;
+            if (slot == 0)
+            {
+                pl.MainScene = new Scene($"Recording Scene {slot}");
+                Log.Information("Created recording scene on main canvas (slot {Slot})", slot);
+                return;
+            }
 
-            if (sl.MainScene != null)
+            var (width, height) = EnsureEvenDimensions(
+                canvasWidth ?? _currentBaseWidth,
+                canvasHeight ?? _currentBaseHeight);
+
+            pl.RecordingCanvas = Canvas.Create(
+                ObsName(slot, "Recording Canvas"),
+                width,
+                height);
+            pl.MainScene = pl.RecordingCanvas.CreateScene($"Recording Scene {slot}");
+            pl.RecordingCanvas.SetScene(pl.MainScene);
+            Log.Information("Created recording scene on dedicated canvas (slot {Slot}, {Width}x{Height})", slot, width, height);
+        }
+
+        private static void DisposeRecordingCanvas(int slot)
+        {
+            var pl = Pipeline(slot);
+            if (pl.RecordingCanvas == null)
+                return;
+
+            try
+            {
+                pl.RecordingCanvas.Dispose();
+                Log.Information("Recording canvas disposed (slot {Slot})", slot);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Failed to dispose recording canvas (slot {slot}): {ex.Message}");
+            }
+
+            pl.RecordingCanvas = null;
+        }
+
+        public static void DisposeSources(int slot)
+        {
+            var pl = Pipeline(slot);
+
+            lock (_sharedAudioLock)
+            {
+                // If this slot owns shared WASAPI/Discord and another slot is still active,
+                // transfer ownership so the remaining recording keeps mic/desktop/Discord.
+                if (PipelineOwnsSharedAudio(pl) && IsAnotherSlotRecording(slot))
+                {
+                    int otherSlot = FindOtherActiveSlot(slot);
+                    if (otherSlot >= 0)
+                        TransferSharedAudioOwnership(pl, Pipeline(otherSlot));
+                }
+            }
+
+            if (pl.MainScene != null)
             {
                 try
                 {
-                    sl.MainScene.Dispose();
+                    pl.MainScene.Dispose();
                     Log.Information("Scene disposed");
                 }
                 catch (Exception ex)
                 {
                     Log.Warning($"Failed to dispose scene: {ex.Message}");
                 }
-                sl.MainScene = null;
+                pl.MainScene = null;
             }
 
-            sl.GameCaptureItem = null;
-            sl.DisplayItem = null;
+            pl.GameCaptureItem = null;
+            pl.DisplayItem = null;
 
-            DisposeDisplaySource();
-            DisposeGameCaptureSource();
+            DisposeDisplaySource(slot);
+            DisposeGameCaptureSource(slot);
 
-            foreach (var micSource in sl.MicSources)
+            lock (_sharedAudioLock)
             {
-                try
+                // Only dispose shared audio when no other slot still needs it.
+                if (PipelineOwnsSharedAudio(pl) && !IsAnotherSlotRecording(slot))
+                    DisposeOwnedSharedAudioSources(pl);
+                else if (PipelineOwnsSharedAudio(pl))
                 {
-                    micSource.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"Failed to dispose mic source: {ex.Message}");
+                    // Safety: another slot became active between checks — transfer instead of disposing.
+                    int otherSlot = FindOtherActiveSlot(slot);
+                    if (otherSlot >= 0)
+                        TransferSharedAudioOwnership(pl, Pipeline(otherSlot));
+                    else
+                        DisposeOwnedSharedAudioSources(pl);
                 }
             }
-            sl.MicSources.Clear();
 
-            foreach (var desktopSource in sl.DesktopSources)
-            {
-                try
-                {
-                    desktopSource.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"Failed to dispose desktop source: {ex.Message}");
-                }
-            }
-            sl.DesktopSources.Clear();
-
-            if (sl.DiscordAudioSource != null)
-            {
-                try
-                {
-                    sl.DiscordAudioSource.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"Failed to dispose Discord audio source: {ex.Message}");
-                }
-                sl.DiscordAudioSource = null;
-            }
+            DisposeRecordingCanvas(slot);
         }
 
-        public static void DisposeGameCaptureSource()
+        public static void DisposeGameCaptureSource(int slot)
         {
-            var sl = _pipeline;
-            if (sl.GameCaptureItem != null)
+            var pl = Pipeline(slot);
+            if (pl.GameCaptureItem != null)
             {
                 try
                 {
-                    sl.GameCaptureItem.Remove();
+                    pl.GameCaptureItem.Remove();
                 }
                 catch (Exception ex)
                 {
                     Log.Warning($"Failed to remove game capture scene item: {ex.Message}");
                 }
-                sl.GameCaptureItem = null;
+                pl.GameCaptureItem = null;
             }
 
-            if (sl.GameCapture != null)
+            if (pl.GameCapture != null)
             {
                 try
                 {
-                    if (sl.HookedSubscription != null)
-                        sl.GameCapture.Hooked -= sl.HookedSubscription;
-                    if (sl.UnhookedSubscription != null)
-                        sl.GameCapture.Unhooked -= sl.UnhookedSubscription;
+                    if (pl.HookedSubscription != null)
+                        pl.GameCapture.Hooked -= pl.HookedSubscription;
+                    if (pl.UnhookedSubscription != null)
+                        pl.GameCapture.Unhooked -= pl.UnhookedSubscription;
                 }
                 catch (Exception ex)
                 {
                     Log.Warning($"Failed to unsubscribe from game capture events: {ex.Message}");
                 }
 
-                sl.HookedSubscription = null;
-                sl.UnhookedSubscription = null;
+                pl.HookedSubscription = null;
+                pl.UnhookedSubscription = null;
 
                 try
                 {
-                    sl.GameCapture.Dispose();
+                    pl.GameCapture.Dispose();
                 }
                 catch (Exception ex)
                 {
                     Log.Warning($"Failed to dispose game capture source: {ex.Message}");
                 }
-                sl.GameCapture = null;
+                pl.GameCapture = null;
             }
-            // Dispose the timer if it exists
-            StopGameCaptureHookTimeoutTimer();
+
+            StopGameCaptureHookTimeoutTimer(slot);
         }
 
         private static void StartGameCaptureHookTimeoutTimer(int slotIndex)
         {
-            _ = slotIndex;
-            StopGameCaptureHookTimeoutTimer();
+            StopGameCaptureHookTimeoutTimer(slotIndex);
 
-            // Create a new timer that checks after 90 seconds
-            _gameCaptureHookTimeoutTimer = new System.Threading.Timer(
+            var pl = Pipeline(slotIndex);
+            pl.GameCaptureHookTimeoutTimer = new System.Threading.Timer(
                 CheckGameCaptureHookStatus,
-                null,
-                90000, // 90 seconds delay
-                Timeout.Infinite // Don't repeat
+                slotIndex,
+                90000,
+                Timeout.Infinite
             );
 
-            Log.Information("Started game capture hook timer (90 seconds)");
+            Log.Information("Started game capture hook timer (90 seconds) for slot {Slot}", slotIndex);
         }
 
-        private static void StopGameCaptureHookTimeoutTimer()
+        private static void StopGameCaptureHookTimeoutTimer(int slot)
         {
-            if (_gameCaptureHookTimeoutTimer != null)
+            var pl = Pipeline(slot);
+            if (pl.GameCaptureHookTimeoutTimer != null)
             {
-                _gameCaptureHookTimeoutTimer.Dispose();
-                _gameCaptureHookTimeoutTimer = null;
-                Log.Information("Stopped game capture hook timer");
+                pl.GameCaptureHookTimeoutTimer.Dispose();
+                pl.GameCaptureHookTimeoutTimer = null;
+                Log.Information("Stopped game capture hook timer for slot {Slot}", slot);
             }
         }
 
         private static void CheckGameCaptureHookStatus(object? state)
         {
-            bool hooked = _pipeline.GameCapture?.IsHooked ?? false;
-            // Check if game capture has hooked
+            if (state is not int slot)
+                return;
+
+            var pl = Pipeline(slot);
+            bool hooked = pl.GameCapture?.IsHooked ?? false;
             if (!hooked)
             {
-                Log.Warning("Game capture did not hook within 90 seconds. Removing game capture source.");
-                DisposeGameCaptureSource();
+                Log.Warning("Game capture did not hook within 90 seconds for slot {Slot}. Removing game capture source.", slot);
+                DisposeGameCaptureSource(slot);
             }
             else
             {
-                Log.Information("Game capture hook check completed. Hook status: {0}", hooked ? "Hooked" : "Not hooked");
-                // Just stop the timer without disposing the game capture source if it's hooked
-                StopGameCaptureHookTimeoutTimer();
+                Log.Information("Game capture hook check completed for slot {Slot}. Hook status: {Status}", slot, hooked ? "Hooked" : "Not hooked");
+                StopGameCaptureHookTimeoutTimer(slot);
             }
         }
 
-        public static void DisposeDisplaySource()
+        public static void DisposeDisplaySource(int slot)
         {
-            var sl = _pipeline;
-            if (sl.DisplayItem != null)
+            var pl = Pipeline(slot);
+            if (pl.DisplayItem != null)
             {
                 try
                 {
                     Log.Information("Removing display scene item from scene");
-                    sl.DisplayItem.Remove();
+                    pl.DisplayItem.Remove();
                 }
                 catch (Exception ex)
                 {
                     Log.Warning($"Failed to remove display scene item: {ex.Message}");
                 }
-                sl.DisplayItem = null;
+                pl.DisplayItem = null;
             }
 
-            if (sl.DisplaySource != null)
+            if (pl.DisplaySource != null)
             {
                 try
                 {
                     Log.Information("Disposing display source (expect OBS 'source destroyed' log to confirm WGC cleanup)");
-                    sl.DisplaySource.Dispose();
+                    pl.DisplaySource.Dispose();
                 }
                 catch (Exception ex)
                 {
                     Log.Warning($"Failed to dispose display source: {ex.Message}");
                 }
-                sl.DisplaySource = null;
+                pl.DisplaySource = null;
             }
         }
 
-        /// <summary>
-        /// Clears encoder references. Encoders are auto-disposed by OBSKit.NET when outputs stop.
-        /// </summary>
-        public static void DisposeEncoders()
+        public static void DisposeEncoders(int slot)
         {
-            _pipeline.VideoEncoder = null;
-            _pipeline.AudioEncoders.Clear();
+            var pl = Pipeline(slot);
+            pl.VideoEncoder = null;
+            pl.AudioEncoders.Clear();
         }
 
-        /// <summary>
-        /// Clears output references and signal connections. Outputs are auto-disposed by OBSKit.NET when Stop() is called.
-        /// </summary>
-        public static void DisposeOutput()
+        public static void DisposeOutput(int slot)
         {
-            _replaySavedConnection?.Dispose();
-            _replaySavedConnection = null;
-            _pipeline.SessionOutput = null;
-            _bufferOutput = null;
+            var pl = Pipeline(slot);
+            pl.ReplaySavedConnection?.Dispose();
+            pl.ReplaySavedConnection = null;
+            pl.BufferOutput = null;
+            pl.SessionOutput = null;
         }
 
         public static async Task AvailableOBSVersionsAsync()
@@ -2484,12 +2929,28 @@ namespace Segra.Backend.Recorder
         /// </summary>
         public static byte[]? TryGetRecordingPreviewJpeg(int maxEdgePixels = 220)
         {
-            if (!IsInitialized || _pipeline.MainScene == null)
+            for (int slot = 0; slot < MaxSessionSlots; slot++)
+            {
+                var jpeg = TryGetRecordingPreviewJpeg(slot, maxEdgePixels);
+                if (jpeg != null)
+                    return jpeg;
+            }
+
+            return null;
+        }
+
+        public static byte[]? TryGetRecordingPreviewJpeg(int slot, int maxEdgePixels = 220)
+        {
+            if (!IsInitialized || slot < 0 || slot >= MaxSessionSlots)
+                return null;
+
+            var pl = Pipeline(slot);
+            if (pl.MainScene == null)
                 return null;
 
             try
             {
-                var gcap = _pipeline.GameCapture;
+                var gcap = pl.GameCapture;
                 if (gcap is { IsHooked: true })
                 {
                     uint sw = gcap.Width;
@@ -2502,7 +2963,7 @@ namespace Segra.Backend.Recorder
                     }
                 }
 
-                var disp = _pipeline.DisplaySource;
+                var disp = pl.DisplaySource;
                 if (disp != null)
                 {
                     uint sw = disp.Width;
@@ -2514,14 +2975,13 @@ namespace Segra.Backend.Recorder
                             return EncodeBgraScreenshotToJpeg(shot.Pixels, shot.Width, shot.Height, maxEdgePixels);
                     }
                 }
-
-                return null;
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "TryGetRecordingPreviewJpeg failed");
-                return null;
+                Log.Warning(ex, "TryGetRecordingPreviewJpeg failed for slot {Slot}", slot);
             }
+
+            return null;
         }
 
         private static byte[] EncodeBgraScreenshotToJpeg(byte[] pixels, uint width, uint height, int maxEdgePixels)

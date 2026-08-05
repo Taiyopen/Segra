@@ -21,7 +21,9 @@ function getThumbnailPath(cacheFolder: string, video: Content): string {
           ? 'Clips'
           : video.type === 'PendingEdit'
             ? '待剪輯'
-            : 'Highlights';
+            : video.type === 'External'
+              ? '瀏覽影片'
+              : 'Highlights';
   const thumbnailPath = `${cacheFolder}/thumbnails/${folderName}/${video.fileName}.jpeg`;
   return `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(thumbnailPath)}`;
 }

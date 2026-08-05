@@ -140,7 +140,7 @@ namespace Segra.Backend.Games.Pubg
                         !string.Equals(cleanVictim, cleanRecordName, StringComparison.OrdinalIgnoreCase))
                     {
                         var downTime = MatchTimestampToLocal(matchInfo.Timestamp, eventTime);
-                        var recording = AppState.Instance.Recording;
+                        var recording = ActiveRecording;
                         var bookmarkTime = downTime - recording?.StartTime ?? TimeSpan.Zero;
 
                         // Skip events that occurred before recording started
@@ -181,7 +181,7 @@ namespace Segra.Backend.Games.Pubg
                         if (!eventData.IsDBNO)
                         {
                             var killTime = MatchTimestampToLocal(matchInfo.Timestamp, eventTime);
-                            var recording = AppState.Instance.Recording;
+                            var recording = ActiveRecording;
                             var bookmarkTime = killTime - recording?.StartTime ?? TimeSpan.Zero;
 
                             // Skip events that occurred before recording started
@@ -217,7 +217,7 @@ namespace Segra.Backend.Games.Pubg
                     if (string.Equals(cleanVictim, cleanRecordName, StringComparison.OrdinalIgnoreCase))
                     {
                         var downTime = MatchTimestampToLocal(matchInfo.Timestamp, eventTime);
-                        var recording = AppState.Instance.Recording;
+                        var recording = ActiveRecording;
                         var bookmarkTime = downTime - recording?.StartTime ?? TimeSpan.Zero;
 
                         // Skip events that occurred before recording started
@@ -256,7 +256,7 @@ namespace Segra.Backend.Games.Pubg
                         if (!eventData.IsDBNO)
                         {
                             var deathTime = MatchTimestampToLocal(matchInfo.Timestamp, eventTime);
-                            var recording = AppState.Instance.Recording;
+                            var recording = ActiveRecording;
                             var bookmarkTime = deathTime - recording?.StartTime ?? TimeSpan.Zero;
 
                             // Skip events that occurred before recording started

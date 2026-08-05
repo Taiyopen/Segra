@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useAppState } from '../Context/AppStateContext';
+import { matchesContentCategory, useSelectedVideo } from '../Context/SelectedVideoContext';
 import { Content, ContentType } from '../Models/types';
 import type { SortOption } from '../Components/ContentFilters';
 
@@ -11,6 +12,8 @@ function getSectionId(contentType: ContentType): string {
       return 'replayBuffer';
     case 'PendingEdit':
       return 'pendingEdit';
+    case 'External':
+      return 'externalLibrary';
     case 'Clip':
       return 'clips';
     case 'Highlight':
@@ -48,10 +51,19 @@ function sortContentItems(items: Content[], sortOption: SortOption): Content[] {
 
 export function useContentPlaylist(currentVideo: Content) {
   const appState = useAppState();
-  const sectionId = getSectionId(currentVideo.type);
+  const { stickySourceCategory } = useSelectedVideo();
+
+  const viewType: ContentType =
+    stickySourceCategory?.fileName === currentVideo.fileName
+      ? stickySourceCategory.sourceType
+      : currentVideo.type;
+
+  const sectionId = getSectionId(viewType);
 
   const playlist = useMemo(() => {
-    const contentItems = appState.content.filter((video) => video.type === currentVideo.type);
+    const contentItems = appState.content.filter((video) =>
+      matchesContentCategory(video, viewType, stickySourceCategory),
+    );
 
     let selectedGames: string[] = [];
     let sortOption: SortOption = 'newest';
@@ -73,12 +85,12 @@ export function useContentPlaylist(currentVideo: Content) {
     }
 
     return sortContentItems(filtered, sortOption);
-  }, [appState.content, currentVideo.type, sectionId]);
+  }, [appState.content, viewType, sectionId, stickySourceCategory]);
 
   const currentIndex = playlist.findIndex((v) => v.fileName === currentVideo.fileName);
   const prevVideo = currentIndex > 0 ? playlist[currentIndex - 1] : null;
   const nextVideo =
     currentIndex >= 0 && currentIndex < playlist.length - 1 ? playlist[currentIndex + 1] : null;
 
-  return { playlist, currentIndex, prevVideo, nextVideo };
+  return { playlist, currentIndex, prevVideo, nextVideo, viewType };
 }

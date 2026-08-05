@@ -12,7 +12,7 @@ import { useContentMigration } from '../../Context/ContentMigrationContext';
 
 const normalizePath = (path: string) => path.replace(/\\/g, '/').replace(/\/+$/, '');
 
-const TYPE_FOLDERS = ['Full Sessions', 'Replay Buffers', 'Clips', 'Highlights'];
+const TYPE_FOLDERS = ['Full Sessions', 'Replay Buffers', 'Clips', 'Highlights', '待剪輯'];
 
 // The recording-path root a file currently lives under (the part before its content-type folder).
 const deriveSourceRoot = (filePath: string) => {

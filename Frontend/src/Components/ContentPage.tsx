@@ -1,11 +1,11 @@
 import { useAppState } from '../Context/AppStateContext';
 import ContentCard from './ContentCard';
-import { useSelectedVideo } from '../Context/SelectedVideoContext';
+import { matchesContentCategory, useSelectedVideo } from '../Context/SelectedVideoContext';
 import { Content, ContentType } from '../Models/types';
 import { useScroll } from '../Context/ScrollContext';
 import { useLayoutEffect, useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { FileUp, Trash2, Inbox } from 'lucide-react';
+import { FileUp, Trash2, Inbox, FolderOutput } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import ContentFilters, { SortOption } from './ContentFilters';
@@ -37,7 +37,7 @@ export default function ContentPage({
   progressCardElement,
 }: ContentPageProps) {
   const state = useAppState();
-  const { setSelectedVideo } = useSelectedVideo();
+  const { setSelectedVideo, stickySourceCategory } = useSelectedVideo();
   const { scrollPositions, setScrollPosition } = useScroll();
   const { isModalOpen } = useModal();
   const { imports } = useImports();
@@ -55,7 +55,9 @@ export default function ContentPage({
   const [highlightedFileName, setHighlightedFileName] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const contentItems = state.content.filter((video) => video.type === contentType);
+  const contentItems = state.content.filter((video) =>
+    matchesContentCategory(video, contentType, stickySourceCategory),
+  );
   const [selectedGames, setSelectedGames] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(`${sectionId}-filters`);
@@ -163,27 +165,67 @@ export default function ContentPage({
   const handleDeleteSelected = useCallback(() => {
     if (selectedItems.size === 0) return;
 
-    const items = Array.from(selectedItems).map((fileName) => ({
-      FileName: fileName,
-      ContentType: contentType,
-    }));
+    const items = Array.from(selectedItems).map((fileName) => {
+      const item = state.content.find((c) => c.fileName === fileName);
+      return {
+        FileName: fileName,
+        ContentType: item?.type ?? contentType,
+      };
+    });
 
     sendMessageToBackend('DeleteMultipleContent', { Items: items });
     setSelectedItems(new Set());
-  }, [selectedItems, contentType]);
+  }, [selectedItems, contentType, state.content]);
 
   const handleMoveSelectedToPendingEdit = useCallback(() => {
     if (selectedItems.size === 0) return;
     if (contentType !== 'Session' && contentType !== 'Buffer') return;
 
-    const items = Array.from(selectedItems).map((fileName) => ({
-      FileName: fileName,
-      ContentType: contentType,
-    }));
+    const items = Array.from(selectedItems).flatMap((fileName) => {
+      const item = state.content.find((c) => c.fileName === fileName);
+      // Skip items already moved to pending edit (sticky leftovers)
+      if (item?.type === 'PendingEdit') return [];
+      const sourceType =
+        item?.type === 'Session' || item?.type === 'Buffer' ? item.type : contentType;
+      return [{ FileName: fileName, ContentType: sourceType }];
+    });
+
+    if (items.length === 0) {
+      setSelectedItems(new Set());
+      return;
+    }
 
     sendMessageToBackend('MoveToPendingEdit', { Items: items });
     setSelectedItems(new Set());
-  }, [selectedItems, contentType]);
+  }, [selectedItems, contentType, state.content]);
+
+  const handleMoveSelectedOutOfPendingEdit = useCallback(
+    (targetType?: 'Session' | 'Buffer') => {
+      if (selectedItems.size === 0) return;
+      if (contentType !== 'PendingEdit') return;
+
+      const items = Array.from(selectedItems).map((fileName) => {
+        const item = state.content.find((c) => c.fileName === fileName);
+        const resolvedTarget =
+          targetType ??
+          (item?.pendingEditSourceType === 'Session' || item?.pendingEditSourceType === 'Buffer'
+            ? item.pendingEditSourceType
+            : 'Session');
+        return { FileName: fileName, TargetType: resolvedTarget };
+      });
+      sendMessageToBackend('MoveOutOfPendingEdit', { Items: items });
+      setSelectedItems(new Set());
+    },
+    [selectedItems, contentType, state.content],
+  );
+
+  const selectedPendingEditNeedsTargetChoice = useMemo(() => {
+    if (contentType !== 'PendingEdit' || selectedItems.size === 0) return false;
+    return Array.from(selectedItems).some((fileName) => {
+      const item = state.content.find((c) => c.fileName === fileName);
+      return item?.pendingEditSourceType !== 'Session' && item?.pendingEditSourceType !== 'Buffer';
+    });
+  }, [contentType, selectedItems, state.content]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -372,32 +414,51 @@ export default function ContentPage({
         </div>
         <div className="flex items-center gap-2">
           {(sectionId === 'sessions' || sectionId === 'replayBuffer') && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="no-animation h-8 gap-1 border border-base-400 hover:border-opacity-75"
-                disabled={selectedItems.size === 0}
-                title={
-                  selectedItems.size === 0
-                    ? '先按住 Ctrl 點選卡片（或 Ctrl+A 全選），將選取的影片移至「待剪輯」'
-                    : '將選取的影片移至「待剪輯」（不會被儲存空間自動清理刪除）'
-                }
-                onClick={handleMoveSelectedToPendingEdit}
-              >
-                <Inbox size={16} />
-                移至待剪輯
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                className="no-animation h-8 gap-1"
-                onClick={() => sendMessageToBackend('ImportFile', { sectionId })}
-              >
-                <FileUp size={16} />
-                Import
-              </Button>
-            </>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="no-animation h-8 gap-1 border border-base-400 hover:border-opacity-75"
+              disabled={selectedItems.size === 0}
+              title={
+                selectedItems.size === 0
+                  ? '先按住 Ctrl 點選卡片（或 Ctrl+A 全選），將選取的影片移至「待剪輯」'
+                  : '將選取的影片移至「待剪輯」（不會被儲存空間自動清理刪除）'
+              }
+              onClick={handleMoveSelectedToPendingEdit}
+            >
+              <Inbox size={16} />
+              移至待剪輯
+            </Button>
+          )}
+          {(sectionId === 'sessions' || sectionId === 'replayBuffer') && (
+            <Button
+              variant="primary"
+              size="sm"
+              className="no-animation h-8 gap-1"
+              onClick={() => sendMessageToBackend('ImportFile', { sectionId })}
+            >
+              <FileUp size={16} />
+              Import
+            </Button>
+          )}
+          {sectionId === 'pendingEdit' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="no-animation h-8 gap-1 border border-base-400 hover:border-opacity-75"
+              disabled={selectedItems.size === 0 || selectedPendingEditNeedsTargetChoice}
+              title={
+                selectedItems.size === 0
+                  ? '先按住 Ctrl 點選卡片（或 Ctrl+A 全選），將選取的影片移回原本分類'
+                  : selectedPendingEditNeedsTargetChoice
+                    ? '選取項目含舊檔（無來源記錄）；請用下方多選列選擇移回 Full Sessions 或 Replay Buffer'
+                    : '將選取的影片移出「待剪輯」，回到原本的 Full Sessions / Replay Buffer'
+              }
+              onClick={() => handleMoveSelectedOutOfPendingEdit()}
+            >
+              <FolderOutput size={16} />
+              移出待剪輯
+            </Button>
           )}
           <ContentFilters
             uniqueGames={uniqueGames}
@@ -454,6 +515,39 @@ export default function ContentPage({
                 待剪輯
               </Button>
             )}
+            {sectionId === 'pendingEdit' &&
+              (selectedPendingEditNeedsTargetChoice ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 border border-base-400"
+                    onClick={() => handleMoveSelectedOutOfPendingEdit('Session')}
+                  >
+                    <FolderOutput size={16} />
+                    Full Sessions
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 border border-base-400"
+                    onClick={() => handleMoveSelectedOutOfPendingEdit('Buffer')}
+                  >
+                    <FolderOutput size={16} />
+                    Replay Buffer
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 border border-base-400"
+                  onClick={() => handleMoveSelectedOutOfPendingEdit()}
+                >
+                  <FolderOutput size={16} />
+                  移出待剪輯
+                </Button>
+              ))}
             <Button variant="danger" size="sm" className="h-8" onClick={handleDeleteSelected}>
               <Trash2 size={16} />
               Delete

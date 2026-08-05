@@ -5,6 +5,7 @@ export function useRecordingPreview(
   recordingOngoing: boolean,
   hasRecordingObject: boolean,
   recording?: { startTime: Date },
+  slot: number = 0,
 ) {
   /**
    * When false: stream is assumed ON (covers delay before first RecordingPreviewState; default session behavior).
@@ -37,6 +38,9 @@ export function useRecordingPreview(
           return !enabled;
         });
       } else if (method === 'RecordingPreviewFrame') {
+        const frameSlot = event.detail?.content?.slot ?? 0;
+        if (frameSlot !== slot) return;
+
         const b64 = event.detail?.content?.jpegBase64;
         if (typeof b64 === 'string' && b64.length > 0) {
           setPreviewFrameSrc(`data:image/jpeg;base64,${b64}`);
@@ -49,7 +53,7 @@ export function useRecordingPreview(
     return () => {
       window.removeEventListener('websocket-message', handleMessage as EventListener);
     };
-  }, []);
+  }, [slot]);
 
   useEffect(() => {
     if (!recordingOngoing) {

@@ -1015,7 +1015,8 @@ namespace Segra.Backend.Services
                                     UploadId = metadata.UploadId,
                                     IgdbId = metadata.IgdbId,
                                     AudioTrackNames = metadata.AudioTrackNames,
-                                    IsImported = metadata.IsImported
+                                    IsImported = metadata.IsImported,
+                                    PendingEditSourceType = metadata.PendingEditSourceType
                                 });
                             }
                             catch (Exception ex)

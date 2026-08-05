@@ -20,12 +20,13 @@ import {
   ExternalLink,
   Copy,
   Inbox,
+  FolderOutput,
 } from 'lucide-react';
 import { useAiHighlights } from '../Context/AiHighlightsContext';
 import { useCompression } from '../Context/CompressionContext';
 import Button from './Button';
 
-type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit';
+type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit' | 'External';
 
 interface VideoCardProps {
   content?: Content; // Optional for skeleton cards
@@ -161,7 +162,9 @@ export default function ContentCard({
             ? 'Clips'
             : type === 'PendingEdit'
               ? '待剪輯'
-              : 'Highlights';
+              : type === 'External'
+                ? '瀏覽影片'
+                : 'Highlights';
     const thumbnailPath = `${cacheFolder}/thumbnails/${folderName}/${content?.fileName}.jpeg`;
     return `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(thumbnailPath)}`;
   };
@@ -306,7 +309,10 @@ export default function ContentCard({
           />
         )}
         {isRecent &&
-          (type === 'Session' || type === 'Buffer' || type === 'PendingEdit') &&
+          (type === 'Session' ||
+            type === 'Buffer' ||
+            type === 'PendingEdit' ||
+            type === 'External') &&
           showNewBadgeOnVideos &&
           !isSelectionMode && (
             <span className="absolute top-2 left-2 badge badge-primary badge-sm text-base-300 opacity-90">
@@ -408,7 +414,8 @@ export default function ContentCard({
               {(type === 'Clip' ||
                 type === 'Highlight' ||
                 type === 'Buffer' ||
-                type === 'PendingEdit') && (
+                type === 'PendingEdit' ||
+                type === 'External') && (
                 <li>
                   <Button
                     variant="menu"
@@ -461,7 +468,7 @@ export default function ContentCard({
                   })()}
                 </li>
               )}
-              {(type === 'Session' || type === 'Buffer') && (
+              {(type === 'Session' || type === 'Buffer') && content?.type !== 'PendingEdit' && (
                 <li>
                   <Button
                     variant="menu"
@@ -477,6 +484,66 @@ export default function ContentCard({
                   </Button>
                 </li>
               )}
+              {(type === 'PendingEdit' || content?.type === 'PendingEdit') &&
+                (content?.pendingEditSourceType === 'Session' ||
+                content?.pendingEditSourceType === 'Buffer' ? (
+                  <li>
+                    <Button
+                      variant="menu"
+                      onClick={() => {
+                        (document.activeElement as HTMLElement).blur();
+                        sendMessageToBackend('MoveOutOfPendingEdit', {
+                          Items: [
+                            {
+                              FileName: content!.fileName,
+                              TargetType: content!.pendingEditSourceType,
+                            },
+                          ],
+                        });
+                      }}
+                    >
+                      <FolderOutput size={20} />
+                      <span>
+                        移出待剪輯（
+                        {content.pendingEditSourceType === 'Buffer'
+                          ? 'Replay Buffer'
+                          : 'Full Sessions'}
+                        ）
+                      </span>
+                    </Button>
+                  </li>
+                ) : (
+                  <>
+                    <li>
+                      <Button
+                        variant="menu"
+                        onClick={() => {
+                          (document.activeElement as HTMLElement).blur();
+                          sendMessageToBackend('MoveOutOfPendingEdit', {
+                            Items: [{ FileName: content!.fileName, TargetType: 'Session' }],
+                          });
+                        }}
+                      >
+                        <FolderOutput size={20} />
+                        <span>移回 Full Sessions</span>
+                      </Button>
+                    </li>
+                    <li>
+                      <Button
+                        variant="menu"
+                        onClick={() => {
+                          (document.activeElement as HTMLElement).blur();
+                          sendMessageToBackend('MoveOutOfPendingEdit', {
+                            Items: [{ FileName: content!.fileName, TargetType: 'Buffer' }],
+                          });
+                        }}
+                      >
+                        <FolderOutput size={20} />
+                        <span>移回 Replay Buffer</span>
+                      </Button>
+                    </li>
+                  </>
+                ))}
               <li>
                 <Button
                   variant="menu"

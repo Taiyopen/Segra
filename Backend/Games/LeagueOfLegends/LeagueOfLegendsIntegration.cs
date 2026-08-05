@@ -230,7 +230,7 @@ namespace Segra.Backend.Games.LeagueOfLegends
 
         private void AddBookmark(BookmarkType type)
         {
-            var recording = AppState.Instance.Recording;
+            var recording = ActiveRecording;
             if (recording == null)
             {
                 return;

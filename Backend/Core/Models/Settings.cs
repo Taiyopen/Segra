@@ -15,7 +15,8 @@ namespace Segra.Backend.Core.Models
         {
             "Full Sessions",
             "Replay Buffer",
-            "\u5F85\u526A\u8F2F", // ???
+            "\u5F85\u526A\u8F2F", // 待剪輯
+            "\u700F\u89BD\u5F71\u7247", // 瀏覽影片
             "Clips",
             "Highlights",
             "Settings"
@@ -1113,6 +1114,9 @@ namespace Segra.Backend.Core.Models
         [JsonPropertyName("exe")]
         public string? Exe { get; set; }
 
+        /// <summary>0 = primary output, 1 = secondary (dual session).</summary>
+        [JsonPropertyName("slot")]
+        public int Slot { get; set; }
     }
 
     // Recording class
@@ -1161,6 +1165,10 @@ namespace Segra.Backend.Core.Models
         [JsonPropertyName("audioTrackNames")]
         public List<string>? AudioTrackNames { get; set; }
 
+        /// <summary>0 = primary output, 1 = secondary (dual session).</summary>
+        [JsonPropertyName("slot")]
+        public int Slot { get; set; }
+
         public void AddBookmark(Bookmark bookmark)
         {
             lock (_bookmarksLock)
@@ -1199,7 +1207,8 @@ namespace Segra.Backend.Core.Models
             Buffer,
             Clip,
             Highlight,
-            PendingEdit
+            PendingEdit,
+            External
         }
 
         public ContentType Type { get; set; } = ContentType.Session;
@@ -1250,6 +1259,13 @@ namespace Segra.Backend.Core.Models
         public List<string>? AudioTrackNames { get; set; }
 
         public bool IsImported { get; set; } = false;
+
+        /// <summary>
+        /// When <see cref="Type"/> is <see cref="ContentType.PendingEdit"/>, the original
+        /// Session/Buffer type to restore when moving out of pending edit.
+        /// </summary>
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ContentType? PendingEditSourceType { get; set; }
     }
 
     public class AiAnalysis

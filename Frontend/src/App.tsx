@@ -5,6 +5,8 @@ import Sessions from './Pages/sessions';
 import Clips from './Pages/clips';
 import ReplayBuffer from './Pages/replay-buffer';
 import PendingEdit from './Pages/pending-edit';
+import BrowseVideos from './Pages/browse-videos';
+import BrowseFileSidebar from './Components/BrowseFileSidebar';
 import Highlights from './Pages/highlights';
 import { SettingsProvider } from './Context/SettingsContext';
 import { AppStateProvider } from './Context/AppStateContext';
@@ -133,12 +135,29 @@ function App() {
   };
 
   const renderContent = () => {
+    const isBrowseMode = selectedMenu === '瀏覽影片';
+
     if (selectedVideo) {
-      return (
+      const videoView = (
         <DndProvider backend={HTML5Backend}>
           <Video video={selectedVideo} />
         </DndProvider>
       );
+
+      // Keep the file browser docked on the left of the real video player.
+      if (isBrowseMode || selectedVideo.type === 'External') {
+        return (
+          <div className="flex h-full w-full overflow-hidden">
+            <BrowseFileSidebar
+              selectedPath={selectedVideo.filePath}
+              onOpenVideo={setSelectedVideo}
+            />
+            <div className="flex-1 min-w-0 h-full overflow-hidden">{videoView}</div>
+          </div>
+        );
+      }
+
+      return videoView;
     }
 
     switch (selectedMenu) {
@@ -148,6 +167,8 @@ function App() {
         return <ReplayBuffer />;
       case '待剪輯':
         return <PendingEdit />;
+      case '瀏覽影片':
+        return <BrowseVideos />;
       case 'Clips':
         return <Clips />;
       case 'Highlights':
@@ -165,7 +186,7 @@ function App() {
       <div className="h-full">
         <Menu selectedMenu={selectedMenu} onSelectMenu={handleMenuSelection} />
       </div>
-      <div className="flex-1 max-h-full overflow-auto">{renderContent()}</div>
+      <div className="flex-1 h-full max-h-full overflow-hidden">{renderContent()}</div>
     </div>
   );
 }

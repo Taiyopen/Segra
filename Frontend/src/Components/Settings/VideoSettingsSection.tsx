@@ -5,6 +5,7 @@ import {
   Settings as SettingsType,
   VideoQualityPreset,
   DisplayCaptureMethod,
+  hasLiveRecordingActivity,
 } from '../../Models/types';
 import { sendMessageToBackend } from '../../Utils/MessageUtils';
 import { useAppState } from '../../Context/AppStateContext';
@@ -40,7 +41,7 @@ export default function VideoSettingsSection({
     updateSettings({ rateControl: 'CQP' });
   }, [settings.codec?.internalEncoderId, settings.rateControl, settings.encoder, updateSettings]);
 
-  const isRecording = appState.recording != null || appState.preRecording != null;
+  const isRecording = hasLiveRecordingActivity(appState);
 
   const handlePresetChange = (preset: VideoQualityPreset) => {
     sendMessageToBackend('ApplyVideoPreset', { preset });

@@ -6,13 +6,14 @@ using ObsKit.NET;
 using ObsKit.NET.Native.Types;
 using ObsKit.NET.Video;
 using Segra.Backend.App;
+using Segra.Backend.Recorder;
 using Serilog;
 
 namespace Segra.Backend.Services
 {
     /// <summary>
-    /// Streams a low-resolution JPEG preview of the active OBS canvas to the frontend while recording.
-    /// Starts automatically when a recording begins; toggle keybind disables/enables streaming (save CPU / clutter).
+    /// Streams low-resolution JPEG previews per recording slot to the frontend while recording.
+    /// Slot 0 uses the main OBS canvas; additional slots use periodic game/display screenshots.
     /// </summary>
     public static class RecordingPreviewService
     {
@@ -22,124 +23,217 @@ namespace Segra.Backend.Services
         private const long JpegQuality = 65L;
 
         private static readonly object _lock = new();
-        private static RawVideoSubscription? _subscription;
-        private static int _isEncoding;
+        private static readonly HashSet<int> _activeSlots = new();
+        private static readonly Dictionary<int, byte[]> _lastJpegBySlot = new();
+        private static RawVideoSubscription? _mainCanvasSubscription;
+        private static CancellationTokenSource? _screenshotLoopCts;
         private static uint _recordingFps;
-        private static bool _recordingActive;
         private static bool _enabled;
-        private static byte[]? _lastJpegFrame;
+        private static int _isEncodingMainCanvas;
         private static readonly ImageCodecInfo? _jpegCodec =
             ImageCodecInfo.GetImageEncoders().FirstOrDefault(c => c.MimeType == "image/jpeg");
 
-        /// <summary>
-        /// Whether the preview is currently streaming frames.
-        /// </summary>
         public static bool IsEnabled => _enabled;
 
-        public static byte[]? TryGetLatestJpegFrame()
+        public static byte[]? TryGetLatestJpegFrame(int slot = 0)
         {
             lock (_lock)
             {
-                if (_lastJpegFrame == null || _lastJpegFrame.Length == 0)
+                if (!_lastJpegBySlot.TryGetValue(slot, out var frame) || frame.Length == 0)
                     return null;
-                return (byte[])_lastJpegFrame.Clone();
+                return (byte[])frame.Clone();
             }
         }
 
-        /// <summary>
-        /// Called when a recording starts. Subscribes to raw video at the recording fps (for frame divisor).
-        /// </summary>
-        public static void OnRecordingStarted(uint recordingFps)
+        public static void OnRecordingStarted(uint recordingFps, int slot)
         {
             lock (_lock)
             {
                 _recordingFps = recordingFps;
-                _recordingActive = true;
-                _enabled = StartSubscriptionLocked();
+                _activeSlots.Add(slot);
+                if (_activeSlots.Count == 1)
+                    _enabled = StartPreviewLocked();
+                else
+                    EnsureScreenshotLoopRunningLocked();
             }
 
             BroadcastState();
         }
 
-        /// <summary>
-        /// Called when a recording stops. Tears down any active subscription.
-        /// </summary>
-        public static void OnRecordingStopped()
+        public static void OnRecordingStopped(int slot)
         {
             lock (_lock)
             {
-                _recordingActive = false;
-                _enabled = false;
-                _lastJpegFrame = null;
-                DisposeSubscriptionLocked();
+                _activeSlots.Remove(slot);
+                _lastJpegBySlot.Remove(slot);
+
+                if (!_activeSlots.Contains(0))
+                    DisposeMainCanvasSubscriptionLocked();
+
+                if (_activeSlots.Count == 0)
+                {
+                    _enabled = false;
+                    StopPreviewLocked();
+                }
+                else if (_enabled)
+                {
+                    if (_activeSlots.Contains(0))
+                        EnsureMainCanvasSubscriptionLocked();
+                    EnsureScreenshotLoopRunningLocked();
+                }
             }
 
             BroadcastState();
         }
 
-        /// <summary>
-        /// Toggles the preview on/off. No-op if no recording is active.
-        /// </summary>
         public static void Toggle()
         {
             lock (_lock)
             {
-                if (!_recordingActive)
+                if (_activeSlots.Count == 0)
                     return;
 
                 if (_enabled)
                 {
                     _enabled = false;
-                    DisposeSubscriptionLocked();
+                    StopPreviewLocked();
                 }
                 else
                 {
-                    _enabled = StartSubscriptionLocked();
+                    _enabled = StartPreviewLocked();
                 }
             }
 
             BroadcastState();
         }
 
-        private static bool StartSubscriptionLocked()
+        private static bool StartPreviewLocked()
         {
-            DisposeSubscriptionLocked();
+            StopPreviewLocked();
+
+            if (_activeSlots.Contains(0))
+                EnsureMainCanvasSubscriptionLocked();
+
+            EnsureScreenshotLoopRunningLocked();
+            return _mainCanvasSubscription != null || _screenshotLoopCts != null;
+        }
+
+        private static void EnsureMainCanvasSubscriptionLocked()
+        {
+            if (_mainCanvasSubscription != null || !_activeSlots.Contains(0))
+                return;
 
             uint divisor = _recordingFps == 0 ? 1u : Math.Max(1u, _recordingFps / (uint)TargetFps);
             try
             {
-                _subscription = Obs.SubscribeRawVideo(
+                _mainCanvasSubscription = Obs.SubscribeRawVideo(
                     VideoFormat.BGRA,
                     PreviewWidth,
                     PreviewHeight,
-                    OnFrame,
+                    OnMainCanvasFrame,
                     frameRateDivisor: divisor);
-                Log.Information("Recording preview enabled ({W}x{H}, divisor={Divisor} from {Fps}fps)",
+                Log.Information(
+                    "Recording preview enabled for slot 0 ({W}x{H}, divisor={Divisor} from {Fps}fps)",
                     PreviewWidth, PreviewHeight, divisor, _recordingFps);
-                return true;
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Failed to enable recording preview");
-                _subscription = null;
-                return false;
+                Log.Warning(ex, "Failed to enable main canvas recording preview");
+                _mainCanvasSubscription = null;
             }
         }
 
-        private static void DisposeSubscriptionLocked()
+        private static void DisposeMainCanvasSubscriptionLocked()
         {
-            var sub = _subscription;
-            if (sub == null) return;
-            _subscription = null;
+            var sub = _mainCanvasSubscription;
+            _mainCanvasSubscription = null;
+            if (sub == null)
+                return;
+
             try
             {
                 sub.Dispose();
-                Log.Information("Recording preview disabled");
+                Log.Information("Recording preview disabled for slot 0");
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Error disposing recording preview subscription");
+                Log.Warning(ex, "Error disposing main canvas preview subscription");
             }
+        }
+
+        private static void EnsureScreenshotLoopRunningLocked()
+        {
+            bool needsScreenshotLoop = _activeSlots.Any(s => s != 0);
+            if (!needsScreenshotLoop)
+            {
+                _screenshotLoopCts?.Cancel();
+                _screenshotLoopCts = null;
+                return;
+            }
+
+            if (_screenshotLoopCts != null)
+                return;
+
+            _screenshotLoopCts = new CancellationTokenSource();
+            var token = _screenshotLoopCts.Token;
+            _ = Task.Run(() => ScreenshotLoopAsync(token), token);
+        }
+
+        private static async Task ScreenshotLoopAsync(CancellationToken token)
+        {
+            var interval = TimeSpan.FromMilliseconds(1000.0 / TargetFps);
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(interval, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+
+                if (!_enabled)
+                    continue;
+
+                int[] slots;
+                lock (_lock)
+                {
+                    slots = _activeSlots.Where(s => s != 0).ToArray();
+                }
+
+                foreach (int slot in slots)
+                {
+                    if (token.IsCancellationRequested || !_enabled)
+                        break;
+
+                    try
+                    {
+                        byte[]? jpeg = OBSService.TryGetRecordingPreviewJpeg(slot, (int)PreviewWidth);
+                        if (jpeg == null || jpeg.Length == 0)
+                            continue;
+
+                        lock (_lock)
+                        {
+                            _lastJpegBySlot[slot] = jpeg;
+                        }
+
+                        await SendJpegAsync(slot, jpeg);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Screenshot preview failed for slot {Slot}", slot);
+                    }
+                }
+            }
+        }
+
+        private static void StopPreviewLocked()
+        {
+            DisposeMainCanvasSubscriptionLocked();
+
+            _screenshotLoopCts?.Cancel();
+            _screenshotLoopCts = null;
         }
 
         private static void BroadcastState()
@@ -147,13 +241,12 @@ namespace Segra.Backend.Services
             _ = MessageService.SendFrontendMessage("RecordingPreviewState", new { enabled = _enabled });
         }
 
-        private static void OnFrame(in RawVideoFrame frame)
+        private static void OnMainCanvasFrame(in RawVideoFrame frame)
         {
-            if (!_enabled)
+            if (!_enabled || !_activeSlots.Contains(0))
                 return;
 
-            // Drop frames if the previous one is still encoding/sending.
-            if (Interlocked.CompareExchange(ref _isEncoding, 1, 0) != 0)
+            if (Interlocked.CompareExchange(ref _isEncodingMainCanvas, 1, 0) != 0)
                 return;
 
             int width = (int)frame.Width;
@@ -162,7 +255,6 @@ namespace Segra.Backend.Services
             int rowBytes = width * 4;
             int packedSize = rowBytes * height;
 
-            // Copy out of the native buffer (only valid during this callback) into a tightly-packed array.
             var buffer = ArrayPool<byte>.Shared.Rent(packedSize);
             try
             {
@@ -170,44 +262,41 @@ namespace Segra.Backend.Services
                 if (src.IsEmpty)
                 {
                     ArrayPool<byte>.Shared.Return(buffer);
-                    Interlocked.Exchange(ref _isEncoding, 0);
+                    Interlocked.Exchange(ref _isEncodingMainCanvas, 0);
                     return;
                 }
 
                 for (int y = 0; y < height; y++)
-                {
                     src.Slice(y * srcStride, rowBytes).CopyTo(buffer.AsSpan(y * rowBytes, rowBytes));
-                }
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Preview frame copy failed");
+                Log.Warning(ex, "Preview frame copy failed (slot 0)");
                 ArrayPool<byte>.Shared.Return(buffer);
-                Interlocked.Exchange(ref _isEncoding, 0);
+                Interlocked.Exchange(ref _isEncodingMainCanvas, 0);
                 return;
             }
 
-            // Off-thread: encode to JPEG and ship over WebSocket. Free the buffer when done.
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    if (_enabled)
-                        await EncodeAndSendAsync(buffer, width, height, packedSize);
+                    if (_enabled && _activeSlots.Contains(0))
+                        await EncodeAndSendAsync(0, buffer, width, height, packedSize);
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning(ex, "Preview frame encode/send failed");
+                    Log.Warning(ex, "Preview frame encode/send failed (slot 0)");
                 }
                 finally
                 {
                     ArrayPool<byte>.Shared.Return(buffer);
-                    Interlocked.Exchange(ref _isEncoding, 0);
+                    Interlocked.Exchange(ref _isEncodingMainCanvas, 0);
                 }
             });
         }
 
-        private static async Task EncodeAndSendAsync(byte[] bgra, int width, int height, int packedSize)
+        private static async Task EncodeAndSendAsync(int slot, byte[] bgra, int width, int height, int packedSize)
         {
             if (_jpegCodec == null)
             {
@@ -224,9 +313,7 @@ namespace Segra.Backend.Services
                 {
                     int srcRow = width * 4;
                     for (int y = 0; y < height; y++)
-                    {
                         Marshal.Copy(bgra, y * srcRow, data.Scan0 + y * data.Stride, srcRow);
-                    }
                 }
                 finally
                 {
@@ -240,13 +327,20 @@ namespace Segra.Backend.Services
                 jpegBytes = ms.ToArray();
             }
 
-            var b64 = Convert.ToBase64String(jpegBytes);
             lock (_lock)
             {
-                _lastJpegFrame = jpegBytes;
+                _lastJpegBySlot[slot] = jpegBytes;
             }
+
+            await SendJpegAsync(slot, jpegBytes, width, height);
+        }
+
+        private static async Task SendJpegAsync(int slot, byte[] jpegBytes, int? width = null, int? height = null)
+        {
+            var b64 = Convert.ToBase64String(jpegBytes);
             await MessageService.SendFrontendMessage("RecordingPreviewFrame", new
             {
+                slot,
                 jpegBase64 = b64,
                 width,
                 height

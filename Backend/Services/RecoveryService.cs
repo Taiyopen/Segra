@@ -187,6 +187,7 @@ namespace Segra.Backend.Services
                         Content.ContentType.Highlight => "Highlight",
                         Content.ContentType.Buffer => "Replay Buffer",
                         Content.ContentType.PendingEdit => "待剪輯",
+                        Content.ContentType.External => "外部影片庫",
                         _ => orphanedFile.Type.ToString()
                     };
 
@@ -301,7 +302,8 @@ namespace Segra.Backend.Services
                 Content.ContentType.Clip,
                 Content.ContentType.Highlight,
                 Content.ContentType.Buffer,
-                Content.ContentType.PendingEdit
+                Content.ContentType.PendingEdit,
+                Content.ContentType.External
             };
 
             foreach (var type in contentTypes)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings as SettingsType } from '../../Models/types';
+import { Settings as SettingsType, hasLiveRecordingActivity } from '../../Models/types';
 import { useAppState } from '../../Context/AppStateContext';
 
 interface CaptureModeSectionProps {
@@ -10,7 +10,7 @@ interface CaptureModeSectionProps {
 
 export default function CaptureModeSection({ settings, updateSettings }: CaptureModeSectionProps) {
   const appState = useAppState();
-  const isRecording = appState.recording != null || appState.preRecording != null;
+  const isRecording = hasLiveRecordingActivity(appState);
   const [localReplayBufferDuration, setLocalReplayBufferDuration] = useState<string>(
     String(settings.replayBufferDuration),
   );

@@ -49,6 +49,7 @@ import {
   ChevronRight,
   Inbox,
   PenLine,
+  FolderOutput,
 } from 'lucide-react';
 import { useContentPlaylist } from '../Hooks/useContentPlaylist';
 import VideoPlaylistPanel from '../Components/VideoPlaylistPanel';
@@ -121,8 +122,20 @@ function renderWaveformRegion(
   }
 }
 
-const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 1.5, 2] as const;
-const formatPlaybackRateLabel = (rate: number) => `${rate}x`;
+const PLAYBACK_RATE_MIN = 0.1;
+const PLAYBACK_RATE_MAX = 5;
+const PLAYBACK_RATE_STEP = 0.1;
+
+const clampPlaybackRate = (rate: number) =>
+  Math.round(Math.max(PLAYBACK_RATE_MIN, Math.min(PLAYBACK_RATE_MAX, rate)) * 10) / 10;
+
+const formatPlaybackRateLabel = (rate: number) => {
+  const rounded = clampPlaybackRate(rate);
+  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}x`;
+};
+
+const playbackRateSliderPercent = (rate: number) =>
+  ((clampPlaybackRate(rate) - PLAYBACK_RATE_MIN) / (PLAYBACK_RATE_MAX - PLAYBACK_RATE_MIN)) * 100;
 
 const DEFAULT_ICON_MAPPING: Record<BookmarkType, LucideIcon> = {
   Manual: BookmarkIcon,
@@ -153,6 +166,9 @@ interface TopInfoBarProps {
   onDelete: () => void;
   onMoveToPendingEdit: () => void;
   showMoveToPendingEdit: boolean;
+  onMoveOutOfPendingEdit: (targetType?: 'Session' | 'Buffer') => void;
+  showMoveOutOfPendingEdit: boolean;
+  pendingEditSourceType?: 'Session' | 'Buffer';
 }
 
 function TopInfoBar({
@@ -165,6 +181,9 @@ function TopInfoBar({
   onDelete,
   onMoveToPendingEdit,
   showMoveToPendingEdit,
+  onMoveOutOfPendingEdit,
+  showMoveOutOfPendingEdit,
+  pendingEditSourceType,
 }: TopInfoBarProps) {
   const { setSelectedVideo } = useSelectedVideo();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -281,6 +300,42 @@ function TopInfoBar({
             <span className="hidden lg:inline">待剪輯</span>
           </Button>
         )}
+        {showMoveOutOfPendingEdit &&
+          (pendingEditSourceType ? (
+            <Button
+              variant="ghost"
+              size="xs"
+              className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
+              onClick={() => onMoveOutOfPendingEdit(pendingEditSourceType)}
+              title={`移出待剪輯，回到 ${pendingEditSourceType === 'Buffer' ? 'Replay Buffer' : 'Full Sessions'}`}
+            >
+              <FolderOutput className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">移出待剪輯</span>
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
+                onClick={() => onMoveOutOfPendingEdit('Session')}
+                title="舊檔無來源記錄：移回 Full Sessions"
+              >
+                <FolderOutput className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">→ Sessions</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
+                onClick={() => onMoveOutOfPendingEdit('Buffer')}
+                title="舊檔無來源記錄：移回 Replay Buffer"
+              >
+                <FolderOutput className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">→ Buffer</span>
+              </Button>
+            </>
+          ))}
         <Button
           variant="ghost"
           size="xs"
@@ -374,7 +429,7 @@ export default function VideoComponent({ video }: { video: Content }) {
   const settings = useSettings();
   const appState = useAppState();
   const updateSettings = useSettingsUpdater();
-  const { setSelectedVideo } = useSelectedVideo();
+  const { setSelectedVideo, stickySourceCategory, pinStickySourceCategory } = useSelectedVideo();
   const { session } = useAuth();
   const { uploads } = useUploads();
   const { openModal, closeModal } = useModal();
@@ -385,10 +440,35 @@ export default function VideoComponent({ video }: { video: Content }) {
     removeSegment,
     updateSegmentsArray,
     clearAllSegments,
+    renameSegmentsForVideo,
   } = useSegments();
 
-  const { playlist, currentIndex, prevVideo, nextVideo } = useContentPlaylist(video);
-  const showMoveToPendingEdit = video.type === 'Session' || video.type === 'Buffer';
+  const { playlist, currentIndex, prevVideo, nextVideo, viewType } = useContentPlaylist(video);
+  const isStickyInSourceCategory =
+    stickySourceCategory?.fileName === video.fileName &&
+    (stickySourceCategory.sourceType === 'Session' || stickySourceCategory.sourceType === 'Buffer');
+  const showMoveToPendingEdit =
+    (video.type === 'Session' || video.type === 'Buffer') && !isStickyInSourceCategory;
+  const showMoveOutOfPendingEdit = video.type === 'PendingEdit' && !isStickyInSourceCategory;
+
+  // Refs (declared early — sync effect may capture playback across path changes)
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const resumeAfterPathChangeRef = useRef<{
+    fileName: string;
+    time: number;
+    wasPlaying: boolean;
+  } | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const latestDraggedSegmentRef = useRef<Segment | null>(null);
+  const pendingScrollRef = useRef<number | null>(null);
+  const zoomAnimationRef = useRef<number>(0);
+  const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
+  const peaksRef = useRef<number[] | null>(null);
+  const peaksMaxRef = useRef<number>(128);
+  const waveformStateRef = useRef({ pixelsPerSecond: 0, duration: 0 });
+  const waveformBufferRef = useRef({ regionLeft: 0, regionRight: 0 });
 
   const navigateAfterRemoval = useCallback(() => {
     if (nextVideo) {
@@ -416,15 +496,45 @@ export default function VideoComponent({ video }: { video: Content }) {
   }, [video.fileName, video.type, navigateAfterRemoval]);
 
   const handleMoveToPendingEdit = useCallback(() => {
+    if (video.type === 'Session' || video.type === 'Buffer') {
+      pinStickySourceCategory(video.fileName, video.type);
+    }
     sendMessageToBackend('MoveToPendingEdit', {
       Items: [{ FileName: video.fileName, ContentType: video.type }],
     });
-  }, [video.fileName, video.type]);
+  }, [video.fileName, video.type, pinStickySourceCategory]);
+
+  const handleMoveOutOfPendingEdit = useCallback(
+    (targetType?: 'Session' | 'Buffer') => {
+      const resolved =
+        targetType ??
+        (video.pendingEditSourceType === 'Session' || video.pendingEditSourceType === 'Buffer'
+          ? video.pendingEditSourceType
+          : 'Session');
+      sendMessageToBackend('MoveOutOfPendingEdit', {
+        Items: [{ FileName: video.fileName, TargetType: resolved }],
+      });
+    },
+    [video.fileName, video.pendingEditSourceType],
+  );
 
   useEffect(() => {
+    // Browse videos are transient and never live in AppState.content.
+    // Without this guard the effect treats them as "removed" and clears selection.
+    if (video.type === 'External') return;
+
     const updated = appState.content.find((item) => item.fileName === video.fileName);
     if (updated) {
       if (updated.type !== video.type || updated.filePath !== video.filePath) {
+        if (updated.filePath !== video.filePath) {
+          const el = videoRef.current;
+          resumeAfterPathChangeRef.current = {
+            fileName: video.fileName,
+            time: el?.currentTime ?? 0,
+            wasPlaying: el ? !el.paused : false,
+          };
+          renameSegmentsForVideo(video.fileName, updated.fileName, updated.filePath);
+        }
         setSelectedVideo(updated);
       }
       return;
@@ -459,27 +569,49 @@ export default function VideoComponent({ video }: { video: Content }) {
     setSelectedVideo,
     prevVideo,
     nextVideo,
+    renameSegmentsForVideo,
   ]);
 
   const supportsClipWorkflow =
-    video.type === 'Session' || video.type === 'Buffer' || video.type === 'PendingEdit';
-  const showBufferStyleCopy = video.type === 'Buffer' || video.type === 'PendingEdit';
+    video.type === 'Session' ||
+    video.type === 'Buffer' ||
+    video.type === 'PendingEdit' ||
+    video.type === 'External' ||
+    isStickyInSourceCategory;
+  const showBufferStyleCopy =
+    viewType === 'Buffer' ||
+    video.type === 'External' ||
+    (video.type === 'PendingEdit' && !isStickyInSourceCategory);
 
-  // Refs
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const playerContainerRef = useRef<HTMLDivElement>(null);
-  const latestDraggedSegmentRef = useRef<Segment | null>(null);
-  const pendingScrollRef = useRef<number | null>(null);
-  const zoomAnimationRef = useRef<number>(0);
-  const speedButtonRef = useRef<HTMLButtonElement | null>(null);
-  const speedDropdownRef = useRef<HTMLDivElement | null>(null);
-  const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
-  const peaksRef = useRef<number[] | null>(null);
-  const peaksMaxRef = useRef<number>(128);
-  const waveformStateRef = useRef({ pixelsPerSecond: 0, duration: 0 });
-  const waveformBufferRef = useRef({ regionLeft: 0, regionRight: 0 });
+  // Resume playback after a same-video path change (e.g. move to 待剪輯)
+  useEffect(() => {
+    const pending = resumeAfterPathChangeRef.current;
+    if (!pending || pending.fileName !== video.fileName) return;
+
+    const el = videoRef.current;
+    if (!el) return;
+
+    const resume = () => {
+      const stillPending = resumeAfterPathChangeRef.current;
+      if (!stillPending || stillPending.fileName !== video.fileName) return;
+      el.currentTime = stillPending.time;
+      setCurrentTime(stillPending.time);
+      if (stillPending.wasPlaying) {
+        void el.play().catch(() => {
+          /* autoplay may be blocked; ignore */
+        });
+      }
+      resumeAfterPathChangeRef.current = null;
+    };
+
+    if (el.readyState >= 1) {
+      resume();
+      return;
+    }
+
+    el.addEventListener('loadedmetadata', resume, { once: true });
+    return () => el.removeEventListener('loadedmetadata', resume);
+  }, [video.filePath, video.fileName]);
 
   // Audio tracks
   const audioTracks = useAudioTracks(videoRef, video);
@@ -501,7 +633,6 @@ export default function VideoComponent({ video }: { video: Content }) {
   const [videoScale, setVideoScale] = useState(1);
   const [videoTranslate, setVideoTranslate] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
-  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const videoPanStartRef = useRef<{ x: number; y: number } | null>(null);
   const videoLastPointerRef = useRef<number | null>(null);
   const panMovedRef = useRef(false);
@@ -510,32 +641,6 @@ export default function VideoComponent({ video }: { video: Content }) {
   useEffect(() => {
     videoScaleRef.current = videoScale;
   }, [videoScale]);
-
-  // Close speed menu when clicking outside or pressing Escape
-  useEffect(() => {
-    if (!showSpeedMenu) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!speedDropdownRef.current?.contains(event.target as Node)) {
-        setShowSpeedMenu(false);
-        speedButtonRef.current?.blur();
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setShowSpeedMenu(false);
-        speedButtonRef.current?.blur();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [showSpeedMenu]);
 
   // Close timeline audio menu when clicking outside
   useEffect(() => {
@@ -644,7 +749,7 @@ export default function VideoComponent({ video }: { video: Content }) {
   });
   const [playbackRate, setPlaybackRate] = useState(() => {
     const saved = localStorage.getItem('segra-playbackRate');
-    return saved ? parseFloat(saved) : 1;
+    return saved ? clampPlaybackRate(parseFloat(saved)) : 1;
   });
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsHideTimeoutRef = useRef<number | null>(null);
@@ -654,9 +759,7 @@ export default function VideoComponent({ video }: { video: Content }) {
 
   useEffect(() => {
     if (!controlsVisible) {
-      setShowSpeedMenu(false);
       setShowAudioTracks(false);
-      speedButtonRef.current?.blur();
     }
   }, [controlsVisible]);
 
@@ -885,7 +988,7 @@ export default function VideoComponent({ video }: { video: Content }) {
 
     const onRateChange = () => {
       if (vid) {
-        const r = vid.playbackRate || 1;
+        const r = clampPlaybackRate(vid.playbackRate || 1);
         setPlaybackRate(r);
         localStorage.setItem('segra-playbackRate', r.toString());
       }
@@ -931,6 +1034,30 @@ export default function VideoComponent({ video }: { video: Content }) {
         e.preventDefault();
         showControlsTemporarily();
         skipTime(5);
+        return;
+      }
+
+      // , / . : approximate previous / next frame (allow holding)
+      if ((e.key === ',' || e.code === 'Comma') && !isTyping) {
+        e.preventDefault();
+        showControlsTemporarily();
+        const el = videoRef.current;
+        if (el) {
+          const fps = Math.max(1, Math.min(240, settings.frameRate || 60));
+          if (!el.paused) el.pause();
+          skipTime(-1 / fps);
+        }
+        return;
+      }
+      if ((e.key === '.' || e.code === 'Period') && !isTyping) {
+        e.preventDefault();
+        showControlsTemporarily();
+        const el = videoRef.current;
+        if (el) {
+          const fps = Math.max(1, Math.min(240, settings.frameRate || 60));
+          if (!el.paused) el.pause();
+          skipTime(1 / fps);
+        }
         return;
       }
 
@@ -1003,6 +1130,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     supportsClipWorkflow,
     undoSegmentHistory,
     redoSegmentHistory,
+    settings.frameRate,
   ]);
 
   // Per-segment audio override state, kept in refs for the rAF loop below.
@@ -1773,6 +1901,14 @@ export default function VideoComponent({ video }: { video: Content }) {
       return;
     }
 
+    peaksRef.current = null;
+    waveformBufferRef.current = { regionLeft: 0, regionRight: 0 };
+    const canvas = waveformCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
     let cancelled = false;
     const peaksUrl = getWaveformPath();
     fetch(peaksUrl)
@@ -1800,7 +1936,13 @@ export default function VideoComponent({ video }: { video: Content }) {
       cancelled = true;
       peaksRef.current = null;
     };
-  }, [settings.showAudioWaveformInTimeline, renderWaveformBuffer]);
+  }, [
+    settings.showAudioWaveformInTimeline,
+    renderWaveformBuffer,
+    video.fileName,
+    video.type,
+    appState.cacheFolder,
+  ]);
 
   // Re-render waveform buffer when zoom changes
   useEffect(() => {
@@ -1927,7 +2069,9 @@ export default function VideoComponent({ video }: { video: Content }) {
             ? 'Clips'
             : video.type === 'PendingEdit'
               ? '待剪輯'
-              : 'Highlights';
+              : video.type === 'External'
+                ? '瀏覽影片'
+                : 'Highlights';
     const waveformPath = `${appState.cacheFolder}/waveforms/${folderName}/${video.fileName}.peaks.json`;
     return `http://localhost:2222/api/content?input=${encodeURIComponent(waveformPath)}&type=${video.type.toLowerCase()}`;
   };
@@ -2089,7 +2233,7 @@ export default function VideoComponent({ video }: { video: Content }) {
   };
 
   const setPlaybackRateForPlayer = (rate: number) => {
-    const r = Math.max(0.25, Math.min(2, rate));
+    const r = clampPlaybackRate(rate);
     if (videoRef.current) videoRef.current.playbackRate = r;
     setPlaybackRate(r);
     localStorage.setItem('segra-playbackRate', r.toString());
@@ -2109,6 +2253,13 @@ export default function VideoComponent({ video }: { video: Content }) {
             onDelete={handleDeleteVideo}
             onMoveToPendingEdit={handleMoveToPendingEdit}
             showMoveToPendingEdit={showMoveToPendingEdit}
+            onMoveOutOfPendingEdit={handleMoveOutOfPendingEdit}
+            showMoveOutOfPendingEdit={showMoveOutOfPendingEdit}
+            pendingEditSourceType={
+              video.pendingEditSourceType === 'Session' || video.pendingEditSourceType === 'Buffer'
+                ? video.pendingEditSourceType
+                : undefined
+            }
           />
           <div
             className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen overflow-hidden bg-black' : 'relative flex-1 min-h-0 overflow-hidden'} ${!controlsVisible && isPointerInPlayer ? 'cursor-none' : ''}`}
@@ -2189,7 +2340,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                   </button>
 
-                  <div className="flex items-center group">
+                  <div className="flex items-center">
                     <button
                       onClick={toggleMute}
                       className="text-white transition-colors cursor-pointer hover:text-accent"
@@ -2215,7 +2366,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                       onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
                       onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
                       onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                      className="w-0 ml-0 opacity-0 group-hover:w-20 group-hover:ml-2 group-hover:opacity-100 group-focus-within:w-20 group-focus-within:ml-2 group-focus-within:opacity-100 h-1 rounded-lg appearance-none cursor-pointer transition-all duration-200 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0"
+                      className="w-20 ml-2 h-1 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0"
                       style={{
                         backgroundImage: `linear-gradient(to right, var(--color-accent) ${(isMuted ? 0 : volume) * 100}%, #4b5563 ${(isMuted ? 0 : volume) * 100}%)`,
                       }}
@@ -2340,49 +2491,33 @@ export default function VideoComponent({ video }: { video: Content }) {
                   >
                     <ZoomIn className="w-4 h-4" />
                   </button>
-                  <div className="relative" ref={speedDropdownRef}>
-                    <button
-                      ref={speedButtonRef}
-                      type="button"
-                      className="flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20"
-                      aria-label="Change playback speed"
-                      aria-haspopup="menu"
-                      aria-expanded={showSpeedMenu}
-                      onClick={() => {
-                        if (showSpeedMenu) {
-                          setShowSpeedMenu(false);
-                          speedButtonRef.current?.blur();
-                        } else {
-                          setShowSpeedMenu(true);
-                        }
+                  <div
+                    className="flex items-center gap-2 px-2 py-1 border rounded-md border-base-400"
+                    title="播放速度"
+                  >
+                    <span className="text-xs font-medium text-white tabular-nums w-8 text-center shrink-0">
+                      {formatPlaybackRateLabel(playbackRate)}
+                    </span>
+                    <input
+                      type="range"
+                      min={PLAYBACK_RATE_MIN}
+                      max={PLAYBACK_RATE_MAX}
+                      step={PLAYBACK_RATE_STEP}
+                      value={playbackRate}
+                      onChange={(e) => setPlaybackRateForPlayer(parseFloat(e.target.value))}
+                      onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                      onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                      onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                      className="w-20 h-1 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-accent)] [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[var(--color-accent)] [&::-moz-range-thumb]:border-0"
+                      style={{
+                        backgroundImage: `linear-gradient(to right, var(--color-accent) ${playbackRateSliderPercent(playbackRate)}%, #4b5563 ${playbackRateSliderPercent(playbackRate)}%)`,
                       }}
-                    >
-                      <span>{formatPlaybackRateLabel(playbackRate)}</span>
-                    </button>
-                    <div
-                      className={`absolute right-0 bottom-full z-50 mb-2 border rounded-md shadow-lg bg-black/90 border-base-400 transition-all duration-300 ${showSpeedMenu ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-2 pointer-events-none'}`}
-                    >
-                      <div className="flex flex-col">
-                        {PLAYBACK_SPEEDS.map((speed) => {
-                          const isActive = speed === playbackRate;
-                          return (
-                            <button
-                              key={speed}
-                              role="menuitemradio"
-                              aria-checked={isActive}
-                              onClick={() => {
-                                setPlaybackRateForPlayer(speed);
-                                setShowSpeedMenu(false);
-                                speedButtonRef.current?.blur();
-                              }}
-                              className={`flex w-full items-center justify-center px-3 py-1 cursor-pointer text-sm transition-colors ${isActive ? 'text-white bg-accent/20' : 'text-white/80 hover:text-white hover:bg-accent/10'}`}
-                            >
-                              <span>{formatPlaybackRateLabel(speed)}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                      aria-label="播放速度"
+                      aria-valuemin={PLAYBACK_RATE_MIN}
+                      aria-valuemax={PLAYBACK_RATE_MAX}
+                      aria-valuenow={playbackRate}
+                      aria-valuetext={formatPlaybackRateLabel(playbackRate)}
+                    />
                   </div>
 
                   <button

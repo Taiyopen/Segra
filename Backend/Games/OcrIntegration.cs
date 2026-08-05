@@ -384,7 +384,7 @@ namespace Segra.Backend.Games
 
         private void AddBookmark(BookmarkType type, DateTime? detectionTime = null)
         {
-            var recording = AppState.Instance.Recording;
+            var recording = ActiveRecording;
             if (recording == null)
             {
                 Log.Warning($"[{_config.LogPrefix}] No recording active, skipping {type} bookmark");

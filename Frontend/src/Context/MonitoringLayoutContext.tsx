@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { isMonitoringWindowLocation } from '../Utils/monitoringWindow';
+import { hasLiveRecordingActivity, type State } from '../Models/types';
 import { useAppState } from './AppStateContext';
 import { useWebSocketContext } from './WebSocketContext';
 
@@ -27,18 +28,15 @@ function sendMonitoringWindowCommand(enabled: boolean, sendRawMessage: (message:
   sendRawMessage(JSON.stringify(payload));
 }
 
-function isRecordingLive(recording?: { endTime?: Date | null }, preRecording?: unknown): boolean {
-  return !!(
-    preRecording ||
-    (recording && (recording.endTime == null || recording.endTime === undefined))
-  );
+function isRecordingLive(state: State): boolean {
+  return hasLiveRecordingActivity(state);
 }
 
 export function MonitoringLayoutProvider({ children }: { children: ReactNode }) {
   const { sendRawMessage } = useWebSocketContext();
-  const { recording, preRecording } = useAppState();
+  const appState = useAppState();
   const isMainApp = !isMonitoringWindowLocation();
-  const isLive = isRecordingLive(recording, preRecording);
+  const isLive = isRecordingLive(appState);
   const wasLiveRef = useRef(isLive);
   const [monitoringWindowOpen, setMonitoringWindowOpen] = useState(() =>
     isMonitoringWindowLocation(),

@@ -308,11 +308,13 @@ namespace Segra.Backend.Games.VrChat
                     _playbackUrlFromStart = null;
                 }
 
-                _ = Task.Run(() => TryCreateClipAsync(startAt!.Value, logLocal, startUrl!, performer));
+                int recordingSlot = RecordingSlot;
+                _ = Task.Run(() => TryCreateClipAsync(recordingSlot, startAt!.Value, logLocal, startUrl!, performer));
             }
         }
 
         private static async Task TryCreateClipAsync(
+            int recordingSlot,
             DateTime startLocal,
             DateTime endLocal,
             string startUrl,
@@ -340,7 +342,7 @@ namespace Segra.Backend.Games.VrChat
             if (ClipTailPaddingSeconds > 0)
                 await Task.Delay(TimeSpan.FromSeconds(ClipTailPaddingSeconds));
 
-            if (await OBSService.TrySaveReplayBufferTailAsClipAsync(paddedWallDuration, clipTitle, safeFileBase, IgdbId))
+            if (await OBSService.TrySaveReplayBufferTailAsClipAsync(recordingSlot, paddedWallDuration, clipTitle, safeFileBase, IgdbId))
                 return;
 
             Recording? rec = FindVrChatSessionRecording();
@@ -707,12 +709,15 @@ namespace Segra.Backend.Games.VrChat
 
         private static Recording? FindVrChatSessionRecording()
         {
-            var r = AppState.Instance.Recording;
-            if (r?.FilePath == null)
-                return null;
-            string exe = r.ExePath ?? "";
-            if (exe.EndsWith("VRChat.exe", StringComparison.OrdinalIgnoreCase))
-                return r;
+            for (int slot = 0; slot < RecordingSlots.Max; slot++)
+            {
+                var r = AppState.Instance.GetRecording(slot);
+                if (r?.FilePath == null)
+                    continue;
+                string exe = r.ExePath ?? "";
+                if (exe.EndsWith("VRChat.exe", StringComparison.OrdinalIgnoreCase))
+                    return r;
+            }
             return null;
         }
 

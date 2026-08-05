@@ -1,4 +1,4 @@
-export type ContentType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit';
+export type ContentType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit' | 'External';
 
 export type RecordingMode = 'Session' | 'Buffer' | 'Hybrid';
 
@@ -21,6 +21,8 @@ export interface Content {
   igdbId?: number;
   isImported: boolean;
   audioTrackNames?: string[];
+  /** Original Session/Buffer type when this item lives in 待剪輯. */
+  pendingEditSourceType?: 'Session' | 'Buffer';
 }
 
 export interface OBSVersion {
@@ -31,8 +33,12 @@ export interface OBSVersion {
 
 export interface State {
   gpuVendor: GpuVendor;
+  /** @deprecated Use preRecordings — kept for backward compat with older backend payloads. */
   preRecording?: PreRecording;
+  /** @deprecated Use recordings — kept for backward compat with older backend payloads. */
   recording?: Recording;
+  preRecordings?: PreRecording[];
+  recordings?: Recording[];
   hasLoadedObs: boolean;
   content: Content[];
   inputDevices: AudioDevice[];
@@ -45,6 +51,29 @@ export interface State {
   maxDisplayHeight: number;
   currentFolderSizeGb: number;
   cacheFolder: string;
+}
+
+/** Active session recordings from state (dual-slot aware). */
+export function getActiveRecordings(state: State): Recording[] {
+  if (state.recordings && state.recordings.length > 0) return state.recordings;
+  return state.recording ? [state.recording] : [];
+}
+
+export function getActivePreRecordings(state: State): PreRecording[] {
+  if (state.preRecordings && state.preRecordings.length > 0) return state.preRecordings;
+  return state.preRecording ? [state.preRecording] : [];
+}
+
+export function hasLiveRecordingActivity(state: State): boolean {
+  const recordings = getActiveRecordings(state);
+  const preRecordings = getActivePreRecordings(state);
+  if (preRecordings.length > 0) return true;
+  return recordings.some((r) => r.endTime == null || r.endTime === undefined);
+}
+
+export function isRecordingFinishing(state: State): boolean {
+  const recordings = getActiveRecordings(state);
+  return recordings.some((r) => r.endTime != null && r.endTime !== undefined);
 }
 
 export enum GpuVendor {
@@ -116,7 +145,7 @@ export interface AudioDevice {
 export interface DeviceSetting {
   id: string;
   name: string;
-  volume: number; // Multiplier 0–3 (shown as 0–300%); applied to OBS source volume
+  volume: number; // Multiplier 0–5 (shown as 0–500%); applied to OBS source volume
   /** OBS mixer bitmask: bits 0–5 = tracks 1–6. Default 1 = track 1 only. */
   audioTrackMask?: number;
 }
@@ -210,6 +239,7 @@ export type MenuItemId =
   | 'Full Sessions'
   | 'Replay Buffer'
   | '待剪輯'
+  | '瀏覽影片'
   | 'Clips'
   | 'Highlights'
   | 'Settings';
@@ -223,6 +253,7 @@ export const ALL_MENU_ITEM_IDS: MenuItemId[] = [
   'Full Sessions',
   'Replay Buffer',
   '待剪輯',
+  '瀏覽影片',
   'Clips',
   'Highlights',
   'Settings',
@@ -250,6 +281,7 @@ export const MENU_ITEM_CONTENT_TYPES: Record<MenuItemId, ContentType[]> = {
   'Full Sessions': ['Session'],
   'Replay Buffer': ['Buffer'],
   待剪輯: ['PendingEdit'],
+  瀏覽影片: [],
   Clips: ['Clip'],
   Highlights: ['Highlight'],
   Settings: [],

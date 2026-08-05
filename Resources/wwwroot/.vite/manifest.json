@@ -1,66 +1,66 @@
 {
-  "_framer-motion.DeFn3rrU.js": {
-    "file": "assets/framer-motion.DeFn3rrU.js",
+  "_framer-motion.CVUkcmhk.js": {
+    "file": "assets/framer-motion.CVUkcmhk.js",
     "name": "framer-motion",
     "imports": [
-      "_react.PUn1mh59.js",
-      "_vendor.BBH0yepx.js"
+      "_react.KwGiK9py.js",
+      "_vendor.B47Xrk2U.js"
     ]
   },
-  "_lucide.DqZl2c12.js": {
-    "file": "assets/lucide.DqZl2c12.js",
+  "_lucide.DB4CzPJe.js": {
+    "file": "assets/lucide.DB4CzPJe.js",
     "name": "lucide",
     "imports": [
-      "_react.PUn1mh59.js"
+      "_react.KwGiK9py.js"
     ]
   },
   "_mp4box.CivaKMi2.js": {
     "file": "assets/mp4box.CivaKMi2.js",
     "name": "mp4box"
   },
-  "_react-dnd.BzCS81p8.js": {
-    "file": "assets/react-dnd.BzCS81p8.js",
+  "_react-dnd.D0z5Il8e.js": {
+    "file": "assets/react-dnd.D0z5Il8e.js",
     "name": "react-dnd",
     "imports": [
-      "_react.PUn1mh59.js",
-      "_vendor.BBH0yepx.js"
+      "_react.KwGiK9py.js",
+      "_vendor.B47Xrk2U.js"
     ]
   },
-  "_react.PUn1mh59.js": {
-    "file": "assets/react.PUn1mh59.js",
+  "_react.KwGiK9py.js": {
+    "file": "assets/react.KwGiK9py.js",
     "name": "react"
   },
-  "_tanstack.D2eCO0B-.js": {
-    "file": "assets/tanstack.D2eCO0B-.js",
+  "_tanstack.ChGiCojO.js": {
+    "file": "assets/tanstack.ChGiCojO.js",
     "name": "tanstack",
     "imports": [
-      "_react.PUn1mh59.js"
+      "_react.KwGiK9py.js"
     ]
   },
-  "_vendor.BBH0yepx.js": {
-    "file": "assets/vendor.BBH0yepx.js",
+  "_vendor.B47Xrk2U.js": {
+    "file": "assets/vendor.B47Xrk2U.js",
     "name": "vendor",
     "imports": [
-      "_react.PUn1mh59.js",
-      "_react-dnd.BzCS81p8.js"
+      "_react.KwGiK9py.js",
+      "_react-dnd.D0z5Il8e.js"
     ]
   },
   "index.html": {
-    "file": "assets/index.BGiBiV3C.js",
+    "file": "assets/index.Tna9enkV.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_react.PUn1mh59.js",
-      "_tanstack.D2eCO0B-.js",
-      "_vendor.BBH0yepx.js",
-      "_lucide.DqZl2c12.js",
-      "_framer-motion.DeFn3rrU.js",
-      "_react-dnd.BzCS81p8.js",
+      "_react.KwGiK9py.js",
+      "_tanstack.ChGiCojO.js",
+      "_vendor.B47Xrk2U.js",
+      "_lucide.DB4CzPJe.js",
+      "_framer-motion.CVUkcmhk.js",
+      "_react-dnd.D0z5Il8e.js",
       "_mp4box.CivaKMi2.js"
     ],
     "css": [
-      "assets/index.PyarERvV.css"
+      "assets/index.Bq0d0LpK.css"
     ]
   }
 }

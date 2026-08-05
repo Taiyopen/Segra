@@ -4,16 +4,40 @@ using NAudio.Wave.SampleProviders;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Recorder;
 using Serilog;
+using System.Runtime.InteropServices;
 
 namespace Segra.Backend.Windows.Input
 {
     internal static class RecordingHotkeyActions
     {
         private static int _replaySaveInProgress;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        private static Recording? GetTargetRecordingForHotkey()
+        {
+            var active = AppState.Instance.Recordings;
+            if (active.Count == 0) return null;
+            if (active.Count == 1) return active[0];
+
+            _ = GetWindowThreadProcessId(GetForegroundWindow(), out uint foregroundPid);
+            if (foregroundPid > 0)
+            {
+                var byPid = AppState.Instance.GetRecordingByPid((int)foregroundPid);
+                if (byPid != null) return byPid;
+            }
+
+            return AppState.Instance.GetRecording(0) ?? AppState.Instance.GetRecording(1);
+        }
+
         /// <summary>Returns true when a manual bookmark was added (same rules as F8).</summary>
         public static bool TryCreateBookmark()
         {
-            var recording = AppState.Instance.Recording;
+            var recording = GetTargetRecordingForHotkey();
             var recordingMode = Settings.Instance.RecordingMode;
 
             if (recording != null && (recordingMode == RecordingMode.Session || recordingMode == RecordingMode.Hybrid))
@@ -33,11 +57,12 @@ namespace Segra.Backend.Windows.Input
         /// <summary>Returns true when save replay was triggered (same rules as F10).</summary>
         public static bool TrySaveReplayBuffer()
         {
-            var recording = AppState.Instance.Recording;
+            var recording = GetTargetRecordingForHotkey();
             var recordingMode = Settings.Instance.RecordingMode;
 
             if (recording != null && (recordingMode == RecordingMode.Buffer || recordingMode == RecordingMode.Hybrid))
             {
+                int slot = recording.Slot;
                 // Ignore duplicate hotkey/UI triggers while a save is running. Without this, a second
                 // queued save runs after ResetReplayBuffer and produces an empty clip.
                 if (Interlocked.CompareExchange(ref _replaySaveInProgress, 1, 0) != 0)
@@ -50,7 +75,7 @@ namespace Segra.Backend.Windows.Input
                 {
                     try
                     {
-                        await OBSService.SaveReplayBuffer();
+                        await OBSService.SaveReplayBuffer(slot);
                     }
                     finally
                     {

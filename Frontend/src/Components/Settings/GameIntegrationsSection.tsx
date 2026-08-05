@@ -1,7 +1,7 @@
 import { useSettings } from '../../Context/SettingsContext';
 import { useAppState } from '../../Context/AppStateContext';
 import { sendMessageToBackend } from '../../Utils/MessageUtils';
-import { GameIntegrations } from '../../Models/types';
+import { GameIntegrations, hasLiveRecordingActivity } from '../../Models/types';
 
 interface GameIntegration {
   id: string;
@@ -210,7 +210,7 @@ export default function GameIntegrationsSection() {
             integration={integration}
             enabled={settings.gameIntegrations[integration.settingsKey].enabled}
             showBackground={settings.showGameBackground}
-            isRecording={appState.recording != null || appState.preRecording != null}
+            isRecording={hasLiveRecordingActivity(appState)}
             onToggle={(enabled) => handleToggle(integration.settingsKey, enabled)}
           />
         ))}

@@ -64,13 +64,21 @@ namespace Segra.Backend.Windows.Display
             public int Height => Bottom - Top;
         }
 
-        public static bool GetWindowDimensionsByPreRecordingExeOrPid(out uint width, out uint height)
+        public static bool GetWindowDimensionsByPreRecordingExeOrPid(out uint width, out uint height, int slot = 0)
         {
             width = 0;
             height = 0;
 
-            // Check for captured dimensions first - these are the most accurate and don't require window handle lookup
-            if (OBSService.CapturedWindowWidth.HasValue && OBSService.CapturedWindowHeight.HasValue)
+            // Slot 0 may use OBS hook dimensions; secondary slots must resolve their own game window.
+            if (slot == 0 && OBSService.TryGetCapturedWindowDimensions(slot, out width, out height))
+            {
+                Log.Information($"Using captured window dimensions from OBS logs for slot {slot}: {width}x{height}");
+                return true;
+            }
+
+            if (slot == 0
+                && OBSService.CapturedWindowWidth.HasValue
+                && OBSService.CapturedWindowHeight.HasValue)
             {
                 width = OBSService.CapturedWindowWidth.Value;
                 height = OBSService.CapturedWindowHeight.Value;
@@ -83,7 +91,7 @@ namespace Segra.Backend.Windows.Display
 
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                PreRecording? preRecording = AppState.Instance.PreRecording;
+                PreRecording? preRecording = AppState.Instance.GetPreRecording(slot);
 
                 if (preRecording == null)
                 {
@@ -95,8 +103,16 @@ namespace Segra.Backend.Windows.Display
 
                 Log.Information($"Captured dimensions not available, attempting to find window for: {executableFileName}");
 
-                // Check for captured dimensions on each attempt
-                if (OBSService.CapturedWindowWidth.HasValue && OBSService.CapturedWindowHeight.HasValue)
+                // Check for captured dimensions on each attempt (slot 0 only)
+                if (slot == 0 && OBSService.TryGetCapturedWindowDimensions(slot, out width, out height))
+                {
+                    Log.Information($"Using captured window dimensions from OBS logs for slot {slot}: {width}x{height}");
+                    return true;
+                }
+
+                if (slot == 0
+                    && OBSService.CapturedWindowWidth.HasValue
+                    && OBSService.CapturedWindowHeight.HasValue)
                 {
                     width = OBSService.CapturedWindowWidth.Value;
                     height = OBSService.CapturedWindowHeight.Value;
@@ -108,7 +124,7 @@ namespace Segra.Backend.Windows.Display
 
                 if (targetWindow != IntPtr.Zero)
                 {
-                    return GetWindowDimensionsByWindowHandle(targetWindow, executableFileName, attempt, out width, out height);
+                    return GetWindowDimensionsByWindowHandle(targetWindow, executableFileName, attempt, slot, out width, out height);
                 }
 
                 if (attempt < maxAttempts)
@@ -475,7 +491,7 @@ namespace Segra.Backend.Windows.Display
             return false;
         }
 
-        private static bool GetWindowDimensionsByWindowHandle(IntPtr windowHandle, string? executableFileName, int windowHandleAttempts, out uint width, out uint height)
+        private static bool GetWindowDimensionsByWindowHandle(IntPtr windowHandle, string? executableFileName, int windowHandleAttempts, int slot, out uint width, out uint height)
         {
             width = 0;
             height = 0;
@@ -508,8 +524,10 @@ namespace Segra.Backend.Windows.Display
             {
                 stableWindowDimensionsAttempt += 1;
 
-                // Check if OBS captured dimensions are available and match display size
-                if (OBSService.CapturedWindowWidth.HasValue && OBSService.CapturedWindowHeight.HasValue)
+                // Check if OBS captured dimensions are available and match display size (slot 0 only)
+                if (slot == 0
+                    && OBSService.CapturedWindowWidth.HasValue
+                    && OBSService.CapturedWindowHeight.HasValue)
                 {
                     uint capturedWidth = OBSService.CapturedWindowWidth.Value;
                     uint capturedHeight = OBSService.CapturedWindowHeight.Value;

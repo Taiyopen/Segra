@@ -1,5 +1,6 @@
 using Segra.Backend.App;
 using Segra.Backend.Core.Models;
+using Segra.Backend.Shared;
 using Segra.Backend.Windows.Storage;
 using Serilog;
 using System.Text.Json;
@@ -108,7 +109,7 @@ namespace Segra.Backend.Services
                     return true;
                 }
 
-                long newFolderSizeBytes = StorageService.CalculateFolderSize(newContentFolder);
+                long newFolderSizeBytes = StorageService.CalculateStorageLimitedFolderSize(newContentFolder);
                 double newFolderSizeGb = (double)newFolderSizeBytes / StorageService.BYTES_PER_GB;
                 int storageLimitGb = Settings.Instance.StorageLimit;
 
@@ -152,6 +153,13 @@ namespace Segra.Backend.Services
         {
             try
             {
+                // Non-limited types (Clips, Highlights, PendingEdit, External) do not count toward
+                // the storage limit and will not trigger auto-deletion of older recordings.
+                if (!FolderNames.IsStorageLimitedContentType(contentType))
+                {
+                    return true;
+                }
+
                 long totalImportSizeBytes = 0;
                 foreach (string file in selectedFiles)
                 {

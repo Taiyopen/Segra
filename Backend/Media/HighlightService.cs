@@ -26,6 +26,12 @@ namespace Segra.Backend.Media
                 Content? content = AppState.Instance.Content.FirstOrDefault(x => x.FileName == fileName);
                 if (content == null)
                 {
+                    await SettingsService.LoadContentFromFolderIntoState(sendToFrontend: false);
+                    content = AppState.Instance.Content.FirstOrDefault(x => x.FileName == fileName);
+                }
+
+                if (content == null)
+                {
                     Log.Warning($"No content found matching fileName: {fileName}");
                     return;
                 }

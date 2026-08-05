@@ -380,9 +380,12 @@ namespace Segra.Backend.Media
                 // Normalize the file path
                 string normalizedFilePath = Path.GetFullPath(filePath);
 
+                // External browse items live outside Segra's content folder — never delete the original video.
+                bool deleteVideoFile = type != Content.ContentType.External;
+
                 // Ensure the video file exists before attempting deletion
                 string? videoDirectory = Path.GetDirectoryName(normalizedFilePath);
-                if (File.Exists(normalizedFilePath))
+                if (deleteVideoFile && File.Exists(normalizedFilePath))
                 {
                     int maxRetries = 3;
                     for (int i = 0; i < maxRetries; i++)
@@ -414,7 +417,8 @@ namespace Segra.Backend.Media
                                 FolderNames.Buffers,
                                 FolderNames.Clips,
                                 FolderNames.Highlights,
-                                FolderNames.PendingEdit
+                                FolderNames.PendingEdit,
+                                FolderNames.External
                             };
                             bool isGameSubfolder = rootFolders.Any(rf =>
                                 videoDirectory.StartsWith(Path.Combine(contentRoot, rf), StringComparison.OrdinalIgnoreCase) &&
@@ -432,9 +436,13 @@ namespace Segra.Backend.Media
                         }
                     }
                 }
-                else
+                else if (deleteVideoFile)
                 {
                     Log.Warning($"Video file not found (already deleted?): {normalizedFilePath}");
+                }
+                else
+                {
+                    Log.Information($"Skipping video file deletion for External content: {normalizedFilePath}");
                 }
 
                 // Extract the content file name without extension
@@ -610,6 +618,7 @@ namespace Segra.Backend.Media
 
                     meta.Type = Content.ContentType.PendingEdit;
                     meta.FilePath = newVideoPath;
+                    meta.PendingEditSourceType = sourceType;
                     await File.WriteAllTextAsync(newMetaPath, JsonSerializer.Serialize(meta, _jsonOptions));
                     File.Delete(oldMetaPath);
                 }
@@ -626,6 +635,17 @@ namespace Segra.Backend.Media
                         content.IgdbId,
                         content.IsImported,
                         content.AudioTrackNames);
+
+                    if (File.Exists(newMetaPath))
+                    {
+                        string recreatedJson = await File.ReadAllTextAsync(newMetaPath);
+                        var recreated = JsonSerializer.Deserialize<Content>(recreatedJson);
+                        if (recreated != null)
+                        {
+                            recreated.PendingEditSourceType = sourceType;
+                            await File.WriteAllTextAsync(newMetaPath, JsonSerializer.Serialize(recreated, _jsonOptions));
+                        }
+                    }
                 }
 
                 TryMoveSidecarFile(
@@ -714,6 +734,260 @@ namespace Segra.Backend.Media
             catch (Exception ex)
             {
                 Log.Error(ex, "HandleMoveToPendingEdit failed");
+            }
+        }
+
+        private static async Task MoveSingleContentOutOfPendingEdit(Content content, Content.ContentType targetType)
+        {
+            if (content.Type != Content.ContentType.PendingEdit)
+            {
+                Log.Warning("MoveOutOfPendingEdit ignored non-pending type {Type} for {File}", content.Type, content.FileName);
+                return;
+            }
+
+            if (targetType != Content.ContentType.Session && targetType != Content.ContentType.Buffer)
+            {
+                Log.Warning("MoveOutOfPendingEdit ignored invalid target {Type} for {File}", targetType, content.FileName);
+                return;
+            }
+
+            string oldVideoPath = Path.GetFullPath(content.FilePath);
+            if (!File.Exists(oldVideoPath))
+            {
+                Log.Warning("MoveOutOfPendingEdit: video missing {Path}", oldVideoPath);
+                return;
+            }
+
+            string contentFolder = Path.GetFullPath(Settings.Instance.ContentFolder);
+            string gameFolder = StorageService.SanitizeGameNameForFolder(content.Game ?? "Unknown");
+            string fileBase = Path.GetFileName(oldVideoPath);
+            string destDir = Path.Combine(contentFolder, FolderNames.GetVideoFolderName(targetType), gameFolder);
+            Directory.CreateDirectory(destDir);
+            string newVideoPath = Path.GetFullPath(Path.Combine(destDir, fileBase));
+
+            string newMetaDir = FolderNames.GetMetadataFolderPath(targetType);
+            Directory.CreateDirectory(newMetaDir);
+            string newMetaPath = Path.Combine(newMetaDir, $"{content.FileName}.json");
+            string oldMetaPath = Path.Combine(FolderNames.GetMetadataFolderPath(Content.ContentType.PendingEdit), $"{content.FileName}.json");
+
+            bool alreadyAtDestination = string.Equals(newVideoPath, oldVideoPath, StringComparison.OrdinalIgnoreCase);
+            if (alreadyAtDestination)
+            {
+                // Video already sits in the target folder (inconsistent Type/path). Just repair metadata.
+                Log.Information("MoveOutOfPendingEdit: video already at destination, repairing metadata {Path}", oldVideoPath);
+                await WriteMovedOutMetadata(content, targetType, newVideoPath, oldMetaPath, newMetaPath);
+                TryMoveSidecarFile(
+                    Path.Combine(FolderNames.GetThumbnailsFolderPath(Content.ContentType.PendingEdit), $"{content.FileName}.jpeg"),
+                    Path.Combine(FolderNames.GetThumbnailsFolderPath(targetType), $"{content.FileName}.jpeg"));
+                TryMoveSidecarFile(
+                    Path.Combine(FolderNames.GetWaveformsFolderPath(Content.ContentType.PendingEdit), $"{content.FileName}.peaks.json"),
+                    Path.Combine(FolderNames.GetWaveformsFolderPath(targetType), $"{content.FileName}.peaks.json"));
+                return;
+            }
+
+            if (File.Exists(newVideoPath))
+            {
+                Log.Warning("MoveOutOfPendingEdit: destination already exists {Path}", newVideoPath);
+                return;
+            }
+
+            bool moved = false;
+            try
+            {
+                File.Move(oldVideoPath, newVideoPath);
+                moved = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "MoveOutOfPendingEdit: failed moving video {Old} -> {New}", oldVideoPath, newVideoPath);
+                return;
+            }
+
+            try
+            {
+                await WriteMovedOutMetadata(content, targetType, newVideoPath, oldMetaPath, newMetaPath);
+
+                TryMoveSidecarFile(
+                    Path.Combine(FolderNames.GetThumbnailsFolderPath(Content.ContentType.PendingEdit), $"{content.FileName}.jpeg"),
+                    Path.Combine(FolderNames.GetThumbnailsFolderPath(targetType), $"{content.FileName}.jpeg"));
+
+                TryMoveSidecarFile(
+                    Path.Combine(FolderNames.GetWaveformsFolderPath(Content.ContentType.PendingEdit), $"{content.FileName}.peaks.json"),
+                    Path.Combine(FolderNames.GetWaveformsFolderPath(targetType), $"{content.FileName}.peaks.json"));
+            }
+            catch (Exception ex)
+            {
+                // Prefer leaving a recoverable metadata file at the new location over reverting the
+                // video (revert often fails while the player still has the file open, creating orphans
+                // that RecoveryService only finds after restart).
+                Log.Error(ex, "MoveOutOfPendingEdit: metadata/sidecar failed after video move; ensuring metadata at destination");
+                try
+                {
+                    await WriteMovedOutMetadata(content, targetType, newVideoPath, oldMetaPath, newMetaPath);
+                }
+                catch (Exception metaEx)
+                {
+                    Log.Error(metaEx, "MoveOutOfPendingEdit: could not write destination metadata for {File}", content.FileName);
+                    if (moved)
+                    {
+                        try
+                        {
+                            if (File.Exists(newVideoPath) && !File.Exists(oldVideoPath))
+                                File.Move(newVideoPath, oldVideoPath);
+                        }
+                        catch (Exception revertEx)
+                        {
+                            Log.Error(revertEx, "MoveOutOfPendingEdit: revert failed; orphan may need recovery on next launch");
+                        }
+                    }
+                }
+            }
+        }
+
+        private static async Task WriteMovedOutMetadata(
+            Content content,
+            Content.ContentType targetType,
+            string newVideoPath,
+            string oldMetaPath,
+            string newMetaPath)
+        {
+            Content meta;
+            if (File.Exists(oldMetaPath))
+            {
+                string json = await File.ReadAllTextAsync(oldMetaPath);
+                meta = JsonSerializer.Deserialize<Content>(json)
+                    ?? throw new InvalidOperationException("Failed to deserialize pending-edit metadata");
+            }
+            else if (File.Exists(newMetaPath))
+            {
+                string json = await File.ReadAllTextAsync(newMetaPath);
+                meta = JsonSerializer.Deserialize<Content>(json)
+                    ?? throw new InvalidOperationException("Failed to deserialize destination metadata");
+            }
+            else
+            {
+                Log.Warning("MoveOutOfPendingEdit: no metadata at {Old}, recreating", oldMetaPath);
+                await CreateMetadataFile(
+                    newVideoPath,
+                    targetType,
+                    content.Game ?? "Unknown",
+                    content.Bookmarks,
+                    string.IsNullOrEmpty(content.Title) ? null : content.Title,
+                    content.CreatedAt,
+                    content.IgdbId,
+                    content.IsImported,
+                    content.AudioTrackNames);
+                return;
+            }
+
+            meta.Type = targetType;
+            meta.FilePath = newVideoPath;
+            meta.PendingEditSourceType = null;
+            await File.WriteAllTextAsync(newMetaPath, JsonSerializer.Serialize(meta, _jsonOptions));
+
+            if (!string.Equals(oldMetaPath, newMetaPath, StringComparison.OrdinalIgnoreCase) && File.Exists(oldMetaPath))
+            {
+                try { File.Delete(oldMetaPath); }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "MoveOutOfPendingEdit: could not delete old metadata {Path}", oldMetaPath);
+                }
+            }
+        }
+
+        private static Content.ContentType ResolvePendingEditTargetType(Content content, string? requestedTargetType)
+        {
+            if (!string.IsNullOrEmpty(requestedTargetType) &&
+                Enum.TryParse(requestedTargetType, out Content.ContentType parsed) &&
+                (parsed == Content.ContentType.Session || parsed == Content.ContentType.Buffer))
+            {
+                return parsed;
+            }
+
+            if (content.PendingEditSourceType is Content.ContentType.Session or Content.ContentType.Buffer)
+                return content.PendingEditSourceType.Value;
+
+            // AppState historically dropped PendingEditSourceType; read it from disk metadata.
+            try
+            {
+                string metaPath = Path.Combine(
+                    FolderNames.GetMetadataFolderPath(Content.ContentType.PendingEdit),
+                    $"{content.FileName}.json");
+                if (File.Exists(metaPath))
+                {
+                    var meta = JsonSerializer.Deserialize<Content>(File.ReadAllText(metaPath));
+                    if (meta?.PendingEditSourceType is Content.ContentType.Session or Content.ContentType.Buffer)
+                        return meta.PendingEditSourceType.Value;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "MoveOutOfPendingEdit: failed reading source type from disk for {File}", content.FileName);
+            }
+
+            return Content.ContentType.Session;
+        }
+
+        public static async Task HandleMoveOutOfPendingEdit(JsonElement message)
+        {
+            try
+            {
+                var snapshots = new List<(Content content, Content.ContentType targetType)>();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                void TryAddItem(string? fileName, string? requestedTargetType)
+                {
+                    if (string.IsNullOrEmpty(fileName))
+                        return;
+                    if (!seen.Add(fileName))
+                        return;
+
+                    Content? c = AppState.Instance.Content.FirstOrDefault(x =>
+                        x.FileName == fileName && x.Type == Content.ContentType.PendingEdit);
+                    if (c == null)
+                    {
+                        Log.Warning("MoveOutOfPendingEdit: content not in state {File}", fileName);
+                        return;
+                    }
+
+                    snapshots.Add((c, ResolvePendingEditTargetType(c, requestedTargetType)));
+                }
+
+                if (message.TryGetProperty("Items", out JsonElement itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement item in itemsEl.EnumerateArray())
+                    {
+                        if (!item.TryGetProperty("FileName", out JsonElement fnEl))
+                            continue;
+                        string? targetType = item.TryGetProperty("TargetType", out JsonElement ttEl)
+                            ? ttEl.GetString()
+                            : null;
+                        TryAddItem(fnEl.GetString(), targetType);
+                    }
+                }
+                else if (message.TryGetProperty("FileName", out JsonElement fnSingle))
+                {
+                    string? targetType = message.TryGetProperty("TargetType", out JsonElement ttSingle)
+                        ? ttSingle.GetString()
+                        : null;
+                    TryAddItem(fnSingle.GetString(), targetType);
+                }
+
+                if (snapshots.Count == 0)
+                {
+                    Log.Warning("MoveOutOfPendingEdit: no valid items");
+                    return;
+                }
+
+                foreach (var pair in snapshots)
+                    await MoveSingleContentOutOfPendingEdit(pair.content, pair.targetType);
+
+                await SettingsService.LoadContentFromFolderIntoState(true);
+                await MessageService.SendSettingsToFrontend("Moved out of pending edit");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "HandleMoveOutOfPendingEdit failed");
             }
         }
 

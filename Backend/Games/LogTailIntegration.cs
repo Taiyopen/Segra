@@ -169,7 +169,7 @@ namespace Segra.Backend.Games
 
         protected void AddBookmark(BookmarkType type)
         {
-            var recording = AppState.Instance.Recording;
+            var recording = ActiveRecording;
             if (recording == null)
             {
                 return;

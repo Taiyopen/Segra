@@ -1,11 +1,15 @@
 using Serilog;
+using System.Collections.Concurrent;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Web;
 using NAudio.CoreAudioApi;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Media;
 using Segra.Backend.Recorder;
+using Segra.Backend.Services;
 using Segra.Backend.Shared;
 using Segra.Backend.Windows.Audio;
 
@@ -145,7 +149,12 @@ namespace Segra.Backend.Api
                 return;
             }
 
-            byte[]? jpeg = OBSService.TryGetRecordingPreviewJpeg();
+            int slot = 0;
+            var slotQuery = request.QueryString["slot"];
+            if (!string.IsNullOrEmpty(slotQuery) && int.TryParse(slotQuery, out int parsedSlot))
+                slot = parsedSlot;
+
+            byte[]? jpeg = OBSService.TryGetRecordingPreviewJpeg(slot);
             if (jpeg == null || jpeg.Length == 0)
             {
                 response.StatusCode = (int)HttpStatusCode.NotFound;
@@ -322,15 +331,14 @@ namespace Segra.Backend.Api
                 return;
             }
 
-            if (fileName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
-            {
-                await StreamVideoFile(fileName, context);
-            }
-            else if (fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            string ext = Path.GetExtension(fileName);
+            if (IsJsonExtension(ext))
             {
                 await StreamJsonFile(fileName, response);
+                return;
             }
-            else
+
+            if (!IsVideoExtension(ext))
             {
                 response.StatusCode = (int)HttpStatusCode.BadRequest;
                 response.ContentType = "text/plain";
@@ -338,10 +346,139 @@ namespace Segra.Backend.Api
                 {
                     await writer.WriteAsync("Unsupported file type.");
                 }
+                return;
+            }
+
+            try
+            {
+                string playablePath = await EnsureBrowserPlayableAsync(fileName);
+                string mime = GetVideoMimeType(Path.GetExtension(playablePath));
+                await StreamVideoFile(playablePath, context, mime);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to prepare video for playback: {Path}", fileName);
+                response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                response.ContentType = "text/plain";
+                using (var writer = new StreamWriter(response.OutputStream))
+                {
+                    await writer.WriteAsync("Failed to prepare video for playback.");
+                }
             }
         }
 
-        private static async Task StreamVideoFile(string fileName, HttpListenerContext context)
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> RemuxLocks = new(StringComparer.OrdinalIgnoreCase);
+
+        private static bool IsJsonExtension(string ext) =>
+            ext.Equals(".json", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsVideoExtension(string ext) =>
+            ext.Equals(".mp4", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".webm", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".m4v", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".mkv", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".mov", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".avi", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Formats the HTML5 video element can play directly in WebView2/Chromium.
+        /// </summary>
+        private static bool IsBrowserNativeVideo(string ext) =>
+            ext.Equals(".mp4", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".webm", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".m4v", StringComparison.OrdinalIgnoreCase);
+
+        private static string GetVideoMimeType(string ext) =>
+            ext.Equals(".webm", StringComparison.OrdinalIgnoreCase) ? "video/webm" : "video/mp4";
+
+        /// <summary>
+        /// Returns a path the browser can play. MKV/MOV/AVI are remuxed (or lightly
+        /// re-encoded for audio) into a cached MP4 under the Segra cache folder.
+        /// </summary>
+        private static async Task<string> EnsureBrowserPlayableAsync(string sourcePath)
+        {
+            string ext = Path.GetExtension(sourcePath);
+            if (IsBrowserNativeVideo(ext))
+                return sourcePath;
+
+            var info = new FileInfo(sourcePath);
+            string key = $"{info.FullName}|{info.Length}|{info.LastWriteTimeUtc.Ticks}";
+            string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)))[..32].ToLowerInvariant();
+
+            string remuxDir = Path.Combine(FolderNames.CacheFolder, "browse-remux");
+            Directory.CreateDirectory(remuxDir);
+            string outPath = Path.Combine(remuxDir, $"{hash}.mp4");
+
+            if (File.Exists(outPath) && new FileInfo(outPath).Length > 0)
+                return outPath;
+
+            var gate = RemuxLocks.GetOrAdd(hash, _ => new SemaphoreSlim(1, 1));
+            await gate.WaitAsync();
+            try
+            {
+                if (File.Exists(outPath) && new FileInfo(outPath).Length > 0)
+                    return outPath;
+
+                string tempPath = outPath + ".partial";
+                try
+                {
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
+
+                    Log.Information("Remuxing browse video for playback: {Source} -> {Dest}", sourcePath, outPath);
+
+                    try
+                    {
+                        // Fast path: container remux only (works for H.264/AAC in MKV, etc.)
+                        await FFmpegService.RunSimple(
+                        [
+                            "-y",
+                            "-i", sourcePath,
+                            "-map", "0:v:0",
+                            "-map", "0:a:0?",
+                            "-c", "copy",
+                            "-movflags", "+faststart",
+                            tempPath
+                        ]);
+                    }
+                    catch (Exception copyEx)
+                    {
+                        Log.Warning(copyEx, "Stream-copy remux failed; retrying with AAC audio for {Source}", sourcePath);
+                        if (File.Exists(tempPath))
+                            File.Delete(tempPath);
+
+                        // Fallback: keep video bitstream, re-encode audio to AAC for MP4
+                        await FFmpegService.RunSimple(
+                        [
+                            "-y",
+                            "-i", sourcePath,
+                            "-map", "0:v:0",
+                            "-map", "0:a:0?",
+                            "-c:v", "copy",
+                            "-c:a", "aac",
+                            "-b:a", "192k",
+                            "-movflags", "+faststart",
+                            tempPath
+                        ]);
+                    }
+
+                    File.Move(tempPath, outPath, overwrite: true);
+                    Log.Information("Browse remux ready: {Dest}", outPath);
+                    return outPath;
+                }
+                catch
+                {
+                    try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* ignore */ }
+                    throw;
+                }
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        private static async Task StreamVideoFile(string fileName, HttpListenerContext context, string contentType = "video/mp4")
         {
             var response = context.Response;
 
@@ -378,7 +515,7 @@ namespace Segra.Backend.Api
                 long contentLength = end - start + 1;
 
                 response.StatusCode = string.IsNullOrEmpty(rangeHeader) ? (int)HttpStatusCode.OK : (int)HttpStatusCode.PartialContent;
-                response.ContentType = "video/mp4";
+                response.ContentType = contentType;
                 response.AddHeader("Accept-Ranges", "bytes");
                 // Content-Range is not on the CORS response-header safelist, so the
                 // browser hides it from fetch() unless we explicitly expose it.
@@ -475,6 +612,10 @@ namespace Segra.Backend.Api
                 if (canonical.StartsWith(rootCanonical, StringComparison.OrdinalIgnoreCase))
                     return canonical;
             }
+
+            // Allow videos under folders the user has opened in the file browser
+            if (BrowseService.IsPathAuthorized(canonical))
+                return canonical;
 
             return null;
         }
