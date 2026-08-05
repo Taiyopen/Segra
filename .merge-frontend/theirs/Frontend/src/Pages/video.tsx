@@ -1,0 +1,2498 @@
+﻿import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
+import { Content, BookmarkType, Segment, Bookmark } from '../Models/types';
+import { sendMessageToBackend } from '../Utils/MessageUtils';
+import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
+import { useAppState } from '../Context/AppStateContext';
+import { openFileLocation } from '../Utils/FileUtils';
+import { useSelectedVideo } from '../Context/SelectedVideoContext';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useAuth } from '../Hooks/useAuth.tsx';
+import { useSegments } from '../Context/SegmentsContext';
+import { useUploads } from '../Context/UploadContext';
+import { useModal } from '../Context/ModalContext';
+import UploadModal from '../Components/UploadModal';
+import type { LucideIcon } from 'lucide-react';
+import { Icon } from 'lucide-react';
+import { crosshair2Dot, soccerBall } from '@lucide/lab';
+import {
+  Trash2,
+  SquarePlus,
+  Bookmark as BookmarkIcon,
+  BookmarkPlus,
+  Clapperboard,
+  HeartHandshake,
+  Swords,
+  Pause,
+  Play,
+  RotateCcw,
+  RotateCw,
+  Upload,
+  Volume2,
+  VolumeX,
+  Volume1,
+  Maximize,
+  Minimize,
+  ArrowLeft,
+  Skull,
+  Plus,
+  Minus,
+  ZoomIn,
+  ZoomOut,
+  Headphones,
+  Copy,
+  Check,
+} from 'lucide-react';
+import SegmentCard from '../Components/SegmentCard';
+import { useAudioTracks } from '../Hooks/useAudioTracks';
+import { AnimatePresence, motion } from 'framer-motion';
+import Button from '../Components/Button';
+import { useDeleteConfirmation } from '../Hooks/useDeleteConfirmation';
+
+const Crosshair2Dot = React.forwardRef<SVGSVGElement, React.ComponentProps<typeof Icon>>(
+  (props, ref) => <Icon {...props} ref={ref} iconNode={crosshair2Dot} />,
+) as LucideIcon;
+
+const SoccerBall = React.forwardRef<SVGSVGElement, React.ComponentProps<typeof Icon>>(
+  (props, ref) => <Icon {...props} ref={ref} iconNode={soccerBall} />,
+) as LucideIcon;
+
+// Converts time string in format "HH:MM:SS.mmm" to seconds
+const timeStringToSeconds = (timeStr: string): number => {
+  const [time, milliseconds] = timeStr.split('.');
+  const [hours, minutes, seconds] = time.split(':').map(Number);
+  return hours * 3600 + minutes * 60 + seconds + (milliseconds ? Number(`0.${milliseconds}`) : 0);
+};
+
+// Render waveform bars onto a canvas for a given pixel range [regionLeft, regionLeft + canvas.width).
+// peaksMax is the loudest absolute peak in the whole clip; bars are scaled against it so
+// the loudest moment fills the canvas height regardless of the recording's overall level.
+function renderWaveformRegion(
+  canvas: HTMLCanvasElement,
+  peaks: number[],
+  peaksMax: number,
+  totalWidth: number,
+  regionLeft: number,
+) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const { width, height } = canvas;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = '#49515b';
+
+  const columns = Math.floor(peaks.length / 2);
+  if (columns === 0) return;
+  const barWidth = totalWidth / columns;
+  const denom = peaksMax > 0 ? peaksMax : 128;
+  const maxBarHeight = height * 0.8;
+
+  for (let px = 0; px < width; px++) {
+    const worldX = regionLeft + px;
+    const colStart = Math.max(0, Math.floor(worldX / barWidth));
+    const colEnd = Math.min(columns, Math.ceil((worldX + 1) / barWidth));
+
+    let maxAmp = 0;
+    for (let i = colStart; i < colEnd; i++) {
+      const amp = Math.max(Math.abs(peaks[i * 2]), Math.abs(peaks[i * 2 + 1]));
+      if (amp > maxAmp) maxAmp = amp;
+    }
+
+    const amplitude = Math.min(1, maxAmp / denom);
+    const barHeight = Math.max(1, amplitude * maxBarHeight);
+    ctx.fillRect(px, height - barHeight, 1, barHeight);
+  }
+}
+
+const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 1.5, 2] as const;
+const formatPlaybackRateLabel = (rate: number) => `${rate}x`;
+
+const DEFAULT_ICON_MAPPING: Record<BookmarkType, LucideIcon> = {
+  Manual: BookmarkIcon,
+  Kill: Crosshair2Dot,
+  Goal: SoccerBall,
+  Assist: HeartHandshake,
+  Death: Skull,
+};
+
+const GAME_ICON_OVERRIDES: Record<number, Partial<Record<BookmarkType, LucideIcon>>> = {
+  115: { Kill: Swords }, // League of Legends
+};
+
+function getIconMapping(igdbId?: number): Record<BookmarkType, LucideIcon> {
+  if (igdbId && GAME_ICON_OVERRIDES[igdbId]) {
+    return { ...DEFAULT_ICON_MAPPING, ...GAME_ICON_OVERRIDES[igdbId] };
+  }
+  return DEFAULT_ICON_MAPPING;
+}
+
+function TopInfoBar({ video }: { video: Content }) {
+  const { setSelectedVideo } = useSelectedVideo();
+  const created = new Date(video.createdAt);
+  const isValidDate = !isNaN(created.getTime());
+  const locale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase() || '';
+  const isUS = locale.includes('-us');
+  const createdDateStr = !isValidDate
+    ? video.createdAt
+    : isUS
+      ? created.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })
+      : `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}-${String(created.getDate()).padStart(2, '0')}`;
+
+  const createdTimeStr = !isValidDate
+    ? ''
+    : created.toLocaleTimeString(isUS ? 'en-US' : undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: isUS,
+      });
+
+  return (
+    <div className="flex items-center gap-2 px-2 py-1 mb-2 text-xs leading-tight text-gray-300 border rounded-lg shrink-0 bg-base-300 border-base-400">
+      <Button
+        variant="ghost"
+        size="xs"
+        className="h-6 min-h-0 px-1"
+        onClick={() => setSelectedVideo(null)}
+        aria-label="Back"
+      >
+        <ArrowLeft className="w-4 h-4" />
+      </Button>
+      <div className="flex items-center gap-2 overflow-hidden">
+        <span className="whitespace-nowrap">
+          Created: {createdDateStr}
+          {createdTimeStr ? ` ${createdTimeStr}` : ''}
+        </span>
+        <span>•</span>
+        <span className="whitespace-nowrap">Size: {video.fileSize}</span>
+        <span>•</span>
+        <span className="flex items-center gap-1 min-w-0">
+          <span className="whitespace-nowrap">Location:</span>
+          <a
+            className="text-gray-300 cursor-pointer hover:underline hover:text-gray-200 truncate"
+            onClick={() => openFileLocation(video.filePath)}
+            title={video.filePath}
+          >
+            {video.filePath}
+          </a>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Fetches a video thumbnail from the backend for a specific timestamp
+const fetchThumbnailAtTime = async (videoPath: string, timeInSeconds: number): Promise<string> => {
+  const url = `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(videoPath)}&time=${timeInSeconds}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch thumbnail: ${response.statusText}`);
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+};
+
+export default function VideoComponent({ video }: { video: Content }) {
+  // Context hooks
+  const settings = useSettings();
+  const appState = useAppState();
+  const updateSettings = useSettingsUpdater();
+  const { session } = useAuth();
+  const { uploads } = useUploads();
+  const { openModal, closeModal } = useModal();
+  const confirmDelete = useDeleteConfirmation();
+  const {
+    segments,
+    addSegment,
+    updateSegment,
+    removeSegment,
+    updateSegmentsArray,
+    clearAllSegments,
+  } = useSegments();
+
+  // Refs
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const latestDraggedSegmentRef = useRef<Segment | null>(null);
+  const pendingScrollRef = useRef<number | null>(null);
+  const zoomAnimationRef = useRef<number>(0);
+  const speedButtonRef = useRef<HTMLButtonElement | null>(null);
+  const speedDropdownRef = useRef<HTMLDivElement | null>(null);
+  const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
+  const peaksRef = useRef<number[] | null>(null);
+  const peaksMaxRef = useRef<number>(128);
+  const waveformStateRef = useRef({ pixelsPerSecond: 0, duration: 0 });
+  const waveformBufferRef = useRef({ regionLeft: 0, regionRight: 0 });
+
+  // Audio tracks
+  const audioTracks = useAudioTracks(videoRef, video);
+  const [showAudioTracks, setShowAudioTracks] = useState(false);
+  const [timelineAudioMenu, setTimelineAudioMenu] = useState<{
+    segId: number;
+    x: number;
+    y: number;
+    flipUp: boolean;
+    visible: boolean;
+  } | null>(null);
+
+  // Video state
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [zoom, setZoom] = useState(1);
+
+  // Scale and pan state for zooming into the video element itself
+  const [videoScale, setVideoScale] = useState(1);
+  const [videoTranslate, setVideoTranslate] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const videoPanStartRef = useRef<{ x: number; y: number } | null>(null);
+  const panMovedRef = useRef(false);
+  const videoScaleRef = useRef<number>(videoScale);
+
+  useEffect(() => {
+    videoScaleRef.current = videoScale;
+  }, [videoScale]);
+
+  // Close speed menu when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!showSpeedMenu) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!speedDropdownRef.current?.contains(event.target as Node)) {
+        setShowSpeedMenu(false);
+        speedButtonRef.current?.blur();
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowSpeedMenu(false);
+        speedButtonRef.current?.blur();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showSpeedMenu]);
+
+  // Close timeline audio menu when clicking outside
+  useEffect(() => {
+    if (!timelineAudioMenu?.visible) return;
+    const handleClickOutside = () =>
+      setTimelineAudioMenu((prev) => (prev ? { ...prev, visible: false } : null));
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [timelineAudioMenu?.visible]);
+
+  // Clamp translation so the video remains at least partially visible
+  const clampTranslate = (t: { x: number; y: number }) => {
+    const el = playerContainerRef.current;
+    const vid = videoRef.current;
+    if (!el || !vid) return t;
+    const vw = el.clientWidth;
+    const vh = el.clientHeight;
+    const sw = vid.clientWidth * videoScaleRef.current;
+    const sh = vid.clientHeight * videoScaleRef.current;
+
+    // Horizontal clamp: if video wider than container, allow panning between left and right edges.
+    // Otherwise center horizontally.
+    let minX: number;
+    let maxX: number;
+    if (sw > vw) {
+      minX = vw - sw; // video right edge aligns with container right
+      maxX = 0; // video left edge aligns with container left
+    } else {
+      // center
+      minX = maxX = (vw - sw) / 2;
+    }
+
+    // Vertical clamp: enforce the requested rules.
+    // - when panning down, if top of video moves below top of parent, clip to top (y <= 0)
+    // - when panning up, if bottom of video moves above bottom of parent, clip to bottom (y >= vh - sh)
+    let minY: number;
+    let maxY: number;
+    if (sh > vh) {
+      minY = vh - sh; // bottom of video aligned with bottom of parent
+      maxY = 0; // top of video aligned with top of parent
+    } else {
+      // center vertically
+      minY = maxY = (vh - sh) / 2;
+    }
+
+    return {
+      x: Math.max(minX, Math.min(maxX, t.x)),
+      y: Math.max(minY, Math.min(maxY, t.y)),
+    };
+  };
+
+  const clampVideoScale = (s: number) => Math.min(Math.max(s, 1), 4);
+
+  // Change video scale, optionally focusing on a specific point, otherwise center
+  const applyVideoScale = (desiredScale: number, focusPoint?: { x: number; y: number }) => {
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+
+    const previousScale = videoScaleRef.current || 1;
+    const nextScale = clampVideoScale(desiredScale);
+    if (previousScale === nextScale) return;
+
+    const cx = focusPoint?.x ?? videoEl.clientWidth / 2;
+    const cy = focusPoint?.y ?? videoEl.clientHeight / 2;
+    const ratio = nextScale / previousScale;
+
+    videoScaleRef.current = nextScale;
+    setVideoScale(nextScale);
+    setVideoTranslate((prev) => {
+      if (nextScale === 1) {
+        return { x: 0, y: 0 };
+      }
+
+      const x = prev.x - (cx - prev.x) * (ratio - 1);
+      const y = prev.y - (cy - prev.y) * (ratio - 1);
+      return clampTranslate({ x, y });
+    });
+  };
+
+  // Wheel zoom handler for the video element (use Ctrl/Meta to activate)
+  const onVideoWheel = (e: React.WheelEvent) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const videoEl = e.currentTarget;
+    const rect = videoEl.getBoundingClientRect();
+    const currentScale = videoScaleRef.current || 1;
+    const localX = (e.clientX - rect.left) / currentScale;
+    const localY = (e.clientY - rect.top) / currentScale;
+    const factor = e.deltaY < 0 ? 1.12 : 0.9;
+
+    applyVideoScale(currentScale * factor, { x: localX, y: localY });
+  };
+
+  // Container state
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [showNoSegmentsIndicator, setShowNoSegmentsIndicator] = useState(false);
+  const [clipOutputMode, setClipOutputMode] = useState<'combined' | 'separate'>(() => {
+    const saved = localStorage.getItem('segra-clip-output-mode');
+    return saved === 'separate' ? 'separate' : 'combined';
+  });
+  const [volume, setVolume] = useState(() => {
+    // Initialize volume from localStorage or default to 1
+    const savedVolume = localStorage.getItem('segra-volume');
+    return savedVolume ? parseFloat(savedVolume) : 1;
+  });
+  const [isMuted, setIsMuted] = useState(() => {
+    // Initialize muted state from localStorage or default to false
+    return localStorage.getItem('segra-muted') === 'true';
+  });
+  useEffect(() => {
+    localStorage.setItem('segra-clip-output-mode', clipOutputMode);
+  }, [clipOutputMode]);
+  const [playbackRate, setPlaybackRate] = useState(() => {
+    const saved = localStorage.getItem('segra-playbackRate');
+    return saved ? parseFloat(saved) : 1;
+  });
+  const [controlsVisible, setControlsVisible] = useState(false);
+  const controlsVisibleRef = useRef(false);
+  const cursorHiddenRef = useRef(false);
+  const controlsHideTimeoutRef = useRef<number | null>(null);
+  const controlsShowTimeoutRef = useRef<number | null>(null);
+  const isPointerOverControlsRef = useRef(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    controlsVisibleRef.current = controlsVisible;
+    if (!controlsVisible) {
+      setShowSpeedMenu(false);
+      setShowAudioTracks(false);
+      speedButtonRef.current?.blur();
+    }
+  }, [controlsVisible]);
+
+  // Interaction state
+  const [isDragging, setIsDragging] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
+  const [hoveredSegmentId, setHoveredSegmentId] = useState<number | null>(null);
+  const [dragState, setDragState] = useState<{ id: number | null; offset: number }>({
+    id: null,
+    offset: 0,
+  });
+  const dragCandidateRef = useRef<{ id: number; startClientX: number; offset: number } | null>(
+    null,
+  );
+  const [resizingSegmentId, setResizingSegmentId] = useState<number | null>(null);
+  const [resizeDirection, setResizeDirection] = useState<'start' | 'end' | null>(null);
+  // Read at resize-end (the mouseup handler's effect doesn't depend on the state).
+  const resizeDirectionRef = useRef<'start' | 'end' | null>(null);
+  const resizeCandidateRef = useRef<{
+    id: number;
+    direction: 'start' | 'end';
+    startClientX: number;
+  } | null>(null);
+
+  const videoWrapperClassName = [
+    'block relative w-full',
+    isFullscreen ? 'h-full' : 'rounded-lg overflow-hidden h-full',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  // Computed values
+  const basePixelsPerSecond = duration > 0 ? containerWidth / duration : 0;
+  const pixelsPerSecond = basePixelsPerSecond * zoom;
+  useEffect(() => {
+    waveformStateRef.current.pixelsPerSecond = pixelsPerSecond;
+    waveformStateRef.current.duration = duration;
+  }, [pixelsPerSecond, duration]);
+
+  // Make sure bookmarks are only shown when we have valid duration and zoom
+  // Prevents weird positioning on initial load
+  const bookmarksReady = duration > 0 && pixelsPerSecond > 0;
+  const sortedSegments = useMemo(
+    () => [...segments].sort((a, b) => a.startTime - b.startTime),
+    [segments],
+  );
+  const totalSegmentsDuration = useMemo(
+    () => segments.reduce((sum, s) => sum + Math.max(0, s.endTime - s.startTime), 0),
+    [segments],
+  );
+  const segmentsRef = useRef(segments);
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
+
+  // Track in-flight thumbnail requests to avoid stale overwrites
+  const thumbnailReqTokenRef = useRef<Map<number, number>>(new Map());
+
+  // Refreshes the thumbnail for a segment without overwriting live fields
+  const refreshSegmentThumbnail = async (segment: Segment): Promise<void> => {
+    const id = segment.id;
+    // Read the latest segment from state (may be undefined immediately after add)
+    const current = segmentsRef.current.find((s) => s.id === id);
+
+    // Only show the loading spinner for the first fetch. When a thumbnail
+    // already exists, keep it visible and let the card crossfade to the new one.
+    if (current && !current.thumbnailDataUrl) {
+      updateSegment({ ...current, isLoading: true });
+    }
+
+    // Bump request token for this id
+    const nextToken = (thumbnailReqTokenRef.current.get(id) ?? 0) + 1;
+    thumbnailReqTokenRef.current.set(id, nextToken);
+
+    try {
+      const latest = segmentsRef.current.find((s) => s.id === id) ?? current ?? segment;
+      // Use the video's filePath from metadata instead of constructing it
+      const thumbnailUrl = await fetchThumbnailAtTime(video.filePath, latest.startTime);
+
+      // Only apply if this is the latest request for this segment
+      if (thumbnailReqTokenRef.current.get(id) === nextToken) {
+        const newest = segmentsRef.current.find((s) => s.id === id) ?? latest;
+        updateSegment({ ...newest, thumbnailDataUrl: thumbnailUrl, isLoading: false });
+      }
+    } catch {
+      if (thumbnailReqTokenRef.current.get(id) === nextToken) {
+        const newest = segmentsRef.current.find((s) => s.id === id) ?? current ?? segment;
+        updateSegment({ ...newest, isLoading: false });
+      }
+    }
+  };
+
+  // Initialize video metadata and setup keyboard controls
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+
+    // Apply saved volume and muted state on load
+    // When multi-track is active, the hook controls muting
+    if (!audioTracks.isMultiTrack) {
+      vid.volume = volume;
+      vid.muted = isMuted;
+    }
+    // Apply saved playback rate
+    vid.playbackRate = playbackRate;
+
+    const onLoadedMetadata = () => {
+      setDuration(vid.duration);
+      setZoom(1);
+    };
+
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onVolumeChange = () => {
+      if (vid) {
+        // When multi-track audio is active, the video is muted by the hook
+        if (audioTracks.isMultiTrack) return;
+
+        setVolume(vid.volume);
+        setIsMuted(vid.muted);
+
+        // Save to localStorage when volume changes
+        localStorage.setItem('segra-volume', vid.volume.toString());
+        localStorage.setItem('segra-muted', vid.muted.toString());
+      }
+    };
+
+    const onRateChange = () => {
+      if (vid) {
+        const r = vid.playbackRate || 1;
+        setPlaybackRate(r);
+        localStorage.setItem('segra-playbackRate', r.toString());
+      }
+    };
+
+    vid.addEventListener('loadedmetadata', onLoadedMetadata);
+    vid.addEventListener('play', onPlay);
+    vid.addEventListener('pause', onPause);
+    vid.addEventListener('volumechange', onVolumeChange);
+    vid.addEventListener('ratechange', onRateChange);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isTyping =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        (target as any).isContentEditable;
+
+      // Space to toggle play/pause globally (unless typing)
+      if ((e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') && !isTyping) {
+        if (e.repeat) return; // avoid rapid toggle on key repeat
+        e.preventDefault();
+        handlePlayPause();
+        return;
+      }
+
+      // F to toggle fullscreen overlay (unless typing)
+      if ((e.key === 'f' || e.key === 'F') && !isTyping) {
+        if (e.repeat) return;
+        e.preventDefault();
+        toggleFullscreen();
+        return;
+      }
+
+      // Arrow keys: seek 5s back/forward (allow holding)
+      if ((e.key === 'ArrowLeft' || e.code === 'ArrowLeft') && !isTyping) {
+        e.preventDefault();
+        showControlsTemporarily();
+        skipTime(-5);
+        return;
+      }
+      if ((e.key === 'ArrowRight' || e.code === 'ArrowRight') && !isTyping) {
+        e.preventDefault();
+        showControlsTemporarily();
+        skipTime(5);
+        return;
+      }
+
+      // Volume up/down (5% steps, allow holding)
+      if ((e.key === 'ArrowUp' || e.code === 'ArrowUp') && !isTyping) {
+        e.preventDefault();
+        setPlayerVolume((videoRef.current?.volume ?? volume) + 0.05);
+        showControlsTemporarily();
+        return;
+      }
+      if ((e.key === 'ArrowDown' || e.code === 'ArrowDown') && !isTyping) {
+        e.preventDefault();
+        setPlayerVolume((videoRef.current?.volume ?? volume) - 0.05);
+        showControlsTemporarily();
+        return;
+      }
+
+      // Mute/unmute
+      if ((e.key === 'm' || e.key === 'M') && !isTyping) {
+        e.preventDefault();
+        toggleMute();
+        showControlsTemporarily();
+        return;
+      }
+      if (e.key === 'Escape' && isFullscreen) {
+        e.preventDefault();
+        exitFullscreen();
+      }
+    };
+
+    const keyOptions: AddEventListenerOptions & EventListenerOptions = { capture: true };
+    window.addEventListener('keydown', handleKeyDown, keyOptions);
+
+    return () => {
+      vid.removeEventListener('loadedmetadata', onLoadedMetadata);
+      vid.removeEventListener('play', onPlay);
+      vid.removeEventListener('pause', onPause);
+      vid.removeEventListener('volumechange', onVolumeChange);
+      vid.removeEventListener('ratechange', onRateChange);
+      window.removeEventListener('keydown', handleKeyDown, keyOptions as any);
+    };
+  }, [volume, isMuted, isFullscreen, audioTracks.isMultiTrack]);
+
+  // Per-segment audio override state, kept in refs for the rAF loop below.
+  // `segmentsDirtyRef` is separate from the id ref because `null` is already
+  // the valid "no active segment" id, so id comparison alone can't detect a
+  // segment deletion when the deleted one was active.
+  const activeSegmentIdRef = useRef<number | null>(null);
+  const segmentsDirtyRef = useRef<boolean>(true);
+  const audioTracksRef = useRef(audioTracks);
+  useLayoutEffect(() => {
+    audioTracksRef.current = audioTracks;
+  });
+
+  useEffect(() => {
+    segmentsDirtyRef.current = true;
+  }, [segments]);
+
+  // Clean up overrides when multi-track is deactivated
+  useEffect(() => {
+    if (audioTracks.isMultiTrack) {
+      // Sync master mute/volume from saved state when entering multi-track
+      audioTracks.setMasterMuted(localStorage.getItem('segra-muted') === 'true');
+      const savedVol = localStorage.getItem('segra-volume');
+      audioTracks.setMasterVolume(savedVol ? parseFloat(savedVol) : 1);
+    } else {
+      audioTracks.setMuteOverride(null);
+      audioTracks.setVolumeOverride(null);
+    }
+  }, [
+    audioTracks.isMultiTrack,
+    audioTracks.setMasterMuted,
+    audioTracks.setMuteOverride,
+    audioTracks.setVolumeOverride,
+  ]);
+
+  // Handle video playback time updates using requestAnimationFrame for smooth updates.
+  // Also checks per-segment audio overrides each frame (cheap: one find + early return).
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    let rafId = 0;
+    const tick = () => {
+      setCurrentTime(vid.currentTime);
+
+      // Per-segment audio mute/volume override
+      const at = audioTracksRef.current;
+      if (at.isMultiTrack) {
+        const t = vid.currentTime;
+        const segs = segmentsRef.current;
+        const activeSeg = segs.find((s) => t >= s.startTime && t <= s.endTime);
+        const activeId = activeSeg?.id ?? null;
+
+        if (activeId !== activeSegmentIdRef.current || segmentsDirtyRef.current) {
+          activeSegmentIdRef.current = activeId;
+          segmentsDirtyRef.current = false;
+          if (activeSeg) {
+            at.setMuteOverride(activeSeg.mutedAudioTracks ?? []);
+            at.setVolumeOverride(activeSeg.audioTrackVolumes ?? null);
+          } else {
+            at.setMuteOverride(null);
+            at.setVolumeOverride(null);
+          }
+        }
+      }
+
+      if (!vid.paused && !vid.ended) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    const onPlay = () => {
+      rafId = requestAnimationFrame(tick);
+    };
+    const onPause = () => {
+      cancelAnimationFrame(rafId);
+    };
+    vid.addEventListener('play', onPlay);
+    vid.addEventListener('pause', onPause);
+    if (!vid.paused) onPlay();
+    return () => {
+      vid.removeEventListener('play', onPlay);
+      vid.removeEventListener('pause', onPause);
+      cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  // Update container width on window resize
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      setContainerWidth(scrollContainerRef.current.clientWidth);
+    }
+
+    const handleResize = () => {
+      if (scrollContainerRef.current) {
+        setContainerWidth(scrollContainerRef.current.clientWidth);
+      }
+    };
+
+    const preventPageZoom = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('wheel', preventPageZoom, { passive: false });
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('wheel', preventPageZoom);
+    };
+  }, []);
+
+  // Create refs to track zoom state
+  const wheelZoomRef = useRef(zoom);
+
+  // Update the wheel zoom ref when zoom changes from other sources (buttons)
+  useEffect(() => {
+    wheelZoomRef.current = zoom;
+  }, [zoom]);
+
+  const hideCursor = () => {
+    cursorHiddenRef.current = true;
+    if (playerContainerRef.current) {
+      playerContainerRef.current.style.cursor = 'none';
+    }
+  };
+
+  const showCursor = () => {
+    if (!cursorHiddenRef.current) return;
+    cursorHiddenRef.current = false;
+    if (playerContainerRef.current) {
+      playerContainerRef.current.style.cursor = '';
+    }
+  };
+
+  const scheduleControlsHide = () => {
+    if (controlsHideTimeoutRef.current) {
+      clearTimeout(controlsHideTimeoutRef.current);
+      controlsHideTimeoutRef.current = null;
+    }
+    if (isPointerOverControlsRef.current) return;
+    controlsHideTimeoutRef.current = window.setTimeout(() => {
+      if (!isPointerOverControlsRef.current) {
+        setControlsVisible(false);
+        hideCursor();
+      }
+      controlsHideTimeoutRef.current = null;
+    }, 2500);
+  };
+
+  const showControlsTemporarily = () => {
+    showCursor();
+
+    if (controlsVisibleRef.current) {
+      scheduleControlsHide();
+      return;
+    }
+
+    if (controlsShowTimeoutRef.current) return;
+    controlsShowTimeoutRef.current = window.setTimeout(() => {
+      controlsShowTimeoutRef.current = null;
+      setControlsVisible(true);
+      scheduleControlsHide();
+    }, 200);
+  };
+
+  const handleControlsMouseEnter = () => {
+    isPointerOverControlsRef.current = true;
+
+    if (controlsShowTimeoutRef.current) {
+      clearTimeout(controlsShowTimeoutRef.current);
+      controlsShowTimeoutRef.current = null;
+    }
+    if (controlsHideTimeoutRef.current) {
+      clearTimeout(controlsHideTimeoutRef.current);
+      controlsHideTimeoutRef.current = null;
+    }
+
+    showCursor();
+    setControlsVisible(true);
+  };
+
+  const handleControlsMouseLeave = () => {
+    isPointerOverControlsRef.current = false;
+    showControlsTemporarily();
+  };
+
+  // Handle timeline zooming with mouse wheel
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (duration === 0) return;
+
+      // Get container dimensions
+      const rect = container.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left;
+      const scrollLeft = container.scrollLeft;
+
+      // Calculate base pixels per second for time conversion
+      const basePixelsPerSecond = containerWidth / duration;
+      const oldPixelsPerSecond = basePixelsPerSecond * wheelZoomRef.current;
+
+      // Calculate time at cursor position
+      const timeAtCursor = (cursorX + scrollLeft) / oldPixelsPerSecond;
+
+      // Calculate new zoom level
+      const zoomFactor = e.deltaY < 0 ? 1.2 : 0.8;
+      const newZoom = Math.min(Math.max(wheelZoomRef.current * zoomFactor, 1), 500);
+
+      // Update zoom ref immediately
+      wheelZoomRef.current = newZoom;
+
+      // Calculate new scroll position based on cursor time point
+      const newPixelsPerSecond = basePixelsPerSecond * newZoom;
+      const newCursorPosition = timeAtCursor * newPixelsPerSecond;
+      const newScrollLeft = newCursorPosition - cursorX;
+
+      // Cancel any running button zoom animation
+      cancelAnimationFrame(zoomAnimationRef.current);
+
+      // Store scroll target — useLayoutEffect applies after React commits DOM
+      pendingScrollRef.current = newScrollLeft;
+      setZoom(newZoom);
+    };
+
+    const wheelEventOptions: AddEventListenerOptions = { passive: false };
+    container.addEventListener('wheel', handleWheel, wheelEventOptions);
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel, wheelEventOptions);
+    };
+  }, [duration, containerWidth]); // Remove zoom from dependencies to prevent recreation
+
+  const handleZoomChange = (increment: boolean) => {
+    if (!scrollContainerRef.current) return;
+
+    const container = scrollContainerRef.current;
+    const scrollLeft = container.scrollLeft;
+    const bpps = containerWidth / duration;
+
+    // Anchor point: keep current time marker at same viewport position
+    const markerTime = currentTime;
+    const markerViewportX = markerTime * bpps * zoom - scrollLeft;
+
+    // Compute target zoom
+    const newZoom = increment ? zoom * 1.5 : zoom * 0.5;
+    const targetZoom = Math.min(Math.max(newZoom, 1), 500);
+
+    // Cancel any running animation
+    cancelAnimationFrame(zoomAnimationRef.current);
+
+    const startZoom = zoom;
+    const animDuration = 200;
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / animDuration, 1);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+
+      const currentZoom = startZoom + (targetZoom - startZoom) * eased;
+
+      // Compute scroll so marker stays at same viewport x
+      pendingScrollRef.current = markerTime * bpps * currentZoom - markerViewportX;
+      wheelZoomRef.current = currentZoom;
+      setZoom(currentZoom);
+
+      if (t < 1) {
+        zoomAnimationRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    zoomAnimationRef.current = requestAnimationFrame(animate);
+  };
+
+  // Apply pending scroll synchronously before browser paint
+  useLayoutEffect(() => {
+    if (pendingScrollRef.current !== null && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = pendingScrollRef.current;
+      pendingScrollRef.current = null;
+    }
+  }, [zoom]);
+
+  // Video control functions
+  const handlePlayPause = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play();
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  };
+
+  const skipTime = (seconds: number) => {
+    if (videoRef.current) {
+      const newTime = videoRef.current.currentTime + seconds;
+      videoRef.current.currentTime = Math.max(0, Math.min(newTime, videoRef.current.duration));
+    }
+  };
+
+  const setPlayerVolume = (vol: number) => {
+    const target = Math.max(0, Math.min(1, vol));
+    const el = videoRef.current;
+    if (!el) {
+      setVolume(target);
+      return;
+    }
+    // Track the intended muted state locally; audioTracks.masterMuted is React state that
+    // still holds the pre-update value within this synchronous call, so it can't be read back.
+    let nextMuted: boolean;
+    if (audioTracks.isMultiTrack) {
+      // Route to master volume -- purely a preview control
+      audioTracks.setMasterVolume(target);
+      if (target === 0) {
+        audioTracks.setMasterMuted(true);
+        setIsMuted(true);
+        nextMuted = true;
+      } else {
+        if (audioTracks.masterMuted) {
+          audioTracks.setMasterMuted(false);
+          setIsMuted(false);
+        }
+        nextMuted = false;
+      }
+    } else {
+      el.volume = target;
+      if (target === 0) {
+        el.muted = true;
+        setIsMuted(true);
+      } else if (el.muted) {
+        el.muted = false;
+        setIsMuted(false);
+      }
+      nextMuted = el.muted;
+    }
+    setVolume(target);
+    localStorage.setItem('segra-volume', target.toString());
+    localStorage.setItem('segra-muted', nextMuted.toString());
+  };
+
+  // Pointer handlers for panning the video when zoomed
+  const onVideoPointerDown = (e: React.PointerEvent) => {
+    if (videoScaleRef.current <= 1) return;
+    (e.target as Element).setPointerCapture(e.pointerId);
+    setIsPanning(true);
+    // Reset pan-moved flag for this gesture
+    panMovedRef.current = false;
+    videoPanStartRef.current = { x: e.clientX - videoTranslate.x, y: e.clientY - videoTranslate.y };
+  };
+
+  const onVideoPointerMove = (e: React.PointerEvent) => {
+    if (!isPanning || !videoPanStartRef.current) return;
+    const start = videoPanStartRef.current;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    // If movement exceeds a small threshold, mark this gesture as a pan so we can suppress click
+    if (Math.hypot(dx, dy) > 4) panMovedRef.current = true;
+    setVideoTranslate((_prev) => clampTranslate({ x: dx, y: dy }));
+  };
+
+  const onVideoPointerUp = (e: React.PointerEvent) => {
+    try {
+      (e.target as Element).releasePointerCapture?.(e.pointerId);
+    } catch {
+      // ignore pointer release errors
+    }
+    setIsPanning(false);
+    videoPanStartRef.current = null;
+  };
+
+  // Click handler for the video element which suppresses clicks that are actually pans
+  const onVideoClick = (e: React.MouseEvent) => {
+    if (panMovedRef.current) {
+      // This click is the end of a pan gesture — ignore it and reset the flag
+      panMovedRef.current = false;
+      e.stopPropagation();
+      return;
+    }
+    handlePlayPause();
+  };
+
+  // Fullscreen controls: request browser fullscreen and ask backend for OS-level fullscreen
+  const enterFullscreen = () => {
+    setIsFullscreen(true);
+    sendMessageToBackend('ToggleFullscreen', { enabled: true });
+  };
+
+  const exitFullscreen = () => {
+    setIsFullscreen(false);
+    sendMessageToBackend('ToggleFullscreen', { enabled: false });
+  };
+
+  const toggleFullscreen = () => {
+    if (isFullscreen) exitFullscreen();
+    else enterFullscreen();
+  };
+
+  // Prevent page scrollbars while our overlay is active
+  useEffect(() => {
+    const el = document.documentElement;
+    const body = document.body;
+    if (isFullscreen) {
+      el.style.overflow = 'hidden';
+      body.style.overflow = 'hidden';
+    } else {
+      el.style.overflow = '';
+      body.style.overflow = '';
+    }
+    setVideoTranslate({ x: 0, y: 0 });
+    applyVideoScale(1);
+    return () => {
+      el.style.overflow = '';
+      body.style.overflow = '';
+    };
+  }, [isFullscreen]);
+
+  // Handle clicks on the timeline to seek video
+  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isInteracting || !scrollContainerRef.current) return;
+    const rect = scrollContainerRef.current.getBoundingClientRect();
+    const clickPos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
+    const newTime = clickPos / pixelsPerSecond;
+    const clampedTime = Math.max(0, Math.min(newTime, duration));
+    setCurrentTime(clampedTime);
+    if (videoRef.current) {
+      videoRef.current.currentTime = clampedTime;
+    }
+  };
+
+  // Handle timeline marker drag interactions
+  const handleMarkerDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    setIsDragging(true);
+    setIsInteracting(true);
+  };
+
+  const handleMarkerDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !scrollContainerRef.current) return;
+    const rect = scrollContainerRef.current.getBoundingClientRect();
+    const dragPos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
+    const newTime = dragPos / pixelsPerSecond;
+    setCurrentTime(Math.max(0, Math.min(newTime, duration)));
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
+  };
+
+  const handleMarkerDragEnd = () => {
+    setIsDragging(false);
+    setTimeout(() => setIsInteracting(false), 0);
+  };
+
+  // Format time in seconds to "HH:MM:SS" when needed, otherwise "MM:SS"
+  const formatTime = (time: number) => {
+    const totalSeconds = Math.max(0, Math.floor(time));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours > 0) {
+      return `${hours.toString()}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Generate major and minor tick marks for the timeline based on zoom level
+  const { majorTicks, minorTicks } = useMemo(() => {
+    const maxTicks = 10;
+    const minTickSpacing = 50;
+    const totalPixels = duration * pixelsPerSecond;
+    let majorTickInterval = Math.ceil(duration / maxTicks);
+    let approxTickSpacing = totalPixels / (duration / majorTickInterval);
+    while (approxTickSpacing < minTickSpacing) {
+      majorTickInterval *= 2;
+      approxTickSpacing = totalPixels / (duration / majorTickInterval);
+    }
+    const majorTicks: number[] = [];
+    for (let t = majorTickInterval; t < duration; t += majorTickInterval) {
+      majorTicks.push(t);
+    }
+    const minorTicks: number[] = [];
+    const minorTicksPerMajor = 9;
+    const minorInterval = majorTickInterval / minorTicksPerMajor;
+    for (let t = minorInterval; t < duration; t += minorInterval) {
+      if (Math.abs(t % majorTickInterval) < 0.0001) continue;
+      minorTicks.push(t);
+    }
+    return { majorTicks, minorTicks };
+  }, [duration, pixelsPerSecond]);
+
+  // Grab the frame currently shown in the <video> as an instant thumbnail.
+  // Returns undefined if the frame isn't ready or the canvas would be tainted.
+  const captureCurrentFrame = (): string | undefined => {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth || !v.videoHeight || v.readyState < 2) return undefined;
+    try {
+      const targetWidth = 480;
+      const scale = Math.min(1, targetWidth / v.videoWidth);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(v.videoWidth * scale);
+      canvas.height = Math.round(v.videoHeight * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return undefined;
+      ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.7);
+    } catch {
+      return undefined;
+    }
+  };
+
+  // Add a new segment at the current video position
+  const handleAddSegment = async () => {
+    if (!videoRef.current) return;
+    const start = currentTime;
+    // Default to 10% of the visible timeline, capped at 2 minutes and clamped to video duration
+    const visibleDuration = duration / zoom;
+    const segmentDuration = Math.min(120, Math.max(6, visibleDuration * 0.1));
+    const end = Math.min(start + segmentDuration, duration);
+
+    // Use the frame already on screen as an instant thumbnail; the server
+    // thumbnail crossfades in once fetched.
+    const instantThumbnail = captureCurrentFrame();
+
+    const newSegment: Segment = {
+      id: Date.now(),
+      type: video.type,
+      startTime: start,
+      endTime: end,
+      thumbnailDataUrl: instantThumbnail,
+      isLoading: !instantThumbnail,
+      fileName: video.fileName,
+      filePath: video.filePath,
+      game: video.game,
+      title: video.title,
+      igdbId: video.igdbId,
+      mutedAudioTracks:
+        segments.length > 0
+          ? segments[segments.length - 1].mutedAudioTracks
+          : audioTracks.isMultiTrack
+            ? [...audioTracks.mutedTracks]
+            : undefined,
+    };
+    addSegment(newSegment);
+    // The instant frame capture is good enough for the initial thumbnail, so
+    // only fall back to ffmpeg generation if the capture failed. Later moves
+    // and resizes regenerate via ffmpeg as usual.
+    if (!instantThumbnail) {
+      refreshSegmentThumbnail(newSegment);
+    }
+  };
+
+  // Create a clip from current segments
+  const handleCreateClip = () => {
+    if (segments.length === 0) {
+      setShowNoSegmentsIndicator(true);
+      setTimeout(() => setShowNoSegmentsIndicator(false), 2000);
+      return;
+    }
+
+    const params = {
+      OutputMode: clipOutputMode,
+      Segments: segments.map((s) => ({
+        id: s.id,
+        type: s.type,
+        fileName: s.fileName,
+        filePath: s.filePath,
+        game: s.game,
+        title: s.title,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        igdbId: s.igdbId,
+        mutedAudioTracks: s.mutedAudioTracks,
+        audioTrackVolumes: s.audioTrackVolumes,
+      })),
+    };
+    sendMessageToBackend('CreateClip', params);
+  };
+
+  const handleSegmentDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollContainerRef.current) return;
+    // Grabbing a resize handle bubbles into the segment body and arms the drag
+    // candidate too; don't let a resize turn into a drag.
+    if (resizingSegmentId != null || resizeCandidateRef.current != null) return;
+    if ((e.buttons & 1) !== 1 && dragState.id == null) return;
+    const rect = scrollContainerRef.current.getBoundingClientRect();
+    const dragPos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
+    const cursorTime = dragPos / pixelsPerSecond;
+
+    // If no active drag, see if we should start due to threshold
+    if (dragState.id == null) {
+      const cand = dragCandidateRef.current;
+      if (!cand) return;
+      const delta = Math.abs(e.clientX - cand.startClientX);
+      if (delta <= 3) return; // not enough movement yet
+      setDragState({ id: cand.id, offset: cand.offset });
+      setIsInteracting(true);
+    }
+
+    const activeId = dragState.id ?? dragCandidateRef.current?.id;
+    const activeOffset =
+      dragState.id != null ? dragState.offset : (dragCandidateRef.current?.offset ?? 0);
+    if (activeId == null) return;
+    const seg = segments.find((s) => s.id === activeId);
+    if (seg) {
+      const segLength = seg.endTime - seg.startTime;
+      let newStart = cursorTime - activeOffset;
+      newStart = Math.max(0, Math.min(newStart, duration - segLength));
+      const updatedSegment = { ...seg, startTime: newStart, endTime: newStart + segLength };
+      updateSegment(updatedSegment);
+      latestDraggedSegmentRef.current = updatedSegment;
+    }
+  };
+
+  const handleSegmentDragEnd = () => {
+    const draggedId = dragState.id;
+    setDragState({ id: null, offset: 0 });
+    dragCandidateRef.current = null;
+    setTimeout(() => setIsInteracting(false), 0);
+    if (draggedId != null && latestDraggedSegmentRef.current) {
+      const seg = latestDraggedSegmentRef.current;
+      latestDraggedSegmentRef.current = null;
+      void refreshSegmentThumbnail(seg);
+    }
+  };
+
+  // Handle global mouse up events for drag operations
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      handleMarkerDragEnd();
+      if (dragState.id !== null) {
+        handleSegmentDragEnd();
+      }
+      if (resizingSegmentId !== null) {
+        handleSegmentResizeEnd();
+      }
+      dragCandidateRef.current = null;
+      resizeCandidateRef.current = null;
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [dragState.id, resizingSegmentId]);
+
+  // Start a potential drag on mousedown without blocking click-through
+  const handleSegmentMouseDown = (e: React.MouseEvent<HTMLDivElement>, id: number) => {
+    if (!scrollContainerRef.current) return;
+    const rect = scrollContainerRef.current.getBoundingClientRect();
+    const dragPos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
+    const cursorTime = dragPos / pixelsPerSecond;
+    const seg = segments.find((s) => s.id === id);
+    if (seg) {
+      dragCandidateRef.current = {
+        id,
+        startClientX: e.clientX,
+        offset: cursorTime - seg.startTime,
+      };
+    }
+  };
+
+  // Render a 3x-viewport buffer and position it; scrolling just moves the canvas
+  const renderWaveformBuffer = useCallback(() => {
+    const canvas = waveformCanvasRef.current;
+    const peaks = peaksRef.current;
+    const scroller = scrollContainerRef.current;
+    if (!canvas || !peaks || peaks.length === 0 || !scroller) return;
+    const { pixelsPerSecond: pps, duration: dur } = waveformStateRef.current;
+    const totalWidth = dur * pps;
+    const viewportWidth = scroller.clientWidth;
+    const scrollLeft = scroller.scrollLeft;
+
+    // Buffer: 3x viewport centered on current scroll, clamped to timeline bounds
+    const bufferWidth = Math.min(viewportWidth * 3, Math.ceil(totalWidth));
+    const regionLeft = Math.max(0, Math.floor(scrollLeft - viewportWidth));
+    const regionRight = regionLeft + bufferWidth;
+
+    if (canvas.width !== bufferWidth) canvas.width = bufferWidth;
+    if (canvas.height !== 49) canvas.height = 49;
+
+    canvas.style.left = `${regionLeft}px`;
+    renderWaveformRegion(canvas, peaks, peaksMaxRef.current, totalWidth, regionLeft);
+    waveformBufferRef.current = { regionLeft, regionRight };
+  }, []);
+
+  // Reposition canvas on scroll; only re-render if scrolled past buffer edges
+  const updateWaveformScroll = useCallback(() => {
+    const canvas = waveformCanvasRef.current;
+    const scroller = scrollContainerRef.current;
+    if (!canvas || !peaksRef.current?.length || !scroller) return;
+    const scrollLeft = scroller.scrollLeft;
+    const viewportWidth = scroller.clientWidth;
+    const { regionLeft, regionRight } = waveformBufferRef.current;
+
+    // If viewport is fully within the buffer, no redraw needed
+    if (scrollLeft >= regionLeft && scrollLeft + viewportWidth <= regionRight) return;
+
+    // Scrolled past buffer — re-render a new buffer region
+    renderWaveformBuffer();
+  }, [renderWaveformBuffer]);
+
+  // Fetch waveform peaks data
+  useEffect(() => {
+    if (!settings.showAudioWaveformInTimeline) {
+      peaksRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    const peaksUrl = getWaveformPath();
+    fetch(peaksUrl)
+      .then((response) => response.json())
+      .then((peaksData) => {
+        if (cancelled) return;
+        const data: number[] = Array.isArray(peaksData?.data) ? peaksData.data : [];
+        peaksRef.current = data;
+        let maxAbs = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = data[i] < 0 ? -data[i] : data[i];
+          if (v > maxAbs) maxAbs = v;
+        }
+        peaksMaxRef.current = maxAbs > 0 ? maxAbs : 128;
+        const canvas = waveformCanvasRef.current;
+        if (canvas) {
+          requestAnimationFrame(renderWaveformBuffer);
+        }
+      })
+      .catch((error: Error) => {
+        console.error('Error loading audio peaks:', error);
+      });
+
+    return () => {
+      cancelled = true;
+      peaksRef.current = null;
+    };
+  }, [settings.showAudioWaveformInTimeline, renderWaveformBuffer]);
+
+  // Re-render waveform buffer when zoom changes
+  useEffect(() => {
+    if (!peaksRef.current?.length || pixelsPerSecond <= 0) return;
+    waveformBufferRef.current = { regionLeft: 0, regionRight: 0 };
+    const id = requestAnimationFrame(renderWaveformBuffer);
+    return () => cancelAnimationFrame(id);
+  }, [pixelsPerSecond, duration, renderWaveformBuffer]);
+
+  // On scroll: check if buffer needs re-rendering (most scrolls are free)
+  useEffect(() => {
+    const scroller = scrollContainerRef.current;
+    if (!scroller || !settings.showAudioWaveformInTimeline) return;
+    let rafId = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateWaveformScroll);
+    };
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(rafId);
+    };
+  }, [settings.showAudioWaveformInTimeline, updateWaveformScroll]);
+
+  // Prepare to resize on drag (click-through on simple click)
+  const handleResizeMouseDown = (
+    e: React.MouseEvent<HTMLDivElement>,
+    id: number,
+    direction: 'start' | 'end',
+  ) => {
+    // Do not stop propagation so timeline click can still happen
+    resizeCandidateRef.current = { id, direction, startClientX: e.clientX };
+  };
+
+  const handleSegmentResize = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollContainerRef.current) return;
+    if ((e.buttons & 1) !== 1 && resizingSegmentId == null) return;
+    const rect = scrollContainerRef.current.getBoundingClientRect();
+    const pos = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
+    const t = pos / pixelsPerSecond;
+    // If no active resize yet, check if we should start (threshold)
+    if (resizingSegmentId == null || !resizeDirection) {
+      const cand = resizeCandidateRef.current;
+      if (!cand) return;
+      const delta = Math.abs(e.clientX - cand.startClientX);
+      if (delta <= 3) return; // not enough movement
+      setResizingSegmentId(cand.id);
+      setResizeDirection(cand.direction);
+      resizeDirectionRef.current = cand.direction;
+      setIsInteracting(true);
+    }
+
+    const activeId = resizingSegmentId ?? resizeCandidateRef.current?.id ?? null;
+    const activeDir = resizeDirection ?? resizeCandidateRef.current?.direction ?? null;
+    if (activeId == null || !activeDir) return;
+    const seg = segments.find((s) => s.id === activeId);
+    if (!seg) return;
+
+    let updatedSegment;
+    if (activeDir === 'start') {
+      const newStart = Math.max(0, Math.min(t, seg.endTime - 0.1));
+      updatedSegment = { ...seg, startTime: newStart };
+    } else {
+      const newEnd = Math.min(duration, Math.max(t, seg.startTime + 0.1));
+      updatedSegment = { ...seg, endTime: newEnd };
+    }
+    latestDraggedSegmentRef.current = updatedSegment;
+    updateSegment(updatedSegment);
+
+    // While resizing, keep the video time at the active edge and update marker state
+    const edgeTime = activeDir === 'start' ? updatedSegment.startTime : updatedSegment.endTime;
+    if (videoRef.current) {
+      const clamped = Math.max(0, Math.min(edgeTime, duration));
+      videoRef.current.currentTime = clamped;
+    }
+    setCurrentTime(edgeTime);
+  };
+
+  const handleSegmentResizeEnd = () => {
+    const direction = resizeDirectionRef.current;
+    resizeDirectionRef.current = null;
+    setResizingSegmentId(null);
+    setResizeDirection(null);
+    resizeCandidateRef.current = null;
+    setIsInteracting(false);
+    if (latestDraggedSegmentRef.current) {
+      const seg = latestDraggedSegmentRef.current;
+      latestDraggedSegmentRef.current = null;
+      // Thumbnail is the start frame, so only refresh when the start edge moved.
+      if (direction === 'start') {
+        void refreshSegmentThumbnail(seg);
+      }
+    }
+  };
+
+  // Move segment card in the sidebar
+  const moveCard = (dragIndex: number, hoverIndex: number) => {
+    const newSegments = [...segments];
+    const [removed] = newSegments.splice(dragIndex, 1);
+    newSegments.splice(hoverIndex, 0, removed);
+    updateSegmentsArray(newSegments);
+  };
+
+  // Get video source URL - use the filePath from metadata
+  const getVideoPath = (): string => {
+    return `http://localhost:2222/api/content?input=${encodeURIComponent(video.filePath)}&type=${video.type.toLowerCase()}`;
+  };
+
+  // Get audio waveform URL - waveforms are stored in AppData
+  const getWaveformPath = (): string => {
+    // Map type to folder name for waveforms in AppData
+    const folderName =
+      video.type === 'Session'
+        ? 'Full Sessions'
+        : video.type === 'Buffer'
+          ? 'Replay Buffers'
+          : video.type === 'Clip'
+            ? 'Clips'
+            : 'Highlights';
+    const waveformPath = `${appState.cacheFolder}/waveforms/${folderName}/${video.fileName}.peaks.json`;
+    return `http://localhost:2222/api/content?input=${encodeURIComponent(waveformPath)}&type=${video.type.toLowerCase()}`;
+  };
+
+  // Handle video upload operation
+  const handleUpload = () => {
+    // Ensure video is paused before opening upload modal
+    if (videoRef.current && !videoRef.current.paused) {
+      videoRef.current.pause();
+    }
+
+    openModal(
+      <UploadModal
+        key={`${Math.random()}`}
+        video={video}
+        onClose={closeModal}
+        onUpload={(title, description, visibility) => {
+          const parameters = {
+            FilePath: video.filePath,
+            JWT: session?.access_token,
+            Game: video.game,
+            Title: title,
+            Description: description,
+            Visibility: visibility,
+            IgdbId: video.igdbId?.toString(),
+          };
+
+          sendMessageToBackend('UploadContent', parameters);
+        }}
+      />,
+    );
+  };
+
+  const [fileCopied, setFileCopied] = useState(false);
+
+  const handleCopyFile = () => {
+    sendMessageToBackend('CopyFileToClipboard', { FilePath: video.filePath });
+    setFileCopied(true);
+    setTimeout(() => setFileCopied(false), 1500);
+  };
+
+  const [selectedBookmarkTypes, setSelectedBookmarkTypes] = useState<Set<BookmarkType>>(
+    new Set(Object.values(BookmarkType)),
+  );
+
+  const availableBookmarkTypes = useMemo(() => {
+    const order = [
+      BookmarkType.Kill,
+      BookmarkType.Goal,
+      BookmarkType.Assist,
+      BookmarkType.Death,
+      BookmarkType.Manual,
+    ];
+    return order.filter((type) => video.bookmarks.some((b) => b.type === type));
+  }, [video.bookmarks]);
+
+  const filteredBookmarks = useMemo(() => {
+    return video.bookmarks.filter((bookmark) => selectedBookmarkTypes.has(bookmark.type));
+  }, [video.bookmarks, selectedBookmarkTypes]);
+
+  const toggleBookmarkType = (type: BookmarkType) => {
+    setSelectedBookmarkTypes((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(type)) {
+        newSet.delete(type);
+      } else {
+        newSet.add(type);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddBookmark = () => {
+    if (!videoRef.current) return;
+
+    const currentTimeInSeconds = videoRef.current.currentTime;
+    // Format time as HH:MM:SS.mmm for consistency with backend
+    const hours = Math.floor(currentTimeInSeconds / 3600);
+    const minutes = Math.floor((currentTimeInSeconds % 3600) / 60);
+    const seconds = Math.floor(currentTimeInSeconds % 60);
+    const milliseconds = Math.floor((currentTimeInSeconds % 1) * 1000);
+
+    const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+
+    // Default to Manual bookmark type if not specified
+    const bookmarkType = BookmarkType.Manual;
+
+    // Generate a random ID between 1 and MAX_INT
+    const bookmarkId = Math.floor(Math.random() * 2147483647) + 1;
+
+    // Create a new bookmark object
+    const newBookmark: Bookmark = {
+      id: bookmarkId,
+      type: bookmarkType,
+      time: formattedTime,
+    };
+
+    // Add the bookmark to the video's bookmarks array
+    video.bookmarks.push(newBookmark);
+
+    // Force a re-render to show the new bookmark
+    const bookmarks = [...video.bookmarks];
+    video.bookmarks = bookmarks;
+
+    // Send message to backend to add bookmark
+    sendMessageToBackend('AddBookmark', {
+      FilePath: video.filePath,
+      Type: bookmarkType,
+      Time: formattedTime,
+      ContentType: video.type,
+      Id: bookmarkId,
+    });
+  };
+
+  const handleDeleteBookmark = (bookmarkId: number) => {
+    // Find the bookmark in the video's bookmarks array
+    const bookmarkIndex = video.bookmarks.findIndex((b) => b.id === bookmarkId);
+
+    if (bookmarkIndex !== -1) {
+      const bookmark = video.bookmarks[bookmarkIndex];
+      confirmDelete({
+        title: 'Delete bookmark?',
+        description: `Delete the ${bookmark.type.toLowerCase()} bookmark at ${bookmark.time}? This action cannot be undone.`,
+        onConfirm: () => {
+          video.bookmarks.splice(bookmarkIndex, 1);
+
+          const bookmarks = [...video.bookmarks];
+          video.bookmarks = bookmarks;
+
+          sendMessageToBackend('DeleteBookmark', {
+            FilePath: video.filePath,
+            ContentType: video.type,
+            Id: bookmarkId,
+          });
+        },
+      });
+    }
+  };
+
+  const handleDeleteSegment = (segmentId: number) => {
+    confirmDelete({
+      title: 'Delete segment?',
+      description: 'Remove this segment from the clip? This action cannot be undone.',
+      onConfirm: () => removeSegment(segmentId),
+    });
+  };
+
+  const handleClearSegments = () => {
+    if (segments.length === 0) return;
+
+    confirmDelete({
+      title: 'Delete all segments?',
+      description: `Remove all ${segments.length} ${segments.length === 1 ? 'segment' : 'segments'} from the clip? This action cannot be undone.`,
+      confirmText: 'Delete all',
+      onConfirm: clearAllSegments,
+    });
+  };
+
+  // Handle volume change
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setPlayerVolume(newVolume);
+  };
+
+  // Toggle mute state
+  const toggleMute = () => {
+    if (videoRef.current) {
+      if (audioTracks.isMultiTrack) {
+        // Master mute for multi-track: silences all audio elements
+        const newMuted = !audioTracks.masterMuted;
+        audioTracks.setMasterMuted(newMuted);
+        setIsMuted(newMuted);
+        localStorage.setItem('segra-muted', newMuted.toString());
+        return;
+      }
+
+      const newMutedState = !videoRef.current.muted;
+      videoRef.current.muted = newMutedState;
+      setIsMuted(newMutedState);
+      localStorage.setItem('segra-muted', newMutedState.toString());
+    }
+  };
+
+  const setPlaybackRateForPlayer = (rate: number) => {
+    const r = Math.max(0.25, Math.min(2, rate));
+    if (videoRef.current) videoRef.current.playbackRate = r;
+    setPlaybackRate(r);
+    localStorage.setItem('segra-playbackRate', r.toString());
+  };
+
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div className="flex w-full h-full overflow-hidden bg-base-200" ref={containerRef}>
+        <div className="flex flex-col flex-1 w-full h-full p-4 pb-2 overflow-hidden lg:w-3/4">
+          <TopInfoBar video={video} />
+          <div
+            className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen overflow-hidden bg-black' : 'relative flex-1 min-h-0 overflow-hidden rounded-lg'}`}
+            ref={playerContainerRef}
+            onMouseMove={() => {
+              showControlsTemporarily();
+            }}
+            onMouseLeave={() => {
+              isPointerOverControlsRef.current = false;
+              showCursor();
+              if (controlsShowTimeoutRef.current) {
+                clearTimeout(controlsShowTimeoutRef.current);
+                controlsShowTimeoutRef.current = null;
+              }
+              if (controlsHideTimeoutRef.current) {
+                clearTimeout(controlsHideTimeoutRef.current);
+                controlsHideTimeoutRef.current = null;
+              }
+              controlsHideTimeoutRef.current = window.setTimeout(() => {
+                setControlsVisible(false);
+                controlsHideTimeoutRef.current = null;
+              }, 600);
+            }}
+          >
+            <div className={videoWrapperClassName}>
+              <video
+                autoPlay
+                crossOrigin="anonymous"
+                className="w-full h-full object-contain"
+                src={getVideoPath()}
+                ref={videoRef}
+                onClick={onVideoClick}
+                onDoubleClick={toggleFullscreen}
+                onPointerDown={onVideoPointerDown}
+                onPointerMove={onVideoPointerMove}
+                onPointerUp={onVideoPointerUp}
+                onWheel={onVideoWheel}
+                style={{
+                  backgroundColor: 'black',
+                  objectFit: 'contain' as const,
+                  transform: `translate(${videoTranslate.x}px, ${videoTranslate.y}px) scale(${videoScale})`,
+                  transformOrigin: '0 0',
+                  touchAction: videoScale > 1 ? 'none' : undefined,
+                  cursor: videoScale > 1 && isPanning ? 'grabbing' : undefined,
+                }}
+              />
+            </div>
+
+            <div
+              className={`absolute left-0 right-0 bottom-0 bg-black/70 pb-2 flex flex-col gap-2 transition-transform duration-300 select-none ${isFullscreen ? '' : 'rounded-b-lg'} ${controlsVisible ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}
+              onMouseEnter={handleControlsMouseEnter}
+              onMouseLeave={handleControlsMouseLeave}
+            >
+              <input
+                type="range"
+                min={0}
+                max={Math.max(0.01, duration)}
+                step={0.01}
+                value={Math.min(currentTime, duration)}
+                onChange={(e) => {
+                  const t = parseFloat(e.target.value);
+                  setCurrentTime(t);
+                  if (videoRef.current) videoRef.current.currentTime = t;
+                }}
+                onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                className="w-full h-5 -my-2 bg-center bg-no-repeat bg-[length:100%_4px] hover:bg-[length:100%_7px] transition-[background-size] duration-300 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-0 [&::-webkit-slider-thumb]:h-0 [&::-moz-range-thumb]:w-0 [&::-moz-range-thumb]:h-0 [&::-moz-range-thumb]:border-0"
+                style={{
+                  backgroundImage: `linear-gradient(to right, var(--color-accent) ${(Math.min(currentTime, duration) / Math.max(0.01, duration)) * 100}%, #4b5563 ${(Math.min(currentTime, duration) / Math.max(0.01, duration)) * 100}%)`,
+                }}
+              />
+
+              <div className="flex items-center justify-between px-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handlePlayPause}
+                    className="text-white transition-colors cursor-pointer hover:text-accent"
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                  >
+                    {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                  </button>
+
+                  <div className="flex items-center group">
+                    <button
+                      onClick={toggleMute}
+                      className="text-white transition-colors cursor-pointer hover:text-accent"
+                      aria-label={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted || volume < 0.2 ? (
+                        <VolumeX className="w-5 h-5" />
+                      ) : volume < 0.7 ? (
+                        <Volume1 className="w-5 h-5" />
+                      ) : (
+                        <Volume2 className="w-5 h-5" />
+                      )}
+                    </button>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.02"
+                      value={volume}
+                      onChange={handleVolumeChange}
+                      onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                      onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                      onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                      className="w-0 ml-0 opacity-0 group-hover:w-20 group-hover:ml-2 group-hover:opacity-100 group-focus-within:w-20 group-focus-within:ml-2 group-focus-within:opacity-100 h-1 rounded-lg appearance-none cursor-pointer transition-all duration-200 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0"
+                      style={{
+                        backgroundImage: `linear-gradient(to right, var(--color-accent) ${(isMuted ? 0 : volume) * 100}%, #4b5563 ${(isMuted ? 0 : volume) * 100}%)`,
+                      }}
+                    />
+                  </div>
+
+                  <span className="text-xs tabular-nums text-white/90">
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {audioTracks.isMultiTrack && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowAudioTracks(!showAudioTracks)}
+                        className={`flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 ${showAudioTracks ? 'text-accent bg-accent/20' : ''}`}
+                      >
+                        <Headphones className="w-4 h-4" />
+                      </button>
+                      <div
+                        className={`absolute bottom-full right-0 mb-2 p-2 bg-black/90 rounded-lg border border-base-400 min-w-48 z-50 transition-all duration-300 origin-bottom-right ${showAudioTracks ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-2 pointer-events-none'}`}
+                      >
+                        {audioTracks.tracks.map((track) => {
+                          const isMuted = audioTracks.mutedTracks.has(track.index);
+                          const vol = audioTracks.volumes[track.index] ?? 1;
+                          return (
+                            <div
+                              key={track.index}
+                              className="flex items-center justify-between gap-2 py-0.5"
+                            >
+                              <label className="flex items-center gap-2 min-w-0 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!isMuted}
+                                  onChange={() => audioTracks.toggleTrackMute(track.index)}
+                                  className="checkbox checkbox-primary checkbox-xs shrink-0"
+                                />
+                                <span className="text-xs text-white/80 truncate select-none">
+                                  {track.name.replace(' (Default)', '')}
+                                </span>
+                              </label>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="1"
+                                  step="0.02"
+                                  value={vol}
+                                  onChange={(e) =>
+                                    audioTracks.setTrackVolume(
+                                      track.index,
+                                      parseFloat(e.target.value),
+                                    )
+                                  }
+                                  className={`w-16 h-1 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-moz-range-thumb]:border-0 ${
+                                    isMuted
+                                      ? '[&::-webkit-slider-thumb]:w-0 [&::-webkit-slider-thumb]:h-0 [&::-moz-range-thumb]:w-0 [&::-moz-range-thumb]:h-0'
+                                      : '[&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-accent)] [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[var(--color-accent)]'
+                                  }`}
+                                  style={{
+                                    backgroundImage: `linear-gradient(to right, var(--color-accent) ${(isMuted ? 0 : vol) * 100}%, #4b5563 ${(isMuted ? 0 : vol) * 100}%)`,
+                                  }}
+                                />
+                                <span className="text-[10px] text-white/50 w-7 text-right tabular-nums">
+                                  {Math.round(vol * 100)}%
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      const current = videoScaleRef.current || 1;
+                      applyVideoScale(current - 0.5);
+                    }}
+                    disabled={videoScale <= 1}
+                    className="flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Zoom out"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const current = videoScaleRef.current || 1;
+                      applyVideoScale(current + 0.5);
+                    }}
+                    disabled={videoScale >= 4}
+                    className="flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Zoom in"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                  <div className="relative" ref={speedDropdownRef}>
+                    <button
+                      ref={speedButtonRef}
+                      type="button"
+                      className="flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20"
+                      aria-label="Change playback speed"
+                      aria-haspopup="menu"
+                      aria-expanded={showSpeedMenu}
+                      onClick={() => {
+                        if (showSpeedMenu) {
+                          setShowSpeedMenu(false);
+                          speedButtonRef.current?.blur();
+                        } else {
+                          setShowSpeedMenu(true);
+                        }
+                      }}
+                    >
+                      <span>{formatPlaybackRateLabel(playbackRate)}</span>
+                    </button>
+                    <div
+                      className={`absolute right-0 bottom-full z-50 mb-2 border rounded-md shadow-lg bg-black/90 border-base-400 transition-all duration-300 ${showSpeedMenu ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-2 pointer-events-none'}`}
+                    >
+                      <div className="flex flex-col">
+                        {PLAYBACK_SPEEDS.map((speed) => {
+                          const isActive = speed === playbackRate;
+                          return (
+                            <button
+                              key={speed}
+                              role="menuitemradio"
+                              aria-checked={isActive}
+                              onClick={() => {
+                                setPlaybackRateForPlayer(speed);
+                                setShowSpeedMenu(false);
+                                speedButtonRef.current?.blur();
+                              }}
+                              className={`flex w-full items-center justify-center px-3 py-1 cursor-pointer text-sm transition-colors ${isActive ? 'text-white bg-accent/20' : 'text-white/80 hover:text-white hover:bg-accent/10'}`}
+                            >
+                              <span>{formatPlaybackRateLabel(speed)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={toggleFullscreen}
+                    onPointerUp={(e) => e.currentTarget.blur()}
+                    onMouseUp={(e) => e.currentTarget.blur()}
+                    onTouchEnd={(e) => e.currentTarget.blur()}
+                    className="text-white cursor-pointer transition-colors hover:text-accent"
+                    aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                  >
+                    {isFullscreen ? (
+                      <Minimize className="w-5 h-5" />
+                    ) : (
+                      <Maximize className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            className="relative w-full mt-2 overflow-x-scroll overflow-y-hidden select-none shrink-0 timeline-wrapper"
+            ref={scrollContainerRef}
+            onMouseMove={(e) => {
+              handleSegmentDrag(e);
+              handleSegmentResize(e);
+              handleMarkerDrag(e);
+            }}
+          >
+            <div
+              className="ticks-container relative h-[42px]"
+              style={{
+                width: `${duration * pixelsPerSecond}px`,
+                minWidth: '100%',
+                overflow: 'hidden',
+              }}
+            >
+              <AnimatePresence initial={false}>
+                {bookmarksReady &&
+                  filteredBookmarks.map((bookmark, index) => {
+                    const timeInSeconds = timeStringToSeconds(bookmark.time);
+                    const leftPos = timeInSeconds * pixelsPerSecond;
+                    const Icon =
+                      getIconMapping(video.igdbId)[bookmark.type as BookmarkType] || Skull;
+
+                    return (
+                      <motion.div
+                        key={`bookmark-${bookmark.id ?? index}`}
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        transition={{ duration: 0.1 }}
+                        className="tooltip absolute bottom-0 transform -translate-x-1/2 cursor-pointer z-10 flex flex-col items-center text-[#25272e]"
+                        data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
+                        style={{ left: `${leftPos}px` }}
+                        onClick={() => {
+                          const seekTo = Math.max(
+                            0,
+                            timeInSeconds - (bookmark.type == BookmarkType.Manual ? 10 : 5),
+                          );
+                          setCurrentTime(seekTo);
+                          if (videoRef.current) {
+                            videoRef.current.currentTime = seekTo;
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          handleDeleteBookmark(bookmark.id);
+                        }}
+                      >
+                        <div className="bg-[#EFAF2B] w-[26px] h-[26px] rounded-full flex items-center justify-center mb-0">
+                          <Icon size={18} strokeWidth={2.5} />
+                        </div>
+                        <div className="w-[2px] h-[16px] bg-[#EFAF2B]" />
+                      </motion.div>
+                    );
+                  })}
+              </AnimatePresence>
+              {minorTicks.map((tickTime) => {
+                if (tickTime >= duration) return null;
+                const leftPos = tickTime * pixelsPerSecond;
+                return (
+                  <div
+                    key={`minor-${tickTime}`}
+                    className="absolute bottom-0 h-[6px] border-l border-white/20"
+                    style={{
+                      left: `${leftPos}px`,
+                    }}
+                  />
+                );
+              })}
+              {majorTicks.map((tickTime) => {
+                if (tickTime > duration) return null;
+                const leftPos = tickTime * pixelsPerSecond;
+                return (
+                  <div
+                    key={`major-${tickTime}`}
+                    className="absolute bottom-0 text-center text-white -translate-x-1/2 select-none whitespace-nowrap"
+                    style={{
+                      left: `${leftPos}px`,
+                    }}
+                  >
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 text-xs mb-[3px]">
+                      {formatTime(tickTime)}
+                    </span>
+                    <div className="w-[2px] h-[10px] bg-white mx-auto" />
+                  </div>
+                );
+              })}
+            </div>
+            <div
+              className="timeline-container bg-base-300 border border-base-400 rounded-lg relative h-[50px] w-full overflow-hidden"
+              style={{
+                width: `${duration * pixelsPerSecond}px`,
+                minWidth: '100%',
+              }}
+              onClick={handleTimelineClick}
+            >
+              {settings.showAudioWaveformInTimeline && (
+                <canvas
+                  ref={waveformCanvasRef}
+                  height={49}
+                  className="absolute top-0 pointer-events-none"
+                  style={{
+                    height: '49px',
+                    opacity: 0.6,
+                  }}
+                />
+              )}
+              {sortedSegments.map((seg) => {
+                const left = seg.startTime * pixelsPerSecond;
+                const width = (seg.endTime - seg.startTime) * pixelsPerSecond;
+                const hidden = seg.fileName !== video.fileName;
+                return (
+                  <div
+                    key={seg.id}
+                    className={`absolute top-0 left-0 h-full cursor-move ${hidden ? 'hidden' : ''} transition-colors overflow-hidden rounded-r-sm rounded-l-sm shadow-md
+                                                bg-primary/20 border border-primary/20`}
+                    style={{ left: `${left}px`, width: `${width}px` }}
+                    onMouseEnter={() => {
+                      setHoveredSegmentId(seg.id);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredSegmentId(null);
+                    }}
+                    onMouseDown={(e) => handleSegmentMouseDown(e, seg.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      handleDeleteSegment(seg.id);
+                    }}
+                  >
+                    <div className="absolute left-0 top-0 h-full w-[4px] bg-accent/80 rounded-l-sm pointer-events-none" />
+                    <div className="absolute right-0 top-0 h-full w-[4px] bg-accent/80 rounded-r-sm pointer-events-none" />
+
+                    {audioTracks.isMultiTrack &&
+                      video.audioTrackNames &&
+                      video.audioTrackNames.length > 1 && (
+                        <button
+                          className={`absolute top-[4px] right-[8px] flex items-center justify-center w-4 h-4 rounded z-10 pointer-events-auto cursor-pointer transition-opacity bg-black/45 text-white/70 hover:bg-black/65 ${hoveredSegmentId === seg.id || (timelineAudioMenu?.segId === seg.id && timelineAudioMenu.visible) ? 'opacity-100' : 'opacity-0'}`}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (timelineAudioMenu?.segId === seg.id && timelineAudioMenu.visible) {
+                              setTimelineAudioMenu((prev) =>
+                                prev ? { ...prev, visible: false } : null,
+                              );
+                              return;
+                            }
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const trackCount = video.audioTrackNames?.length ?? 0;
+                            const estimatedHeight = 16 + trackCount * 24;
+                            const fitsBelow =
+                              rect.bottom + 4 + estimatedHeight <= window.innerHeight;
+                            const top = fitsBelow
+                              ? rect.bottom + 4
+                              : Math.max(8, rect.top - 4 - estimatedHeight);
+                            const next = {
+                              segId: seg.id,
+                              x: rect.left,
+                              y: top,
+                              flipUp: !fitsBelow,
+                              visible: false,
+                            };
+                            setTimelineAudioMenu(next);
+                            requestAnimationFrame(() =>
+                              setTimelineAudioMenu((prev) =>
+                                prev ? { ...prev, visible: true } : null,
+                              ),
+                            );
+                          }}
+                        >
+                          <Headphones className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+
+                    <div
+                      className="absolute top-0 -left-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto"
+                      onMouseDown={(e) => handleResizeMouseDown(e, seg.id, 'start')}
+                      aria-label="Resize segment start"
+                    />
+                    <div
+                      className="absolute top-0 -right-[8px] w-[18px] h-full bg-transparent cursor-col-resize pointer-events-auto"
+                      onMouseDown={(e) => handleResizeMouseDown(e, seg.id, 'end')}
+                      aria-label="Resize segment end"
+                    />
+                  </div>
+                );
+              })}
+              {resizingSegmentId == null && (
+                <div
+                  className="absolute top-0 left-0 z-10 w-1 h-full -translate-x-1/2 rounded-sm shadow cursor-pointer marker bg-accent"
+                  style={{ left: `${currentTime * pixelsPerSecond}px` }}
+                  onMouseDown={handleMarkerDragStart}
+                />
+              )}
+            </div>
+          </div>
+          {timelineAudioMenu &&
+            (() => {
+              const menuSeg = segments.find((s) => s.id === timelineAudioMenu.segId);
+              if (!menuSeg || !video.audioTrackNames) return null;
+              const mutedTracks = menuSeg.mutedAudioTracks ?? [];
+              const trackVolumes = menuSeg.audioTrackVolumes ?? {};
+              return (
+                <div
+                  className={`fixed p-2 bg-black/90 rounded-lg border border-base-400 min-w-48 z-[200] cursor-default transition-all duration-300 ${
+                    timelineAudioMenu.visible
+                      ? 'opacity-100 translate-y-0 pointer-events-auto'
+                      : timelineAudioMenu.flipUp
+                        ? 'opacity-0 translate-y-2 pointer-events-none'
+                        : 'opacity-0 -translate-y-2 pointer-events-none'
+                  }`}
+                  style={{ left: timelineAudioMenu.x, top: timelineAudioMenu.y }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {video.audioTrackNames.map((name, i) => {
+                    const isMuted = mutedTracks.includes(i);
+                    const vol = trackVolumes[i] ?? 1;
+                    return (
+                      <div key={i} className="flex items-center justify-between gap-2 py-0.5">
+                        <label className="flex items-center gap-2 min-w-0 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!isMuted}
+                            onChange={() => {
+                              let newMuted: number[];
+                              if (isMuted) {
+                                // Enabling this track
+                                if (i === 0) {
+                                  // Enabling Full Mix: mute all individual tracks
+                                  newMuted = (video.audioTrackNames ?? [])
+                                    .map((_, idx) => idx)
+                                    .filter((idx) => idx !== 0);
+                                } else {
+                                  // Enabling an individual track: mute Full Mix
+                                  newMuted = mutedTracks.filter((t) => t !== i);
+                                  if (!newMuted.includes(0)) newMuted.push(0);
+                                }
+                              } else {
+                                // Muting this track
+                                newMuted = [...mutedTracks, i];
+                              }
+                              updateSegment({ ...menuSeg, mutedAudioTracks: newMuted });
+                            }}
+                            className="checkbox checkbox-primary checkbox-xs shrink-0"
+                          />
+                          <span className="text-xs text-white/80 truncate">
+                            {name.replace(' (Default)', '')}
+                          </span>
+                        </label>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.02"
+                            value={vol}
+                            onChange={(e) => {
+                              const newVolumes = {
+                                ...trackVolumes,
+                                [i]: parseFloat(e.target.value),
+                              };
+                              updateSegment({ ...menuSeg, audioTrackVolumes: newVolumes });
+                            }}
+                            className={`w-16 h-1 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-moz-range-thumb]:border-0 ${
+                              isMuted
+                                ? '[&::-webkit-slider-thumb]:w-0 [&::-webkit-slider-thumb]:h-0 [&::-moz-range-thumb]:w-0 [&::-moz-range-thumb]:h-0'
+                                : '[&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-accent)] [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[var(--color-accent)]'
+                            }`}
+                            style={{
+                              backgroundImage: `linear-gradient(to right, var(--color-accent) ${(isMuted ? 0 : vol) * 100}%, #4b5563 ${(isMuted ? 0 : vol) * 100}%)`,
+                            }}
+                          />
+                          <span className="text-[10px] text-white/50 w-7 text-right tabular-nums">
+                            {Math.round(vol * 100)}%
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          <div className="flex items-center justify-between gap-4 py-1 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center border rounded-lg join bg-base-300 border-base-400">
+                <button
+                  onClick={() => skipTime(-5)}
+                  className="h-10 text-gray-300 btn btn-sm btn-secondary hover:text-accent join-item"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handlePlayPause}
+                  className="h-10 text-gray-300 btn btn-sm btn-secondary hover:text-accent join-item"
+                  data-tip={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                </button>
+                <button
+                  onClick={() => skipTime(5)}
+                  className="h-10 text-gray-300 btn btn-sm btn-secondary hover:text-accent join-item"
+                  data-tip="Forward 5s"
+                >
+                  <RotateCw className="w-5 h-5" />
+                </button>
+              </div>
+              {(video.type === 'Clip' || video.type === 'Highlight') && (
+                <>
+                  {!settings.airplaneMode && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="h-10 px-5 hover:text-accent"
+                      onClick={handleUpload}
+                      disabled={
+                        uploads[video.fileName + '.mp4']?.status === 'uploading' ||
+                        uploads[video.fileName + '.mp4']?.status === 'processing'
+                      }
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span>Upload</span>
+                    </Button>
+                  )}
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="h-10 hover:text-accent"
+                    onClick={handleCopyFile}
+                  >
+                    <label
+                      className={`swap overflow-hidden justify-center ${fileCopied ? 'swap-active' : ''}`}
+                    >
+                      <div className="swap-off">
+                        <Copy className="w-5 h-5" />
+                      </div>
+                      <div className="swap-on">
+                        <Check className="w-5 h-5" />
+                      </div>
+                    </label>
+                    <span>Copy</span>
+                  </Button>
+                </>
+              )}
+              {(video.type === 'Session' || video.type === 'Buffer') && (
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="h-10 gap-1 hover:text-accent"
+                    onClick={handleCreateClip}
+                  >
+                    <Clapperboard className="w-5 h-5" />
+                    <span className="grid justify-items-start">
+                      <span className="col-start-1 row-start-1 invisible" aria-hidden="true">
+                        Create Clips
+                      </span>
+                      <span className="col-start-1 row-start-1">
+                        {clipOutputMode === 'separate' ? 'Create Clips' : 'Create Clip'}
+                      </span>
+                    </span>
+                  </Button>
+                  <div className="indicator">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="h-10 gap-1 hover:text-accent"
+                      onClick={handleAddSegment}
+                    >
+                      {showNoSegmentsIndicator && (
+                        <span className="indicator-item badge badge-sm badge-primary animate-pulse"></span>
+                      )}
+                      <SquarePlus className="w-5 h-5" />
+                      <span>Add Segment</span>
+                    </Button>
+                  </div>
+                </>
+              )}
+              {video.type === 'Buffer' && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="h-10 hover:text-accent"
+                  onClick={handleCopyFile}
+                >
+                  <label
+                    className={`swap overflow-hidden justify-center ${fileCopied ? 'swap-active' : ''}`}
+                  >
+                    <div className="swap-off">
+                      <Copy className="w-5 h-5" />
+                    </div>
+                    <div className="swap-on">
+                      <Check className="w-5 h-5" />
+                    </div>
+                  </label>
+                  <span>Copy</span>
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              {(video.type === 'Session' || video.type === 'Buffer') && (
+                <>
+                  {availableBookmarkTypes.length > 0 && (
+                    <div className="flex items-center h-10 gap-0 px-0 border rounded-lg bg-base-300 join border-base-400">
+                      {availableBookmarkTypes.map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => toggleBookmarkType(type)}
+                          className={`btn btn-sm btn-secondary border-none transition-colors join-item px-2 ${selectedBookmarkTypes.has(type) ? 'text-accent' : 'text-gray-300'}`}
+                        >
+                          {React.createElement(getIconMapping(video.igdbId)[type] || Skull, {
+                            className: 'w-5 h-5',
+                          })}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 rounded-lg bg-base-300">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="h-10 hover:text-accent"
+                      onClick={handleAddBookmark}
+                    >
+                      <BookmarkPlus className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              <div className="flex items-center h-10 gap-1 px-0 border rounded-lg bg-base-300 border-base-400">
+                <button
+                  onClick={() => handleZoomChange(false)}
+                  className="btn btn-sm btn-secondary disabled:opacity-100 disabled:bg-base-300"
+                  disabled={zoom <= 1}
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-medium text-center text-gray-300">
+                  {zoom < 10 ? zoom.toFixed(1) : Math.round(zoom)}x
+                </span>
+                <button
+                  onClick={() => handleZoomChange(true)}
+                  className="btn btn-sm btn-secondary"
+                  disabled={zoom >= 500}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {(video.type === 'Session' || video.type === 'Buffer') && (
+          <div className="flex flex-col h-full pt-4 pl-4 pr-1 border-l bg-base-300 text-neutral-content w-52 2xl:w-70.25 border-base-400">
+            <div className="flex-1 p-1 overflow-y-scroll">
+              {segments.map((seg, index) => (
+                <SegmentCard
+                  key={seg.id}
+                  segment={seg}
+                  index={index}
+                  moveCard={moveCard}
+                  formatTime={formatTime}
+                  isHovered={hoveredSegmentId === seg.id}
+                  setHoveredSegmentId={setHoveredSegmentId}
+                  removeSegment={removeSegment}
+                  audioTrackNames={video.audioTrackNames}
+                  onMutedAudioTracksChange={(id, mutedTracks) =>
+                    updateSegment({
+                      ...segments.find((s) => s.id === id)!,
+                      mutedAudioTracks: mutedTracks,
+                    })
+                  }
+                  onAudioTrackVolumesChange={(id, volumes) =>
+                    updateSegment({
+                      ...segments.find((s) => s.id === id)!,
+                      audioTrackVolumes: volumes,
+                    })
+                  }
+                />
+              ))}
+              {clipOutputMode === 'combined' && segments.length > 0 && (
+                <div className="flex items-center justify-center pb-1">
+                  <span
+                    className="text-sm font-medium text-gray-300 opacity-50 tabular-nums"
+                    title="Total length of all segments"
+                  >
+                    {formatTime(totalSegmentsDuration)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between my-3 mr-3">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="clipClearSegmentsAfterCreatingClip"
+                  checked={settings.clipClearSegmentsAfterCreatingClip}
+                  onChange={(e) =>
+                    updateSettings({ clipClearSegmentsAfterCreatingClip: e.target.checked })
+                  }
+                  className="checkbox checkbox-sm checkbox-accent"
+                />
+                <span className="ml-2 text-sm">Auto-Clear Segments</span>
+              </label>
+            </div>
+            <div className="join flex mb-3 mr-3">
+              <button
+                type="button"
+                className={`btn btn-secondary join-item flex-1 h-9 min-h-9 text-xs font-semibold border-base-400 hover:border-base-400 hover:text-primary ${
+                  clipOutputMode === 'combined'
+                    ? 'bg-base-300 hover:bg-base-300 text-primary'
+                    : 'bg-base-200 hover:bg-base-200 text-gray-300'
+                }`}
+                onClick={() => setClipOutputMode('combined')}
+              >
+                Combined
+              </button>
+              <button
+                type="button"
+                className={`btn btn-secondary join-item flex-1 h-9 min-h-9 text-xs font-semibold border-base-400 hover:border-base-400 hover:text-primary ${
+                  clipOutputMode === 'separate'
+                    ? 'bg-base-300 hover:bg-base-300 text-primary'
+                    : 'bg-base-200 hover:bg-base-200 text-gray-300'
+                }`}
+                onClick={() => setClipOutputMode('separate')}
+              >
+                Separate
+              </button>
+            </div>
+            <div className="flex items-center h-10 gap-0 px-0 mb-3 mr-3 rounded-lg bg-base-300 tooltip">
+              <Button
+                variant="primary"
+                size="sm"
+                className="w-full h-10 py-0 hover:text-accent"
+                onClick={handleClearSegments}
+                disabled={segments.length === 0}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Clear</span>
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </DndProvider>
+  );
+}

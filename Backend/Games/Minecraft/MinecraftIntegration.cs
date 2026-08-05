@@ -1,5 +1,5 @@
-using Segra.Backend.Core.Models;
 using Serilog;
+using Segra.Backend.Core.Models;
 using System.Text.RegularExpressions;
 
 namespace Segra.Backend.Games.Minecraft
@@ -17,7 +17,7 @@ namespace Segra.Backend.Games.Minecraft
 
         // Minecraft death verbs that appear in chat as "<player> <verb> ..."
         // Trailing "whilst/while ..." qualifiers are dropped so matches survive Mojang's
-        // whilst?hile wording change and cover both base and .player variants.
+        // whilst→while wording change and cover both base and .player variants.
         private static readonly string[] DeathVerbs =
         {
             "was slain by", "was shot by", "was killed by", "was blown up by",

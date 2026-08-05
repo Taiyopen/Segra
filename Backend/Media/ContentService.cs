@@ -1,17 +1,17 @@
-using Segra.Backend.App;
-using Segra.Backend.Core.Models;
-using Segra.Backend.Games;
-using Segra.Backend.Services;
-using Segra.Backend.Shared;
-using Segra.Backend.Windows.Storage;
 using Serilog;
 using System.Text.Json;
+using Segra.Backend.App;
+using Segra.Backend.Core;
+using Segra.Backend.Core.Models;
+using Segra.Backend.Games;
+using Segra.Backend.Shared;
+using Segra.Backend.Windows.Storage;
 
 namespace Segra.Backend.Media
 {
     internal class ContentService
     {
-        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        private static readonly JsonSerializerOptions _jsonOptions = new()
         {
             WriteIndented = true
         };
@@ -22,7 +22,8 @@ namespace Segra.Backend.Media
 
             try
             {
-                // Ensure the video file exists
+                filePath = PathUtils.Normalize(filePath);
+
                 if (!File.Exists(filePath))
                 {
                     Log.Information($"Video file not found: {filePath}");
@@ -40,7 +41,7 @@ namespace Segra.Backend.Media
                 }
 
                 // Create the metadata file
-                string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
+                string metadataFilePath = PathUtils.Combine(metadataFolderPath, $"{contentFileName}.json");
                 var (displaySize, sizeKb) = GetFileSize(filePath);
 
                 var duration = await GetVideoDurationAsync(filePath);
@@ -84,7 +85,7 @@ namespace Segra.Backend.Media
 
                 // Read and deserialize
                 string metadataJson = await File.ReadAllTextAsync(metadataFilePath);
-                var content = System.Text.Json.JsonSerializer.Deserialize<Content>(metadataJson);
+                var content = JsonSerializer.Deserialize<Content>(metadataJson);
 
                 if (content == null)
                 {
@@ -151,8 +152,8 @@ namespace Segra.Backend.Media
 
                         if (!string.IsNullOrEmpty(typeFolder))
                         {
-                            string newDir = Path.Combine(typeFolder, newSanitized);
-                            string candidatePath = Path.Combine(newDir, Path.GetFileName(content.FilePath));
+                            string newDir = PathUtils.Combine(typeFolder, newSanitized);
+                            string candidatePath = PathUtils.Combine(newDir, Path.GetFileName(content.FilePath));
 
                             bool sameAsCurrent = string.Equals(
                                 Path.GetFullPath(candidatePath),
@@ -177,7 +178,7 @@ namespace Segra.Backend.Media
                         }
                     }
 
-                    string sidecar = Path.Combine(FolderNames.GetMetadataFolderPath(content.Type), content.FileName + ".json");
+                    string sidecar = PathUtils.Combine(FolderNames.GetMetadataFolderPath(content.Type), content.FileName + ".json");
                     await UpdateMetadataFile(sidecar, c =>
                     {
                         c.Game = canonicalName;
@@ -219,7 +220,7 @@ namespace Segra.Backend.Media
                 }
 
                 // Define the output thumbnail file path
-                string thumbnailFilePath = Path.Combine(thumbnailsFolderPath, $"{contentFileName}.jpeg");
+                string thumbnailFilePath = PathUtils.Combine(thumbnailsFolderPath, $"{contentFileName}.jpeg");
 
                 if (!FFmpegService.FFmpegExists())
                 {
@@ -260,9 +261,9 @@ namespace Segra.Backend.Media
                     Directory.CreateDirectory(waveformFolderPath);
                 }
 
-                string tempPcmPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pcm");
-                string waveformJsonPathTemp = Path.Combine(waveformFolderPath, $"{contentFileName}.peaks.temp.json");
-                string waveformJsonPath = Path.Combine(waveformFolderPath, $"{contentFileName}.peaks.json");
+                string tempPcmPath = PathUtils.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pcm");
+                string waveformJsonPathTemp = PathUtils.Combine(waveformFolderPath, $"{contentFileName}.peaks.temp.json");
+                string waveformJsonPath = PathUtils.Combine(waveformFolderPath, $"{contentFileName}.peaks.json");
 
                 // Decode audio to raw mono 16-bit PCM at a modest sample rate for efficiency.
                 // Probe the file for its audio track count so multi-track recordings can be
@@ -378,9 +379,9 @@ namespace Segra.Backend.Media
                 }
 
                 // Normalize the file path
-                string normalizedFilePath = Path.GetFullPath(filePath);
+                string normalizedFilePath = PathUtils.Normalize(Path.GetFullPath(filePath));
 
-                // External browse items live outside Segra's content folder — never delete the original video.
+                // External browse items live outside Segra's content folder ??never delete the original video.
                 bool deleteVideoFile = type != Content.ContentType.External;
 
                 // Ensure the video file exists before attempting deletion
@@ -450,7 +451,7 @@ namespace Segra.Backend.Media
 
                 // Construct the metadata file path
                 string metadataFolderPath = FolderNames.GetMetadataFolderPath(type);
-                string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
+                string metadataFilePath = PathUtils.Combine(metadataFolderPath, $"{contentFileName}.json");
 
                 // Delete the metadata file if it exists
                 if (File.Exists(metadataFilePath))
@@ -465,7 +466,7 @@ namespace Segra.Backend.Media
 
                 // Construct the thumbnail file path
                 string thumbnailsFolderPath = FolderNames.GetThumbnailsFolderPath(type);
-                string thumbnailFilePath = Path.Combine(thumbnailsFolderPath, $"{contentFileName}.jpeg");
+                string thumbnailFilePath = PathUtils.Combine(thumbnailsFolderPath, $"{contentFileName}.jpeg");
 
                 // Delete the thumbnail file if it exists
                 if (File.Exists(thumbnailFilePath))
@@ -480,7 +481,7 @@ namespace Segra.Backend.Media
 
                 // Construct the waveform JSON path
                 string waveformFolderPath = FolderNames.GetWaveformsFolderPath(type);
-                string waveformFilePath = Path.Combine(waveformFolderPath, $"{contentFileName}.peaks.json");
+                string waveformFilePath = PathUtils.Combine(waveformFolderPath, $"{contentFileName}.peaks.json");
 
                 // Delete the waveform file if it exists
                 if (File.Exists(waveformFilePath))
@@ -1031,7 +1032,7 @@ namespace Segra.Backend.Media
                     // Get metadata file path
                     string contentFileName = Path.GetFileNameWithoutExtension(filePath);
                     string metadataFolderPath = FolderNames.GetMetadataFolderPath(contentType);
-                    string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
+                    string metadataFilePath = PathUtils.Combine(metadataFolderPath, $"{contentFileName}.json");
 
                     // Create a new bookmark
                     var bookmark = new Bookmark
@@ -1112,7 +1113,7 @@ namespace Segra.Backend.Media
                     // Get metadata file path
                     string contentFileName = Path.GetFileNameWithoutExtension(filePath);
                     string metadataFolderPath = FolderNames.GetMetadataFolderPath(contentType);
-                    string metadataFilePath = Path.Combine(metadataFolderPath, $"{contentFileName}.json");
+                    string metadataFilePath = PathUtils.Combine(metadataFolderPath, $"{contentFileName}.json");
 
                     // Update the metadata file
                     var content = await UpdateMetadataFile(metadataFilePath, c =>

@@ -53,11 +53,18 @@ function App() {
     themeChange(false);
   }, []);
 
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const { data: profile } = useProfile();
-  const needsUsername = session && profile?.username?.startsWith('user_');
-
   const settings = useSettings();
+  const needsUsername = !settings.airplaneMode && session && profile?.username?.startsWith('user_');
+
+  // Airplane mode hides all cloud features and must not keep a signed-in session.
+  useEffect(() => {
+    if (settings.airplaneMode && session) {
+      signOut();
+    }
+  }, [settings.airplaneMode, session, signOut]);
+
   const appState = useAppState();
   const { selectedVideo, setSelectedVideo } = useSelectedVideo();
   const { selectedMenu, setSelectedMenu } = useSelectedMenu();

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Web;
 using NAudio.CoreAudioApi;
+using Segra.Backend.Auth;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Media;
 using Segra.Backend.Recorder;
@@ -17,6 +18,8 @@ namespace Segra.Backend.Api
 {
     internal class ContentServer
     {
+        internal const string Prefix = "http://localhost:2222/";
+
         private static readonly HttpListener _httpListener = new();
         private static CancellationTokenSource? _cancellationTokenSource;
 
@@ -26,8 +29,28 @@ namespace Segra.Backend.Api
             _httpListener.Start();
             Log.Information("Server started at {Prefix}", prefix);
 
-            _cancellationTokenSource = new CancellationTokenSource();
+            _cancellationTokenSource = new();
             _ = Task.Run(() => AcceptRequestsAsync(_cancellationTokenSource.Token));
+        }
+
+        public static void StopServer()
+        {
+            try
+            {
+                _cancellationTokenSource?.Cancel();
+                _httpListener.Stop();
+                _httpListener.Close();
+                Log.Information("ContentServer stopped");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error stopping ContentServer");
+            }
+            finally
+            {
+                _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = null;
+            }
         }
 
         private static async Task AcceptRequestsAsync(CancellationToken cancellationToken)
@@ -68,6 +91,7 @@ namespace Segra.Backend.Api
             try
             {
                 var rawUrl = context.Request.RawUrl ?? "";
+                var path = context.Request.Url?.AbsolutePath ?? "";
 
                 if (rawUrl.StartsWith("/api/thumbnail"))
                 {
@@ -85,6 +109,10 @@ namespace Segra.Backend.Api
                 {
                     await HandleContentRequest(context);
                 }
+                else if (DiscordLoginService.IsCallbackPath(path))
+                {
+                    await DiscordLoginService.HandleCallbackAsync(context);
+                }
                 else
                 {
                     response.StatusCode = (int)HttpStatusCode.NotFound;
@@ -100,7 +128,8 @@ namespace Segra.Backend.Api
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error processing request for {Url}", context.Request.RawUrl);
+                // Path only: auth callback query strings carry session tokens.
+                Log.Error(ex, "Error processing request for {Path}", context.Request.Url?.AbsolutePath);
                 try
                 {
                     if (!response.OutputStream.CanWrite)
@@ -618,26 +647,6 @@ namespace Segra.Backend.Api
                 return canonical;
 
             return null;
-        }
-
-        public static void StopServer()
-        {
-            try
-            {
-                _cancellationTokenSource?.Cancel();
-                _httpListener.Stop();
-                _httpListener.Close();
-                Log.Information("ContentServer stopped");
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error stopping ContentServer");
-            }
-            finally
-            {
-                _cancellationTokenSource?.Dispose();
-                _cancellationTokenSource = null;
-            }
         }
     }
 }

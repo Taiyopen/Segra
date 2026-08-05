@@ -1,7 +1,9 @@
 using Serilog;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+#if WINDOWS
 using Vortice.DXCore;
+#endif
 
 namespace Segra.Backend.Shared
 {
@@ -15,10 +17,10 @@ namespace Segra.Backend.Shared
             Intel
         }
 
-        private static readonly List<string> internalGpuIdentifiers = new List<string>
+        private static readonly List<string> internalGpuIdentifiers = new()
         {
             // Intel integrated GPUs
-            "HD Graphics",         // Broadwell (5xxx), Skylake (510??30), Kaby Lake (610/620), Comet Lake, etc.
+            "HD Graphics",         // Broadwell (5xxx), Skylake (510–530), Kaby Lake (610/620), Comet Lake, etc.
             "Iris Graphics",       // Skylake Iris 540/550
             "Iris Pro Graphics",   // Broadwell Iris Pro 6200
             "Iris Plus Graphics",  // Kaby Lake / Whiskey Lake
@@ -29,22 +31,22 @@ namespace Segra.Backend.Shared
             "Radeon R7 Graphics",    // Kaveri / Carrizo APU series
             "Radeon R5 Graphics",    // Kaveri / Carrizo APU series
             "Radeon Vega",           // Raven Ridge / Picasso / Renoir APUs (e.g. Vega 8, Vega 11)
-            "Radeon Graphics",       // Zen+ / Zen2 APUs (generic naming on 4000/5000G ?raphics??
+            "Radeon Graphics",       // Zen+ / Zen2 APUs (generic naming on 4000/5000G “Graphics”)
             "Radeon(TM) Graphics"
         };
 
         // Cache the detected GPU vendor to avoid repeated WMI queries
-        private static GpuVendor? _cachedGpuVendor = null;
+        private static GpuVendor? _cachedGpuVendor;
 
         public static GpuVendor DetectGpuVendor()
         {
-            // Return cached value if available
             if (_cachedGpuVendor.HasValue)
             {
                 return _cachedGpuVendor.Value;
             }
 
-            // Try using DXCore first - it's more reliable but requires Windows 10 build 19041 or later
+#if WINDOWS
+            // Try DXCore first - more reliable but requires Windows 10 build 19041 or later
             try
             {
                 using var factory = DXCore.DXCoreCreateAdapterFactory<IDXCoreAdapterFactory>();
@@ -77,7 +79,6 @@ namespace Segra.Backend.Shared
                     .ThenByDescending(a => a.DedicatedAdapterMemory)
                     .ToList();
 
-                // Process the sorted adapters
                 foreach (var adapter in sortedAdapters)
                 {
                     string name = adapter.DriverDescription;
@@ -102,7 +103,6 @@ namespace Segra.Backend.Shared
                     }
                 }
 
-                // Clean up adapters
                 foreach (var adapter in adapters)
                 {
                     adapter.Dispose();
@@ -121,7 +121,6 @@ namespace Segra.Backend.Shared
                 {
                     List<System.Management.ManagementObject> gpus = searcher.Get().Cast<System.Management.ManagementObject>().ToList();
 
-                    // Log all active GPUs found
                     Log.Information($"Found {gpus.Count} active GPU(s):");
                     foreach (var gpu in gpus)
                     {
@@ -171,7 +170,6 @@ namespace Segra.Backend.Shared
                 {
                     var allGpus = searcher.Get().Cast<System.Management.ManagementObject>().ToList();
 
-                    // Log all GPUs found in fallback search
                     Log.Information($"Found {allGpus.Count} total GPU(s) in fallback search:");
                     foreach (var gpu in allGpus)
                     {
@@ -211,7 +209,93 @@ namespace Segra.Backend.Shared
                 Log.Error($"Error detecting GPU vendor: {ex.Message}");
                 return GpuVendor.Unknown;
             }
+#else
+            // Linux: read PCI vendor IDs of the DRM cards from sysfs; sysfs order carries no meaning, so
+            // collect them all and rank by encoder preference rather than guessing which is integrated.
+            try
+            {
+                // Vendor -> the first card it was seen on, kept so the log can name it.
+                var byVendor = new Dictionary<GpuVendor, string>();
+
+                foreach (string cardDir in Directory.GetDirectories("/sys/class/drm"))
+                {
+                    // Excludes connector entries (card1-DP-1); also fixes the old "card?" glob at card9.
+                    string card = Path.GetFileName(cardDir);
+                    if (!Regex.IsMatch(card, @"^card\d+$")) continue;
+
+                    string vendorPath = Path.Combine(cardDir, "device", "vendor");
+                    if (!File.Exists(vendorPath)) continue;
+
+                    GpuVendor vendor = File.ReadAllText(vendorPath).Trim().ToLowerInvariant() switch
+                    {
+                        "0x10de" => GpuVendor.Nvidia,
+                        "0x1002" or "0x1022" => GpuVendor.AMD,
+                        "0x8086" => GpuVendor.Intel,
+                        _ => GpuVendor.Unknown
+                    };
+                    if (vendor != GpuVendor.Unknown) byVendor.TryAdd(vendor, card);
+                }
+
+                foreach (GpuVendor vendor in new[] { GpuVendor.Nvidia, GpuVendor.AMD, GpuVendor.Intel })
+                {
+                    if (!byVendor.TryGetValue(vendor, out string? card)) continue;
+
+                    string others = string.Join(", ", byVendor.Where(e => e.Key != vendor)
+                                                             .Select(e => $"{e.Key} on {e.Value}"));
+                    Log.Information($"Detected {vendor} GPU on {card}" +
+                        (others.Length > 0 ? $"; preferred over {others}" : ""));
+                    _cachedGpuVendor = vendor;
+                    return vendor;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error detecting GPU vendor on Linux: {ex.Message}");
+            }
+
+            Log.Warning("Could not identify GPU vendor, will default to CPU encoding if GPU encoding is selected");
+            return GpuVendor.Unknown;
+#endif
         }
+
+#if !WINDOWS
+        // NVIDIA's driver is decode-only (nvidia-vaapi-driver), so it's never a VAAPI encoding candidate.
+        private static readonly string[] VaapiCapableDrivers = ["amdgpu", "radeon", "i915", "xe"];
+
+        // Independent of DetectGpuVendor: on NVIDIA + AMD/Intel iGPU, the iGPU is what ffmpeg can encode on.
+        public static string? FindVaapiRenderNode()
+        {
+            try
+            {
+                // Ordinal sort so the choice is stable across boots rather than following readdir order.
+                foreach (string dir in Directory.GetDirectories("/sys/class/drm").OrderBy(d => d, StringComparer.Ordinal))
+                {
+                    string name = Path.GetFileName(dir);
+                    if (!Regex.IsMatch(name, @"^renderD\d+$")) continue;
+
+                    string driverLink = Path.Combine(dir, "device", "driver");
+                    if (!Directory.Exists(driverLink)) continue;
+
+                    string driver = Path.GetFileName(
+                        Directory.ResolveLinkTarget(driverLink, returnFinalTarget: true)?.FullName ?? string.Empty);
+                    if (!VaapiCapableDrivers.Contains(driver, StringComparer.OrdinalIgnoreCase)) continue;
+
+                    string node = Path.Combine("/dev/dri", name);
+                    if (File.Exists(node))
+                    {
+                        Log.Information($"Using {node} ({driver}) for VAAPI encoding");
+                        return node;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Could not enumerate DRM render nodes: {ex.Message}");
+            }
+
+            return null;
+        }
+#endif
 
         private static readonly string[] SensitiveProperties =
         [
@@ -255,7 +339,6 @@ namespace Segra.Backend.Shared
                         }
                     }
 
-                    // Find next occurrence
                     index = message.IndexOf($"\"{prop}\":", index + 1, StringComparison.OrdinalIgnoreCase);
                 }
             }
@@ -263,50 +346,14 @@ namespace Segra.Backend.Shared
             return message;
         }
 
-        private static int FindMatchingBracket(string text, int startIndex)
+        private static readonly Regex UsernamePathRegex = new(@"([\\/]Users[\\/])([^\\/]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        public static string RedactUsername(string text)
         {
-            var openChar = text[startIndex];
-            var closeChar = openChar == '{' ? '}' : ']';
-            var depth = 1;
-            var inString = false;
-            var escaped = false;
+            if (string.IsNullOrEmpty(text))
+                return text;
 
-            for (int i = startIndex + 1; i < text.Length; i++)
-            {
-                var c = text[i];
-
-                if (escaped)
-                {
-                    escaped = false;
-                    continue;
-                }
-
-                if (c == '\\')
-                {
-                    escaped = true;
-                    continue;
-                }
-
-                if (c == '"')
-                {
-                    inString = !inString;
-                    continue;
-                }
-
-                if (!inString)
-                {
-                    if (c == openChar)
-                        depth++;
-                    else if (c == closeChar)
-                    {
-                        depth--;
-                        if (depth == 0)
-                            return i;
-                    }
-                }
-            }
-
-            return -1; // No matching bracket found
+            return UsernamePathRegex.Replace(text, "$1<user>");
         }
 
         public static bool IsProcessRunning(string processName)
@@ -353,10 +400,8 @@ namespace Segra.Backend.Shared
             {
                 try
                 {
-                    // Try to open the file for reading to verify it's accessible and complete
                     using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
-                        // Verify we can read at least some data
                         if (fs.Length > 0)
                         {
                             byte[] buffer = new byte[1024];
@@ -378,6 +423,52 @@ namespace Segra.Backend.Shared
             }
 
             Log.Warning($"File may not be fully synced after {maxRetries} attempts: {filePath}");
+        }
+
+        private static int FindMatchingBracket(string text, int startIndex)
+        {
+            var openChar = text[startIndex];
+            var closeChar = openChar == '{' ? '}' : ']';
+            var depth = 1;
+            var inString = false;
+            var escaped = false;
+
+            for (int i = startIndex + 1; i < text.Length; i++)
+            {
+                var c = text[i];
+
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+
+                if (c == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (!inString)
+                {
+                    if (c == openChar)
+                        depth++;
+                    else if (c == closeChar)
+                    {
+                        depth--;
+                        if (depth == 0)
+                            return i;
+                    }
+                }
+            }
+
+            return -1; // No matching bracket found
         }
     }
 }

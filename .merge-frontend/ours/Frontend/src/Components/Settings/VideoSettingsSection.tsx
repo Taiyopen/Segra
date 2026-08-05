@@ -1,0 +1,500 @@
+﻿import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import DropdownSelect from '../DropdownSelect';
+import {
+  Settings as SettingsType,
+  VideoQualityPreset,
+  DisplayCaptureMethod,
+  hasLiveRecordingActivity,
+} from '../../Models/types';
+import { sendMessageToBackend } from '../../Utils/MessageUtils';
+import { useAppState } from '../../Context/AppStateContext';
+
+interface VideoSettingsSectionProps {
+  settings: SettingsType;
+  updateSettings: (updates: Partial<SettingsType>) => void;
+}
+
+export default function VideoSettingsSection({
+  settings,
+  updateSettings,
+}: VideoSettingsSectionProps) {
+  const appState = useAppState();
+  const [localCrfValue, setLocalCrfValue] = useState<string>(String(settings.crfValue));
+  const [localCqLevel, setLocalCqLevel] = useState<string>(String(settings.cqLevel));
+
+  useEffect(() => {
+    setLocalCrfValue(String(settings.crfValue));
+  }, [settings.crfValue]);
+
+  useEffect(() => {
+    setLocalCqLevel(String(settings.cqLevel));
+  }, [settings.cqLevel]);
+  const codecIdLower = (settings.codec?.internalEncoderId ?? '').toLowerCase();
+  const isNvencCodec = codecIdLower.includes('nvenc');
+
+  // CQVBR is OBS 31+ NVENC-only; switch away if user picks a non-NVENC codec
+  useEffect(() => {
+    const id = (settings.codec?.internalEncoderId ?? '').toLowerCase();
+    if (settings.rateControl !== 'CQVBR' || settings.encoder !== 'gpu') return;
+    if (!id || id.includes('nvenc')) return;
+    updateSettings({ rateControl: 'CQP' });
+  }, [settings.codec?.internalEncoderId, settings.rateControl, settings.encoder, updateSettings]);
+
+  const isRecording = hasLiveRecordingActivity(appState);
+
+  const handlePresetChange = (preset: VideoQualityPreset) => {
+    sendMessageToBackend('ApplyVideoPreset', { preset });
+  };
+
+  return (
+    <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
+      <div className="flex items-center gap-2 mb-4">
+        <h2 className="text-xl font-semibold">Video Settings</h2>
+        {isRecording && <span className="text-xs text-warning">(locked while recording)</span>}
+      </div>
+
+      {/* Quality Preset Selector */}
+      <div className="mb-4">
+        <div className="grid grid-cols-4 gap-3">
+          <div
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border ${
+              settings.videoQualityPreset === 'low' ? 'border-primary' : 'border-base-400'
+            } ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-base-300'}`}
+            onClick={() => !isRecording && handlePresetChange('low')}
+          >
+            <div className="text-sm font-semibold">Low Quality</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">720p • 30fps</div>
+          </div>
+          <div
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border ${
+              settings.videoQualityPreset === 'standard' ? 'border-primary' : 'border-base-400'
+            } ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-base-300'}`}
+            onClick={() => !isRecording && handlePresetChange('standard')}
+          >
+            <div className="text-sm font-semibold">Standard</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">1080p • 60fps</div>
+          </div>
+          <div
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border ${
+              settings.videoQualityPreset === 'high' ? 'border-primary' : 'border-base-400'
+            } ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-base-300'}`}
+            onClick={() => !isRecording && handlePresetChange('high')}
+          >
+            <div className="text-sm font-semibold">High Quality</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">
+              {appState.maxDisplayHeight >= 1440 ? '1440p' : '1080p'} • 60fps
+            </div>
+          </div>
+          <div
+            className={`bg-base-200 p-3 rounded-lg flex flex-col items-center justify-center transition-all transition-200 border ${
+              settings.videoQualityPreset === 'custom' ? 'border-primary' : 'border-base-400'
+            } ${isRecording ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-base-300'}`}
+            onClick={() => !isRecording && handlePresetChange('custom')}
+          >
+            <div className="text-sm font-semibold">Custom</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">Manual config</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Settings - Only show when Custom preset is selected */}
+      <AnimatePresence>
+        {settings.videoQualityPreset === 'custom' && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{
+              opacity: 1,
+              height: 'fit-content',
+              transition: {
+                duration: 0.3,
+                height: { type: 'spring', stiffness: 300, damping: 30 },
+              },
+            }}
+            exit={{
+              opacity: 0,
+              height: 0,
+              transition: {
+                duration: 0.2,
+              },
+            }}
+            style={{ overflow: 'visible' }}
+          >
+            <div className="grid grid-cols-2 gap-4 pb-1 mt-4">
+              {/* Resolution */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Resolution</span>
+                </label>
+                <DropdownSelect
+                  items={[
+                    { value: '720p', label: '720p' },
+                    { value: '1080p', label: '1080p' },
+                    ...(appState.maxDisplayHeight >= 1440
+                      ? [{ value: '1440p', label: '1440p' }]
+                      : []),
+                    ...(appState.maxDisplayHeight >= 2160 ? [{ value: '4K', label: '4K' }] : []),
+                  ]}
+                  value={settings.resolution}
+                  onChange={(val) =>
+                    updateSettings({ resolution: val as '720p' | '1080p' | '1440p' | '4K' })
+                  }
+                  disabled={isRecording}
+                />
+              </div>
+
+              {/* Frame Rate */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Frame Rate (FPS)</span>
+                </label>
+                <DropdownSelect
+                  items={[24, 30, 60, 120, 144].map((v) => ({
+                    value: String(v),
+                    label: String(v),
+                  }))}
+                  value={String(settings.frameRate)}
+                  onChange={(val) => updateSettings({ frameRate: Number(val) })}
+                  disabled={isRecording}
+                />
+              </div>
+
+              {/* Rate Control */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Rate Control</span>
+                </label>
+                <DropdownSelect
+                  items={[
+                    { value: 'CBR', label: 'CBR (Constant Bitrate)' },
+                    { value: 'VBR', label: 'VBR (Variable Bitrate)' },
+                    ...(settings.encoder === 'cpu'
+                      ? [{ value: 'CRF', label: 'CRF (Constant Rate Factor)' }]
+                      : []),
+                    ...(settings.encoder !== 'cpu'
+                      ? [{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' }]
+                      : []),
+                    ...(settings.encoder === 'gpu' && isNvencCodec
+                      ? [
+                          {
+                            value: 'CQVBR',
+                            label: 'CQVBR (Target Quality + Max Bitrate, OBS 31+ NVENC)',
+                          },
+                        ]
+                      : []),
+                  ]}
+                  value={settings.rateControl}
+                  onChange={(val) => updateSettings({ rateControl: val })}
+                  disabled={isRecording}
+                />
+              </div>
+
+              {/* Bitrate (for CBR) */}
+              {settings.rateControl === 'CBR' && (
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text text-base-content">Bitrate</span>
+                  </label>
+                  <DropdownSelect
+                    items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
+                      value: String(v),
+                      label: `${v} Mbps`,
+                    }))}
+                    value={String(settings.bitrate)}
+                    onChange={(val) => updateSettings({ bitrate: Number(val) })}
+                    disabled={isRecording}
+                  />
+                </div>
+              )}
+
+              {/* VBR Min/Max Bitrate */}
+              {settings.rateControl === 'VBR' && (
+                <>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-base-content">Minimum Bitrate</span>
+                    </label>
+                    <DropdownSelect
+                      items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
+                        value: String(v),
+                        label: `${v} Mbps`,
+                      }))}
+                      value={String(settings.minBitrate ?? settings.bitrate)}
+                      onChange={(val) => {
+                        const min = Number(val);
+                        const max = Math.max(min, settings.maxBitrate ?? min);
+                        updateSettings({ minBitrate: min, maxBitrate: max });
+                      }}
+                      disabled={isRecording}
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-base-content">Maximum Bitrate</span>
+                    </label>
+                    <DropdownSelect
+                      items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
+                        value: String(v),
+                        label: `${v} Mbps`,
+                      }))}
+                      value={String(
+                        settings.maxBitrate ??
+                          Math.max(
+                            settings.minBitrate ?? settings.bitrate,
+                            Math.round((settings.bitrate || 10) * 1.5),
+                          ),
+                      )}
+                      onChange={(val) => {
+                        const max = Number(val);
+                        const min = Math.min(max, settings.minBitrate ?? settings.bitrate);
+                        updateSettings({ maxBitrate: max, minBitrate: min });
+                      }}
+                      disabled={isRecording}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* CRF Value (for CRF) */}
+              {settings.rateControl === 'CRF' && (
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text text-base-content">CRF Value (0-51)</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="crfValue"
+                    value={localCrfValue}
+                    onChange={(e) => setLocalCrfValue(e.target.value)}
+                    onBlur={() => {
+                      const val = Number(localCrfValue) || 23;
+                      if (!localCrfValue) setLocalCrfValue('23');
+                      updateSettings({ crfValue: val });
+                    }}
+                    min="0"
+                    max="51"
+                    disabled={isRecording}
+                    className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:opacity-80 w-full outline-none focus:border-base-400"
+                  />
+                </div>
+              )}
+
+              {/* CQ Level (for CQP) */}
+              {settings.rateControl === 'CQP' && (
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text text-base-content">CQ Level (0-30)</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="cqLevel"
+                    value={localCqLevel}
+                    onChange={(e) => setLocalCqLevel(e.target.value)}
+                    onBlur={() => {
+                      const val = Number(localCqLevel) || 20;
+                      if (!localCqLevel) setLocalCqLevel('20');
+                      updateSettings({ cqLevel: val });
+                    }}
+                    min="0"
+                    max="30"
+                    disabled={isRecording}
+                    className="input input-bordered bg-base-200 disabled:bg-base-200 disabled:opacity-80 w-full outline-none focus:border-base-400"
+                  />
+                </div>
+              )}
+
+              {/* CQVBR: max bitrate + target quality (OBS NVENC target_quality) */}
+              {settings.rateControl === 'CQVBR' && (
+                <>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-base-content">Maximum Bitrate (Mbps)</span>
+                    </label>
+                    <DropdownSelect
+                      items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
+                        value: String(v),
+                        label: `${v} Mbps`,
+                      }))}
+                      value={String(
+                        settings.maxBitrate ??
+                          Math.max(
+                            settings.minBitrate ?? settings.bitrate,
+                            Math.round((settings.bitrate || 10) * 1.5),
+                          ),
+                      )}
+                      onChange={(val) => {
+                        const max = Number(val);
+                        updateSettings({ maxBitrate: max });
+                      }}
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-base-content">
+                        Target Quality (CQ){' '}
+                        <span className="text-base-content/60 text-sm">
+                          ({codecIdLower.includes('av1') ? '1–63' : '1–51'} · lower is higher
+                          quality)
+                        </span>
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      name="cqvbrTargetQuality"
+                      value={localCqLevel}
+                      onChange={(e) => setLocalCqLevel(e.target.value)}
+                      onBlur={() => {
+                        const maxTq = codecIdLower.includes('av1') ? 63 : 51;
+                        let val = Number(localCqLevel) || 20;
+                        val = Math.min(maxTq, Math.max(1, val));
+                        if (!localCqLevel) setLocalCqLevel(String(val));
+                        setLocalCqLevel(String(val));
+                        updateSettings({ cqLevel: val });
+                      }}
+                      min="1"
+                      max={codecIdLower.includes('av1') ? '63' : '51'}
+                      className="input input-bordered bg-base-200 w-full outline-none focus:border-base-400"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Encoder */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Video Encoder</span>
+                </label>
+                <DropdownSelect
+                  items={[
+                    { value: 'gpu', label: 'GPU' },
+                    { value: 'cpu', label: 'CPU' },
+                  ]}
+                  value={settings.encoder}
+                  onChange={(val) => updateSettings({ encoder: val as 'gpu' | 'cpu' })}
+                  disabled={isRecording}
+                />
+              </div>
+
+              {/* Codec */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text text-base-content">Codec</span>
+                </label>
+                <DropdownSelect
+                  items={appState.codecs
+                    .filter((codec) =>
+                      settings.encoder === 'gpu'
+                        ? codec.isHardwareEncoder
+                        : !codec.isHardwareEncoder,
+                    )
+                    .sort((a, b) => {
+                      const priorityOrder = ['jim_nvenc', 'h264_texture_amf', 'obs_x264'];
+                      const aIndex = priorityOrder.indexOf(a.internalEncoderId);
+                      const bIndex = priorityOrder.indexOf(b.internalEncoderId);
+                      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+                      if (aIndex !== -1) return -1;
+                      if (bIndex !== -1) return 1;
+                      return 0;
+                    })
+                    .map((codec) => ({
+                      value: codec.internalEncoderId,
+                      label: codec.friendlyName,
+                    }))}
+                  value={
+                    appState.codecs.find(
+                      (c) => c.internalEncoderId === settings.codec?.internalEncoderId,
+                    )?.internalEncoderId
+                  }
+                  onChange={(val) =>
+                    updateSettings({
+                      codec: appState.codecs.find((c) => c.internalEncoderId === val),
+                    })
+                  }
+                  disabled={isRecording || appState.codecs.length === 0}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid grid-cols-2 gap-4 mt-3">
+        <div className="flex flex-col">
+          <span className="font-medium">Monitor Selection</span>
+          <DropdownSelect
+            items={[
+              { value: 'Automatic', label: 'Automatic' },
+              ...appState.displays.map((d, i) => {
+                const hasDuplicateName = appState.displays.some(
+                  (other, j) => j !== i && other.deviceName === d.deviceName,
+                );
+                const label = hasDuplicateName
+                  ? `${d.deviceName} (${i + 1})${d.isPrimary ? ' (Primary)' : ''}`
+                  : `${d.deviceName}${d.isPrimary ? ' (Primary)' : ''}`;
+                return { value: d.deviceId, label };
+              }),
+            ]}
+            value={settings.selectedDisplay?.deviceId || 'Automatic'}
+            onChange={(val) =>
+              updateSettings({
+                selectedDisplay:
+                  val === 'Automatic'
+                    ? undefined
+                    : appState.displays.find((d) => d.deviceId === val),
+              })
+            }
+          />
+        </div>
+        <div className="flex flex-col">
+          <span className="font-medium">Capture Method</span>
+          <DropdownSelect
+            items={[
+              { value: 'Auto', label: 'Auto' },
+              { value: 'DXGI', label: 'DXGI (Desktop Duplication)' },
+              { value: 'WGC', label: 'WGC (Windows Graphics Capture)' },
+            ]}
+            value={settings.displayCaptureMethod}
+            onChange={(val) =>
+              updateSettings({ displayCaptureMethod: val as DisplayCaptureMethod })
+            }
+            disabled={isRecording}
+          />
+        </div>
+      </div>
+
+      {/* 4:3 Stretch Option */}
+      <div className="mt-3">
+        <label
+          className={`flex items-center gap-2 ${isRecording ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+        >
+          <input
+            type="checkbox"
+            checked={settings.stretch4By3}
+            onChange={(e) => updateSettings({ stretch4By3: e.target.checked })}
+            disabled={isRecording}
+            className="checkbox checkbox-primary checkbox-sm"
+          />
+          <span>Stretch 4:3 content to 16:9</span>
+        </label>
+      </div>
+
+      {/* HDR Option - only shown when at least one display is in HDR mode */}
+      {appState.displays.some((d) => d.isHdr) && (
+        <div className="mt-3">
+          <label
+            className={`flex items-center gap-2 ${isRecording ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+          >
+            <input
+              type="checkbox"
+              checked={settings.enableHdr}
+              onChange={(e) => updateSettings({ enableHdr: e.target.checked })}
+              disabled={isRecording}
+              className="checkbox checkbox-primary checkbox-sm"
+            />
+            <span>Record in HDR</span>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}

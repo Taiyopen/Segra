@@ -1,0 +1,26 @@
+﻿  甇??斗閬???撠?...
+  ???獢?冽??啁????舫脰?????
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(959,45): warning CS8604: 'List<Game>? MessageService.AddGameToList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(983,50): warning CS8604: 'List<Game>? MessageService.RemoveGameFromList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1007,45): warning CS8604: 'List<Game>? MessageService.AddGameToList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1031,50): warning CS8604: 'List<Game>? MessageService.RemoveGameFromList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1064,46): warning CS8604: 'List<Game>? MessageService.RemoveGameFromList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1065,46): warning CS8604: 'List<Game>? MessageService.RemoveGameFromList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1073,41): warning CS8604: 'List<Game>? MessageService.AddGameToList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1074,41): warning CS8604: 'List<Game>? MessageService.AddGameToList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+  Segra -> C:\Users\Taiyo\Desktop\Segra\bin\Debug\net10.0-windows10.0.19041.0\Segra.dll
+
+撱箇蔭????
+
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(959,45): warning CS8604: 'List<Game>? MessageService.AddGameToList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(983,50): warning CS8604: 'List<Game>? MessageService.RemoveGameFromList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1007,45): warning CS8604: 'List<Game>? MessageService.AddGameToList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1031,50): warning CS8604: 'List<Game>? MessageService.RemoveGameFromList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1064,46): warning CS8604: 'List<Game>? MessageService.RemoveGameFromList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1065,46): warning CS8604: 'List<Game>? MessageService.RemoveGameFromList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1073,41): warning CS8604: 'List<Game>? MessageService.AddGameToList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+C:\Users\Taiyo\Desktop\Segra\Backend\App\MessageService.cs(1074,41): warning CS8604: 'List<Game>? MessageService.AddGameToList(List<Game> list, Game game)' 銝剔?? 'list' ?航??Null ???詻?[C:\Users\Taiyo\Desktop\Segra\Segra.csproj::TargetFramework=net10.0-windows10.0.19041.0]
+    8 ?郎??
+    0 ?隤?
+
+蝬??? 00:00:01.76

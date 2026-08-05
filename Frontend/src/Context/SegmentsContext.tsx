@@ -8,7 +8,6 @@ interface SegmentsContextType {
   updateSegmentsArray: (seg: Segment[]) => void;
   removeSegment: (id: number) => void;
   clearSegmentsForVideo: (fileName: string) => void;
-  renameSegmentsForVideo: (oldFileName: string, newFileName: string, newFilePath: string) => void;
   clearAllSegments: () => void;
 }
 
@@ -37,20 +36,6 @@ export const SegmentsProvider = ({ children }: { children: ReactNode }) => {
     setSegments((prev) => prev.filter((seg) => seg.fileName !== fileName));
   };
 
-  const renameSegmentsForVideo = (
-    oldFileName: string,
-    newFileName: string,
-    newFilePath: string,
-  ) => {
-    setSegments((prev) =>
-      prev.map((seg) =>
-        seg.fileName === oldFileName
-          ? { ...seg, fileName: newFileName, filePath: newFilePath }
-          : seg,
-      ),
-    );
-  };
-
   const clearAllSegments = () => {
     setSegments(() => []);
   };
@@ -63,7 +48,6 @@ export const SegmentsProvider = ({ children }: { children: ReactNode }) => {
         updateSegment,
         removeSegment,
         clearSegmentsForVideo,
-        renameSegmentsForVideo,
         updateSegmentsArray,
         clearAllSegments,
       }}

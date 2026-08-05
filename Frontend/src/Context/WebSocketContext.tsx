@@ -5,8 +5,6 @@ import { useAuth } from '../Hooks/useAuth.tsx';
 
 interface WebSocketContextType {
   sendMessage: (message: string) => void;
-  /** Sends a JSON command directly over the WebSocket (bypasses Photino bridge). */
-  sendRawMessage: (message: string) => void;
   isConnected: boolean;
   connectionState: ReadyState;
 }
@@ -21,8 +19,6 @@ interface WebSocketMessage {
 export function WebSocketProvider({ children }: { children: ReactNode }) {
   // Get the auth session to properly handle authentication
   const { session } = useAuth();
-  // Ref to track if we've already handled a version mismatch (prevent multiple reloads)
-  const versionCheckHandled = useRef(false);
   // Ref to track if this is a reconnection (not initial connection)
   const hasConnectedBefore = useRef(false);
 
@@ -32,7 +28,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   // Configure WebSocket with reconnection and heartbeat
-  const { readyState, sendMessage: wsSend } = useWebSocket('ws://localhost:44030/', {
+  const { readyState } = useWebSocket('ws://localhost:44030/', {
     onOpen: () => {
       // Check if this is a reconnection
       if (hasConnectedBefore.current) {
@@ -66,22 +62,6 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           console.log('WebSocket message received:', data);
         }
 
-        // Handle version check
-        if (data.method === 'AppVersion' && !versionCheckHandled.current) {
-          versionCheckHandled.current = true;
-          const backendVersion = data.content?.version;
-
-          if (backendVersion && backendVersion !== __APP_VERSION__) {
-            console.log(
-              `Version mismatch: Backend ${backendVersion}, Frontend ${__APP_VERSION__}. Reloading...`,
-            );
-            // Store the old version before reloading
-            localStorage.setItem('oldAppVersion', __APP_VERSION__);
-            window.location.reload();
-            return;
-          }
-        }
-
         // Dispatch the message to all listeners
         window.dispatchEvent(
           new CustomEvent('websocket-message', {
@@ -111,20 +91,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const sendRawMessage = useCallback(
-    (message: string) => {
-      if (readyState === ReadyState.OPEN) {
-        wsSend(message);
-      }
-    },
-    [readyState, wsSend],
-  );
-
   const contextValue = {
     sendMessage: useCallback((message: string) => {
       sendMessageToBackend(message);
     }, []),
-    sendRawMessage,
     isConnected: readyState === ReadyState.OPEN,
     connectionState: readyState,
   };

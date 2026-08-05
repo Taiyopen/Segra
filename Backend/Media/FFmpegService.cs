@@ -1,7 +1,7 @@
+using Serilog;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using Serilog;
 
 namespace Segra.Backend.Media
 {
@@ -115,14 +115,25 @@ namespace Segra.Backend.Media
 
     public static class FFmpegService
     {
+#if WINDOWS
         private const string FFmpegExecutable = "ffmpeg.exe";
+#else
+        private const string FFmpegExecutable = "ffmpeg";
+#endif
 
         /// <summary>
         /// Gets the path to the ffmpeg executable.
         /// </summary>
         public static string GetFFmpegPath()
         {
+#if !WINDOWS
+            // Prefer a bundled ./ffmpeg next to the app (resolved to an absolute path, since a bare
+            // name is looked up on PATH, not the working directory); otherwise resolve via PATH.
+            string bundled = Path.Combine(AppContext.BaseDirectory, FFmpegExecutable);
+            return File.Exists(bundled) ? bundled : "ffmpeg";
+#else
             return FFmpegExecutable;
+#endif
         }
 
         /// <summary>
@@ -141,8 +152,33 @@ namespace Segra.Backend.Media
         /// </summary>
         public static bool FFmpegExists()
         {
+#if !WINDOWS
+            if (File.Exists(Path.Combine(AppContext.BaseDirectory, FFmpegExecutable)))
+                return true;
+            // On Linux ffmpeg is typically on PATH rather than bundled in the app directory.
+            return IsOnPath("ffmpeg");
+#else
             return File.Exists(FFmpegExecutable);
+#endif
         }
+
+#if !WINDOWS
+        private static bool IsOnPath(string executable)
+        {
+            try
+            {
+                string? pathEnv = Environment.GetEnvironmentVariable("PATH");
+                if (string.IsNullOrEmpty(pathEnv)) return false;
+                foreach (var dir in pathEnv.Split(':', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (File.Exists(Path.Combine(dir, executable)))
+                        return true;
+                }
+            }
+            catch { /* ignore */ }
+            return false;
+        }
+#endif
 
         /// <summary>
         /// Runs ffmpeg with progress tracking and callbacks
@@ -189,12 +225,10 @@ namespace Segra.Backend.Media
                 {
                     if (string.IsNullOrEmpty(e.Data)) return;
 
-                    // Log all FFmpeg stderr output
                     Log.Information($"[Process {processId}] FFmpeg stderr: {e.Data}");
 
                     try
                     {
-                        // Only try to parse time if we have total duration
                         if (totalDuration.HasValue)
                         {
                             var timeMatch = Regex.Match(e.Data, @"time=(\d+:\d+:\d+\.\d+)");

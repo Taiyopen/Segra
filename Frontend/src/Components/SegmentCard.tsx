@@ -1,7 +1,8 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { SegmentCardProps } from '../Models/types';
 import { useDrag, useDrop } from 'react-dnd';
 import { Headphones } from 'lucide-react';
+import { useDeleteConfirmation } from '../Hooks/useDeleteConfirmation';
 
 const DRAG_TYPE = 'SEGMENT_CARD';
 
@@ -17,9 +18,6 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
     audioTrackNames,
     onMutedAudioTracksChange,
     onAudioTrackVolumesChange,
-    onClipEditTarget,
-    onSidebarSegmentClick,
-    onSegmentCardDragBegin,
   }) => {
     const [audioMenuPos, setAudioMenuPos] = useState<{
       x: number;
@@ -38,15 +36,12 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
     const [{ isDragging }, dragRef] = useDrag(
       () => ({
         type: DRAG_TYPE,
-        item: () => {
-          onSegmentCardDragBegin?.();
-          return { index };
-        },
+        item: { index },
         collect: (monitor) => ({
           isDragging: monitor.isDragging(),
         }),
       }),
-      [index, onSegmentCardDragBegin],
+      [index],
     );
 
     const [, dropRef] = useDrop(
@@ -68,13 +63,32 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
     };
 
     const { startTime, endTime, thumbnailDataUrl, isLoading } = segment;
+    const confirmDelete = useDeleteConfirmation();
+
+    // Fade the first thumbnail in and crossfade later ones over the current
+    // image, instead of flashing a loading state.
+    const [baseSrc, setBaseSrc] = useState(thumbnailDataUrl);
+    const [baseVisible, setBaseVisible] = useState(!!thumbnailDataUrl);
+    const [incomingSrc, setIncomingSrc] = useState<string | null>(null);
+    const [incomingVisible, setIncomingVisible] = useState(false);
+
+    useEffect(() => {
+      if (!thumbnailDataUrl || thumbnailDataUrl === baseSrc) return;
+      if (!baseSrc) {
+        // First thumbnail: mount it hidden and fade it in.
+        setBaseSrc(thumbnailDataUrl);
+        setBaseVisible(false);
+        return;
+      }
+      setIncomingSrc(thumbnailDataUrl);
+      setIncomingVisible(false);
+    }, [thumbnailDataUrl, baseSrc]);
     const hasAudioTracks =
       audioTrackNames && audioTrackNames.length > 1 && onMutedAudioTracksChange;
     const mutedTracks = segment.mutedAudioTracks ?? [];
     const trackVolumes = segment.audioTrackVolumes ?? {};
 
     const toggleTrack = (trackIndex: number) => {
-      onClipEditTarget?.(segment.id);
       if (!onMutedAudioTracksChange || !audioTrackNames) return;
       const isMuted = mutedTracks.includes(trackIndex);
       if (isMuted) {
@@ -100,12 +114,6 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
         ref={dragDropRef}
         className={`mb-2 cursor-move w-full relative rounded-xl transition-all duration-200 !outline !outline-1 ${isHovered ? '!outline-primary' : '!outline-base-400'}`}
         style={{ opacity: isDragging ? 0.3 : 1 }}
-        onMouseDown={() => onClipEditTarget?.(segment.id)}
-        onClick={(e) => {
-          const el = e.target as HTMLElement;
-          if (el.closest('button, input, textarea, label')) return;
-          onSidebarSegmentClick?.(segment);
-        }}
         onMouseEnter={() => setHoveredSegmentId(segment.id)}
         onMouseLeave={() => {
           setHoveredSegmentId(null);
@@ -113,23 +121,51 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
         }}
         onContextMenu={(e) => {
           e.preventDefault();
-          removeSegment(segment.id);
+          confirmDelete({
+            title: 'Delete segment?',
+            description: 'Remove this segment from the clip? This action cannot be undone.',
+            onConfirm: () => removeSegment(segment.id),
+          });
         }}
       >
-        {isLoading ? (
-          <div className="flex items-center justify-center bg-base-100 bg-opacity-75 rounded-xl w-full aspect-video">
-            <span className="loading loading-spinner loading-md text-accent" />
-            <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
-              {formatTime(startTime)} - {formatTime(endTime)}
-            </div>
-          </div>
-        ) : thumbnailDataUrl ? (
+        {baseSrc ? (
           <figure className="relative rounded-xl overflow-hidden">
-            <img src={thumbnailDataUrl} alt="Segment" className="w-full" />
+            <img
+              src={baseSrc}
+              alt="Segment"
+              className={`w-full transition-opacity duration-300 ${
+                baseVisible ? 'opacity-100' : 'opacity-0'
+              }`}
+              onLoad={() => requestAnimationFrame(() => setBaseVisible(true))}
+            />
+            {incomingSrc && (
+              <img
+                src={incomingSrc}
+                alt="Segment"
+                className={`absolute inset-0 w-full transition-opacity duration-300 ${
+                  incomingVisible ? 'opacity-100' : 'opacity-0'
+                }`}
+                onLoad={() => requestAnimationFrame(() => setIncomingVisible(true))}
+                onTransitionEnd={() => {
+                  setBaseSrc(incomingSrc);
+                  setBaseVisible(true);
+                  setIncomingSrc(null);
+                  setIncomingVisible(false);
+                }}
+              />
+            )}
             <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
               {formatTime(startTime)} - {formatTime(endTime)}
             </div>
           </figure>
+        ) : isLoading || thumbnailDataUrl ? (
+          // Reserve 16:9 space while the first thumbnail loads so it fades in
+          // without shifting the layout.
+          <div className="relative w-full aspect-video rounded-xl bg-base-100/40">
+            <div className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
+              {formatTime(startTime)} - {formatTime(endTime)}
+            </div>
+          </div>
         ) : (
           <div className="h-32 bg-gray-700 flex items-center justify-center text-white">
             <span>No thumbnail</span>
@@ -141,7 +177,6 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onClipEditTarget?.(segment.id);
                 if (audioMenuPos?.visible) {
                   setAudioMenuPos((prev) => (prev ? { ...prev, visible: false } : null));
                 } else {
@@ -204,7 +239,6 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
                           value={vol}
                           onChange={(e) => {
                             if (!onAudioTrackVolumesChange) return;
-                            onClipEditTarget?.(segment.id);
                             const newVolumes = { ...trackVolumes, [i]: parseFloat(e.target.value) };
                             onAudioTrackVolumesChange(segment.id, newVolumes);
                           }}

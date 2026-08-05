@@ -1,10 +1,8 @@
-using Segra.Backend.App;
-using Segra.Backend.Services;
-using Segra.Backend.Shared;
-using Segra.Backend.Windows.Audio;
-using Segra.Backend.Windows.Display;
-using Segra.Backend.Windows.Watchers;
 using Serilog;
+using Segra.Backend.App;
+using Segra.Backend.Core;
+using Segra.Backend.Shared;
+using Segra.Backend.Platform;
 using System.Text.Json.Serialization;
 using static Segra.Backend.Shared.GeneralUtils;
 
@@ -12,7 +10,7 @@ namespace Segra.Backend.Core.Models
 {
     internal class AppState : IDisposable
     {
-        private static AppState _instance = new AppState();
+        private static AppState _instance = new();
         public static AppState Instance => _instance;
 
         private GpuVendor _gpuVendor = GpuVendor.Unknown;
@@ -30,31 +28,25 @@ namespace Segra.Backend.Core.Models
         private bool _isCheckingForUpdates = false;
         private int _maxDisplayHeight = 1080;
         private double _currentFolderSizeGb = 0;
+        private double? _recordingDriveUsedGb = null;
+        private double? _recordingDriveFreeGb = null;
 
-        private AudioDeviceWatcher? _deviceWatcher;
-        private DisplayWatcher? _displayWatcher;
+        private IPlatformWatcher? _deviceWatcher;
+        private IPlatformWatcher? _displayWatcher;
         private System.Threading.Timer? _audioDeviceDebounceTimer;
         private System.Threading.Timer? _displayDebounceTimer;
         private const int DebounceDelayMs = 3000;
 
         public void Initialize()
         {
-            _deviceWatcher = new();
-            _deviceWatcher.DevicesChanged += OnAudioDevicesChanged;
+            _deviceWatcher = PlatformServices.Audio.CreateWatcher();
+            _deviceWatcher.Changed += OnAudioDevicesChanged;
 
-            _displayWatcher = new();
-            _displayWatcher.DisplaysChanged += OnDisplaysChanged;
+            _displayWatcher = PlatformServices.Display.CreateWatcher();
+            _displayWatcher.Changed += OnDisplaysChanged;
 
             UpdateAudioDevices();
             UpdateDisplays();
-        }
-
-        private static void SendToFrontend(string cause)
-        {
-            if (Settings.Instance != null && !Settings.Instance._isBulkUpdating)
-            {
-                _ = MessageService.SendStateToFrontend(cause);
-            }
         }
 
         [JsonPropertyName("gpuVendor")]
@@ -420,43 +412,41 @@ namespace Segra.Backend.Core.Models
             }
         }
 
+        [JsonPropertyName("recordingDriveUsedGb")]
+        public double? RecordingDriveUsedGb => _recordingDriveUsedGb;
+
+        [JsonPropertyName("recordingDriveFreeGb")]
+        public double? RecordingDriveFreeGb => _recordingDriveFreeGb;
+
+        public void SetRecordingDriveSpaceGb(double? usedGb, double? freeGb, bool sendToFrontend)
+        {
+            bool changed = _recordingDriveUsedGb != usedGb || _recordingDriveFreeGb != freeGb;
+            if (!changed)
+            {
+                return;
+            }
+
+            _recordingDriveUsedGb = usedGb;
+            _recordingDriveFreeGb = freeGb;
+            if (sendToFrontend)
+            {
+                SendToFrontend("State update: Recording drive space");
+            }
+        }
+
         // Cache folder path for metadata, thumbnails, waveforms (read-only, exposed to frontend)
         [JsonPropertyName("cacheFolder")]
         public string CacheFolder => FolderNames.CacheFolder.Replace("\\", "/");
 
-        private void OnAudioDevicesChanged()
-        {
-            _audioDeviceDebounceTimer?.Dispose();
-            _audioDeviceDebounceTimer = new System.Threading.Timer(
-                _ => UpdateAudioDevices(),
-                null,
-                DebounceDelayMs,
-                Timeout.Infinite
-            );
-        }
-
-        private void OnDisplaysChanged()
-        {
-            _displayDebounceTimer?.Dispose();
-            _displayDebounceTimer = new System.Threading.Timer(
-                _ => UpdateDisplays(),
-                null,
-                DebounceDelayMs,
-                Timeout.Infinite
-            );
-        }
-
         public void UpdateAudioDevices()
         {
-            // Get the list of input devices
-            List<AudioDevice> inputDevices = AudioDeviceService.GetInputDevices();
+            List<AudioDevice> inputDevices = PlatformServices.Audio.GetInputDevices();
             if (!Enumerable.SequenceEqual(_inputDevices, inputDevices))
             {
                 _inputDevices = inputDevices;
             }
 
-            // Get the list of output devices
-            List<AudioDevice> outputDevices = AudioDeviceService.GetOutputDevices();
+            List<AudioDevice> outputDevices = PlatformServices.Audio.GetOutputDevices();
             if (!Enumerable.SequenceEqual(_outputDevices, outputDevices))
             {
                 _outputDevices = outputDevices;
@@ -482,15 +472,6 @@ namespace Segra.Backend.Core.Models
 
             _ = MessageService.SendStateToFrontend("Updated audio devices");
             _ = MessageService.SendSettingsToFrontend("Updated audio devices (device reconciliation may have changed selections)");
-        }
-
-        private static void UpdateDisplays()
-        {
-            bool hasChanged = DisplayService.LoadAvailableMonitorsIntoState();
-            if (hasChanged)
-            {
-                SendToFrontend("Display change detected");
-            }
         }
 
         public void UpdateRecordingEndTime(DateTime endTime, int? slot = null)
@@ -543,20 +524,59 @@ namespace Segra.Backend.Core.Models
         {
             if (_deviceWatcher != null)
             {
-                _deviceWatcher.DevicesChanged -= OnAudioDevicesChanged;
+                _deviceWatcher.Changed -= OnAudioDevicesChanged;
                 _deviceWatcher.Dispose();
                 _deviceWatcher = null;
             }
 
             if (_displayWatcher != null)
             {
-                _displayWatcher.DisplaysChanged -= OnDisplaysChanged;
+                _displayWatcher.Changed -= OnDisplaysChanged;
                 _displayWatcher.Dispose();
                 _displayWatcher = null;
             }
 
             _audioDeviceDebounceTimer?.Dispose();
             _displayDebounceTimer?.Dispose();
+        }
+
+        private static void SendToFrontend(string cause)
+        {
+            if (Settings.Instance != null && !Settings.Instance._isBulkUpdating)
+            {
+                _ = MessageService.SendStateToFrontend(cause);
+            }
+        }
+
+        private void OnAudioDevicesChanged()
+        {
+            _audioDeviceDebounceTimer?.Dispose();
+            _audioDeviceDebounceTimer = new System.Threading.Timer(
+                _ => UpdateAudioDevices(),
+                null,
+                DebounceDelayMs,
+                Timeout.Infinite
+            );
+        }
+
+        private void OnDisplaysChanged()
+        {
+            _displayDebounceTimer?.Dispose();
+            _displayDebounceTimer = new System.Threading.Timer(
+                _ => UpdateDisplays(),
+                null,
+                DebounceDelayMs,
+                Timeout.Infinite
+            );
+        }
+
+        private static void UpdateDisplays()
+        {
+            bool hasChanged = PlatformServices.Display.LoadAvailableMonitorsIntoState();
+            if (hasChanged)
+            {
+                SendToFrontend("Display change detected");
+            }
         }
     }
 }

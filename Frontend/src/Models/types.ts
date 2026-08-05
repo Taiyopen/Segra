@@ -6,6 +6,9 @@ export type DisplayCaptureMethod = 'Auto' | 'DXGI' | 'WGC';
 
 export type AudioOutputMode = 'All' | 'GameOnly' | 'GameAndDiscord';
 
+export type StartupWindowMode = 'Normal' | 'Minimized';
+export type CloseButtonAction = 'Minimize' | 'Exit';
+
 export interface Content {
   type: ContentType;
   title: string;
@@ -50,6 +53,8 @@ export interface State {
   gameList: GameListEntry[];
   maxDisplayHeight: number;
   currentFolderSizeGb: number;
+  recordingDriveUsedGb: number | null;
+  recordingDriveFreeGb: number | null;
   cacheFolder: string;
 }
 
@@ -145,7 +150,7 @@ export interface AudioDevice {
 export interface DeviceSetting {
   id: string;
   name: string;
-  volume: number; // Multiplier 0–5 (shown as 0–500%); applied to OBS source volume
+  volume: number; // Multiplier 0–2 (shown as 0–200%); applied to OBS source volume
   /** OBS mixer bitmask: bits 0–5 = tracks 1–6. Default 1 = track 1 only. */
   audioTrackMask?: number;
 }
@@ -174,6 +179,47 @@ export interface Game {
 export interface GameListEntry {
   name: string;
   executables: string[];
+  icon?: string; // CDN icon id (https://segra.tv/api/games/icon/{icon})
+  igdbId?: number;
+}
+
+// Per-game recording quality override. When preset is a named preset (low/standard/high) the
+// backend resolves concrete values at record time; when 'custom' the explicit fields below are used.
+export interface GameQualityOverride {
+  preset: VideoQualityPreset;
+  resolution: '720p' | '1080p' | '1440p' | '4K';
+  frameRate: number;
+  rateControl: string;
+  crfValue: number;
+  cqLevel: number;
+  bitrate: number;
+  minBitrate: number;
+  maxBitrate: number;
+  encoder: 'gpu' | 'cpu';
+  codec: Codec | null;
+}
+
+export interface GameRecordingModeOverride {
+  recordingMode: RecordingMode;
+  replayBufferDuration: number;
+  replayBufferMaxSize: number;
+}
+
+// A single entry in the unified per-game settings list (replaces whitelist/blacklist).
+// record === true means "always record this game", false means "never record it".
+// Each *Override is null when the game inherits the corresponding global setting.
+export interface GameSetting {
+  name: string;
+  paths: string[];
+  igdbId: number | null; // catalog link; keeps name/icon in sync on startup
+  icon?: string; // CDN icon id resolved from the catalog (known games)
+  customIcon: string | null; // base64 PNG extracted from the exe (custom games)
+  record: boolean;
+  qualityOverride: GameQualityOverride | null;
+  recordingModeOverride: GameRecordingModeOverride | null;
+  discardSessionsWithoutBookmarksOverride: boolean | null;
+  enableHdrOverride: boolean | null;
+  volumeOverride: number | null; // Multiplier on top of the configured device volume (0-2)
 }
 
 export interface GameIntegrationSettings {
@@ -319,6 +365,8 @@ export interface Settings {
   enableAi: boolean;
   autoGenerateHighlights: boolean;
   runOnStartup: boolean;
+  startupWindowMode: StartupWindowMode; // Window state when launched from startup
+  closeButtonAction: CloseButtonAction;
   receiveBetaUpdates: boolean;
   airplaneMode: boolean; // Hides cloud account/login/upload features and signs the user out
   recordingMode: RecordingMode;
@@ -341,8 +389,7 @@ export interface Settings {
   clipPreset: ClipPreset;
   clipKeepSeparateAudioTracks: boolean;
   keybindings: Keybind[];
-  whitelist: Game[];
-  blacklist: Game[];
+  games: GameSetting[];
   gameIntegrations: GameIntegrations;
   soundEffectsVolume: number; // Volume for UI sound effects (0.0 to 1.0)
   showNewBadgeOnVideos: boolean;
@@ -362,8 +409,10 @@ export interface Settings {
   audioOutputMode: AudioOutputMode;
   videoQualityPreset: VideoQualityPreset;
   clipQualityPreset: ClipQualityPreset;
+  confirmBeforeDeleting: boolean;
   removeOriginalAfterCompression: boolean;
   discardSessionsWithoutBookmarks: boolean;
+  disableWindowsGameMode: boolean; // When true, ensures Windows Game Mode stays off on startup
   menuItems: MenuItemPreference[];
   defaultMenuItem: MenuItemId;
 }
@@ -382,6 +431,8 @@ export const initialState: State = {
   gameList: [],
   maxDisplayHeight: 1080,
   currentFolderSizeGb: 0,
+  recordingDriveUsedGb: null,
+  recordingDriveFreeGb: null,
   cacheFolder: '',
 };
 
@@ -411,6 +462,8 @@ export const initialSettings: Settings = {
   enableAi: true,
   autoGenerateHighlights: true,
   runOnStartup: false,
+  startupWindowMode: 'Minimized',
+  closeButtonAction: 'Minimize',
   receiveBetaUpdates: false,
   airplaneMode: false,
   recordingMode: 'Hybrid',
@@ -445,16 +498,19 @@ export const initialSettings: Settings = {
   audioOutputMode: 'All',
   videoQualityPreset: 'high',
   clipQualityPreset: 'standard',
+  confirmBeforeDeleting: false,
   removeOriginalAfterCompression: false,
   discardSessionsWithoutBookmarks: false,
+  disableWindowsGameMode: false,
   menuItems: DEFAULT_MENU_ITEMS,
   defaultMenuItem: 'Full Sessions',
   keybindings: [
     { keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
+    { keys: [120], action: KeybindAction.ToggleRecording, enabled: true }, // 120 is F9
     { keys: [121], action: KeybindAction.SaveReplayBuffer, enabled: true }, // 121 is F10
+    { keys: [122], action: KeybindAction.TogglePreview, enabled: true }, // 122 is F11
   ],
-  whitelist: [],
-  blacklist: [],
+  games: [],
   gameIntegrations: {
     counterStrike2: { enabled: true },
     leagueOfLegends: { enabled: true },
@@ -497,11 +553,11 @@ export interface SegmentCardProps {
   audioTrackNames?: string[];
   onMutedAudioTracksChange?: (id: number, mutedTracks: number[]) => void;
   onAudioTrackVolumesChange?: (id: number, volumes: Record<number, number>) => void;
-  /** 標記此片段為剪輯編輯目標（例如設定起／終點） */
+  /** Sidebar clip-edit target helper. */
   onClipEditTarget?: (id: number) => void;
-  /** 點擊卡片（非按鈕／輸入）時跳轉至該片段起點 */
+  /** Sidebar segment click: select and seek to start. */
   onSidebarSegmentClick?: (segment: Segment) => void;
-  /** 側欄卡片開始拖曳排序前（用於單次復原步驟） */
+  /** Called when sidebar segment drag begins. */
   onSegmentCardDragBegin?: () => void;
 }
 

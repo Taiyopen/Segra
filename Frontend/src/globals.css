@@ -35,6 +35,15 @@
   --noise: 0; /* v4 hade ingen noise */
 }
 
+/* Hide the scrollbar while keeping the element scrollable (used by the game tabs strip). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @layer components {
   .checkbox {
     color: var(--color-base-300) !important;
@@ -143,31 +152,6 @@
   border-radius: inherit;
   pointer-events: none;
   animation: import-pulse 0.9s ease-in-out 0.7s 2;
-}
-
-/* Floating PiP monitor window (chromeless + transparent native shell) */
-html.monitoring-window,
-html.monitoring-window body,
-html.monitoring-window #root {
-  height: 100%;
-  overflow: hidden;
-  background: transparent;
-}
-
-html.monitoring-window body {
-  margin: 0;
-}
-
-.monitoring-drag {
-  -webkit-app-region: drag;
-  app-region: drag;
-  cursor: grab;
-}
-
-.monitoring-no-drag {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-  cursor: default;
 }
 
 /* Remove all focus rings globally */

@@ -1,13 +1,16 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+// Bundle Roboto so the app renders the same font on every platform (WebView2 on Windows,
+// WebKitGTK on Linux) instead of falling back to whatever sans the OS happens to have.
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+import '@fontsource/roboto/700.css';
 import './globals.css';
 import App from './App.tsx';
-import MonitoringApp from './MonitoringApp.tsx';
 import { SelectedVideoProvider } from './Context/SelectedVideoContext.tsx';
 import { SelectedMenuProvider } from './Context/SelectedMenuContext';
 import { AuthProvider, onSignOut } from './Hooks/useAuth.tsx';
-import { isMonitoringWindowLocation } from './Utils/monitoringWindow.ts';
 
 // Create a React Query client
 const queryClient = new QueryClient({
@@ -22,21 +25,15 @@ const queryClient = new QueryClient({
 // Clear query cache on sign out
 onSignOut(() => queryClient.clear());
 
-const isMonitoringWindow = isMonitoringWindowLocation();
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {isMonitoringWindow ? (
-          <MonitoringApp />
-        ) : (
-          <SelectedVideoProvider>
-            <SelectedMenuProvider>
-              <App />
-            </SelectedMenuProvider>
-          </SelectedVideoProvider>
-        )}
+        <SelectedVideoProvider>
+          <SelectedMenuProvider>
+            <App />
+          </SelectedMenuProvider>
+        </SelectedVideoProvider>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,

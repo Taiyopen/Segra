@@ -1,21 +1,37 @@
-using Segra.Backend.Recorder;
 using Serilog;
-using System.Net.Http.Headers;
+using Velopack;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using Velopack;
 using Velopack.Sources;
+using Segra.Backend.Recorder;
+using System.Net.Http.Headers;
+using System.Text.Json.Serialization;
 
 namespace Segra.Backend.App
 {
     public static class UpdateService
     {
-        // Store the update information
         public static UpdateInfo? LatestUpdateInfo { get; private set; } = null;
-        public static GithubSource Source = new GithubSource("https://github.com/Segergren/Segra", null, false);
-        public static GithubSource BetaSource = new GithubSource("https://github.com/Segergren/Segra", null, true);
-        public static UpdateManager UpdateManager { get; private set; } = new UpdateManager(Source);
+        public static GithubSource Source = new("https://github.com/Segergren/Segra", null, false);
+        public static GithubSource BetaSource = new("https://github.com/Segergren/Segra", null, true);
+        public static UpdateManager UpdateManager { get; private set; } = new(Source);
+
+        // Falls back to the assembly version when Velopack has no metadata (dev builds, Flatpak).
+        public static NuGet.Versioning.SemanticVersion GetCurrentVersion()
+        {
+            string? version = UpdateManager.CurrentVersion?.ToString()
+                ?? System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3);
+
+            if (!string.IsNullOrEmpty(version) &&
+                NuGet.Versioning.SemanticVersion.TryParse(version, out var parsed))
+            {
+                return parsed;
+            }
+
+            // Neither source produced a version; treat it as a dev build so nothing is filtered out.
+            Log.Warning("No Velopack or assembly version available; assuming a development build");
+            return new NuGet.Versioning.SemanticVersion(9, 9, 9);
+        }
 
         // Serializes Velopack operations that share the on-disk .velopack_lock.
         private static readonly SemaphoreSlim _updateGate = new(1, 1);
@@ -25,6 +41,40 @@ namespace Segra.Backend.App
         private static DateTime _lastUpdateCheckUtc = DateTime.MinValue;
         private static DateTime _lastReleaseNotesFetchUtc = DateTime.MinValue;
         private static List<object>? _cachedReleaseNotesList = null;
+        private static readonly object _updateProgressLock = new();
+        private static object? _currentUpdateProgress = null;
+
+        private static object SetCurrentUpdateProgress(string version, int progress, string status, string message)
+        {
+            var updateProgress = new
+            {
+                version,
+                progress,
+                status,
+                message
+            };
+
+            lock (_updateProgressLock)
+            {
+                _currentUpdateProgress = updateProgress;
+            }
+
+            return updateProgress;
+        }
+
+        public static async Task SendCurrentUpdateProgressToFrontend()
+        {
+            object? updateProgress;
+            lock (_updateProgressLock)
+            {
+                updateProgress = _currentUpdateProgress;
+            }
+
+            if (updateProgress != null)
+            {
+                await MessageService.SendFrontendMessage("UpdateProgress", updateProgress);
+            }
+        }
 
         public static async Task<bool> UpdateAppIfNecessary(bool forceCheck = false)
         {
@@ -78,23 +128,19 @@ namespace Segra.Backend.App
                     return false;
                 }
 
-                // Store the update info for later use
                 LatestUpdateInfo = newVersion;
 
                 // Fetch latest release notes immediately so the UI has fresh data while showing the update
                 _ = Task.Run(() => GetReleaseNotes(forceCheck: true));
 
-                // Get target version string
                 string targetVersion = newVersion.TargetFullRelease.Version.ToString();
 
                 // Notify frontend that update download is starting
-                await MessageService.SendFrontendMessage("UpdateProgress", new
-                {
-                    version = targetVersion,
-                    progress = 0,
-                    status = "downloading",
-                    message = $"Starting download of update to version {targetVersion}..."
-                });
+                await SendUpdateProgressToFrontend(
+                    version: targetVersion,
+                    progress: 0,
+                    status: "downloading",
+                    message: $"Starting download of update to version {targetVersion}...");
 
                 // Download and apply the update with progress reporting
                 Log.Information($"Installing update to version {targetVersion}");
@@ -104,13 +150,11 @@ namespace Segra.Backend.App
                 );
 
                 // Notify frontend that update is ready to install
-                await MessageService.SendFrontendMessage("UpdateProgress", new
-                {
-                    version = targetVersion,
-                    progress = 100,
-                    status = "ready",
-                    message = $"Update to version {targetVersion} is ready to install"
-                });
+                await SendUpdateProgressToFrontend(
+                    version: targetVersion,
+                    progress: 100,
+                    status: "ready",
+                    message: $"Update to version {targetVersion} is ready to install");
 
                 return true;
             }
@@ -135,11 +179,31 @@ namespace Segra.Backend.App
                 return;
             }
 
+            // Stop any active recording first so OBS finalizes cleanly, mirroring Program.cs's shutdown path.
+            if (Core.Models.AppState.Instance.Recording != null || Core.Models.AppState.Instance.PreRecording != null)
+            {
+                Log.Information("Active recording detected while applying update; stopping it first.");
+                try
+                {
+                    Task.Run(() => OBSService.StopRecording()).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Error stopping recording before applying update");
+                }
+            }
+
             // Shutdown OBS before restarting to unload graphics-hook64.dll from game processes.
             // ApplyUpdatesAndRestart kills the process immediately, bypassing Program.Shutdown().
             OBSService.Shutdown();
 
             UpdateManager.ApplyUpdatesAndRestart(LatestUpdateInfo);
+        }
+
+        private static async Task SendUpdateProgressToFrontend(string version, int progress, string status, string message)
+        {
+            object updateProgress = SetCurrentUpdateProgress(version, progress, status, message);
+            await MessageService.SendFrontendMessage("UpdateProgress", updateProgress);
         }
 
         // Helper method to send progress updates to the frontend
@@ -152,13 +216,7 @@ namespace Segra.Backend.App
                     ? $"Downloading update: {progress}% complete"
                     : "Download complete, preparing to install";
 
-                await MessageService.SendFrontendMessage("UpdateProgress", new
-                {
-                    version,
-                    progress,
-                    status,
-                    message
-                });
+                await SendUpdateProgressToFrontend(version, progress, status, message);
 
                 Log.Information($"Update progress: {progress}%");
             }
@@ -253,21 +311,10 @@ namespace Segra.Backend.App
             {
                 Log.Information("Getting release notes from GitHub API");
 
-                // Get current version
-                NuGet.Versioning.SemanticVersion currentVersion;
-                if (UpdateManager.CurrentVersion != null)
-                {
-                    currentVersion = NuGet.Versioning.SemanticVersion.Parse(UpdateManager.CurrentVersion.ToString());
-                }
-                else
-                {
-                    // Fallback for local development builds, which have no installed version.
-                    currentVersion = NuGet.Versioning.SemanticVersion.Parse("0.6.6");
-                }
+                NuGet.Versioning.SemanticVersion currentVersion = GetCurrentVersion();
 
                 Log.Information($"Current version: {currentVersion}");
 
-                // Create HttpClient for GitHub API
                 using var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
                 httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Segra", currentVersion.ToString()));

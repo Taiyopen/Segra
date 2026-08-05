@@ -4,11 +4,14 @@ using System.Text.RegularExpressions;
 
 namespace Segra.Backend.Windows.Audio
 {
-    internal static class AudioDeviceService
+    internal class AudioDeviceService
     {
+        public static List<AudioDevice> GetInputDevices() => GetDevices(DataFlow.Capture, Role.Communications);
+
+        public static List<AudioDevice> GetOutputDevices() => GetDevices(DataFlow.Render, Role.Console);
+
         private static string GetCleanDeviceName(string friendlyName)
         {
-
             // If it's Voicemeeter, Elgato, GoXLR or BEACN, return the original name
             if (friendlyName.Contains("Voicemeeter") || friendlyName.Contains("Elgato") || friendlyName.Contains("GoXLR") || friendlyName.Contains("BEACN"))
             {
@@ -38,10 +41,6 @@ namespace Segra.Backend.Windows.Audio
             // Fallback to original name if pattern doesn't match
             return friendlyName;
         }
-
-        public static List<AudioDevice> GetInputDevices() => GetDevices(DataFlow.Capture, Role.Communications);
-
-        public static List<AudioDevice> GetOutputDevices() => GetDevices(DataFlow.Render, Role.Console);
 
         // defaultRole intentionally uses Console/Communications (not Multimedia) to match the
         // device OBS selects for WASAPI capture.
@@ -108,7 +107,7 @@ namespace Segra.Backend.Windows.Audio
         }
 
         /// <summary>
-        /// Peak level (0??) for a capture or render endpoint, using Windows' mixer meter (same devices as Segra routes into OBS).
+        /// Peak level (0–1) for a capture or render endpoint, using Windows' mixer meter (same devices as Segra routes into OBS).
         /// </summary>
         public static float GetEndpointPeak(string deviceId, DataFlow flow)
         {
