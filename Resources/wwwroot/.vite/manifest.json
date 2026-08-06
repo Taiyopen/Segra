@@ -1,43 +1,16 @@
 {
-  "_lucide.CUh7z4Or.js": {
-    "file": "assets/lucide.CUh7z4Or.js",
-    "name": "lucide",
-    "imports": [
-      "_rolldown-runtime.CNC7AqOf.js"
-    ]
-  },
-  "_mp4box.DqLiEB0J.js": {
-    "file": "assets/mp4box.DqLiEB0J.js",
-    "name": "mp4box"
-  },
-  "_rolldown-runtime.CNC7AqOf.js": {
-    "file": "assets/rolldown-runtime.CNC7AqOf.js",
-    "name": "rolldown-runtime"
-  },
-  "_tanstack.0mQtlEFg.js": {
-    "file": "assets/tanstack.0mQtlEFg.js",
-    "name": "tanstack",
+  "_MonitoringApp.CWOhq7jc.js": {
+    "file": "assets/MonitoringApp.CWOhq7jc.js",
+    "name": "MonitoringApp",
     "imports": [
       "_rolldown-runtime.CNC7AqOf.js",
-      "_lucide.CUh7z4Or.js"
-    ]
-  },
-  "index.html": {
-    "file": "assets/index.BaLnl-Zu.js",
-    "name": "index",
-    "src": "index.html",
-    "isEntry": true,
-    "imports": [
-      "_rolldown-runtime.CNC7AqOf.js",
-      "_lucide.CUh7z4Or.js",
-      "_tanstack.0mQtlEFg.js",
-      "_mp4box.DqLiEB0J.js"
+      "_lucide.ClsLVqvY.js",
+      "_react.5wOUkwVV.js"
     ],
     "css": [
-      "assets/index.DXjXEOKj.css"
+      "assets/MonitoringApp.NIRtllGJ.css"
     ],
     "assets": [
-      "assets/discord-loading.Dsa9JuuF.webp",
       "assets/roboto-cyrillic-ext-400-normal.qHufge6k.woff2",
       "assets/roboto-cyrillic-ext-400-normal.DhDk0Xwi.woff",
       "assets/roboto-cyrillic-400-normal.CBPI_iaY.woff2",
@@ -86,6 +59,70 @@
       "assets/roboto-latin-ext-700-normal.BDePAh3g.woff",
       "assets/roboto-latin-700-normal.BZpUvMxY.woff2",
       "assets/roboto-latin-700-normal.YuyVweIx.woff"
+    ]
+  },
+  "_MonitoringApp.NIRtllGJ.css": {
+    "file": "assets/MonitoringApp.NIRtllGJ.css",
+    "src": "_MonitoringApp.NIRtllGJ.css"
+  },
+  "_lucide.ClsLVqvY.js": {
+    "file": "assets/lucide.ClsLVqvY.js",
+    "name": "lucide",
+    "imports": [
+      "_rolldown-runtime.CNC7AqOf.js"
+    ]
+  },
+  "_mp4box.DqLiEB0J.js": {
+    "file": "assets/mp4box.DqLiEB0J.js",
+    "name": "mp4box"
+  },
+  "_react.5wOUkwVV.js": {
+    "file": "assets/react.5wOUkwVV.js",
+    "name": "react",
+    "imports": [
+      "_rolldown-runtime.CNC7AqOf.js",
+      "_lucide.ClsLVqvY.js"
+    ]
+  },
+  "_rolldown-runtime.CNC7AqOf.js": {
+    "file": "assets/rolldown-runtime.CNC7AqOf.js",
+    "name": "rolldown-runtime"
+  },
+  "_tanstack.CzSorfZA.js": {
+    "file": "assets/tanstack.CzSorfZA.js",
+    "name": "tanstack",
+    "imports": [
+      "_rolldown-runtime.CNC7AqOf.js",
+      "_lucide.ClsLVqvY.js",
+      "_react.5wOUkwVV.js"
+    ]
+  },
+  "index.html": {
+    "file": "assets/main.B56abLNq.js",
+    "name": "main",
+    "src": "index.html",
+    "isEntry": true,
+    "imports": [
+      "_rolldown-runtime.CNC7AqOf.js",
+      "_MonitoringApp.CWOhq7jc.js",
+      "_lucide.ClsLVqvY.js",
+      "_react.5wOUkwVV.js",
+      "_tanstack.CzSorfZA.js",
+      "_mp4box.DqLiEB0J.js"
+    ],
+    "assets": [
+      "assets/discord-loading.Dsa9JuuF.webp"
+    ]
+  },
+  "monitoring.html": {
+    "file": "assets/monitoring.mzPeejS3.js",
+    "name": "monitoring",
+    "src": "monitoring.html",
+    "isEntry": true,
+    "imports": [
+      "_MonitoringApp.CWOhq7jc.js",
+      "_react.5wOUkwVV.js",
+      "_tanstack.CzSorfZA.js"
     ]
   },
   "node_modules/@fontsource/roboto/files/roboto-cyrillic-400-normal.woff": {

@@ -154,6 +154,26 @@
   animation: import-pulse 0.9s ease-in-out 0.7s 2;
 }
 
+/* Chromeless monitoring PiP: keep page chrome transparent so CSS border-radius shows through. */
+html.monitoring-window,
+html.monitoring-window body,
+html.monitoring-window #root {
+  background: transparent !important;
+  background-color: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+html.monitoring-window .monitoring-pip-root {
+  border-radius: 1.5rem;
+  overflow: hidden;
+  /* Global rules zero box-shadow; restore a soft edge for the floating PiP. */
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55) !important;
+}
+
 /* Remove all focus rings globally */
 *,
 *:focus,

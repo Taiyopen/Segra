@@ -1,7 +1,7 @@
 import { createContext, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
 import * as ReactUseWebSocket from 'react-use-websocket';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
-import { useAuth } from '../Hooks/useAuth.tsx';
+import { AuthContext } from '../Hooks/useAuth.tsx';
 
 type UseWebSocketFn = typeof import('react-use-websocket').default;
 
@@ -46,8 +46,9 @@ interface WebSocketMessage {
 }
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
-  // Get the auth session to properly handle authentication
-  const { session } = useAuth();
+  // Optional: monitoring window may mount without AuthProvider.
+  const auth = useContext(AuthContext);
+  const session = auth?.session ?? null;
   // Ref to track if this is a reconnection (not initial connection)
   const hasConnectedBefore = useRef(false);
 

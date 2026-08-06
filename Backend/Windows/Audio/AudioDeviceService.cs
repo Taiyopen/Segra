@@ -6,11 +6,18 @@ namespace Segra.Backend.Windows.Audio
 {
     internal class AudioDeviceService
     {
+        // Generic WASAPI role labels — for these we show only the adapter name
+        // ("Microphone (Realtek Audio)" → "Realtek Audio"). Specific multi-IO labels
+        // like "Loop-back 1 (L)" or "Mic | Line 2" are kept so endpoints stay distinguishable.
+        private static readonly Regex GenericEndpointRegex = new(
+            @"^(Microphone(\s+Array)?|Mic|Speakers?|Headphones?|Headset(\s+(Earphone|Microphone))?|Line\s+(In|Out)|Stereo\s+Mix|Digital\s+Audio|SPDIF|HDMI|Output|Input)(\s+\d+)?$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
         public static List<AudioDevice> GetInputDevices() => GetDevices(DataFlow.Capture, Role.Communications);
 
         public static List<AudioDevice> GetOutputDevices() => GetDevices(DataFlow.Render, Role.Console);
 
-        private static string GetCleanDeviceName(string friendlyName)
+        private static string GetCleanDeviceName(string friendlyName, string? deviceFriendlyName = null)
         {
             // If it's Voicemeeter, Elgato, GoXLR or BEACN, return the original name
             if (friendlyName.Contains("Voicemeeter") || friendlyName.Contains("Elgato") || friendlyName.Contains("GoXLR") || friendlyName.Contains("BEACN"))
@@ -26,19 +33,46 @@ namespace Segra.Backend.Windows.Audio
                 }
             }
 
-            // Looks for patterns like "Microphone (2- Shure MV7)" or "Speakers (Sound BlasterX AE-5 Plus)" or "Stereo Mix (Realtek(R) Audio)"
-            // Extract the main part of the device name, handling cases with nested parentheses
-            var mainPattern = @"^([^(]+)\((.+)\)$";
-            var match = Regex.Match(friendlyName, mainPattern);
+            // Prefer splitting with DeviceFriendlyName so nested parentheses in endpoint
+            // labels work, e.g. "Loop-back 1 (L) (Audient EVO4)".
+            string? endpointDesc = null;
+            string? adapterName = deviceFriendlyName;
 
-            if (match.Success && match.Groups.Count > 2)
+            if (!string.IsNullOrEmpty(deviceFriendlyName))
             {
-                // Group 2 contains everything inside the main parentheses
-                var deviceName = match.Groups[2].Value.Trim();
-                return deviceName;
+                string suffix = $" ({deviceFriendlyName})";
+                if (friendlyName.EndsWith(suffix, StringComparison.Ordinal))
+                {
+                    endpointDesc = friendlyName[..^suffix.Length].Trim();
+                }
             }
 
-            // Fallback to original name if pattern doesn't match
+            if (endpointDesc == null)
+            {
+                // Fallback: "Microphone (2- Shure MV7)" / "Speakers (Sound BlasterX AE-5 Plus)"
+                var match = Regex.Match(friendlyName, @"^([^(]+)\((.+)\)$");
+                if (match.Success && match.Groups.Count > 2)
+                {
+                    endpointDesc = match.Groups[1].Value.Trim();
+                    adapterName = match.Groups[2].Value.Trim();
+                }
+                else
+                {
+                    return friendlyName;
+                }
+            }
+
+            if (string.IsNullOrEmpty(endpointDesc))
+            {
+                return adapterName ?? friendlyName;
+            }
+
+            // Generic role → adapter only; specific channel/endpoint → full Windows name
+            if (GenericEndpointRegex.IsMatch(endpointDesc))
+            {
+                return adapterName ?? friendlyName;
+            }
+
             return friendlyName;
         }
 
@@ -55,7 +89,7 @@ namespace Segra.Backend.Windows.Audio
                 var defaultDevice = enumerator.GetDefaultAudioEndpoint(dataFlow, defaultRole);
                 if (defaultDevice != null)
                 {
-                    var defaultDeviceName = GetCleanDeviceName(defaultDevice.FriendlyName);
+                    var defaultDeviceName = GetCleanDeviceName(defaultDevice.FriendlyName, defaultDevice.DeviceFriendlyName);
                     devices.Add(new AudioDevice
                     {
                         Id = defaultDevice.ID,
@@ -78,7 +112,7 @@ namespace Segra.Backend.Windows.Audio
 
                     try
                     {
-                        var cleanName = GetCleanDeviceName(device.FriendlyName);
+                        var cleanName = GetCleanDeviceName(device.FriendlyName, device.DeviceFriendlyName);
                         devices.Add(new AudioDevice { Id = device.ID, Name = cleanName, IsDefault = false });
                     }
                     catch

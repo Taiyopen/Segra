@@ -42,6 +42,7 @@ type DiscordLoginResult = {
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
+export { AuthContext };
 
 // Sign-out callbacks that external code can register (e.g. queryClient.clear())
 const signOutCallbacks: Array<() => void> = [];

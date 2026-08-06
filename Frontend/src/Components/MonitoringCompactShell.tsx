@@ -325,15 +325,14 @@ export default function MonitoringCompactShell() {
           className="relative shrink-0 cursor-grab active:cursor-grabbing"
           onMouseDown={beginWindowDrag}
         >
-          <div className="relative z-30 flex items-start gap-1.5 px-2 py-1.5">
+          <div className="relative z-30 flex items-center gap-1.5 px-2 py-1.5">
             <div
               className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/70 via-black/35 to-transparent"
               aria-hidden
             />
-            <GripHorizontal
-              className="relative mt-0.5 h-3.5 w-3.5 shrink-0 text-white/35"
-              aria-hidden
-            />
+            <div className="relative flex h-7 w-7 shrink-0 items-center justify-center">
+              <GripHorizontal className="h-3.5 w-3.5 text-white/35" aria-hidden />
+            </div>
             <div className="relative min-w-0 flex-1">
               {isLive ? <PipHeaderStatus panels={pipPanels} /> : <PipHeaderStatus panels={[]} />}
             </div>

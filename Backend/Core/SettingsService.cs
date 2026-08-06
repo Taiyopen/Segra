@@ -965,9 +965,16 @@ namespace Segra.Backend.Core
                     continue;
                 }
 
-                bool idExists = availableDevices.Any(d => d.Id == selectedDevice.Id);
-                if (idExists)
+                AudioDevice? currentById = availableDevices.FirstOrDefault(d => d.Id == selectedDevice.Id);
+                if (currentById != null)
                 {
+                    // Keep stored display names in sync (e.g. after naming format improvements)
+                    if (!string.Equals(selectedDevice.Name, currentById.Name, StringComparison.Ordinal))
+                    {
+                        Log.Information($"Updating {deviceType} device display name: '{selectedDevice.Name}' → '{currentById.Name}'");
+                        selectedDevice.Name = currentById.Name;
+                        hasChanges = true;
+                    }
                     continue;
                 }
 

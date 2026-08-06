@@ -26,6 +26,11 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      // Separate HTML entry so the PiP window never depends on query/hash surviving WebView2 Load().
+      input: {
+        main: 'index.html',
+        monitoring: 'monitoring.html',
+      },
       output: {
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
@@ -34,6 +39,18 @@ export default defineConfig({
         // framer-motion, which blanked the Photino WebView (invalid hook / missing UI).
         manualChunks: (id) => {
           if (!id.includes('node_modules')) return;
+          // Keep React in its own chunk so the monitoring.html MPA entry can resolve
+          // StrictMode/createRoot correctly (Rolldown otherwise mis-wired shared exports).
+          if (
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules\\react-dom') ||
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules\\react\\') ||
+            id.includes('node_modules/scheduler') ||
+            id.includes('node_modules\\scheduler')
+          ) {
+            return 'react';
+          }
           if (id.includes('mp4box')) return 'mp4box';
           if (id.includes('lucide')) return 'lucide';
           if (id.includes('@tanstack')) return 'tanstack';

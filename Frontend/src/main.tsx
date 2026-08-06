@@ -8,9 +8,11 @@ import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 import './globals.css';
 import App from './App.tsx';
+import MonitoringApp from './MonitoringApp.tsx';
 import { SelectedVideoProvider } from './Context/SelectedVideoContext.tsx';
 import { SelectedMenuProvider } from './Context/SelectedMenuContext';
 import { AuthProvider, onSignOut } from './Hooks/useAuth.tsx';
+import { isMonitoringWindowLocation } from './Utils/monitoringWindow';
 
 // Create a React Query client
 const queryClient = new QueryClient({
@@ -25,16 +27,22 @@ const queryClient = new QueryClient({
 // Clear query cache on sign out
 onSignOut(() => queryClient.clear());
 
+const isMonitoringWindow = isMonitoringWindowLocation();
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <SelectedVideoProvider>
-          <SelectedMenuProvider>
-            <App />
-          </SelectedMenuProvider>
-        </SelectedVideoProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    {isMonitoringWindow ? (
+      <MonitoringApp />
+    ) : (
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <SelectedVideoProvider>
+            <SelectedMenuProvider>
+              <App />
+            </SelectedMenuProvider>
+          </SelectedVideoProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    )}
   </StrictMode>,
 );

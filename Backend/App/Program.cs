@@ -524,9 +524,133 @@ namespace Segra.Backend.App
             public int Height { get; set; }
         }
 
-        private static string BuildMonitoringWindowUrl(string baseUrl)
+        /// <summary>
+        /// True when enough of the window intersects a connected monitor to remain usable
+        /// (avoids restoring onto an unplugged display).
+        /// </summary>
+        private static bool IsWindowBoundsOnScreen(Point location, Size size)
         {
-            string withoutHash = baseUrl.Contains('#') ? baseUrl.Split('#')[0] : baseUrl;
+#if WINDOWS
+            try
+            {
+                int w = Math.Max(size.Width, 64);
+                int h = Math.Max(size.Height, 32);
+                var windowRect = new Rectangle(location.X, location.Y, w, h);
+
+                foreach (var screen in Screen.AllScreens)
+                {
+                    var hit = Rectangle.Intersect(screen.WorkingArea, windowRect);
+                    if (hit.Width >= 64 && hit.Height >= 32)
+                        return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to check monitoring window screen bounds");
+            }
+
+            return false;
+#else
+            return true;
+#endif
+        }
+
+        private static Point GetCenteredMonitoringLocation(Size size)
+        {
+#if WINDOWS
+            try
+            {
+                var screen = Screen.PrimaryScreen ?? Screen.AllScreens.FirstOrDefault();
+                if (screen != null)
+                {
+                    var wa = screen.WorkingArea;
+                    return new Point(
+                        wa.Left + Math.Max(0, (wa.Width - size.Width) / 2),
+                        wa.Top + Math.Max(0, (wa.Height - size.Height) / 2));
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to center monitoring window on primary screen");
+            }
+#endif
+            if (Window != null)
+            {
+                try
+                {
+                    var main = Window.Location;
+                    return new Point(main.X + 48, main.Y + 48);
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+
+            return new Point(100, 100);
+        }
+
+        private static void EnsureMonitoringWindowVisible(PhotinoWindow window)
+        {
+            var location = window.Location;
+            var size = window.Size;
+            if (size.Width <= 0 || size.Height <= 0)
+                size = new Size(336, 400);
+
+            if (IsWindowBoundsOnScreen(location, size))
+                return;
+
+            var safe = GetCenteredMonitoringLocation(size);
+            Log.Information(
+                "Monitoring window was off-screen at {X},{Y}; moving to {NewX},{NewY}",
+                location.X, location.Y, safe.X, safe.Y);
+            window.SetLocation(safe);
+            _monitoringWindowLocation = safe;
+            _monitoringWindowSize = size;
+            SaveMonitoringWindowBounds(window);
+        }
+
+        private static void FocusMonitoringWindow()
+        {
+#if WINDOWS
+            try
+            {
+                if (MonitoringWindow == null) return;
+                IntPtr hWnd = MonitoringWindow.WindowHandle;
+                if (hWnd == IntPtr.Zero) return;
+
+                ShowWindow(hWnd, SW_RESTORE);
+
+                IntPtr foreground = GetForegroundWindow();
+                uint foregroundThread = GetWindowThreadProcessId(foreground, IntPtr.Zero);
+                uint currentThread = GetCurrentThreadId();
+                bool attached = foregroundThread != 0 && foregroundThread != currentThread &&
+                    AttachThreadInput(currentThread, foregroundThread, true);
+
+                SetForegroundWindow(hWnd);
+
+                if (attached)
+                    AttachThreadInput(currentThread, foregroundThread, false);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not focus monitoring window");
+            }
+#endif
+        }
+
+        private static string BuildMonitoringWindowUrl(string appUrl)
+        {
+            // Use a dedicated monitoring.html entry. Photino/WebView2 has been observed to drop
+            // query/hash from Load(url), which caused the PiP window to boot the full main app.
+            // Release appUrl: http://localhost:44040/index.html?v=1.0.0
+            // Debug appUrl:   http://localhost:2882
+            if (Uri.TryCreate(appUrl, UriKind.Absolute, out var uri))
+            {
+                return $"{uri.Scheme}://{uri.Authority}/monitoring.html{uri.Query}";
+            }
+
+            string withoutHash = appUrl.Contains('#') ? appUrl.Split('#')[0] : appUrl;
             string separator = withoutHash.Contains('?') ? "&" : "?";
             return $"{withoutHash}{separator}window=monitoring#/monitoring";
         }
@@ -559,6 +683,24 @@ namespace Segra.Backend.App
             if (size.Height < defaultSize.Height)
                 size = new Size(Math.Max(size.Width, defaultSize.Width), defaultSize.Height);
 
+            // Chromeless windows need an explicit on-screen location; never restore off a disconnected monitor.
+            Point location;
+            if (_monitoringWindowLocation.HasValue && IsWindowBoundsOnScreen(_monitoringWindowLocation.Value, size))
+            {
+                location = _monitoringWindowLocation.Value;
+            }
+            else
+            {
+                if (_monitoringWindowLocation.HasValue)
+                {
+                    Log.Information(
+                        "Saved monitoring window position {X},{Y} is off-screen; centering",
+                        _monitoringWindowLocation.Value.X, _monitoringWindowLocation.Value.Y);
+                    _monitoringWindowLocation = null;
+                }
+                location = GetCenteredMonitoringLocation(size);
+            }
+
             var windowBuilder = new PhotinoWindow(Window);
 #if WINDOWS
             windowBuilder = windowBuilder.SetBrowserControlInitParameters(MonitoringBrowserInitParameters);
@@ -576,6 +718,7 @@ namespace Segra.Backend.App
 #endif
                     ))
                 .SetSize(size)
+                .SetLocation(location)
                 .SetResizable(true)
                 .SetTopMost(_monitoringWindowTopMost)
                 .SetContextMenuEnabled(false)
@@ -593,11 +736,6 @@ namespace Segra.Backend.App
                     }
                     return false;
                 });
-
-            if (_monitoringWindowLocation.HasValue)
-                windowBuilder = windowBuilder.SetLocation(_monitoringWindowLocation.Value);
-            else
-                windowBuilder = windowBuilder.Center();
 
             var window = windowBuilder;
 
@@ -631,8 +769,10 @@ namespace Segra.Backend.App
                 if (MonitoringWindow != null)
                 {
                     MonitoringWindow.SetMinimized(false);
+                    EnsureMonitoringWindowVisible(MonitoringWindow);
                     if (_monitoringWindowTopMost)
                         MonitoringWindow.SetTopMost(true);
+                    FocusMonitoringWindow();
                     return;
                 }
 
