@@ -5,6 +5,7 @@ type ScrollPositions = {
   clips: number;
   highlights: number;
   replayBuffer: number;
+  pendingEdit: number;
 };
 
 interface ScrollContextType {
@@ -20,6 +21,7 @@ export function ScrollProvider({ children }: { children: React.ReactNode }) {
     clips: 0,
     highlights: 0,
     replayBuffer: 0,
+    pendingEdit: 0,
   });
 
   const setScrollPosition = useCallback((page: keyof ScrollPositions, position: number) => {

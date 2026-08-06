@@ -1,12 +1,41 @@
 import { createContext, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
-import useWebSocket, { ReadyState } from 'react-use-websocket';
+import * as ReactUseWebSocket from 'react-use-websocket';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { useAuth } from '../Hooks/useAuth.tsx';
 
+type UseWebSocketFn = typeof import('react-use-websocket').default;
+
+function resolveUseWebSocket(): UseWebSocketFn {
+  const mod = ReactUseWebSocket as unknown as Record<string, unknown>;
+  const candidates = [
+    mod,
+    mod.default,
+    (mod.default as Record<string, unknown> | undefined)?.default,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'function') {
+      return candidate as UseWebSocketFn;
+    }
+  }
+  throw new Error('react-use-websocket default export is unavailable (CJS interop failed)');
+}
+
+const useWebSocket = resolveUseWebSocket();
+const ReadyState =
+  (ReactUseWebSocket as unknown as { ReadyState: typeof import('react-use-websocket').ReadyState })
+    .ReadyState ??
+  (
+    ReactUseWebSocket as unknown as {
+      default: { ReadyState: typeof import('react-use-websocket').ReadyState };
+    }
+  ).default.ReadyState;
+
 interface WebSocketContextType {
   sendMessage: (message: string) => void;
+  /** Sends a JSON command directly over the WebSocket (bypasses Photino bridge). */
+  sendRawMessage: (message: string) => void;
   isConnected: boolean;
-  connectionState: ReadyState;
+  connectionState: (typeof ReadyState)[keyof typeof ReadyState];
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -28,7 +57,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   // Configure WebSocket with reconnection and heartbeat
-  const { readyState } = useWebSocket('ws://localhost:44030/', {
+  const { readyState, sendMessage: wsSend } = useWebSocket('ws://localhost:44030/', {
     onOpen: () => {
       // Check if this is a reconnection
       if (hasConnectedBefore.current) {
@@ -91,10 +120,20 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const sendRawMessage = useCallback(
+    (message: string) => {
+      if (readyState === ReadyState.OPEN) {
+        wsSend(message);
+      }
+    },
+    [readyState, wsSend],
+  );
+
   const contextValue = {
     sendMessage: useCallback((message: string) => {
       sendMessageToBackend(message);
     }, []),
+    sendRawMessage,
     isConnected: readyState === ReadyState.OPEN,
     connectionState: readyState,
   };

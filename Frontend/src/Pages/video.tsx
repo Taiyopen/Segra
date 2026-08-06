@@ -2522,9 +2522,9 @@ export default function VideoComponent({ video }: { video: Content }) {
 
                   <button
                     onClick={toggleFullscreen}
-                    onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                    onMouseUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                    onTouchEnd={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                    onPointerUp={(e) => e.currentTarget.blur()}
+                    onMouseUp={(e) => e.currentTarget.blur()}
+                    onTouchEnd={(e) => e.currentTarget.blur()}
                     className="text-white cursor-pointer transition-colors hover:text-accent"
                     aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                   >

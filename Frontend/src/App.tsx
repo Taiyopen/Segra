@@ -193,7 +193,7 @@ function App() {
       <div className="h-full">
         <Menu selectedMenu={selectedMenu} onSelectMenu={handleMenuSelection} />
       </div>
-      <div className="flex-1 h-full max-h-full overflow-hidden">{renderContent()}</div>
+      <div className="flex-1 h-full max-h-full overflow-auto">{renderContent()}</div>
     </div>
   );
 }

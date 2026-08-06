@@ -51,11 +51,20 @@ Initialize-DotNetSdk
 Write-Host "=== Building Frontend ===" -ForegroundColor Cyan
 Push-Location (Join-Path $root "Frontend")
 try {
-    if (Get-Command bun -ErrorAction SilentlyContinue) {
-        & bun run build
+    # bun writes progress to stderr; with ErrorActionPreference=Stop the bun.ps1
+    # shim turns that into a terminating NativeCommandError even on success.
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        if (Get-Command bun -ErrorAction SilentlyContinue) {
+            & bun run build
+        }
+        else {
+            & npm run build
+        }
     }
-    else {
-        & npm run build
+    finally {
+        $ErrorActionPreference = $prevEap
     }
     if ($LASTEXITCODE -ne 0) {
         throw "Frontend build failed (exit code $LASTEXITCODE)."
@@ -86,10 +95,12 @@ New-Item -ItemType Directory -Path $embeddedWebroot | Out-Null
 Copy-Item -Path (Join-Path $dist "*") -Destination $embeddedWebroot -Recurse -Force
 
 Write-Host "=== Publishing Backend ===" -ForegroundColor Cyan
+# Multi-TFM project: publish must pick a single framework (Windows desktop).
 $publishArgs = @(
     "publish",
     "Segra.csproj",
     "-c", $Configuration,
+    "-f", "net10.0-windows10.0.19041.0",
     "-r", $Runtime,
     "-o", $Output
 )

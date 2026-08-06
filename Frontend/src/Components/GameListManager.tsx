@@ -1,5 +1,5 @@
 import React from 'react';
-import { Game } from '../Models/types';
+import { GameSetting } from '../Models/types';
 import { useSettings } from '../Context/SettingsContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import Button from './Button';
@@ -8,10 +8,16 @@ interface GameListManagerProps {
   listType: 'whitelist' | 'blacklist';
 }
 
+/**
+ * Legacy allow/block list view. Game detection UI now uses the unified `games` list
+ * (GameDetectionSection); this component remains for any residual callers.
+ */
 export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) => {
   const settings = useSettings();
 
-  const gameList = listType === 'whitelist' ? settings.whitelist : settings.blacklist;
+  const gameList: GameSetting[] = (settings.games ?? []).filter((game) =>
+    listType === 'whitelist' ? game.record : !game.record,
+  );
   const listTitle = listType === 'whitelist' ? 'Allow List' : 'Block List';
   const listDescription =
     listType === 'whitelist'
@@ -19,9 +25,11 @@ export const GameListManager: React.FC<GameListManagerProps> = ({ listType }) =>
       : 'Games in your block list are prevented from being recorded.';
   const emptyListLabel = listType === 'whitelist' ? 'allow list' : 'block list';
 
-  const handleRemoveGame = (game: Game) => {
-    sendMessageToBackend(listType === 'whitelist' ? 'RemoveFromWhitelist' : 'RemoveFromBlacklist', {
-      game,
+  const handleRemoveGame = (game: GameSetting) => {
+    sendMessageToBackend('UpdateGames', {
+      games: (settings.games ?? []).filter(
+        (g) => !(g.name === game.name && JSON.stringify(g.paths) === JSON.stringify(game.paths)),
+      ),
     });
   };
 
