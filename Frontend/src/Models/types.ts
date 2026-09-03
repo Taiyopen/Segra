@@ -272,23 +272,13 @@ export type Av1NvencPreset = 'p1' | 'p2' | 'p3' | 'p4' | 'p5' | 'p6' | 'p7';
 export type AmdClipPreset = 'quality' | 'transcoding' | 'lowlatency' | 'ultralowlatency';
 export type IntelClipPreset = 'fast' | 'medium' | 'slow';
 export type ClipPreset =
-  | CpuClipPreset
-  | NvidiaClipPreset
-  | Av1NvencPreset
-  | AmdClipPreset
-  | IntelClipPreset;
+  CpuClipPreset | NvidiaClipPreset | Av1NvencPreset | AmdClipPreset | IntelClipPreset;
 
 export type VideoQualityPreset = 'low' | 'standard' | 'high' | 'custom';
 export type ClipQualityPreset = 'low' | 'standard' | 'high' | 'custom';
 
 export type MenuItemId =
-  | 'Full Sessions'
-  | 'Replay Buffer'
-  | '待剪輯'
-  | '瀏覽影片'
-  | 'Clips'
-  | 'Highlights'
-  | 'Settings';
+  'Full Sessions' | 'Replay Buffer' | '待剪輯' | '瀏覽影片' | 'Clips' | 'Highlights' | 'Settings';
 
 export interface MenuItemPreference {
   id: MenuItemId;
@@ -390,6 +380,7 @@ export interface Settings {
   clipKeepSeparateAudioTracks: boolean;
   keybindings: Keybind[];
   games: GameSetting[];
+  autoRecordGames: boolean; // When false, don't auto-start recording when a game launches
   gameIntegrations: GameIntegrations;
   soundEffectsVolume: number; // Volume for UI sound effects (0.0 to 1.0)
   showNewBadgeOnVideos: boolean;
@@ -511,6 +502,7 @@ export const initialSettings: Settings = {
     { keys: [122], action: KeybindAction.TogglePreview, enabled: true }, // 122 is F11
   ],
   games: [],
+  autoRecordGames: true,
   gameIntegrations: {
     counterStrike2: { enabled: true },
     leagueOfLegends: { enabled: true },

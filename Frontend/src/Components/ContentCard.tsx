@@ -32,7 +32,7 @@ type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit' | '
 interface VideoCardProps {
   content?: Content; // Optional for skeleton cards
   type: VideoType;
-  onClick?: (video: Content) => void; // Click handler for the entire card
+  onClick?: (video: Content, event: React.MouseEvent) => void; // Click handler for the entire card
   isLoading?: boolean; // Indicates if this is a loading (skeleton) card
   isSelected?: boolean; // Whether this card is selected in multi-select mode
   isSelectionMode?: boolean; // Whether multi-select mode is active
@@ -62,12 +62,18 @@ export default function ContentCard({
     : undefined;
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownTriggerRef = useRef<HTMLLabelElement>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [opened, setOpened] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [contextMenuPosition, setContextMenuPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const uploadModalSequenceRef = useRef(0);
 
   const updateDropdownPosition = useCallback(() => {
     if (dropdownRef.current) {
@@ -93,6 +99,32 @@ export default function ContentCard({
       window.removeEventListener('scroll', handler, true);
     };
   }, [isDropdownOpen, updateDropdownPosition]);
+
+  useEffect(() => {
+    if (!contextMenuPosition) return;
+
+    const closeContextMenu = () => setContextMenuPosition(null);
+    window.addEventListener('click', closeContextMenu);
+    window.addEventListener('blur', closeContextMenu);
+    window.addEventListener('resize', closeContextMenu);
+    window.addEventListener('scroll', closeContextMenu, true);
+
+    return () => {
+      window.removeEventListener('click', closeContextMenu);
+      window.removeEventListener('blur', closeContextMenu);
+      window.removeEventListener('resize', closeContextMenu);
+      window.removeEventListener('scroll', closeContextMenu, true);
+    };
+  }, [contextMenuPosition]);
+
+  useEffect(() => {
+    const closeContextMenu = () => setContextMenuPosition(null);
+    window.addEventListener('segra:close-content-context-menus', closeContextMenu);
+
+    return () => {
+      window.removeEventListener('segra:close-content-context-menus', closeContextMenu);
+    };
+  }, []);
 
   if (isLoading) {
     // Render a skeleton card
@@ -217,9 +249,10 @@ export default function ContentCard({
   };
 
   const handleUpload = () => {
+    uploadModalSequenceRef.current += 1;
     openModal(
       <UploadModal
-        key={`${Math.random()}`}
+        key={`${content!.fileName}-${uploadModalSequenceRef.current}`}
         video={content!}
         onClose={closeModal}
         onUpload={(title, description, visibility) => {
@@ -291,14 +324,247 @@ export default function ContentCard({
 
   const handleOpenFileLocation = () => openFileLocation(content!.filePath);
 
+  const openContextMenu = (event: React.MouseEvent) => {
+    if (isBeingCompressed) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    (document.activeElement as HTMLElement | null)?.blur();
+    window.dispatchEvent(new Event('segra:close-content-context-menus'));
+
+    const menuWidth = 208;
+    const isPending = type === 'PendingEdit' || content?.type === 'PendingEdit';
+    const canMoveToPending =
+      (type === 'Session' || type === 'Buffer') && content?.type !== 'PendingEdit';
+    const pendingHasSource =
+      isPending &&
+      (content?.pendingEditSourceType === 'Session' || content?.pendingEditSourceType === 'Buffer');
+    const pendingNeedsChoice = isPending && !pendingHasSource;
+    const actionCount =
+      3 +
+      (!airplaneMode && (type === 'Clip' || type === 'Highlight') ? 1 : 0) +
+      (type === 'Clip' ||
+      type === 'Highlight' ||
+      type === 'Buffer' ||
+      type === 'PendingEdit' ||
+      type === 'External'
+        ? 1
+        : 0) +
+      ((type === 'Session' || type === 'PendingEdit') && enableAi ? 1 : 0) +
+      (canMoveToPending ? 1 : 0) +
+      (pendingHasSource ? 1 : pendingNeedsChoice ? 2 : 0) +
+      ((type === 'Clip' || type === 'Highlight') && !content?.fileName?.endsWith('_compressed')
+        ? 1
+        : 0);
+    const menuHeight = actionCount * 40 + 16;
+    setContextMenuPosition({
+      x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
+      y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8)),
+    });
+  };
+
+  const hasHighlightBookmarks = content?.bookmarks?.some((bookmark) =>
+    includeInHighlight(bookmark.type),
+  );
+  const isCreatingHighlight = Object.values(aiProgress).some(
+    (progress) =>
+      progress.content.fileName === content?.fileName && progress.status === 'processing',
+  );
+
+  const renderMenuItems = (closeMenu: () => void) => (
+    <>
+      {!airplaneMode && (type === 'Clip' || type === 'Highlight') && (
+        <li>
+          <Button
+            variant="menuPrimary"
+            onClick={() => {
+              closeMenu();
+              handleUpload();
+            }}
+          >
+            <Upload size={20} />
+            <span>Upload</span>
+          </Button>
+        </li>
+      )}
+      {(type === 'Clip' ||
+        type === 'Highlight' ||
+        type === 'Buffer' ||
+        type === 'PendingEdit' ||
+        type === 'External') && (
+        <li>
+          <Button
+            variant="menu"
+            onClick={() => {
+              closeMenu();
+              sendMessageToBackend('CopyFileToClipboard', {
+                FilePath: content!.filePath,
+              });
+            }}
+          >
+            <Copy size={20} />
+            <span>Copy</span>
+          </Button>
+        </li>
+      )}
+      {(type === 'Session' || type === 'PendingEdit') && enableAi && (
+        <li>
+          <Button
+            variant="menuPurple"
+            disabled={!hasHighlightBookmarks || isCreatingHighlight}
+            onClick={() => {
+              if (!hasHighlightBookmarks || isCreatingHighlight) return;
+              closeMenu();
+              handleCreateAiClip();
+            }}
+          >
+            <Crown size={20} />
+            <span>
+              {isCreatingHighlight
+                ? 'Creating Highlight...'
+                : hasHighlightBookmarks
+                  ? 'Create Highlight'
+                  : 'No Highlights'}
+            </span>
+          </Button>
+        </li>
+      )}
+      {(type === 'Session' || type === 'Buffer') && content?.type !== 'PendingEdit' && (
+        <li>
+          <Button
+            variant="menu"
+            onClick={() => {
+              closeMenu();
+              sendMessageToBackend('MoveToPendingEdit', {
+                Items: [{ FileName: content!.fileName, ContentType: type }],
+              });
+            }}
+          >
+            <Inbox size={20} />
+            <span>移至待剪輯</span>
+          </Button>
+        </li>
+      )}
+      {(type === 'PendingEdit' || content?.type === 'PendingEdit') &&
+        (content?.pendingEditSourceType === 'Session' ||
+        content?.pendingEditSourceType === 'Buffer' ? (
+          <li>
+            <Button
+              variant="menu"
+              onClick={() => {
+                closeMenu();
+                sendMessageToBackend('MoveOutOfPendingEdit', {
+                  Items: [
+                    {
+                      FileName: content!.fileName,
+                      TargetType: content!.pendingEditSourceType,
+                    },
+                  ],
+                });
+              }}
+            >
+              <FolderOutput size={20} />
+              <span>
+                移出待剪輯（
+                {content.pendingEditSourceType === 'Buffer' ? 'Replay Buffer' : 'Full Sessions'}）
+              </span>
+            </Button>
+          </li>
+        ) : (
+          <>
+            <li>
+              <Button
+                variant="menu"
+                onClick={() => {
+                  closeMenu();
+                  sendMessageToBackend('MoveOutOfPendingEdit', {
+                    Items: [{ FileName: content!.fileName, TargetType: 'Session' }],
+                  });
+                }}
+              >
+                <FolderOutput size={20} />
+                <span>移回 Full Sessions</span>
+              </Button>
+            </li>
+            <li>
+              <Button
+                variant="menu"
+                onClick={() => {
+                  closeMenu();
+                  sendMessageToBackend('MoveOutOfPendingEdit', {
+                    Items: [{ FileName: content!.fileName, TargetType: 'Buffer' }],
+                  });
+                }}
+              >
+                <FolderOutput size={20} />
+                <span>移回 Replay Buffer</span>
+              </Button>
+            </li>
+          </>
+        ))}
+      <li>
+        <Button
+          variant="menu"
+          onClick={() => {
+            closeMenu();
+            startRenaming();
+          }}
+        >
+          <PenLine size={20} />
+          <span>Rename</span>
+        </Button>
+      </li>
+      <li>
+        <Button
+          variant="menu"
+          onClick={() => {
+            closeMenu();
+            handleOpenFileLocation();
+          }}
+        >
+          <FolderOpen size={20} />
+          <span>Open File Location</span>
+        </Button>
+      </li>
+      {(type === 'Clip' || type === 'Highlight') && !content?.fileName?.endsWith('_compressed') && (
+        <li>
+          <Button
+            variant="menu"
+            onClick={() => {
+              closeMenu();
+              sendMessageToBackend('CompressVideo', { FilePath: content!.filePath });
+            }}
+          >
+            <Minimize2 size={20} />
+            <span>Compress</span>
+          </Button>
+        </li>
+      )}
+      <li>
+        <Button
+          variant="menuDanger"
+          onClick={() => {
+            closeMenu();
+            handleDelete();
+          }}
+        >
+          <Trash2 size={20} />
+          <span>Delete</span>
+        </Button>
+      </li>
+    </>
+  );
+
   return (
     <div
+      data-content-filename={content!.fileName}
       className={`card card-compact bg-base-300 text-gray-300 w-full border border-[#49515b] ${isSelected ? '!outline !outline-1 !outline-primary' : ''} ${isHighlighted ? 'import-pulse' : ''} ${isBeingCompressed ? 'cursor-default opacity-75' : 'cursor-pointer'} ${isSelectionMode ? 'select-none' : ''}`}
-      onClick={() => {
+      onClick={(e) => {
         if (isBeingCompressed) return;
-        if (!isSelectionMode) markAsViewed();
-        onClick?.(content!);
+        if (!isSelectionMode && !e.ctrlKey) markAsViewed();
+        onClick?.(content!, e);
       }}
+      onContextMenu={openContextMenu}
     >
       <figure className="relative aspect-video bg-black">
         <img
@@ -313,22 +579,21 @@ export default function ContentCard({
         <span className="absolute bottom-2 right-2 bg-black/75 text-white text-xs px-2 py-1 rounded">
           {formattedDuration}
         </span>
-        {isSelectionMode && (
-          <input
-            type="checkbox"
-            className="checkbox checkbox-primary checkbox-sm absolute top-2 left-2 [&:not(:checked)]:bg-black/30"
-            checked={isSelected}
-            readOnly
-          />
-        )}
+        <input
+          type="checkbox"
+          className={`checkbox checkbox-primary checkbox-sm absolute top-2 left-2 [&:not(:checked)]:bg-black/30 transition-opacity duration-200 ${isSelectionMode ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          checked={isSelected}
+          readOnly
+        />
         {isRecent &&
           (type === 'Session' ||
             type === 'Buffer' ||
             type === 'PendingEdit' ||
             type === 'External') &&
-          showNewBadgeOnVideos &&
-          !isSelectionMode && (
-            <span className="absolute top-2 left-2 badge badge-primary badge-sm text-base-300 opacity-90">
+          showNewBadgeOnVideos && (
+            <span
+              className={`absolute top-2 left-2 badge badge-primary badge-sm text-base-300 transition-opacity duration-200 ${isSelectionMode ? 'opacity-0' : 'opacity-90'}`}
+            >
               NEW
             </span>
           )}
@@ -389,7 +654,13 @@ export default function ContentCard({
             ref={dropdownRef}
             className={`dropdown dropdown-end ${isBeingCompressed ? 'pointer-events-none opacity-50' : ''}`}
             onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              dropdownTriggerRef.current?.focus();
+            }}
             onFocus={() => {
+              window.dispatchEvent(new Event('segra:close-content-context-menus'));
               updateDropdownPosition();
               setIsDropdownOpen(true);
             }}
@@ -401,6 +672,7 @@ export default function ContentCard({
             }}
           >
             <label
+              ref={dropdownTriggerRef}
               tabIndex={isBeingCompressed ? -1 : 0}
               className="btn btn-ghost btn-sm btn-circle hover:bg-white/10 active:bg-white/10"
             >
@@ -410,204 +682,7 @@ export default function ContentCard({
               tabIndex={0}
               className="dropdown-content menu bg-base-300 border border-base-400 rounded-box z-999 w-52 p-2"
             >
-              {!airplaneMode && (type === 'Clip' || type === 'Highlight') && (
-                <li>
-                  <Button
-                    variant="menuPrimary"
-                    onClick={() => {
-                      (document.activeElement as HTMLElement).blur();
-                      handleUpload();
-                    }}
-                  >
-                    <Upload size={20} />
-                    <span>Upload</span>
-                  </Button>
-                </li>
-              )}
-              {(type === 'Clip' ||
-                type === 'Highlight' ||
-                type === 'Buffer' ||
-                type === 'PendingEdit' ||
-                type === 'External') && (
-                <li>
-                  <Button
-                    variant="menu"
-                    onClick={() => {
-                      (document.activeElement as HTMLElement).blur();
-                      sendMessageToBackend('CopyFileToClipboard', {
-                        FilePath: content!.filePath,
-                      });
-                    }}
-                  >
-                    <Copy size={20} />
-                    <span>Copy</span>
-                  </Button>
-                </li>
-              )}
-              {(type === 'Session' || type === 'PendingEdit') && enableAi && (
-                <li>
-                  {(() => {
-                    const hasHighlightBookmarks = content?.bookmarks?.some((b) =>
-                      includeInHighlight(b.type),
-                    );
-                    const isProcessing = Object.values(aiProgress).some(
-                      (progress) =>
-                        progress.content.fileName === content?.fileName &&
-                        progress.status === 'processing',
-                    );
-                    const isDisabled = !hasHighlightBookmarks || isProcessing;
-
-                    return (
-                      <Button
-                        variant="menuPurple"
-                        disabled={isDisabled}
-                        onClick={() => {
-                          if (hasHighlightBookmarks && !isProcessing) {
-                            (document.activeElement as HTMLElement).blur();
-                            handleCreateAiClip();
-                          }
-                        }}
-                      >
-                        <Crown size={20} />
-                        <span>
-                          {isProcessing
-                            ? 'Creating Highlight...'
-                            : hasHighlightBookmarks
-                              ? 'Create Highlight'
-                              : 'No Highlights'}
-                        </span>
-                      </Button>
-                    );
-                  })()}
-                </li>
-              )}
-              {(type === 'Session' || type === 'Buffer') && content?.type !== 'PendingEdit' && (
-                <li>
-                  <Button
-                    variant="menu"
-                    onClick={() => {
-                      (document.activeElement as HTMLElement).blur();
-                      sendMessageToBackend('MoveToPendingEdit', {
-                        Items: [{ FileName: content!.fileName, ContentType: type }],
-                      });
-                    }}
-                  >
-                    <Inbox size={20} />
-                    <span>移至待剪輯</span>
-                  </Button>
-                </li>
-              )}
-              {(type === 'PendingEdit' || content?.type === 'PendingEdit') &&
-                (content?.pendingEditSourceType === 'Session' ||
-                content?.pendingEditSourceType === 'Buffer' ? (
-                  <li>
-                    <Button
-                      variant="menu"
-                      onClick={() => {
-                        (document.activeElement as HTMLElement).blur();
-                        sendMessageToBackend('MoveOutOfPendingEdit', {
-                          Items: [
-                            {
-                              FileName: content!.fileName,
-                              TargetType: content!.pendingEditSourceType,
-                            },
-                          ],
-                        });
-                      }}
-                    >
-                      <FolderOutput size={20} />
-                      <span>
-                        移出待剪輯（
-                        {content.pendingEditSourceType === 'Buffer'
-                          ? 'Replay Buffer'
-                          : 'Full Sessions'}
-                        ）
-                      </span>
-                    </Button>
-                  </li>
-                ) : (
-                  <>
-                    <li>
-                      <Button
-                        variant="menu"
-                        onClick={() => {
-                          (document.activeElement as HTMLElement).blur();
-                          sendMessageToBackend('MoveOutOfPendingEdit', {
-                            Items: [{ FileName: content!.fileName, TargetType: 'Session' }],
-                          });
-                        }}
-                      >
-                        <FolderOutput size={20} />
-                        <span>移回 Full Sessions</span>
-                      </Button>
-                    </li>
-                    <li>
-                      <Button
-                        variant="menu"
-                        onClick={() => {
-                          (document.activeElement as HTMLElement).blur();
-                          sendMessageToBackend('MoveOutOfPendingEdit', {
-                            Items: [{ FileName: content!.fileName, TargetType: 'Buffer' }],
-                          });
-                        }}
-                      >
-                        <FolderOutput size={20} />
-                        <span>移回 Replay Buffer</span>
-                      </Button>
-                    </li>
-                  </>
-                ))}
-              <li>
-                <Button
-                  variant="menu"
-                  onClick={() => {
-                    (document.activeElement as HTMLElement).blur();
-                    startRenaming();
-                  }}
-                >
-                  <PenLine size={20} />
-                  <span>Rename</span>
-                </Button>
-              </li>
-              <li>
-                <Button
-                  variant="menu"
-                  onClick={() => {
-                    (document.activeElement as HTMLElement).blur();
-                    handleOpenFileLocation();
-                  }}
-                >
-                  <FolderOpen size={20} />
-                  <span>Open File Location</span>
-                </Button>
-              </li>
-              {(type === 'Clip' || type === 'Highlight') &&
-                !content?.fileName?.endsWith('_compressed') && (
-                  <li>
-                    <Button
-                      variant="menu"
-                      onClick={() => {
-                        (document.activeElement as HTMLElement).blur();
-                        sendMessageToBackend('CompressVideo', { FilePath: content!.filePath });
-                      }}
-                    >
-                      <Minimize2 size={20} />
-                      <span>Compress</span>
-                    </Button>
-                  </li>
-                )}
-              <li>
-                <Button
-                  variant="menuDanger"
-                  onClick={() => {
-                    (document.activeElement as HTMLElement).blur();
-                    handleDelete();
-                  }}
-                >
-                  <Trash2 size={20} />
-                  <span>Delete</span>
-                </Button>
-              </li>
+              {renderMenuItems(() => (document.activeElement as HTMLElement).blur())}
             </ul>
           </div>
         </div>
@@ -664,6 +739,16 @@ export default function ContentCard({
           )}
         </div>
       </div>
+
+      {contextMenuPosition && (
+        <ul
+          className="menu fixed z-1000 w-52 rounded-box border border-base-400 bg-base-300 p-2 shadow-xl"
+          style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {renderMenuItems(() => setContextMenuPosition(null))}
+        </ul>
+      )}
     </div>
   );
 }

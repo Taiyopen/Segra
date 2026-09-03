@@ -1,0 +1,66 @@
+---
+description: 每次實際改檔後必須寫當日 changelog。同一天同一檔，記錄改了哪些檔、為什麼、總體做了什麼。
+alwaysApply: true
+---
+
+# Session changelog
+
+每次完成使用者要求的檔案修改後，**立刻**追加當日日誌。問答、只讀探索、沒寫檔的回合不記。
+
+## 檔案
+
+路徑：`changelogs/YYYY-MM-DD.md`（日期用使用者本地時區，台灣為 UTC+8）。
+
+- 當日檔已存在 → **追加**一筆，不要覆寫稍早條目
+- 當日檔不存在 → 新建，開頭一行 `# YYYY-MM-DD`
+- 不要為「寫 changelog」再寫另一筆；changelog 本身列在該筆的檔案清單即可
+
+## 格式
+
+每筆一個 `##`，標題為 `HH:MM — 一句話摘要`（24 小時制）。其後固定三段：
+
+```markdown
+## 23:36 — 修復雙槽停止錄影未清 preview
+
+### 總體
+2～4 句：做了什麼、為什麼、使用者可觀察到的結果。不要貼 diff。
+
+### 檔案
+- `path/to/File.cs`：為什麼改這個檔（一句，講動機不是複述程式）
+- `path/to/Other.tsx`：……
+
+### 更動
+- 行為／API／UI 的具體變化（條列）
+- 刻意沒改什麼（若有範圍取捨）
+```
+
+## 規則
+
+- **每個被修改或新增的檔都要出現在「檔案」**，含設定、規則、刪除（刪除寫「刪除：原因」）
+- 「為什麼」寫動機（修 bug、接 API、補規則），不要寫「更新程式碼」
+- 同一回合多個小改動合成 **一筆**，不要每存一次檔就一筆
+- 不要把 changelog 寫進 git commit message 的替代品；commit 仍只在使用者要求時做
+- 日誌用**台灣繁體中文**
+
+### 對（同一天第二筆直接 append）
+
+```markdown
+## 14:02 — 封鎖遊戲改走 Settings.Games
+
+### 總體
+RecordingCard 的封鎖改打現用遊戲清單，不再寫已廢棄的 Blacklist。
+
+### 檔案
+- `Frontend/src/Components/RecordingCard.tsx`：改送更新 Games 的 Method
+- `Backend/App/MessageService.cs`：接新 Method，不再寫 Blacklist
+
+### 更動
+- 封鎖後該遊戲不再被自動錄影
+- 未刪舊 handler（下一輪再清）
+```
+
+### 錯
+
+- 一天一個檔卻每天覆寫、或把不同天寫進同一檔
+- 只寫「修改了後端」卻不列路徑
+- 為格式化、讀檔、對話本身開一筆空日誌

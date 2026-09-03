@@ -72,7 +72,7 @@ namespace Segra.Backend.App
 #endif
         /// <summary>WebView2 init args for the monitoring PiP window.</summary>
         private const string MonitoringBrowserInitParameters =
-            "--enable-blink-features=AudioVideoTracks";
+            "--enable-blink-features=AudioVideoTracks --disable-http-cache";
 
         public static bool IsFirstRun { get; private set; } = false;
         private static readonly AutoResetEvent ShowWindowEvent = new(false);
@@ -233,12 +233,14 @@ namespace Segra.Backend.App
                         .RunAsync();
                 }
 
-                // Version-stamped URL: WebKitGTK's disk cache persists across app updates and the
-                // static server sends no cache headers, so a bare /index.html can keep rendering
-                // the previous build's frontend until a manual refresh.
+                // Version + assembly timestamp: Photino's static server sends no cache headers,
+                // and WebView2 keys its disk cache on the URL. Assembly version stays 1.0.0 on
+                // local rebuilds, so ?v=1.0.0 kept serving a stale index.html (and the old JS
+                // hash it pointed at). A new exe timestamp busts that cache every publish.
                 string? appVersion = Assembly.GetExecutingAssembly()
                     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-                appUrl = IsDebugMode ? "http://localhost:2882" : $"{baseUrl}/index.html?v={Uri.EscapeDataString(appVersion ?? "0")}";
+                string cacheBust = GetFrontendCacheBustToken(appVersion);
+                appUrl = IsDebugMode ? "http://localhost:2882" : $"{baseUrl}/index.html?v={Uri.EscapeDataString(cacheBust)}";
 
                 if (IsDebugMode)
                 {
@@ -637,6 +639,25 @@ namespace Segra.Backend.App
                 Log.Warning(ex, "Could not focus monitoring window");
             }
 #endif
+        }
+
+        private static string GetFrontendCacheBustToken(string? appVersion)
+        {
+            string version = string.IsNullOrEmpty(appVersion) ? "0" : appVersion;
+            try
+            {
+                string location = Assembly.GetExecutingAssembly().Location;
+                if (!string.IsNullOrEmpty(location) && File.Exists(location))
+                {
+                    return $"{version}.{new FileInfo(location).LastWriteTimeUtc.Ticks}";
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Could not read assembly timestamp for frontend cache bust");
+            }
+
+            return version;
         }
 
         private static string BuildMonitoringWindowUrl(string appUrl)
@@ -1068,7 +1089,7 @@ namespace Segra.Backend.App
 #if WINDOWS
             // Chromium/WebView2-only flag; WebKitGTK on Linux parses this natively and crashes on the
             // leading "--", so it must only be set on Windows.
-            windowBuilder = windowBuilder.SetBrowserControlInitParameters("--enable-blink-features=AudioVideoTracks");
+            windowBuilder = windowBuilder.SetBrowserControlInitParameters("--enable-blink-features=AudioVideoTracks --disable-http-cache");
 #endif
             windowBuilder = windowBuilder
                 .SetNotificationsEnabled(false) // Disabled due to it creating a second start menu entry with incorrect start path. See https://github.com/tryphotino/photino.NET/issues/85

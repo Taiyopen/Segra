@@ -1,1 +1,0 @@
-import{h as e,t}from"./MonitoringApp.CWOhq7jc.js";import{n,t as r}from"./react.5wOUkwVV.js";import{i,n as a}from"./tanstack.CzSorfZA.js";var o=n(),s=r(),c=new i({defaultOptions:{queries:{staleTime:1e3*60*5,gcTime:1e3*60*30}}});(0,o.createRoot)(document.getElementById(`root`)).render((0,s.jsx)(a,{client:c,children:(0,s.jsx)(e,{children:(0,s.jsx)(t,{})})}));

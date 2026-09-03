@@ -601,15 +601,9 @@ namespace Segra.Backend.Api
             if (string.IsNullOrWhiteSpace(userPath))
                 return null;
 
-            string canonical;
-            try
-            {
-                canonical = Path.GetFullPath(userPath);
-            }
-            catch
-            {
+            string? canonical = TryGetFullPath(userPath);
+            if (canonical == null)
                 return null;
-            }
 
             var allowedRoots = new[]
             {
@@ -622,15 +616,9 @@ namespace Segra.Backend.Api
                 if (string.IsNullOrEmpty(root))
                     continue;
 
-                string rootCanonical;
-                try
-                {
-                    rootCanonical = Path.GetFullPath(root);
-                }
-                catch
-                {
+                string? rootCanonical = TryGetFullPath(root);
+                if (rootCanonical == null)
                     continue;
-                }
 
                 if (!rootCanonical.EndsWith(Path.DirectorySeparatorChar) &&
                     !rootCanonical.EndsWith(Path.AltDirectorySeparatorChar))
@@ -646,7 +634,33 @@ namespace Segra.Backend.Api
             if (BrowseService.IsPathAuthorized(canonical))
                 return canonical;
 
+            // Recordings made before the recording path changed, and imported videos, sit
+            // outside both roots but are still in the library. Allow those exact files so they
+            // stay playable; matching the whole path rather than a prefix keeps this from
+            // exposing the rest of the folder they happen to live in.
+            if (IsTrackedContentFile(canonical))
+                return canonical;
+
             return null;
+        }
+
+        private static bool IsTrackedContentFile(string canonical)
+        {
+            return AppState.Instance.Content.Any(c =>
+                !string.IsNullOrEmpty(c.FilePath) &&
+                string.Equals(TryGetFullPath(c.FilePath), canonical, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string? TryGetFullPath(string path)
+        {
+            try
+            {
+                return Path.GetFullPath(path);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

@@ -57,8 +57,12 @@ export default function ContentPage({
   const [highlightedFileName, setHighlightedFileName] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const contentItems = state.content.filter((video) =>
-    matchesContentCategory(video, contentType, stickySourceCategory),
+  const contentItems = useMemo(
+    () =>
+      state.content.filter((video) =>
+        matchesContentCategory(video, contentType, stickySourceCategory),
+      ),
+    [state.content, contentType, stickySourceCategory],
   );
   const [selectedGames, setSelectedGames] = useState<string[]>(() => {
     try {
@@ -87,6 +91,17 @@ export default function ContentPage({
     }
     return uniqueGameList;
   }, [contentItems]);
+
+  useEffect(() => {
+    const availableFilters = new Set(uniqueGames);
+
+    setSelectedGames((prev) => {
+      const validFilters = prev.filter((game) => availableFilters.has(game));
+      if (validFilters.length === prev.length) return prev;
+      localStorage.setItem(`${sectionId}-filters`, JSON.stringify(validFilters));
+      return validFilters;
+    });
+  }, [uniqueGames, sectionId]);
 
   const filteredItems = useMemo(() => {
     let filtered = [...contentItems];
@@ -142,8 +157,8 @@ export default function ContentPage({
   };
 
   const handleCardClick = useCallback(
-    (video: Content) => {
-      if (isCtrlPressed) {
+    (video: Content, event?: React.MouseEvent) => {
+      if (event?.ctrlKey || isCtrlPressed) {
         setSelectedItems((prev) => {
           const newSet = new Set(prev);
           if (newSet.has(video.fileName)) {
@@ -267,19 +282,23 @@ This action cannot be undone.`,
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (isModalOpen) return;
-
       if (e.key === 'Control') {
         setIsCtrlPressed(false);
       }
     };
 
+    const handleBlur = () => {
+      setIsCtrlPressed(false);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, [selectedItems, filteredItems, isModalOpen, handleDeleteSelected]);
 
@@ -410,14 +429,129 @@ This action cannot be undone.`,
     }
   };
 
+  const [marqueeRect, setMarqueeRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const handleMarqueeMouseDown = (e: React.MouseEvent) => {
+    const container = containerRef.current;
+    if (!container || e.button !== 0) return;
+
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(
+        '[data-content-filename], button, input, select, a, .dropdown, .menu, [data-marquee-ignore]',
+      )
+    ) {
+      return;
+    }
+
+    const startRect = container.getBoundingClientRect();
+    if (e.clientX - startRect.left >= container.clientWidth) return; // Scrollbar
+
+    e.preventDefault();
+
+    const drag = {
+      anchorX: e.clientX - startRect.left + container.scrollLeft,
+      anchorY: e.clientY - startRect.top + container.scrollTop,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      baseSelection: e.ctrlKey ? new Set(selectedItems) : new Set<string>(),
+      additive: e.ctrlKey,
+      didDrag: false,
+      raf: 0,
+    };
+
+    const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+    const update = () => {
+      const c = containerRef.current;
+      if (!c) return;
+      const cRect = c.getBoundingClientRect();
+
+      const zone = 48;
+      const offsetY = drag.clientY - cRect.top;
+      if (offsetY < zone) {
+        c.scrollTop -= Math.min(24, Math.ceil((zone - offsetY) / 4));
+      } else if (offsetY > c.clientHeight - zone) {
+        c.scrollTop += Math.min(24, Math.ceil((offsetY - (c.clientHeight - zone)) / 4));
+      }
+
+      const x = clamp(drag.clientX - cRect.left, 0, c.clientWidth) + c.scrollLeft;
+      const y = clamp(drag.clientY - cRect.top, 0, c.clientHeight) + c.scrollTop;
+      const left = Math.min(drag.anchorX, x);
+      const top = Math.min(drag.anchorY, y);
+      const width = Math.abs(drag.anchorX - x);
+      const height = Math.abs(drag.anchorY - y);
+      setMarqueeRect({ left, top, width, height });
+
+      const ids = new Set(drag.baseSelection);
+      c.querySelectorAll('[data-content-filename]').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        const elLeft = r.left - cRect.left + c.scrollLeft;
+        const elTop = r.top - cRect.top + c.scrollTop;
+        const intersects =
+          left < elLeft + r.width &&
+          left + width > elLeft &&
+          top < elTop + r.height &&
+          top + height > elTop;
+        if (intersects) {
+          const fileName = el.getAttribute('data-content-filename');
+          if (fileName) ids.add(fileName);
+        }
+      });
+      setSelectedItems(ids);
+    };
+
+    const tick = () => {
+      if (drag.didDrag) update();
+      drag.raf = requestAnimationFrame(tick);
+    };
+    drag.raf = requestAnimationFrame(tick);
+
+    const finish = (fromMouseUp: boolean) => {
+      cancelAnimationFrame(drag.raf);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('blur', handleWindowBlur);
+      setMarqueeRect(null);
+      if (fromMouseUp && !drag.didDrag && !drag.additive) {
+        setSelectedItems(new Set());
+      }
+    };
+
+    const handleMove = (ev: MouseEvent) => {
+      drag.clientX = ev.clientX;
+      drag.clientY = ev.clientY;
+      if (!drag.didDrag) {
+        const dx = ev.clientX - drag.startClientX;
+        const dy = ev.clientY - drag.startClientY;
+        if (dx * dx + dy * dy >= 16) drag.didDrag = true;
+      }
+    };
+
+    const handleUp = () => finish(true);
+    const handleWindowBlur = () => finish(false);
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('blur', handleWindowBlur);
+  };
+
   const progressValues = Object.values(progressItems);
   const hasProgress = progressValues.length > 0;
 
   return (
     <div
       ref={containerRef}
-      className="p-5 space-y-6 overflow-y-scroll h-full bg-base-200 overflow-x-hidden"
+      className="relative p-5 space-y-6 overflow-y-scroll h-full bg-base-200 overflow-x-hidden"
       onScroll={handleScroll}
+      onMouseDown={handleMarqueeMouseDown}
     >
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-3">
@@ -490,10 +624,10 @@ This action cannot be undone.`,
             <ContentCard
               key={video.fileName}
               content={video}
-              onClick={() => handleCardClick(video)}
+              onClick={(v, e) => handleCardClick(v, e)}
               type={contentType}
               isSelected={selectedItems.has(video.fileName)}
-              isSelectionMode={isCtrlPressed || selectedItems.size > 0}
+              isSelectionMode={isCtrlPressed || selectedItems.size > 0 || marqueeRect !== null}
               isHighlighted={video.fileName === highlightedFileName}
             />
           ))}
@@ -505,13 +639,27 @@ This action cannot be undone.`,
         </div>
       )}
 
+      {marqueeRect && (
+        <div
+          className="absolute z-40 pointer-events-none border border-primary bg-primary/10 rounded-sm"
+          style={{
+            left: marqueeRect.left,
+            top: marqueeRect.top,
+            width: marqueeRect.width,
+            height: marqueeRect.height,
+            margin: 0,
+          }}
+        />
+      )}
+
       <AnimatePresence>
         {selectedItems.size > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 50 }}
+            initial={{ opacity: 0, y: marqueeRect ? 0 : 50 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
+            exit={{ opacity: 0, y: marqueeRect ? 0 : 50 }}
             transition={{ duration: 0.2 }}
+            data-marquee-ignore
             className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-base-300 border border-base-400 rounded-xl px-4 py-2 flex items-center gap-3 shadow-lg z-50"
           >
             <span className="text-sm text-gray-300">{selectedItems.size} Selected</span>

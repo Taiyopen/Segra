@@ -46,6 +46,26 @@ function Initialize-DotNetSdk {
     Write-Host "Using .NET SDK $sdkVersion" -ForegroundColor DarkGray
 }
 
+function Stop-RunningSegra {
+    $procs = @(Get-Process -Name "Segra" -ErrorAction SilentlyContinue)
+    if ($procs.Count -eq 0) {
+        return
+    }
+
+    Write-Host "Segra.exe is running; stopping it so output files can be overwritten." -ForegroundColor Yellow
+    $procs | Stop-Process -Force
+
+    $deadline = (Get-Date).AddSeconds(8)
+    do {
+        Start-Sleep -Milliseconds 400
+        $procs = @(Get-Process -Name "Segra" -ErrorAction SilentlyContinue)
+    } while ($procs.Count -gt 0 -and (Get-Date) -lt $deadline)
+
+    if ($procs.Count -gt 0) {
+        throw "Segra.exe is still running and locking the build output. Close it and rerun."
+    }
+}
+
 Initialize-DotNetSdk
 
 Write-Host "=== Building Frontend ===" -ForegroundColor Cyan
@@ -73,6 +93,8 @@ try {
 finally {
     Pop-Location
 }
+
+Stop-RunningSegra
 
 Write-Host "=== Copying Frontend to wwwroot ===" -ForegroundColor Cyan
 $wwwroot = Join-Path $root "wwwroot"

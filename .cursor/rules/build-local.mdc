@@ -1,0 +1,30 @@
+---
+description: 改完 Frontend／Backend 必須跑 build-local.ps1。Segra 開著會鎖檔，腳本會先關掉再編。
+alwaysApply: true
+---
+
+# 本地編譯
+
+使用者用 repo 根目錄的 `build-local.ps1` 建置（Vite → wwwroot → `dotnet publish` win-x64 到 `publish\Segra.exe`）。**不要**自行拼 `npm run build` + `dotnet build` 當完成標準。
+
+## 何時跑
+
+Frontend、Backend、`wwwroot`、`Segra.csproj` 有改動，且該回合工作已做完：立刻執行
+
+```powershell
+.\build-local.ps1
+```
+
+工作目錄必須是 repo 根。`publish` 可能要數分鐘，`block_until_ms` 給夠（建議 ≥ 180000），失敗就讀輸出修好再編一次。
+
+只改 `.cursor/rules`、`changelogs/`、`SYNC.md`：不必編。
+
+## Segra 開著
+
+`publish\Segra.exe` 正在跑時，覆寫 exe／DLL／wwwroot 會失敗。`build-local.ps1` 在複製 wwwroot 前會 `Stop-Process` 掉 `Segra`。這會關掉使用者開著的 App，這是預期行為。
+
+若仍報 file lock：再停一次 `Segra` 與殘留的 WebView2 子行程，然後重跑腳本。不要叫使用者手動關了卻自己不編。
+
+## 完成
+
+exit code 0、輸出有 `=== Done ===` 才算編譯好。在回覆裡寫成功或失敗原因。

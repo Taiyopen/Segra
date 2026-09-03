@@ -1,6 +1,10 @@
 {
-  "_MonitoringApp.CWOhq7jc.js": {
-    "file": "assets/MonitoringApp.CWOhq7jc.js",
+  "_MonitoringApp.APoMbkmO.css": {
+    "file": "assets/MonitoringApp.APoMbkmO.css",
+    "src": "_MonitoringApp.APoMbkmO.css"
+  },
+  "_MonitoringApp.C2hFP4V3.js": {
+    "file": "assets/MonitoringApp.C2hFP4V3.js",
     "name": "MonitoringApp",
     "imports": [
       "_rolldown-runtime.CNC7AqOf.js",
@@ -8,7 +12,7 @@
       "_react.5wOUkwVV.js"
     ],
     "css": [
-      "assets/MonitoringApp.NIRtllGJ.css"
+      "assets/MonitoringApp.APoMbkmO.css"
     ],
     "assets": [
       "assets/roboto-cyrillic-ext-400-normal.qHufge6k.woff2",
@@ -61,10 +65,6 @@
       "assets/roboto-latin-700-normal.YuyVweIx.woff"
     ]
   },
-  "_MonitoringApp.NIRtllGJ.css": {
-    "file": "assets/MonitoringApp.NIRtllGJ.css",
-    "src": "_MonitoringApp.NIRtllGJ.css"
-  },
   "_lucide.ClsLVqvY.js": {
     "file": "assets/lucide.ClsLVqvY.js",
     "name": "lucide",
@@ -98,13 +98,13 @@
     ]
   },
   "index.html": {
-    "file": "assets/main.B56abLNq.js",
+    "file": "assets/main.CQMnsRUH.js",
     "name": "main",
     "src": "index.html",
     "isEntry": true,
     "imports": [
       "_rolldown-runtime.CNC7AqOf.js",
-      "_MonitoringApp.CWOhq7jc.js",
+      "_MonitoringApp.C2hFP4V3.js",
       "_lucide.ClsLVqvY.js",
       "_react.5wOUkwVV.js",
       "_tanstack.CzSorfZA.js",
@@ -115,12 +115,12 @@
     ]
   },
   "monitoring.html": {
-    "file": "assets/monitoring.mzPeejS3.js",
+    "file": "assets/monitoring.CnSwUPH4.js",
     "name": "monitoring",
     "src": "monitoring.html",
     "isEntry": true,
     "imports": [
-      "_MonitoringApp.CWOhq7jc.js",
+      "_MonitoringApp.C2hFP4V3.js",
       "_react.5wOUkwVV.js",
       "_tanstack.CzSorfZA.js"
     ]

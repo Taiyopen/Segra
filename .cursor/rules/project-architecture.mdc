@@ -1,0 +1,85 @@
+---
+description: Segra 專案架構與關鍵檔案地圖。每次開始改程式前先對照此圖，避免改錯層或把 fork 功能當成 upstream。
+alwaysApply: true
+---
+
+# Segra 架構
+
+Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內嵌 **React Frontend**。FE 經 `window.external.sendMessage` 送 `{ Method, Parameters }` JSON；BE 由 `MessageService.HandleMessage` 分派，再用 WebSocket 把狀態推回 FE。
+
+本 repo 是 **fork**：upstream 錄影／剪輯／遊戲偵測之上，另有雙槽錄影、待剪輯、瀏覽影片、外部影片庫、獨立 PiP 監控窗、VRChat VVMW。現況與星等見 `SYNC.md`；`SYNC_v1.7.0.md` 只是 2026-08-06 那次合併紀錄。
+
+## 資料流
+
+```
+遊戲偵測 GameDetectionService
+  → OBSService（雙槽 RecordingSlots.Max=2）寫入影片資料夾
+  → ContentService 掃描／metadata
+  → ContentServer HTTP 提供影片
+  → Frontend Pages + video.tsx 剪輯
+  → ClipService / FFmpegService 輸出 Clips
+```
+
+內容資料夾（`Backend/Shared/FolderNames.cs` 為唯一來源）：`Full Sessions`、`Replay Buffers`、`Clips`、`Highlights`、`待剪輯`、`外部影片庫`。前兩者計入儲存上限。
+
+## Backend（改行為先找這裡）
+
+| 目錄 / 檔案 | 做什麼 |
+|---|---|
+| `Backend/App/Program.cs` | 進入點：Photino 主窗、PiP 監控窗、靜態檔 server（port 44040） |
+| `Backend/App/MessageService.cs` | FE→BE 全部 Method 的 switch；改 API 先改這裡 |
+| `Backend/App/MigrationService.cs` | settings / 資料夾遷移 |
+| `Backend/Recorder/OBSService.cs` | OBS 生命週期、開始/停止錄影、replay buffer、雙槽（最大檔） |
+| `Backend/Recorder/RecordingPreviewService.cs` | 錄影預覽 |
+| `Backend/Recorder/RecoveryService.cs` | 當機未完成檔恢復 |
+| `Backend/Media/ContentService.cs` | 掃描內容、待剪輯搬移、刪除 |
+| `Backend/Media/ClipService.cs` | 剪輯輸出 |
+| `Backend/Media/FFmpegService.cs` | ffmpeg 封裝 |
+| `Backend/Media/CompressionService.cs` | 壓縮 |
+| `Backend/Media/AiService.cs` / `HighlightService.cs` | AI / 遊戲高光 |
+| `Backend/Media/UploadService.cs` / `ImportService.cs` | 上傳 Segra.tv、匯入 |
+| `Backend/Games/GameDetectionService.cs` | 偵測進行中的遊戲 |
+| `Backend/Games/GameSettingsService.cs` | 每款遊戲錄影覆寫（看 `Settings.Games`，不是舊 Whitelist） |
+| `Backend/Games/GameIntegrationService.cs` | 掛載各遊戲 kill/death 整合 |
+| `Backend/Games/<Game>/` | CS2、LoL、Dota2、PUBG 等 |
+| `Backend/Games/VrChat/VrChatVvmwIntegration.cs` | **fork**：VVMW replay-tail clip |
+| `Backend/Core/Models/Settings.cs` | 全部設定欄位 |
+| `Backend/Core/SettingsService.cs` | 讀寫設定；`UpdateSettingsInstance` 逐欄套用 |
+| `Backend/Core/Models/AppState.cs` | 執行期狀態（含雙槽 recording 陣列） |
+| `Backend/Core/Models/RecordingSlots.cs` | **fork**：雙槽常數 |
+| `Backend/Api/ContentServer.cs` | 本機 HTTP：影片、縮圖、waveform |
+| `Backend/Services/BrowseService.cs` | **fork**：瀏覽任意資料夾影片（舊路徑，僅此檔） |
+| `Backend/Auth/` | Discord / Segra.tv 登入 |
+| `Backend/Platform/` | Windows / Linux 服務定位；Linux 僅部分合入 |
+| `Backend/Windows/` | 音訊、顯示器、熱鍵、磁碟、Game Mode、HDR |
+| `Backend/Shared/` | `FolderNames`、`PathUtils`、`IconUtils` |
+
+`.merge-frontend/`、`.merge-tmp/` 是合併殘留，**不是**執行路徑。
+
+## Frontend（`Frontend/src`）
+
+| 目錄 / 檔案 | 做什麼 |
+|---|---|
+| `main.tsx` / `App.tsx` | 主 UI 進入點與頁面路由（selectedMenu） |
+| `monitoring-main.tsx` / `MonitoringApp.tsx` | **fork**：PiP 監控窗獨立入口 |
+| `menu.tsx` | 側欄 |
+| `Pages/sessions.tsx` `clips.tsx` `replay-buffer.tsx` `highlights.tsx` | 各內容列表 |
+| `Pages/pending-edit.tsx` | **fork**：待剪輯 |
+| `Pages/browse-videos.tsx` | **fork**：瀏覽影片 |
+| `Pages/video.tsx` | 剪輯時間軸（最大 FE 檔；待剪輯／playlist 也在這） |
+| `Pages/settings.tsx` | 設定頁，組 `Components/Settings/*` |
+| `Components/ContentCard.tsx` / `ContentPage.tsx` | 內容卡片／列表頁殼 |
+| `Components/RecordingCard.tsx` | **fork**：雙槽錄影卡 |
+| `Components/MonitoringCompactShell.tsx` | PiP 監控 UI |
+| `Context/*` | 一關注點一 Provider；`WebSocketContext` 收 BE 推送 |
+| `Utils/MessageUtils.ts` | `sendMessageToBackend` |
+| `Models/types.ts` | 與 BE 對齊的 TS 型別 |
+
+## 改動時對應
+
+- 錄影開始/停止/雙槽 → `OBSService` + `RecordingCard` + `AppState`
+- 新 FE Method → `MessageUtils` 呼叫 + `MessageService` case + 必要時 Settings
+- 新內容類型／資料夾名 → `FolderNames` + `ContentService` + FE pages
+- 遊戲偵測／封鎖 → `GameSettingsService` / `Settings.Games`（不要寫舊 `Whitelist`/`Blacklist`）
+- 剪輯時間軸 → `video.tsx` + `ClipService`
+- 監控窗 → `Program.cs`（第二 Photino）+ `MonitoringApp.tsx`
