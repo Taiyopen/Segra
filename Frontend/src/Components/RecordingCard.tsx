@@ -1,19 +1,20 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { PreRecording, Recording, GameResponse, Game } from '../Models/types';
+import { PreRecording, Recording, GameResponse, Game, Display } from '../Models/types';
 
 import { Gamepad2, Monitor, Ellipsis, Ban, OctagonX } from 'lucide-react';
 
-import { useSettings } from '../Context/SettingsContext';
+import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
 
 import { useAppState } from '../Context/AppStateContext';
 
 import { sendMessageToBackend, stopRecordingSlot } from '../Utils/MessageUtils';
 
 import Button from './Button';
+import DropdownSelect from './DropdownSelect';
 
 import RecordingPreviewAudioMeters from './RecordingPreviewAudioMeters';
 
@@ -30,9 +31,10 @@ interface RecordingCardProps {
 const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }) => {
   const timerRef = useRef<HTMLSpanElement>(null);
 
-  const { showGameBackground } = useSettings();
+  const { showGameBackground, selectedDisplay } = useSettings();
+  const updateSettings = useSettingsUpdater();
 
-  const { gameList } = useAppState();
+  const { gameList, displays } = useAppState();
 
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
@@ -68,6 +70,35 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
   const gameListEntry = gameList.find((g) => g.name === gameName);
 
   const canBlockGame = !!gameListEntry && gameListEntry.executables.length > 0;
+
+  // Monitors that share the current recording display's aspect ratio. The dropdown next to
+  // the Display capture indicator only appears when there are multiple candidates to pick from.
+  const isDisplayCapture = !!recording && !recording.isUsingGameHook;
+  const displayAspectRatio = (d: Display) => (d.height > 0 ? d.width / d.height : 0);
+  const currentDisplay =
+    (selectedDisplay && displays.find((d) => d.deviceId === selectedDisplay.deviceId)) ||
+    displays[0] ||
+    null;
+  const sameRatioDisplays = useMemo(() => {
+    if (!currentDisplay || displayAspectRatio(currentDisplay) <= 0) return [];
+    return displays.filter(
+      (d) => Math.abs(displayAspectRatio(d) - displayAspectRatio(currentDisplay)) < 0.02,
+    );
+  }, [displays, currentDisplay]);
+  const showMonitorDropdown = isDisplayCapture && sameRatioDisplays.length > 1;
+
+  const monitorItems = sameRatioDisplays.map((d) => {
+    const displayIndex = displays.findIndex((other) => other.deviceId === d.deviceId);
+    const hasDuplicateName = displays.some(
+      (other, j) => j !== displayIndex && other.deviceName === d.deviceName,
+    );
+    return {
+      value: d.deviceId,
+      label: hasDuplicateName
+        ? `${d.deviceName} (${displayIndex + 1})${d.isPrimary ? ' (Primary)' : ''}`
+        : `${d.deviceName}${d.isPrimary ? ' (Primary)' : ''}`,
+    };
+  });
 
   const handleAddToBlocklist = useCallback(() => {
     if (!gameListEntry) return;
@@ -261,7 +292,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-1 relative z-10">
+        <div className="flex items-center justify-between mb-1 relative z-20">
           <div className="flex items-center">
             <span
               className={`w-3 h-3 shrink-0 mb-0.5 rounded-full mr-1.5 ${preRecording ? 'bg-orange-500' : 'bg-red-500'}`}
@@ -287,6 +318,23 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
                     <Monitor className="h-5 w-5 text-gray-300 scale-90" />
                   </div>
                 </div>
+              </div>
+            )}
+            {showMonitorDropdown && (
+              <div className="ml-1 w-8">
+                <DropdownSelect
+                  items={monitorItems}
+                  value={currentDisplay?.deviceId}
+                  onChange={(val) => {
+                    const display = displays.find((d) => d.deviceId === val);
+                    if (display) updateSettings({ selectedDisplay: display });
+                  }}
+                  align="start"
+                  buttonClassName="btn btn-ghost btn-xs border-none h-6 min-h-6 px-0 shadow-none"
+                  menuClassName="dropdown-content menu menu-md bg-base-300 border border-base-400 rounded-box z-[20000] w-56 p-2 shadow flex-nowrap"
+                  buttonContent={null}
+                  forceDirection={sameRatioDisplays.length === 2 ? 'down' : 'up'}
+                />
               </div>
             )}
           </div>

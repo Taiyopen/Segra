@@ -9,11 +9,12 @@ alwaysApply: true
 
 ## 做法
 
-1. `git fetch upstream --tags`，對 **穩定 tag**（現況目標 `v1.7.4`），不要追 `upstream/main`。
-2. 讀 `SYNC.md`：只挑 ★★★／★★ 且狀態為「未合」的項目。
-3. 一個功能一條 branch；能 cherry-pick 就 pick，衝突就改成對 fork 檔手移。
-4. 合完只 smoke fork 功能：雙槽、待剪輯、瀏覽影片、外部庫、PiP、VVMW。
-5. 立刻改 `SYNC.md`：該列改成「已追上」，並 append 當日 changelog。
+1. `git fetch upstream --tags`，對 **穩定 tag**（現況目標 `v1.8.0`），不要追 `upstream/main`。
+2. 讀該 tag 的 GitHub **Release 頁**（不是只看 `git log`）。寫入／更新 `SYNC.md` 時，每個功能列都要有 **Release** 欄：官方 bullet 的繁中（保留分類詞如 Performance／Recording）。同一 bullet 對一列；一列對多條就全寫。穩定 Release 沒寫到的才標 `Release 未列`，不要用 commit 主旨冒充。不要把 Release 收成內部簡稱而把數字藏起來（例如不可只寫「記憶體」而漏 -24%／-28%／托盤）。
+3. 讀 `SYNC.md`：只挑 ★★★／★★ 且狀態為「未合」的項目。
+4. 一個功能一條 branch；能 cherry-pick 就 pick，衝突就改成對 fork 檔手移。
+5. 合完只 smoke fork 功能：雙槽、待剪輯、瀏覽影片、外部庫、PiP、VVMW。
+6. 立刻改 `SYNC.md`：該列改成「已追上」，並 append 當日 changelog。
 
 ## 熱檔（預設手移，不要整檔吃上游）
 

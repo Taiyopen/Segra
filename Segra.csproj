@@ -91,7 +91,7 @@
     <Compile Remove="Backend\Windows\Watchers\AudioDeviceWatcher.cs" />
     <Compile Remove="Backend\Windows\Watchers\DisplayWatcher.cs" />
     <Compile Remove="Backend\Windows\Display\DisplayService.cs" />
-    <Compile Remove="Backend\Windows\Display\HdrDetectionService.cs" />
+    <Compile Remove="Backend\Windows\Display\DisplayConfigService.cs" />
     <Compile Remove="Backend\Windows\Display\WindowUtils.cs" />
     <Compile Remove="Backend\Windows\GameMode\GameModeService.cs" />
     <Compile Remove="Backend\Windows\Power\PowerModeMonitor.cs" />
