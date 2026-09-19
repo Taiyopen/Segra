@@ -19,6 +19,7 @@ using System.Runtime.InteropServices;
 using Segra.Backend.Windows.Power;
 using Segra.Backend.Windows.GameMode;
 using Segra.Backend.Windows.WebView2;
+using Segra.Backend.Windows.Display;
 #endif
 
 namespace Segra.Backend.App
@@ -53,10 +54,55 @@ namespace Segra.Backend.App
         [DllImport("kernel32.dll")]
         static extern uint GetCurrentThreadId();
 
+        [DllImport("user32.dll")]
+        static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+        [DllImport("user32.dll")]
+        static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
         const int SW_HIDE = 0;
+        const int SW_SHOWNOACTIVATE = 4;
+        const int SW_SHOW = 5;
         const int SW_RESTORE = 9;
         const int SM_CXFULLSCREEN = 16;
         const int SM_CYFULLSCREEN = 17;
+        const int GWLP_HWNDPARENT = -8;
+        const uint MONITOR_DEFAULTTONEAREST = 2;
+        const uint SWP_NOZORDER = 0x0004;
+        const uint SWP_NOACTIVATE = 0x0010;
+        const uint SWP_FRAMECHANGED = 0x0020;
+        const uint SWP_SHOWWINDOW = 0x0040;
+        static readonly IntPtr HWND_TOPMOST = new(-1);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
+        static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
+        static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [DllImport("user32.dll")]
+        static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
+        }
 #endif
 
 #if WINDOWS
@@ -424,11 +470,29 @@ namespace Segra.Backend.App
                     _wasMaximizedBeforeFullscreen = Window.Maximized;
                     _windowSizeBeforeFullscreen = Window.Size;
                     _windowLocationBeforeFullscreen = Window.Location;
+#if WINDOWS
+                    try
+                    {
+                        var hwnd = Window.WindowHandle;
+                        if (hwnd != IntPtr.Zero)
+                            ShowWindow(hwnd, SW_RESTORE);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Win32 restore before fullscreen failed.");
+                    }
+#endif
                     // If still maximized, Win32 fullscreen can behave like bounded maximize (taskbar stays visible).
                     if (Window.Maximized)
                         Window.SetMaximized(false);
                     // Native OS fullscreen fills the monitor; maximize alone only fills the work area.
                     Window.SetFullScreen(true);
+#if WINDOWS
+                    ApplyTrueFullscreenBounds(Window);
+                    // Photino may ignore the first size/style change while the frame is still maximized.
+                    Window.SetFullScreen(true);
+                    ApplyTrueFullscreenBounds(Window);
+#endif
                 }
                 else
                 {
@@ -451,6 +515,41 @@ namespace Segra.Backend.App
                 Log.Error(ex, "Error setting fullscreen state");
             }
         }
+
+#if WINDOWS
+        private static void ApplyTrueFullscreenBounds(PhotinoWindow window)
+        {
+            try
+            {
+                var hwnd = window.WindowHandle;
+                if (hwnd == IntPtr.Zero) return;
+
+                IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                if (monitor == IntPtr.Zero) return;
+
+                var info = new MONITORINFO();
+                info.cbSize = Marshal.SizeOf<MONITORINFO>();
+                if (!GetMonitorInfo(monitor, ref info)) return;
+
+                int width = info.rcMonitor.Right - info.rcMonitor.Left;
+                int height = info.rcMonitor.Bottom - info.rcMonitor.Top;
+                if (width <= 0 || height <= 0) return;
+
+                SetWindowPos(
+                    hwnd,
+                    IntPtr.Zero,
+                    info.rcMonitor.Left,
+                    info.rcMonitor.Top,
+                    width,
+                    height,
+                    SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "ApplyTrueFullscreenBounds failed.");
+            }
+        }
+#endif
 
         public static void ApplyMonitoringWindowLayout(bool open)
         {
@@ -592,12 +691,57 @@ namespace Segra.Backend.App
             return new Point(100, 100);
         }
 
+        private static Size GetScaledMonitoringDefaultSize()
+        {
+            const int baseWidth = 336;
+            const int baseHeight = 400;
+            const int referenceHeight = 1440;
+#if WINDOWS
+            try
+            {
+                if (DisplayService.GetPrimaryMonitorPhysicalResolution(out uint _, out uint height) && height > 0)
+                {
+                    double scale = Math.Clamp((double)height / referenceHeight, 0.75, 2.0);
+                    return new Size(
+                        Math.Max(1, (int)Math.Round(baseWidth * scale)),
+                        Math.Max(1, (int)Math.Round(baseHeight * scale)));
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to scale monitoring window for display resolution.");
+            }
+#endif
+            return new Size(baseWidth, baseHeight);
+        }
+
+        private static Size ResolveMonitoringWindowSize()
+        {
+            var defaultSize = GetScaledMonitoringDefaultSize();
+            var legacyDefault = new Size(336, 400);
+
+            if (!_monitoringWindowSize.HasValue)
+                return defaultSize;
+
+            var saved = _monitoringWindowSize.Value;
+            if (saved.Width == legacyDefault.Width && saved.Height == legacyDefault.Height &&
+                (defaultSize.Width != legacyDefault.Width || defaultSize.Height != legacyDefault.Height))
+            {
+                return defaultSize;
+            }
+
+            if (saved.Height < defaultSize.Height)
+                return new Size(Math.Max(saved.Width, defaultSize.Width), defaultSize.Height);
+
+            return saved;
+        }
+
         private static void EnsureMonitoringWindowVisible(PhotinoWindow window)
         {
             var location = window.Location;
             var size = window.Size;
             if (size.Width <= 0 || size.Height <= 0)
-                size = new Size(336, 400);
+                size = GetScaledMonitoringDefaultSize();
 
             if (IsWindowBoundsOnScreen(location, size))
                 return;
@@ -699,27 +843,15 @@ namespace Segra.Backend.App
         {
             LoadMonitoringWindowBounds();
 
-            var defaultSize = new Size(336, 400);
-            var size = _monitoringWindowSize ?? defaultSize;
-            if (size.Height < defaultSize.Height)
-                size = new Size(Math.Max(size.Width, defaultSize.Width), defaultSize.Height);
+            var size = ResolveMonitoringWindowSize();
 
-            // Chromeless windows need an explicit on-screen location; never restore off a disconnected monitor.
-            Point location;
-            if (_monitoringWindowLocation.HasValue && IsWindowBoundsOnScreen(_monitoringWindowLocation.Value, size))
+            Point location = GetPipLocationOnMainMonitor(size);
+            if (_monitoringWindowLocation.HasValue &&
+                (_monitoringWindowLocation.Value.X != location.X || _monitoringWindowLocation.Value.Y != location.Y))
             {
-                location = _monitoringWindowLocation.Value;
-            }
-            else
-            {
-                if (_monitoringWindowLocation.HasValue)
-                {
-                    Log.Information(
-                        "Saved monitoring window position {X},{Y} is off-screen; centering",
-                        _monitoringWindowLocation.Value.X, _monitoringWindowLocation.Value.Y);
-                    _monitoringWindowLocation = null;
-                }
-                location = GetCenteredMonitoringLocation(size);
+                Log.Information(
+                    "Monitoring window position {X},{Y} is not on the main window's screen; using {NewX},{NewY}",
+                    _monitoringWindowLocation.Value.X, _monitoringWindowLocation.Value.Y, location.X, location.Y);
             }
 
             var windowBuilder = new PhotinoWindow(Window);
@@ -790,10 +922,15 @@ namespace Segra.Backend.App
                 if (MonitoringWindow != null)
                 {
                     MonitoringWindow.SetMinimized(false);
+#if WINDOWS
+                    PresentMonitoringWindow(activate: true);
+#else
                     EnsureMonitoringWindowVisible(MonitoringWindow);
                     if (_monitoringWindowTopMost)
                         MonitoringWindow.SetTopMost(true);
                     FocusMonitoringWindow();
+#endif
+                    NotifyMonitoringWindowOpened();
                     return;
                 }
 
@@ -804,30 +941,37 @@ namespace Segra.Backend.App
                 {
                     MonitoringWindow = CreateMonitoringPhotinoWindow(monitoringUrl, chromeless: true);
                     MonitoringWindow.SetTitle("Segra \u76e3\u63a7");
-                    MonitoringWindow.WaitForClose();
                 }
                 catch (Exception ex)
                 {
                     Log.Warning(ex, "Chromeless monitoring window failed; falling back to framed window");
                     MonitoringWindow = CreateMonitoringPhotinoWindow(monitoringUrl, chromeless: false);
                     MonitoringWindow.SetTitle("Segra \u76e3\u63a7");
-                    MonitoringWindow.WaitForClose();
                 }
 
-                _ = MessageService.SendFrontendMessage("MonitoringWindowState", new { open = true });
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(400);
-                    await MessageService.SendSettingsToFrontend("Monitoring window opened");
-                    await MessageService.SendGameList();
-                });
-                Log.Information("Monitoring window opened");
+                NotifyMonitoringWindowOpened();
+#if WINDOWS
+                SchedulePresentMonitoringWindow(activate: true);
+#endif
+                MonitoringWindow.WaitForClose();
             }
             catch (Exception ex)
             {
                 MonitoringWindow = null;
                 Log.Error(ex, "Error showing monitoring window");
             }
+        }
+
+        private static void NotifyMonitoringWindowOpened()
+        {
+            _ = MessageService.SendFrontendMessage("MonitoringWindowState", new { open = true });
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(400);
+                await MessageService.SendSettingsToFrontend("Monitoring window opened");
+                await MessageService.SendGameList();
+            });
+            Log.Information("Monitoring window opened");
         }
 
         /// <summary>
@@ -1023,7 +1167,7 @@ namespace Segra.Backend.App
 #if WINDOWS
             try
             {
-                IntPtr hWnd = Process.GetCurrentProcess().MainWindowHandle;
+                IntPtr hWnd = GetMainWindowHandle();
                 if (hWnd == IntPtr.Zero)
                     return;
 
@@ -1052,13 +1196,212 @@ namespace Segra.Backend.App
 #endif
         }
 
+        private static IntPtr GetMainWindowHandle()
+        {
+            try
+            {
+                return Window?.WindowHandle ?? IntPtr.Zero;
+            }
+            catch
+            {
+                return IntPtr.Zero;
+            }
+        }
+
+        private static bool TryGetMonitoringWindowHandle(out IntPtr hwnd)
+        {
+            hwnd = IntPtr.Zero;
+            try
+            {
+                if (MonitoringWindow == null) return false;
+                hwnd = MonitoringWindow.WindowHandle;
+                return hwnd != IntPtr.Zero;
+            }
+            catch (ApplicationException)
+            {
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryGetMainMonitorWorkArea(out Rectangle work)
+        {
+            work = default;
+#if WINDOWS
+            try
+            {
+                IntPtr hwnd = GetMainWindowHandle();
+                if (hwnd == IntPtr.Zero) return false;
+
+                IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                if (monitor == IntPtr.Zero) return false;
+
+                var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+                if (!GetMonitorInfo(monitor, ref info)) return false;
+
+                work = Rectangle.FromLTRB(
+                    info.rcWork.Left, info.rcWork.Top, info.rcWork.Right, info.rcWork.Bottom);
+                return work.Width > 0 && work.Height > 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to get main window monitor work area");
+            }
+#endif
+            return false;
+        }
+
+        private static bool IsLocationUsableOnWorkArea(Point location, Size size, Rectangle work)
+        {
+            int w = Math.Max(size.Width, 64);
+            int h = Math.Max(size.Height, 32);
+            var hit = Rectangle.Intersect(work, new Rectangle(location.X, location.Y, w, h));
+            return hit.Width >= 64 && hit.Height >= 32;
+        }
+
+        private static Point GetPipLocationOnMainMonitor(Size size)
+        {
+#if WINDOWS
+            if (TryGetMainMonitorWorkArea(out var work))
+            {
+                if (_monitoringWindowLocation.HasValue &&
+                    IsLocationUsableOnWorkArea(_monitoringWindowLocation.Value, size, work))
+                {
+                    return _monitoringWindowLocation.Value;
+                }
+
+                int x = Math.Max(work.Left, work.Right - size.Width - 16);
+                int y = Math.Max(work.Top, work.Bottom - size.Height - 16);
+                return new Point(x, y);
+            }
+#endif
+            return GetCenteredMonitoringLocation(size);
+        }
+
+        private static void PresentMonitoringWindow(bool activate)
+        {
+#if WINDOWS
+            try
+            {
+                if (!TryGetMonitoringWindowHandle(out IntPtr hwnd))
+                    return;
+
+                var size = MonitoringWindow!.Size;
+                if (size.Width <= 0 || size.Height <= 0)
+                    size = GetScaledMonitoringDefaultSize();
+
+                var location = GetPipLocationOnMainMonitor(size);
+
+                ShowWindow(hwnd, SW_RESTORE);
+                ShowWindow(hwnd, activate ? SW_SHOW : SW_SHOWNOACTIVATE);
+
+                SetWindowPos(
+                    hwnd,
+                    _monitoringWindowTopMost ? HWND_TOPMOST : IntPtr.Zero,
+                    location.X,
+                    location.Y,
+                    size.Width,
+                    size.Height,
+                    SWP_SHOWWINDOW | (activate ? 0u : SWP_NOACTIVATE));
+
+                try
+                {
+                    MonitoringWindow.SetLocation(location);
+                    MonitoringWindow.SetSize(size);
+                    MonitoringWindow.SetMinimized(false);
+                    if (_monitoringWindowTopMost)
+                        MonitoringWindow.SetTopMost(true);
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "Photino bounds sync after present failed");
+                }
+
+                _monitoringWindowLocation = location;
+                _monitoringWindowSize = size;
+
+                if (activate)
+                    FocusMonitoringWindow();
+
+                Log.Information(
+                    "Presented monitoring window at {X},{Y} {Width}x{Height}",
+                    location.X, location.Y, size.Width, size.Height);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to present monitoring window");
+            }
+#endif
+        }
+
+        private static void SchedulePresentMonitoringWindow(bool activate)
+        {
+            _ = Task.Run(async () =>
+            {
+                for (int i = 0; i < 40; i++)
+                {
+                    await Task.Delay(50);
+                    if (MonitoringWindow == null) return;
+                    if (!TryGetMonitoringWindowHandle(out _)) continue;
+
+                    try
+                    {
+                        Window?.Invoke(() => PresentMonitoringWindow(activate));
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "PresentMonitoringWindow invoke failed");
+                    }
+                    return;
+                }
+
+                Log.Warning("Monitoring window HWND was not ready to present");
+            });
+        }
+
+        /// <summary>
+        /// Owned windows are hidden with their owner. Detach only if hide left the PiP invisible.
+        /// </summary>
+        private static void DetachMonitoringWindowOwner()
+        {
+#if WINDOWS
+            try
+            {
+                if (!TryGetMonitoringWindowHandle(out IntPtr hwnd)) return;
+
+                IntPtr owner = GetWindowLongPtr(hwnd, GWLP_HWNDPARENT);
+                if (owner == IntPtr.Zero) return;
+
+                SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, IntPtr.Zero);
+                ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to detach monitoring window owner");
+            }
+#endif
+        }
+
         private static void HideApplicationWindow()
         {
-            Window?.SetMinimized(true);
-
 #if WINDOWS
-            IntPtr hWnd = Process.GetCurrentProcess().MainWindowHandle;
-            ShowWindow(hWnd, SW_HIDE); // Hides the window from the taskbar
+            // Photino SetMinimized on the parent can also minimize the owned PiP.
+            IntPtr hWnd = GetMainWindowHandle();
+            if (hWnd != IntPtr.Zero)
+                ShowWindow(hWnd, SW_HIDE);
+
+            PresentMonitoringWindow(activate: false);
+
+            if (TryGetMonitoringWindowHandle(out IntPtr pip) && !IsWindowVisible(pip))
+            {
+                DetachMonitoringWindowOwner();
+                PresentMonitoringWindow(activate: false);
+            }
+#else
+            Window?.SetMinimized(true);
 #endif
 
             Log.Information("Application window hidden");

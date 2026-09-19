@@ -28,14 +28,18 @@ import {
   PictureInPicture2,
   Inbox,
   FolderOpen,
+  Trash2,
+  PanelLeftClose,
+  PanelLeftOpen,
   LucideIcon,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback } from 'react';
 import Button from './Components/Button';
 import { useMonitoringLayout } from './Context/MonitoringLayoutContext';
 import {
   MenuItemId,
+  MENU_ITEM,
   menuItemHasContent,
   normalizeMenuItems,
   getActiveRecordings,
@@ -50,19 +54,34 @@ interface MenuProps {
 }
 
 const MENU_ICONS: Record<MenuItemId, LucideIcon> = {
-  'Full Sessions': Play,
-  'Replay Buffer': History,
-  待剪輯: Inbox,
-  瀏覽影片: FolderOpen,
-  Clips: Clapperboard,
-  Highlights: Crown,
-  Settings: Settings,
+  [MENU_ITEM.Sessions]: Play,
+  [MENU_ITEM.ReplayBuffer]: History,
+  [MENU_ITEM.PendingEdit]: Inbox,
+  [MENU_ITEM.ReadyToDelete]: Trash2,
+  [MENU_ITEM.BrowseVideos]: FolderOpen,
+  [MENU_ITEM.Clips]: Clapperboard,
+  [MENU_ITEM.Highlights]: Crown,
+  [MENU_ITEM.Settings]: Settings,
+};
+
+const SIDEBAR_MODE_KEY = 'segra-sidebar-mode';
+type SidebarMode = 'expanded' | 'icons' | 'hidden';
+
+const readSidebarMode = (): SidebarMode => {
+  try {
+    const value = localStorage.getItem(SIDEBAR_MODE_KEY);
+    if (value === 'icons' || value === 'hidden' || value === 'expanded') return value;
+  } catch {
+    /* private mode / quota */
+  }
+  return 'expanded';
 };
 
 export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   const settings = useSettings();
   const appState = useAppState();
-  const { enterMonitoringLayout, monitoringWindowOpen } = useMonitoringLayout();
+  const { enterMonitoringLayout, exitMonitoringLayout, monitoringWindowOpen } =
+    useMonitoringLayout();
   const { hasLoadedObs } = appState;
   const activeRecordings = getActiveRecordings(appState);
   const activePreRecordings = getActivePreRecordings(appState);
@@ -75,7 +94,22 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
   const { aiProgress } = useAiHighlights();
   const { obsDownloadProgress } = useObsDownload();
   const { migrations: contentMigrations, isMigrating } = useContentMigration();
+  const { uploads } = useUploads();
+  const { imports } = useImports();
+  const { clippingProgress } = useClipping();
   const [buttonCooldown, setButtonCooldown] = useState(false);
+  const [sidebarMode, setSidebarModeState] = useState<SidebarMode>(readSidebarMode);
+
+  const setSidebarMode = useCallback((mode: SidebarMode) => {
+    setSidebarModeState(mode);
+    try {
+      localStorage.setItem(SIDEBAR_MODE_KEY, mode);
+    } catch {
+      /* private mode / quota */
+    }
+  }, []);
+
+  const isIcons = sidebarMode === 'icons';
 
   const buttonRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [indicatorPosition, setIndicatorPosition] = useState({ top: 12 });
@@ -86,7 +120,9 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
     // Force-show items that contain content so the user always has a way to reach their files.
     return items.filter(
       (item) =>
-        item.id === 'Settings' || item.visible || menuItemHasContent(item.id, appState.content),
+        item.id === MENU_ITEM.Settings ||
+        item.visible ||
+        menuItemHasContent(item.id, appState.content),
     );
   }, [settings.menuItems, appState.content]);
 
@@ -104,7 +140,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
     computeIndicatorPosition();
     const timeoutId = setTimeout(computeIndicatorPosition, 220);
     return () => clearTimeout(timeoutId);
-  }, [selectedMenu, visibleMenuItems]);
+  }, [selectedMenu, visibleMenuItems, sidebarMode]);
 
   useEffect(() => {
     setIndicatorAnimated(true);
@@ -130,10 +166,31 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
     return unavailableInput || unavailableOutput;
   };
 
+  if (sidebarMode === 'hidden') {
+    return (
+      <div className="h-screen w-8 bg-base-300 border-r border-base-400 flex flex-col items-center pt-2 shrink-0">
+        <Button
+          variant="ghost"
+          className="min-h-8 h-8 w-8 p-0"
+          title="展開選單"
+          onClick={() => setSidebarMode('expanded')}
+        >
+          <PanelLeftOpen className="w-4 h-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  const padX = isIcons ? 'px-1' : 'px-4';
+
   return (
-    <div className="bg-base-300 w-56 h-screen flex flex-col border-r border-base-400">
+    <div
+      className={`bg-base-300 h-screen flex flex-col border-r border-base-400 overflow-hidden transition-[width] duration-200 ease-in-out ${
+        isIcons ? 'w-14' : 'w-56'
+      }`}
+    >
       {/* Menu Items */}
-      <div className="flex flex-col px-4 text-left py-2 relative mt-2">
+      <div className={`flex flex-col ${padX} text-left py-2 relative mt-2`}>
         <div
           className={`absolute w-1.5 bg-primary rounded-r ${
             indicatorAnimated ? 'transition-all duration-200 ease-in-out' : ''
@@ -148,49 +205,62 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
           {visibleMenuItems.map(({ id }) => {
             const Icon = MENU_ICONS[id];
             const isActive = selectedMenu === id;
-            const isDisabled = isMigrating && id !== 'Settings';
+            const isDisabled = isMigrating && id !== MENU_ITEM.Settings;
+            const iconClass = isIcons
+              ? '!justify-center px-0 min-h-10'
+              : id === MENU_ITEM.Highlights
+                ? 'justify-between'
+                : '';
 
             const buttonNode =
-              id === 'Highlights' ? (
+              id === MENU_ITEM.Highlights ? (
                 <Button
                   variant="nav"
-                  className={`justify-between ${isActive ? 'text-primary' : ''}`}
+                  className={`${iconClass} ${isActive ? 'text-primary' : ''}`}
                   disabled={isDisabled}
+                  title={id}
                   onMouseDown={() => onSelectMenu(id)}
                 >
                   <span className="flex items-center gap-2">
-                    <Icon className="w-5 h-5" />
-                    {id}
+                    {hasActiveAiHighlights && !isActive && isIcons ? (
+                      <CircularProgress progress={averageAiProgress} size={20} strokeWidth={2} />
+                    ) : (
+                      <Icon className="w-5 h-5" />
+                    )}
+                    {!isIcons && id}
                   </span>
-                  <div className="ml-auto flex items-center">
-                    <AnimatePresence>
-                      {hasActiveAiHighlights && !isActive && (
-                        <motion.div
-                          className="flex items-center justify-center"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <CircularProgress
-                            progress={averageAiProgress}
-                            size={24}
-                            strokeWidth={2}
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  {!isIcons && (
+                    <div className="ml-auto flex items-center">
+                      <AnimatePresence>
+                        {hasActiveAiHighlights && !isActive && (
+                          <motion.div
+                            className="flex items-center justify-center"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <CircularProgress
+                              progress={averageAiProgress}
+                              size={24}
+                              strokeWidth={2}
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
                 </Button>
               ) : (
                 <Button
                   variant="nav"
-                  className={isActive ? 'text-primary' : ''}
+                  className={`${iconClass} ${isActive ? 'text-primary' : ''}`}
                   disabled={isDisabled}
+                  title={id}
                   onMouseDown={() => onSelectMenu(id)}
                 >
                   <Icon className="w-5 h-5" />
-                  {id}
+                  {!isIcons && id}
                 </Button>
               );
 
@@ -214,123 +284,149 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         </AnimatePresence>
       </div>
 
-      <div className="px-4 pb-1">
+      <div className={`${padX} pb-1`}>
         <Button
           variant="ghost"
-          className={`w-full justify-start gap-2 hover:bg-white/5 hover:text-gray-200 ${
-            monitoringWindowOpen ? 'text-primary' : 'text-gray-400'
-          }`}
-          onClick={() => enterMonitoringLayout()}
+          className={`w-full hover:bg-white/5 hover:text-gray-200 ${
+            isIcons ? '!justify-center px-0 min-h-10' : 'justify-start gap-2'
+          } ${monitoringWindowOpen ? 'text-primary' : 'text-gray-400'}`}
+          onClick={() => (monitoringWindowOpen ? exitMonitoringLayout() : enterMonitoringLayout())}
           title={
-            monitoringWindowOpen ? '極簡監控視窗已開啟（點擊可聚焦）' : '開啟獨立的極簡監控視窗'
+            monitoringWindowOpen ? '極簡監控視窗已開啟（點擊可關閉）' : '開啟獨立的極簡監控視窗'
           }
         >
           <PictureInPicture2 className="h-5 w-5 shrink-0" />
-          極簡監控
+          {!isIcons && '極簡監控'}
         </Button>
       </div>
 
       <div className="grow"></div>
 
       {/* Status Cards */}
-      <div className="mt-auto p-2 space-y-1.5 max-h-[min(52vh,28rem)] overflow-y-auto overflow-x-hidden shrink-0">
-        <AnimatePresence>
-          {updateInfo && (
-            <AnimatedCard key="update-card">
-              <UpdateCard />
-            </AnimatedCard>
-          )}
-        </AnimatePresence>
+      {!isIcons && (
+        <div className="mt-auto p-2 space-y-1.5 max-h-[min(52vh,28rem)] overflow-y-auto overflow-x-hidden shrink-0">
+          <AnimatePresence>
+            {updateInfo && (
+              <AnimatedCard key="update-card">
+                <UpdateCard />
+              </AnimatedCard>
+            )}
+          </AnimatePresence>
 
-        <AnimatePresence>
-          {Object.values(useUploads().uploads).map((file) => (
-            <AnimatedCard key={file.fileName}>
-              <UploadCard upload={file} />
-            </AnimatedCard>
-          ))}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {Object.values(useImports().imports).map((importItem) => (
-            <AnimatedCard key={importItem.id}>
-              <ImportCard importItem={importItem} />
-            </AnimatedCard>
-          ))}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {Object.values(contentMigrations).map((migration) => (
-            <AnimatedCard key={migration.id}>
-              <ContentMigrationCard migration={migration} />
-            </AnimatedCard>
-          ))}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {hasUnavailableDevices() && (
-            <AnimatedCard key="unavailable-device-card">
-              <UnavailableDeviceCard />
-            </AnimatedCard>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {activePreRecordings.map((pre) => (
-            <AnimatedCard key={`pre-recording-${pre.slot ?? pre.game}`}>
-              <RecordingCard preRecording={pre} />
-            </AnimatedCard>
-          ))}
-          {activeRecordings
-            .filter((r) => r.endTime == null || r.endTime === undefined)
-            .map((rec) => (
-              <AnimatedCard key={`recording-${rec.slot ?? rec.game}`}>
-                <RecordingCard recording={rec} />
+          <AnimatePresence>
+            {Object.values(uploads).map((file) => (
+              <AnimatedCard key={file.fileName}>
+                <UploadCard upload={file} />
               </AnimatedCard>
             ))}
-        </AnimatePresence>
+          </AnimatePresence>
 
-        <AnimatePresence>
-          {Object.values(useClipping().clippingProgress).map((clipping) => (
-            <AnimatedCard key={clipping.id}>
-              <ClippingCard clipping={clipping} />
-            </AnimatedCard>
-          ))}
-        </AnimatePresence>
-      </div>
+          <AnimatePresence>
+            {Object.values(imports).map((importItem) => (
+              <AnimatedCard key={importItem.id}>
+                <ImportCard importItem={importItem} />
+              </AnimatedCard>
+            ))}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {Object.values(contentMigrations).map((migration) => (
+              <AnimatedCard key={migration.id}>
+                <ContentMigrationCard migration={migration} />
+              </AnimatedCard>
+            ))}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {hasUnavailableDevices() && (
+              <AnimatedCard key="unavailable-device-card">
+                <UnavailableDeviceCard />
+              </AnimatedCard>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {activePreRecordings.map((pre) => (
+              <AnimatedCard key={`pre-recording-${pre.slot ?? pre.game}`}>
+                <RecordingCard preRecording={pre} />
+              </AnimatedCard>
+            ))}
+            {activeRecordings
+              .filter((r) => r.endTime == null || r.endTime === undefined)
+              .map((rec) => (
+                <AnimatedCard key={`recording-${rec.slot ?? rec.game}`}>
+                  <RecordingCard recording={rec} />
+                </AnimatedCard>
+              ))}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {Object.values(clippingProgress).map((clipping) => (
+              <AnimatedCard key={clipping.id}>
+                <ClippingCard clipping={clipping} />
+              </AnimatedCard>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
 
       {!hasLoadedObs && (
-        <div className="mb-4 flex flex-col items-center px-4">
+        <div className={`mb-4 flex flex-col items-center ${padX}`}>
           {obsDownloadProgress !== null && obsDownloadProgress < 100 ? (
             <>
-              <p className="text-center text-sm text-gray-300 mb-2">Downloading OBS</p>
+              {!isIcons && (
+                <p className="text-center text-sm text-gray-300 mb-2">Downloading OBS</p>
+              )}
               <div className="w-full bg-base-200 rounded-full h-1.5">
                 <div
                   className="h-1.5 rounded-full bg-primary transition-all duration-300"
                   style={{ width: `${obsDownloadProgress}%` }}
                 ></div>
               </div>
-              <p className="text-gray-500 text-xs mt-1">{obsDownloadProgress}%</p>
+              {!isIcons && <p className="text-gray-500 text-xs mt-1">{obsDownloadProgress}%</p>}
             </>
           ) : (
             <>
               <div
                 style={{
-                  width: '3.5rem',
+                  width: isIcons ? '1.5rem' : '3.5rem',
                   height: '2rem',
                 }}
                 className="loading loading-infinity"
               ></div>
-              <p className="text-center mt-2 disabled">Starting OBS</p>
+              {!isIcons && <p className="text-center mt-2 disabled">Starting OBS</p>}
             </>
           )}
         </div>
       )}
 
-      <div className="mb-4 px-4">
+      <div className={`${padX} pb-1 flex flex-col gap-1`}>
+        {isIcons && (
+          <Button
+            variant="ghost"
+            className="w-full min-h-8 h-8 p-0"
+            title="展開選單"
+            onClick={() => setSidebarMode('expanded')}
+          >
+            <PanelLeftOpen className="w-4 h-4" />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          className={isIcons ? 'w-full min-h-8 h-8 p-0' : 'w-full justify-start gap-2'}
+          title={isIcons ? '完全收起選單' : '收合成圖示'}
+          onClick={() => setSidebarMode(isIcons ? 'hidden' : 'icons')}
+        >
+          <PanelLeftClose className="w-4 h-4 shrink-0" />
+          {!isIcons && '收合側欄'}
+        </Button>
+      </div>
+
+      <div className={`mb-4 ${padX}`}>
         <div className="flex flex-col items-center z-50">
           <Button
             variant="primary"
-            className="w-full h-12"
+            className={`w-full h-12 ${isIcons ? 'min-h-12 px-0' : ''}`}
             disabled={
               buttonCooldown ||
               !appState.hasLoadedObs ||
@@ -339,8 +435,12 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
             }
             title={
               hasLiveActivity && !useGlobalStop
-                ? '雙路錄製中：請在各 Recording 卡片上個別停止'
-                : undefined
+                ? isIcons
+                  ? '雙路錄製中：請展開側欄，在各 Recording 卡片上個別停止'
+                  : '雙路錄製中：請在各 Recording 卡片上個別停止'
+                : hasLiveActivity
+                  ? 'Stop'
+                  : 'Display Capture'
             }
             onClick={() => {
               setButtonCooldown(true);
@@ -352,15 +452,15 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
               useGlobalStop ? (
                 <>
                   <OctagonX className="w-4 h-4" />
-                  Stop
+                  {!isIcons && 'Stop'}
                 </>
               ) : (
-                <>雙路錄製中</>
+                <>{isIcons ? <OctagonX className="w-4 h-4" /> : '雙路錄製中'}</>
               )
             ) : (
               <>
                 <Monitor className="w-4 h-4" />
-                Display Capture
+                {!isIcons && 'Display Capture'}
               </>
             )}
           </Button>

@@ -1,6 +1,24 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import { Content, BookmarkType, Segment, Bookmark } from '../Models/types';
+import {
+  Content,
+  BookmarkType,
+  Segment,
+  Bookmark,
+  CONTENT_TYPE_FOLDER,
+  MENU_ITEM,
+} from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
+import {
+  isPendingEditSourceType,
+  resolvePendingEditSourceType,
+  sendMoveToPendingEdit,
+  sendMoveOutOfPendingEdit,
+} from '../Utils/PendingEditUtils';
+import {
+  isRecordingSourceType,
+  resolveRecordingSourceType,
+  sendMoveOutOfReadyToDelete,
+} from '../Utils/ReadyToDeleteUtils';
 import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
 import { useAppState } from '../Context/AppStateContext';
 import { openFileLocation } from '../Utils/FileUtils';
@@ -169,6 +187,9 @@ interface TopInfoBarProps {
   onMoveOutOfPendingEdit: (targetType?: 'Session' | 'Buffer') => void;
   showMoveOutOfPendingEdit: boolean;
   pendingEditSourceType?: 'Session' | 'Buffer';
+  onMoveOutOfReadyToDelete: (targetType?: 'Session' | 'Buffer') => void;
+  showMoveOutOfReadyToDelete: boolean;
+  readyToDeleteSourceType?: 'Session' | 'Buffer';
 }
 
 function TopInfoBar({
@@ -184,6 +205,9 @@ function TopInfoBar({
   onMoveOutOfPendingEdit,
   showMoveOutOfPendingEdit,
   pendingEditSourceType,
+  onMoveOutOfReadyToDelete,
+  showMoveOutOfReadyToDelete,
+  readyToDeleteSourceType,
 }: TopInfoBarProps) {
   const { setSelectedVideo } = useSelectedVideo();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -307,7 +331,7 @@ function TopInfoBar({
               size="xs"
               className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
               onClick={() => onMoveOutOfPendingEdit(pendingEditSourceType)}
-              title={`移出待剪輯，回到 ${pendingEditSourceType === 'Buffer' ? 'Replay Buffer' : 'Full Sessions'}`}
+              title={`移出待剪輯，回到 ${pendingEditSourceType === 'Buffer' ? MENU_ITEM.ReplayBuffer : MENU_ITEM.Sessions}`}
             >
               <FolderOutput className="w-3.5 h-3.5" />
               <span className="hidden lg:inline">移出待剪輯</span>
@@ -319,7 +343,7 @@ function TopInfoBar({
                 size="xs"
                 className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
                 onClick={() => onMoveOutOfPendingEdit('Session')}
-                title="舊檔無來源記錄：移回 Full Sessions"
+                title={`舊檔無來源記錄：移回 ${MENU_ITEM.Sessions}`}
               >
                 <FolderOutput className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline">→ Sessions</span>
@@ -329,7 +353,43 @@ function TopInfoBar({
                 size="xs"
                 className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
                 onClick={() => onMoveOutOfPendingEdit('Buffer')}
-                title="舊檔無來源記錄：移回 Replay Buffer"
+                title={`舊檔無來源記錄：移回 ${MENU_ITEM.ReplayBuffer}`}
+              >
+                <FolderOutput className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">→ Buffer</span>
+              </Button>
+            </>
+          ))}
+        {showMoveOutOfReadyToDelete &&
+          (readyToDeleteSourceType ? (
+            <Button
+              variant="ghost"
+              size="xs"
+              className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
+              onClick={() => onMoveOutOfReadyToDelete(readyToDeleteSourceType)}
+              title={`移出準備刪除，回到 ${readyToDeleteSourceType === 'Buffer' ? MENU_ITEM.ReplayBuffer : MENU_ITEM.Sessions}`}
+            >
+              <FolderOutput className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">移出準備刪除</span>
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
+                onClick={() => onMoveOutOfReadyToDelete('Session')}
+                title={`舊檔無來源記錄：移回 ${MENU_ITEM.Sessions}`}
+              >
+                <FolderOutput className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">→ Sessions</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
+                onClick={() => onMoveOutOfReadyToDelete('Buffer')}
+                title={`舊檔無來源記錄：移回 ${MENU_ITEM.ReplayBuffer}`}
               >
                 <FolderOutput className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline">→ Buffer</span>
@@ -449,9 +509,11 @@ export default function VideoComponent({ video }: { video: Content }) {
   const showMoveToPendingEdit =
     (video.type === 'Session' || video.type === 'Buffer') && !isStickyInSourceCategory;
   const showMoveOutOfPendingEdit = video.type === 'PendingEdit' && !isStickyInSourceCategory;
+  const showMoveOutOfReadyToDelete = video.type === 'ReadyToDelete';
 
   // Refs (declared early — sync effect may capture playback across path changes)
   const videoRef = useRef<HTMLVideoElement>(null);
+  const userWantsPlayingRef = useRef(true);
   const resumeAfterPathChangeRef = useRef<{
     fileName: string;
     time: number;
@@ -498,23 +560,31 @@ export default function VideoComponent({ video }: { video: Content }) {
     if (video.type === 'Session' || video.type === 'Buffer') {
       pinStickySourceCategory(video.fileName, video.type);
     }
-    sendMessageToBackend('MoveToPendingEdit', {
-      Items: [{ FileName: video.fileName, ContentType: video.type }],
-    });
+    sendMoveToPendingEdit([{ fileName: video.fileName, contentType: video.type }]);
   }, [video.fileName, video.type, pinStickySourceCategory]);
 
   const handleMoveOutOfPendingEdit = useCallback(
     (targetType?: 'Session' | 'Buffer') => {
-      const resolved =
-        targetType ??
-        (video.pendingEditSourceType === 'Session' || video.pendingEditSourceType === 'Buffer'
-          ? video.pendingEditSourceType
-          : 'Session');
-      sendMessageToBackend('MoveOutOfPendingEdit', {
-        Items: [{ FileName: video.fileName, TargetType: resolved }],
-      });
+      sendMoveOutOfPendingEdit([
+        {
+          fileName: video.fileName,
+          targetType: targetType ?? resolvePendingEditSourceType(video.pendingEditSourceType),
+        },
+      ]);
     },
     [video.fileName, video.pendingEditSourceType],
+  );
+
+  const handleMoveOutOfReadyToDelete = useCallback(
+    (targetType?: 'Session' | 'Buffer') => {
+      sendMoveOutOfReadyToDelete([
+        {
+          fileName: video.fileName,
+          targetType: targetType ?? resolveRecordingSourceType(video.readyToDeleteSourceType),
+        },
+      ]);
+    },
+    [video.fileName, video.readyToDeleteSourceType],
   );
 
   useEffect(() => {
@@ -575,11 +645,13 @@ export default function VideoComponent({ video }: { video: Content }) {
     video.type === 'Session' ||
     video.type === 'Buffer' ||
     video.type === 'PendingEdit' ||
+    video.type === 'ReadyToDelete' ||
     video.type === 'External' ||
     isStickyInSourceCategory;
   const showBufferStyleCopy =
     viewType === 'Buffer' ||
     video.type === 'External' ||
+    video.type === 'ReadyToDelete' ||
     (video.type === 'PendingEdit' && !isStickyInSourceCategory);
 
   // Resume playback after a same-video path change (e.g. move to 待剪輯)
@@ -981,8 +1053,29 @@ export default function VideoComponent({ video }: { video: Content }) {
       setZoom(1);
     };
 
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
+    let resumingFromHide = false;
+    const onPlay = () => {
+      userWantsPlayingRef.current = true;
+      setIsPlaying(true);
+    };
+    const onPause = () => {
+      if (resumingFromHide) return;
+      if (document.visibilityState === 'hidden' && userWantsPlayingRef.current) {
+        resumingFromHide = true;
+        void vid.play().finally(() => {
+          resumingFromHide = false;
+        });
+        return;
+      }
+      userWantsPlayingRef.current = false;
+      setIsPlaying(false);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (userWantsPlayingRef.current && vid.paused) {
+        void vid.play().catch(() => {});
+      }
+    };
     const onVolumeChange = () => {
       if (vid) {
         // When multi-track audio is active, the video is muted by the hook
@@ -1010,6 +1103,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     vid.addEventListener('pause', onPause);
     vid.addEventListener('volumechange', onVolumeChange);
     vid.addEventListener('ratechange', onRateChange);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -1131,6 +1225,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       vid.removeEventListener('pause', onPause);
       vid.removeEventListener('volumechange', onVolumeChange);
       vid.removeEventListener('ratechange', onRateChange);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('keydown', handleKeyDown, keyOptions as any);
     };
   }, [
@@ -2109,19 +2204,7 @@ export default function VideoComponent({ video }: { video: Content }) {
 
   // Get audio waveform URL - waveforms are stored in AppData
   const getWaveformPath = (): string => {
-    // Map type to folder name for waveforms in AppData
-    const folderName =
-      video.type === 'Session'
-        ? 'Full Sessions'
-        : video.type === 'Buffer'
-          ? 'Replay Buffers'
-          : video.type === 'Clip'
-            ? 'Clips'
-            : video.type === 'PendingEdit'
-              ? '待剪輯'
-              : video.type === 'External'
-                ? '瀏覽影片'
-                : 'Highlights';
+    const folderName = CONTENT_TYPE_FOLDER[video.type];
     const waveformPath = `${appState.cacheFolder}/waveforms/${folderName}/${video.fileName}.peaks.json`;
     return `http://localhost:2222/api/content?input=${encodeURIComponent(waveformPath)}&type=${video.type.toLowerCase()}`;
   };
@@ -2306,13 +2389,20 @@ export default function VideoComponent({ video }: { video: Content }) {
             onMoveOutOfPendingEdit={handleMoveOutOfPendingEdit}
             showMoveOutOfPendingEdit={showMoveOutOfPendingEdit}
             pendingEditSourceType={
-              video.pendingEditSourceType === 'Session' || video.pendingEditSourceType === 'Buffer'
+              isPendingEditSourceType(video.pendingEditSourceType)
                 ? video.pendingEditSourceType
+                : undefined
+            }
+            onMoveOutOfReadyToDelete={handleMoveOutOfReadyToDelete}
+            showMoveOutOfReadyToDelete={showMoveOutOfReadyToDelete}
+            readyToDeleteSourceType={
+              isRecordingSourceType(video.readyToDeleteSourceType)
+                ? video.readyToDeleteSourceType
                 : undefined
             }
           />
           <div
-            className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen overflow-hidden bg-black' : 'relative flex-1 min-h-0 overflow-hidden'} ${!controlsVisible && isPointerInPlayer ? 'cursor-none' : ''}`}
+            className={`${isFullscreen ? 'fixed inset-0 z-50 overflow-hidden bg-black' : 'relative flex-1 min-h-0 overflow-hidden'} ${!controlsVisible && isPointerInPlayer ? 'cursor-none' : ''}`}
             ref={playerContainerRef}
             onMouseMove={() => {
               setIsPointerInPlayer(true);
