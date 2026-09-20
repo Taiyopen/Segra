@@ -1,4 +1,5 @@
 using Serilog;
+using System.Buffers;
 using System.Net;
 using System.Text.Json;
 using Segra.Backend.App;
@@ -58,7 +59,7 @@ namespace Segra.Backend.Media
                     _activeUploads[fileName] = cts;
                 }
 
-                byte[] fileBytes = await File.ReadAllBytesAsync(filePath, cts.Token);
+                var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
                 using var formData = new MultipartFormDataContent();
 
                 int lastSentProgress = -1;
@@ -96,7 +97,7 @@ namespace Segra.Backend.Media
                     }
                 }
 
-                var fileContent = new ProgressableStreamContent(fileBytes, "application/octet-stream", ProgressHandler, cts.Token);
+                var fileContent = new ProgressableStreamContent(fileStream, "application/octet-stream", ProgressHandler, cts.Token);
                 formData.Add(fileContent, "file", fileName);
 
                 AddOptionalContent(formData, message, "Game");
@@ -258,11 +259,11 @@ namespace Segra.Backend.Media
 
         public class ProgressableStreamContent : HttpContent
         {
-            private readonly byte[] _content;
+            private readonly Stream _content;
             private readonly Action<long, long> _progressCallback;
             private readonly CancellationToken _cancellationToken;
 
-            public ProgressableStreamContent(byte[] content, string mediaType, Action<long, long> progressCallback, CancellationToken cancellationToken = default)
+            public ProgressableStreamContent(Stream content, string mediaType, Action<long, long> progressCallback, CancellationToken cancellationToken = default)
             {
                 _content = content ?? throw new ArgumentNullException(nameof(content));
                 _progressCallback = progressCallback;
@@ -272,18 +273,26 @@ namespace Segra.Backend.Media
 
             protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
             {
+                if (_content.CanSeek)
+                    _content.Position = 0;
+
                 long totalBytes = _content.Length;
                 long totalWritten = 0;
-                int bufferSize = 4096;
+                byte[] buffer = ArrayPool<byte>.Shared.Rent(81920);
 
-                for (int i = 0; i < _content.Length; i += bufferSize)
+                try
                 {
-                    _cancellationToken.ThrowIfCancellationRequested();
-
-                    int toWrite = Math.Min(bufferSize, _content.Length - i);
-                    await stream.WriteAsync(_content.AsMemory(i, toWrite), _cancellationToken);
-                    totalWritten += toWrite;
-                    _progressCallback?.Invoke(totalWritten, totalBytes);
+                    int read;
+                    while ((read = await _content.ReadAsync(buffer, _cancellationToken)) > 0)
+                    {
+                        await stream.WriteAsync(buffer.AsMemory(0, read), _cancellationToken);
+                        totalWritten += read;
+                        _progressCallback?.Invoke(totalWritten, totalBytes);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
                 }
             }
 
@@ -291,6 +300,13 @@ namespace Segra.Backend.Media
             {
                 length = _content.Length;
                 return true;
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                    _content.Dispose();
+                base.Dispose(disposing);
             }
         }
 

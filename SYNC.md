@@ -129,9 +129,9 @@
 | 錄影卡切螢幕＋顯示器列舉 | `7b073dc` `9785b4e` | 已追上 | v1.7.5：**Recording**：錄影卡新增螢幕切換下拉，可改擷取顯示器。**Displays**：修顯示器名稱錯誤或重複，比較好挑對的螢幕。 | 2026-09-20 手移；雙槽／停止／PiP 保留；顯示擷取時切螢幕仍走全域 `selectedDisplay` | `RecordingCard`、`OBSService` |
 | Discord 分享聽得到 App 音訊 | `0e53ec5` | 未合 | v1.7.5：**Audio**：修在 Discord 分享 Segra 時沒聲音。 | | `video.tsx`、`Program.cs` |
 | 過期 FE 設定覆寫視窗位置 | `e6bab8c` | 未合 | v1.7.5：**Window State**：修過期的前端設定在啟動時覆寫已存的視窗大小與位置。 | 跟 `1ef10de`（記住視窗大小）當一組 | `Program.cs`、SettingsService |
-| Idle 記憶體 -24% | `797582e` | 未合 | v1.8.0：**Performance**：閒置記憶體降低 24%。 | 上傳／串流路徑一併少佔 RAM | `ContentService`、UploadService |
-| 播放記憶體 -28% | `2d5fa6e` | 未合 | v1.8.0：**Performance**：影片播放記憶體降低 28%。 | | `useAudioTracks.ts` |
-| 縮到托盤降低記憶體 | `7dad99e` | 未合 | v1.8.0：**Performance**：縮到托盤後降低記憶體用量。 | 隱藏時卸載 UI；**PiP 監控窗勿一併卸掉** | `Program.cs` |
+| Idle 記憶體 -24% | `797582e` | 已追上 | v1.8.0：**Performance**：閒置記憶體降低 24%。 | 2026-09-20 手移；波形仍先 ffmpeg mix 多軌再串流 PCM | `ContentService`、UploadService |
+| 播放記憶體 -28% | `2d5fa6e` | 已追上 | v1.8.0：**Performance**：影片播放記憶體降低 28%。 | 2026-09-20 手移；保留 Discord native tap | `useAudioTracks.ts` |
+| 縮到托盤降低記憶體 | `7dad99e` | 已追上 | v1.8.0：**Performance**：縮到托盤後降低記憶體用量。 | 2026-09-20 Photino.NET 近似：關主窗卸 WebView，先 detach PiP；不引入 PhotinoX | `Program.cs` |
 | 錄影預覽 full-fps | `2ce536b`（預覽） | 未合 | v1.7.5：**Recording Preview**：改善錄影中的預覽幀率。 | 同 commit 的設定排版見下方 ★★ | RecordingPreviewService |
 | 管理員遊戲熱鍵仍可用 | `56e947e` `970b3de` `18bd693` `66de0df` `456ee27` | 未合 | v1.8.0：**Hotkeys**：以系統管理員執行的遊戲裡熱鍵仍可用。 | 含 broker 關機／更新／deadlock | 新 `HotkeyBroker` 專案＋`Program.cs` |
 | hook 失敗改 window capture | `d111c2a` | 未合 | v1.8.0：**Recording**：遊戲 hook 失敗時改用 window capture。**Audio**：遊戲音訊改從遊戲行程擷取，不再靠 hook。**Audio**：Discord／TeamSpeak 擷取改與錄影同時開始，不再等 hook。**Recording**：顯示擷取改跟隨遊戲所在螢幕，螢幕設定只影響手動錄影。**Settings**：重新命名音訊模式。**Settings**：移除顯示擷取方式選項。 | 一 commit 對多條 Release，不要拆 | **熱檔** `OBSService`、`RecordingCard` |

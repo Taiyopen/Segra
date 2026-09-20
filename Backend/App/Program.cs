@@ -1471,8 +1471,11 @@ namespace Segra.Backend.App
                 }
 
                 SaveWindowState();
-                HideApplicationWindow();
-                return true;
+                DetachMonitoringWindowOwner();
+                PresentMonitoringWindow(activate: false);
+                Window = null;
+                Log.Information("Application window closing to tray");
+                return false;
             });
 
             Window.WaitForClose();
