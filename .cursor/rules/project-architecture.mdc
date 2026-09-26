@@ -39,7 +39,8 @@ Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內
 
 | 目錄 / 檔案 | 做什麼 |
 |---|---|
-| `Backend/App/Program.cs` | 進入點：Photino 主窗、PiP 監控窗、靜態檔 server（port 44040） |
+| `Backend/App/Program.cs` | 進入點：Photino 主窗、靜態檔 server（port 44040）、單一實例、全螢幕 |
+| `Backend/App/Program.MonitoringWindow.cs` | **fork**：PiP 監控窗（同一個 partial class；建立、定位、置頂、拖曳、記住位置） |
 | `Backend/App/MessageService.cs` | FE→BE 全部 Method 的 switch；改 API 先改這裡 |
 | `Backend/App/MigrationService.cs` | settings / 資料夾遷移 |
 | `Backend/Recorder/OBSService.cs` | OBS 生命週期、停止錄影、replay buffer、雙槽（最大檔） |
@@ -104,4 +105,4 @@ Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內
 - 新內容類型／資料夾名 → `FolderNames` + `ContentService` + FE pages
 - 遊戲偵測／封鎖 → `GameSettingsService` / `Settings.Games`（不要寫舊 `Whitelist`/`Blacklist`）
 - 剪輯時間軸 → `video.tsx` + `ClipService`
-- 監控窗 → `Program.cs`（第二 Photino）+ `MonitoringApp.tsx`
+- 監控窗 → `Program.MonitoringWindow.cs`（第二 Photino）+ `MonitoringApp.tsx`

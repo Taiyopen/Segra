@@ -31,7 +31,7 @@
 | 待剪輯 | `FolderNames`（`待剪輯`）、`ContentService`、`pending-edit.tsx` | UI 在 ContentCard／ContentPage／video.tsx 有重複 |
 | 瀏覽影片 | `BrowseService`、`browse-videos.tsx` | 仍放在 `Backend/Services/` |
 | 外部影片庫 | `ContentType.External`、`FolderNames` | 不計入儲存上限 |
-| 獨立 PiP 監控窗 | `Program.cs` MonitoringWindow、`MonitoringApp.tsx` | 第二 Photino；上游已遷 PhotinoX，合時必須手移 |
+| 獨立 PiP 監控窗 | `Program.MonitoringWindow.cs`、`MonitoringApp.tsx` | 第二 Photino；上游已遷 PhotinoX，合時必須手移 |
 | VRChat VVMW | `VrChatVvmwIntegration.cs` | replay-tail clip |
 | 剪輯設定強化 | clip bitrate／rate control、clear segments、上傳後開瀏覽器、多音軌 | 與上游 clip 改進有重疊，合時要對過 |
 | 監控／錄影 UX | 雙槽卡、preview meters、playlist | |
