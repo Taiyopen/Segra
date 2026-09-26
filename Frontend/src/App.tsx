@@ -5,6 +5,7 @@ import Sessions from './Pages/sessions';
 import Clips from './Pages/clips';
 import ReplayBuffer from './Pages/replay-buffer';
 import PendingEdit from './Pages/pending-edit';
+import ReadyToDelete from './Pages/ready-to-delete';
 import BrowseVideos from './Pages/browse-videos';
 import BrowseFileSidebar from './Components/BrowseFileSidebar';
 import Highlights from './Pages/highlights';
@@ -17,7 +18,13 @@ import { themeChange } from 'theme-change';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { DndProvider } from 'react-dnd';
 import { SegmentsProvider, useSegments } from './Context/SegmentsContext';
-import { Content, MenuItemId, menuItemHasContent, normalizeMenuItems } from './Models/types';
+import {
+  Content,
+  MenuItemId,
+  MENU_ITEM,
+  menuItemHasContent,
+  normalizeMenuItems,
+} from './Models/types';
 import { useSettings } from './Context/SettingsContext';
 import { useAppState } from './Context/AppStateContext';
 import { UploadProvider } from './Context/UploadContext';
@@ -80,13 +87,13 @@ function App() {
     const items = normalizeMenuItems(settings.menuItems);
 
     const isReachable = (id: MenuItemId) =>
-      id === 'Settings' ||
+      id === MENU_ITEM.Settings ||
       items.find((m) => m.id === id)?.visible === true ||
       menuItemHasContent(id, appState.content);
 
     if (isReachable(selectedMenu as MenuItemId)) return;
 
-    const defaultId = (settings.defaultMenuItem ?? 'Full Sessions') as MenuItemId;
+    const defaultId = (settings.defaultMenuItem ?? MENU_ITEM.Sessions) as MenuItemId;
     const fallback =
       (isReachable(defaultId) ? defaultId : null) ?? items.find((m) => isReachable(m.id))?.id;
     if (fallback) {
@@ -142,7 +149,7 @@ function App() {
   };
 
   const renderContent = () => {
-    const isBrowseMode = selectedMenu === '瀏覽影片';
+    const isBrowseMode = selectedMenu === MENU_ITEM.BrowseVideos;
 
     if (selectedVideo) {
       const videoView = (
@@ -168,19 +175,21 @@ function App() {
     }
 
     switch (selectedMenu) {
-      case 'Full Sessions':
+      case MENU_ITEM.Sessions:
         return <Sessions />;
-      case 'Replay Buffer':
+      case MENU_ITEM.ReplayBuffer:
         return <ReplayBuffer />;
-      case '待剪輯':
+      case MENU_ITEM.PendingEdit:
         return <PendingEdit />;
-      case '瀏覽影片':
+      case MENU_ITEM.ReadyToDelete:
+        return <ReadyToDelete />;
+      case MENU_ITEM.BrowseVideos:
         return <BrowseVideos />;
-      case 'Clips':
+      case MENU_ITEM.Clips:
         return <Clips />;
-      case 'Highlights':
+      case MENU_ITEM.Highlights:
         return <Highlights />;
-      case 'Settings':
+      case MENU_ITEM.Settings:
         return <Settings />;
       default:
         return <Sessions />;
@@ -190,7 +199,7 @@ function App() {
   return (
     <div className="flex h-screen w-screen">
       {needsUsername && <SetupProfileModal />}
-      <div className="h-full">
+      <div className="h-full shrink-0">
         <Menu selectedMenu={selectedMenu} onSelectMenu={handleMenuSelection} />
       </div>
       <div className="flex-1 h-full max-h-full overflow-auto">{renderContent()}</div>

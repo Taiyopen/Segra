@@ -1,13 +1,24 @@
 import { useAppState } from '../Context/AppStateContext';
 import ContentCard from './ContentCard';
 import { matchesContentCategory, useSelectedVideo } from '../Context/SelectedVideoContext';
-import { Content, ContentType } from '../Models/types';
+import { Content, ContentType, MENU_ITEM } from '../Models/types';
 import { useScroll } from '../Context/ScrollContext';
 import { useLayoutEffect, useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { FileUp, Trash2, Inbox, FolderOutput } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
+import {
+  isPendingEditSourceType,
+  resolvePendingEditSourceType,
+  sendMoveToPendingEdit,
+  sendMoveOutOfPendingEdit,
+} from '../Utils/PendingEditUtils';
+import {
+  isRecordingSourceType,
+  resolveRecordingSourceType,
+  sendMoveOutOfReadyToDelete,
+} from '../Utils/ReadyToDeleteUtils';
 import ContentFilters, { SortOption } from './ContentFilters';
 import { useModal } from '../Context/ModalContext';
 import { useImports } from '../Context/ImportContext';
@@ -210,10 +221,10 @@ This action cannot be undone.`,
     const items = Array.from(selectedItems).flatMap((fileName) => {
       const item = state.content.find((c) => c.fileName === fileName);
       // Skip items already moved to pending edit (sticky leftovers)
-      if (item?.type === 'PendingEdit') return [];
+      if (item?.type === 'PendingEdit' || item?.type === 'ReadyToDelete') return [];
       const sourceType =
         item?.type === 'Session' || item?.type === 'Buffer' ? item.type : contentType;
-      return [{ FileName: fileName, ContentType: sourceType }];
+      return [{ fileName, contentType: sourceType }];
     });
 
     if (items.length === 0) {
@@ -221,7 +232,7 @@ This action cannot be undone.`,
       return;
     }
 
-    sendMessageToBackend('MoveToPendingEdit', { Items: items });
+    sendMoveToPendingEdit(items);
     setSelectedItems(new Set());
   }, [selectedItems, contentType, state.content]);
 
@@ -232,14 +243,30 @@ This action cannot be undone.`,
 
       const items = Array.from(selectedItems).map((fileName) => {
         const item = state.content.find((c) => c.fileName === fileName);
-        const resolvedTarget =
-          targetType ??
-          (item?.pendingEditSourceType === 'Session' || item?.pendingEditSourceType === 'Buffer'
-            ? item.pendingEditSourceType
-            : 'Session');
-        return { FileName: fileName, TargetType: resolvedTarget };
+        return {
+          fileName,
+          targetType: targetType ?? resolvePendingEditSourceType(item?.pendingEditSourceType),
+        };
       });
-      sendMessageToBackend('MoveOutOfPendingEdit', { Items: items });
+      sendMoveOutOfPendingEdit(items);
+      setSelectedItems(new Set());
+    },
+    [selectedItems, contentType, state.content],
+  );
+
+  const handleMoveSelectedOutOfReadyToDelete = useCallback(
+    (targetType?: 'Session' | 'Buffer') => {
+      if (selectedItems.size === 0) return;
+      if (contentType !== 'ReadyToDelete') return;
+
+      const items = Array.from(selectedItems).map((fileName) => {
+        const item = state.content.find((c) => c.fileName === fileName);
+        return {
+          fileName,
+          targetType: targetType ?? resolveRecordingSourceType(item?.readyToDeleteSourceType),
+        };
+      });
+      sendMoveOutOfReadyToDelete(items);
       setSelectedItems(new Set());
     },
     [selectedItems, contentType, state.content],
@@ -249,7 +276,15 @@ This action cannot be undone.`,
     if (contentType !== 'PendingEdit' || selectedItems.size === 0) return false;
     return Array.from(selectedItems).some((fileName) => {
       const item = state.content.find((c) => c.fileName === fileName);
-      return item?.pendingEditSourceType !== 'Session' && item?.pendingEditSourceType !== 'Buffer';
+      return !isPendingEditSourceType(item?.pendingEditSourceType);
+    });
+  }, [contentType, selectedItems, state.content]);
+
+  const selectedReadyToDeleteNeedsTargetChoice = useMemo(() => {
+    if (contentType !== 'ReadyToDelete' || selectedItems.size === 0) return false;
+    return Array.from(selectedItems).some((fileName) => {
+      const item = state.content.find((c) => c.fileName === fileName);
+      return !isRecordingSourceType(item?.readyToDeleteSourceType);
     });
   }, [contentType, selectedItems, state.content]);
 
@@ -596,13 +631,32 @@ This action cannot be undone.`,
                 selectedItems.size === 0
                   ? '先按住 Ctrl 點選卡片（或 Ctrl+A 全選），將選取的影片移回原本分類'
                   : selectedPendingEditNeedsTargetChoice
-                    ? '選取項目含舊檔（無來源記錄）；請用下方多選列選擇移回 Full Sessions 或 Replay Buffer'
-                    : '將選取的影片移出「待剪輯」，回到原本的 Full Sessions / Replay Buffer'
+                    ? `選取項目含舊檔（無來源記錄）；請用下方多選列選擇移回 ${MENU_ITEM.Sessions} 或 ${MENU_ITEM.ReplayBuffer}`
+                    : `將選取的影片移出「待剪輯」，回到原本的 ${MENU_ITEM.Sessions} / ${MENU_ITEM.ReplayBuffer}`
               }
               onClick={() => handleMoveSelectedOutOfPendingEdit()}
             >
               <FolderOutput size={16} />
               移出待剪輯
+            </Button>
+          )}
+          {sectionId === 'readyToDelete' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="no-animation h-8 gap-1 border border-base-400 hover:border-opacity-75"
+              disabled={selectedItems.size === 0 || selectedReadyToDeleteNeedsTargetChoice}
+              title={
+                selectedItems.size === 0
+                  ? '先按住 Ctrl 點選卡片（或 Ctrl+A 全選），將選取的影片搬回原本分類'
+                  : selectedReadyToDeleteNeedsTargetChoice
+                    ? `選取項目含舊檔（無來源記錄）；請用下方多選列選擇移回 ${MENU_ITEM.Sessions} 或 ${MENU_ITEM.ReplayBuffer}`
+                    : `將選取的影片移出「準備刪除」，回到原本的 ${MENU_ITEM.Sessions} / ${MENU_ITEM.ReplayBuffer}`
+              }
+              onClick={() => handleMoveSelectedOutOfReadyToDelete()}
+            >
+              <FolderOutput size={16} />
+              移出準備刪除
             </Button>
           )}
           <ContentFilters
@@ -684,7 +738,7 @@ This action cannot be undone.`,
                     onClick={() => handleMoveSelectedOutOfPendingEdit('Session')}
                   >
                     <FolderOutput size={16} />
-                    Full Sessions
+                    {MENU_ITEM.Sessions}
                   </Button>
                   <Button
                     variant="ghost"
@@ -693,7 +747,7 @@ This action cannot be undone.`,
                     onClick={() => handleMoveSelectedOutOfPendingEdit('Buffer')}
                   >
                     <FolderOutput size={16} />
-                    Replay Buffer
+                    {MENU_ITEM.ReplayBuffer}
                   </Button>
                 </>
               ) : (
@@ -705,6 +759,39 @@ This action cannot be undone.`,
                 >
                   <FolderOutput size={16} />
                   移出待剪輯
+                </Button>
+              ))}
+            {sectionId === 'readyToDelete' &&
+              (selectedReadyToDeleteNeedsTargetChoice ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 border border-base-400"
+                    onClick={() => handleMoveSelectedOutOfReadyToDelete('Session')}
+                  >
+                    <FolderOutput size={16} />
+                    {MENU_ITEM.Sessions}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 border border-base-400"
+                    onClick={() => handleMoveSelectedOutOfReadyToDelete('Buffer')}
+                  >
+                    <FolderOutput size={16} />
+                    {MENU_ITEM.ReplayBuffer}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 border border-base-400"
+                  onClick={() => handleMoveSelectedOutOfReadyToDelete()}
+                >
+                  <FolderOutput size={16} />
+                  移出準備刪除
                 </Button>
               ))}
             <Button variant="danger" size="sm" className="h-8" onClick={handleDeleteSelected}>

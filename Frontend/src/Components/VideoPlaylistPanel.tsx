@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Content } from '../Models/types';
+import { Content, CONTENT_TYPE_FOLDER } from '../Models/types';
 import { useAppState } from '../Context/AppStateContext';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -12,18 +12,7 @@ interface VideoPlaylistPanelProps {
 }
 
 function getThumbnailPath(cacheFolder: string, video: Content): string {
-  const folderName =
-    video.type === 'Session'
-      ? 'Full Sessions'
-      : video.type === 'Buffer'
-        ? 'Replay Buffers'
-        : video.type === 'Clip'
-          ? 'Clips'
-          : video.type === 'PendingEdit'
-            ? '待剪輯'
-            : video.type === 'External'
-              ? '瀏覽影片'
-              : 'Highlights';
+  const folderName = CONTENT_TYPE_FOLDER[video.type];
   const thumbnailPath = `${cacheFolder}/thumbnails/${folderName}/${video.fileName}.jpeg`;
   return `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(thumbnailPath)}`;
 }

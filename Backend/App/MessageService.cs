@@ -164,26 +164,6 @@ namespace Segra.Backend.App
                             Log.Information("CheckForUpdates command received.");
                             _ = Task.Run(() => UpdateService.UpdateAppIfNecessary(forceCheck: true));
                             break;
-                        case "AddToWhitelist":
-                            root.TryGetProperty("Parameters", out JsonElement addWhitelistParameterElement);
-                            await HandleAddToWhitelist(addWhitelistParameterElement);
-                            break;
-                        case "RemoveFromWhitelist":
-                            root.TryGetProperty("Parameters", out JsonElement removeWhitelistParameterElement);
-                            await HandleRemoveFromWhitelist(removeWhitelistParameterElement);
-                            break;
-                        case "AddToBlacklist":
-                            root.TryGetProperty("Parameters", out JsonElement addBlacklistParameterElement);
-                            await HandleAddToBlacklist(addBlacklistParameterElement);
-                            break;
-                        case "RemoveFromBlacklist":
-                            root.TryGetProperty("Parameters", out JsonElement removeBlacklistParameterElement);
-                            await HandleRemoveFromBlacklist(removeBlacklistParameterElement);
-                            break;
-                        case "MoveGame":
-                            root.TryGetProperty("Parameters", out JsonElement moveGameParameterElement);
-                            await HandleMoveGame(moveGameParameterElement);
-                            break;
                         case "DeleteContent":
                             root.TryGetProperty("Parameters", out JsonElement deleteContentParameterElement);
                             _ = Task.Run(() => HandleDeleteContent(deleteContentParameterElement));
@@ -199,6 +179,10 @@ namespace Segra.Backend.App
                         case "MoveOutOfPendingEdit":
                             root.TryGetProperty("Parameters", out JsonElement moveOutPendingParameterElement);
                             _ = Task.Run(() => ContentService.HandleMoveOutOfPendingEdit(moveOutPendingParameterElement));
+                            break;
+                        case "MoveOutOfReadyToDelete":
+                            root.TryGetProperty("Parameters", out JsonElement moveOutReadyToDeleteParameterElement);
+                            _ = Task.Run(() => ContentService.HandleMoveOutOfReadyToDelete(moveOutReadyToDeleteParameterElement));
                             break;
                         case "UploadContent":
                             root.TryGetProperty("Parameters", out JsonElement uploadContentParameterElement);
@@ -273,8 +257,6 @@ namespace Segra.Backend.App
                                 Log.Information("No free recording slot. Skipping manual start...");
                                 return;
                             }
-
-                            AppState.Instance.ClearAllPreRecordings();
 
                             _ = Task.Run(() => OBSService.StartRecording(startManually: true));
                             break;
@@ -906,190 +888,6 @@ namespace Segra.Backend.App
             {
                 Log.Error(ex, "Error sending game list to frontend");
                 await SendFrontendMessage("GameList", new List<object>());
-            }
-        }
-
-        // Returns a copy of the list with the game appended, or null if it is already present.
-        private static List<Game>? AddGameToList(List<Game> list, Game game)
-        {
-            var comparer = new GameEqualityComparer();
-            if (list.Any(g => comparer.Equals(g, game)))
-            {
-                return null;
-            }
-            return new List<Game>(list) { game };
-        }
-
-        // Returns a copy of the list with the game removed, or null if it is not present.
-        private static List<Game>? RemoveGameFromList(List<Game> list, Game game)
-        {
-            var comparer = new GameEqualityComparer();
-            var existing = list.FirstOrDefault(g => comparer.Equals(g, game));
-            if (existing == null)
-            {
-                return null;
-            }
-            var copy = new List<Game>(list);
-            copy.Remove(existing);
-            return copy;
-        }
-
-        private static bool TryDeserializeGame(JsonElement parameters, out Game game)
-        {
-            game = null!;
-            if (!parameters.TryGetProperty("game", out JsonElement gameElement))
-            {
-                return false;
-            }
-            var deserialized = JsonSerializer.Deserialize<Game>(gameElement.GetRawText());
-            if (deserialized == null || string.IsNullOrEmpty(deserialized.Name) || deserialized.Paths.Count == 0)
-            {
-                return false;
-            }
-            game = deserialized;
-            return true;
-        }
-
-        private static async Task HandleAddToWhitelist(JsonElement parameters)
-        {
-            try
-            {
-                if (!TryDeserializeGame(parameters, out var game)) return;
-
-                var updated = AddGameToList(Settings.Instance.Whitelist, game);
-                if (updated != null)
-                {
-                    Settings.Instance.Whitelist = updated;
-                    Log.Information($"Added game {game.Name} to whitelist");
-                }
-                else
-                {
-                    Log.Information($"Game {game.Name} already exists in whitelist");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Error adding to whitelist: {ex.Message}");
-                await ShowModal("Error", $"Failed to add game to whitelist: {ex.Message}", "error");
-            }
-        }
-
-        private static async Task HandleRemoveFromWhitelist(JsonElement parameters)
-        {
-            try
-            {
-                if (!TryDeserializeGame(parameters, out var game)) return;
-
-                var updated = RemoveGameFromList(Settings.Instance.Whitelist, game);
-                if (updated != null)
-                {
-                    Settings.Instance.Whitelist = updated;
-                    Log.Information($"Removed game {game.Name} from whitelist");
-                }
-                else
-                {
-                    Log.Information($"Game {game.Name} does not exist in whitelist");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Error removing from whitelist: {ex.Message}");
-                await ShowModal("Error", $"Failed to remove game from whitelist: {ex.Message}", "error");
-            }
-        }
-
-        private static async Task HandleAddToBlacklist(JsonElement parameters)
-        {
-            try
-            {
-                if (!TryDeserializeGame(parameters, out var game)) return;
-
-                var updated = AddGameToList(Settings.Instance.Blacklist, game);
-                if (updated != null)
-                {
-                    Settings.Instance.Blacklist = updated;
-                    Log.Information($"Added game {game.Name} to blacklist");
-                }
-                else
-                {
-                    Log.Information($"Game {game.Name} already exists in blacklist");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Error adding to blacklist: {ex.Message}");
-                await ShowModal("Error", $"Failed to add game to blacklist: {ex.Message}", "error");
-            }
-        }
-
-        private static async Task HandleRemoveFromBlacklist(JsonElement parameters)
-        {
-            try
-            {
-                if (!TryDeserializeGame(parameters, out var game)) return;
-
-                var updated = RemoveGameFromList(Settings.Instance.Blacklist, game);
-                if (updated != null)
-                {
-                    Settings.Instance.Blacklist = updated;
-                    Log.Information($"Removed game {game.Name} from blacklist");
-                }
-                else
-                {
-                    Log.Information($"Game {game.Name} does not exist in blacklist");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Error removing from blacklist: {ex.Message}");
-                await ShowModal("Error", $"Failed to remove game from blacklist: {ex.Message}", "error");
-            }
-        }
-
-        private static async Task HandleMoveGame(JsonElement parameters)
-        {
-            Settings.Instance._isBulkUpdating = true;
-            try
-            {
-                var targetList = parameters.TryGetProperty("targetList", out JsonElement targetListElement)
-                    ? targetListElement.GetString()
-                    : null;
-
-                if (TryDeserializeGame(parameters, out var game) &&
-                    (targetList == "whitelist" || targetList == "blacklist"))
-                {
-                    bool isMovingToWhitelist = targetList == "whitelist";
-
-                    var sourceRemoved = isMovingToWhitelist
-                        ? RemoveGameFromList(Settings.Instance.Blacklist, game)
-                        : RemoveGameFromList(Settings.Instance.Whitelist, game);
-                    if (sourceRemoved != null)
-                    {
-                        if (isMovingToWhitelist) Settings.Instance.Blacklist = sourceRemoved;
-                        else Settings.Instance.Whitelist = sourceRemoved;
-                    }
-
-                    var targetAdded = isMovingToWhitelist
-                        ? AddGameToList(Settings.Instance.Whitelist, game)
-                        : AddGameToList(Settings.Instance.Blacklist, game);
-                    if (targetAdded != null)
-                    {
-                        if (isMovingToWhitelist) Settings.Instance.Whitelist = targetAdded;
-                        else Settings.Instance.Blacklist = targetAdded;
-                        Log.Information($"Moved game {game.Name} to {targetList}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Error moving game: {ex.Message}");
-                await ShowModal("Error", $"Failed to move game: {ex.Message}", "error");
-            }
-            finally
-            {
-                Settings.Instance._isBulkUpdating = false;
-                SettingsService.SaveSettings();
-                _ = SendSettingsToFrontend("Moved game");
             }
         }
 

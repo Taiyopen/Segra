@@ -17,6 +17,8 @@ namespace Segra.Backend.Shared
         public const string PendingEdit = "\u5F85\u526A\u8F2F"; // 待剪輯
         /// <summary>Imported external videos; excluded from automatic storage cleanup and storage limit.</summary>
         public const string External = "\u5916\u90E8\u5F71\u7247\u5EAB"; // 外部影片庫
+        /// <summary>Videos parked here when storage is over the limit; not deleted automatically and not counted toward the quota.</summary>
+        public const string ReadyToDelete = "\u6E96\u5099\u522A\u9664"; // 準備刪除
 
         /// <summary>Content types that count toward the storage limit.</summary>
         private static readonly Content.ContentType[] StorageLimitedContentTypes =
@@ -27,7 +29,7 @@ namespace Segra.Backend.Shared
 
         /// <summary>
         /// Video folder names (current and legacy) that count toward the storage limit.
-        /// Clips, Highlights, PendingEdit, and External are excluded.
+        /// Clips, Highlights, PendingEdit, External, and ReadyToDelete are excluded.
         /// </summary>
         public static IEnumerable<string> GetStorageLimitedVideoFolderNames()
         {
@@ -38,7 +40,7 @@ namespace Segra.Backend.Shared
             }
         }
 
-        /// <summary>Returns true if the content type counts toward the storage limit and can be auto-deleted.</summary>
+        /// <summary>Returns true if the content type counts toward the storage limit and can be auto-moved to 準備刪除.</summary>
         public static bool IsStorageLimitedContentType(Content.ContentType type)
         {
             return Array.IndexOf(StorageLimitedContentTypes, type) >= 0;
@@ -51,6 +53,7 @@ namespace Segra.Backend.Shared
         public const string LegacyHighlights = "highlights";
         public const string LegacyPendingEdit = "pending_edit";
         public const string LegacyExternal = "external";
+        public const string LegacyReadyToDelete = "ready_to_delete";
 
         // Metadata folder names (stored in AppData)
         public const string Metadata = "metadata";
@@ -81,6 +84,7 @@ namespace Segra.Backend.Shared
                 Content.ContentType.Highlight => Highlights,
                 Content.ContentType.PendingEdit => PendingEdit,
                 Content.ContentType.External => External,
+                Content.ContentType.ReadyToDelete => ReadyToDelete,
                 _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown content type")
             };
         }
@@ -98,6 +102,7 @@ namespace Segra.Backend.Shared
                 Content.ContentType.Highlight => LegacyHighlights,
                 Content.ContentType.PendingEdit => LegacyPendingEdit,
                 Content.ContentType.External => LegacyExternal,
+                Content.ContentType.ReadyToDelete => LegacyReadyToDelete,
                 _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown content type")
             };
         }
@@ -168,6 +173,8 @@ namespace Segra.Backend.Shared
                 return Content.ContentType.PendingEdit;
             if (pathNorm.Contains($"/{External}/", StringComparison.OrdinalIgnoreCase))
                 return Content.ContentType.External;
+            if (pathNorm.Contains($"/{ReadyToDelete}/", StringComparison.OrdinalIgnoreCase))
+                return Content.ContentType.ReadyToDelete;
 
             // Check legacy folder names for backwards compatibility
             if (normalizedPath.Contains($"/{LegacySessions}/"))
@@ -182,6 +189,8 @@ namespace Segra.Backend.Shared
                 return Content.ContentType.PendingEdit;
             if (normalizedPath.Contains($"/{LegacyExternal}/"))
                 return Content.ContentType.External;
+            if (normalizedPath.Contains($"/{LegacyReadyToDelete}/"))
+                return Content.ContentType.ReadyToDelete;
 
             return null;
         }

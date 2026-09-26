@@ -127,7 +127,7 @@
 | 功能 | 上游 | 狀態 | Release | 為什麼推薦 | 碰撞 |
 |---|---|---|---|---|---|
 | 錄影卡切螢幕＋顯示器列舉 | `7b073dc` `9785b4e` | 已追上 | v1.7.5：**Recording**：錄影卡新增螢幕切換下拉，可改擷取顯示器。**Displays**：修顯示器名稱錯誤或重複，比較好挑對的螢幕。 | 2026-09-20 手移；雙槽／停止／PiP 保留；顯示擷取時切螢幕仍走全域 `selectedDisplay` | `RecordingCard`、`OBSService` |
-| Discord 分享聽得到 App 音訊 | `0e53ec5` | 未合 | v1.7.5：**Audio**：修在 Discord 分享 Segra 時沒聲音。 | | `video.tsx`、`Program.cs` |
+| Discord 分享聽得到 App 音訊 | `0e53ec5` | 已追上 | v1.7.5：**Audio**：修在 Discord 分享 Segra 時沒聲音。 | 2026-09-20 手移；單軌走 video element、多軌走 useAudioTracks；PiP 未接 | `video.tsx`、`Program.cs` |
 | 過期 FE 設定覆寫視窗位置 | `e6bab8c` | 未合 | v1.7.5：**Window State**：修過期的前端設定在啟動時覆寫已存的視窗大小與位置。 | 跟 `1ef10de`（記住視窗大小）當一組 | `Program.cs`、SettingsService |
 | Idle 記憶體 -24% | `797582e` | 已追上 | v1.8.0：**Performance**：閒置記憶體降低 24%。 | 2026-09-20 手移；波形仍先 ffmpeg mix 多軌再串流 PCM | `ContentService`、UploadService |
 | 播放記憶體 -28% | `2d5fa6e` | 已追上 | v1.8.0：**Performance**：影片播放記憶體降低 28%。 | 2026-09-20 手移；保留 Discord native tap | `useAudioTracks.ts` |

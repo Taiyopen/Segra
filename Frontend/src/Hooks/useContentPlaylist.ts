@@ -12,6 +12,8 @@ function getSectionId(contentType: ContentType): string {
       return 'replayBuffer';
     case 'PendingEdit':
       return 'pendingEdit';
+    case 'ReadyToDelete':
+      return 'readyToDelete';
     case 'External':
       return 'externalLibrary';
     case 'Clip':

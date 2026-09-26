@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import { SETTINGS_STORAGE_KEY } from './SettingsContext';
+import { MENU_ITEM } from '../Models/types';
 
 interface SelectedMenuContextValue {
   selectedMenu: string;
@@ -8,7 +9,7 @@ interface SelectedMenuContextValue {
 
 const SelectedMenuContext = createContext<SelectedMenuContextValue | undefined>(undefined);
 
-const defaultMenu = 'Full Sessions';
+const defaultMenu = MENU_ITEM.Sessions;
 
 const readCachedDefaultMenu = (): string | null => {
   if (typeof window === 'undefined') return null;

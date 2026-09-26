@@ -12,7 +12,19 @@ export default function MonitoringApp() {
     document.title = 'Segra 監控';
     document.documentElement.classList.add('monitoring-window');
     document.documentElement.setAttribute('data-theme', 'segra');
-    return () => document.documentElement.classList.remove('monitoring-window');
+
+    const applyZoom = () => {
+      const width = window.outerWidth || window.innerWidth || 336;
+      document.documentElement.style.zoom = String(width / 336);
+    };
+    applyZoom();
+    window.addEventListener('resize', applyZoom);
+
+    return () => {
+      window.removeEventListener('resize', applyZoom);
+      document.documentElement.style.zoom = '';
+      document.documentElement.classList.remove('monitoring-window');
+    };
   }, []);
 
   return (

@@ -11,12 +11,14 @@ import {
   Home,
   Inbox,
   FolderOpen,
+  Trash2,
   LucideIcon,
   Play,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import {
   MenuItemId,
+  MENU_ITEM,
   MenuItemPreference,
   menuItemHasContent,
   normalizeMenuItems,
@@ -32,13 +34,14 @@ interface MenuCustomizationSectionProps {
 const DRAG_TYPE = 'MENU_ITEM_ROW';
 
 const MENU_ICONS: Record<MenuItemId, LucideIcon> = {
-  'Full Sessions': Play,
-  'Replay Buffer': History,
-  待剪輯: Inbox,
-  瀏覽影片: FolderOpen,
-  Clips: Clapperboard,
-  Highlights: Crown,
-  Settings: SettingsIcon,
+  [MENU_ITEM.Sessions]: Play,
+  [MENU_ITEM.ReplayBuffer]: History,
+  [MENU_ITEM.PendingEdit]: Inbox,
+  [MENU_ITEM.ReadyToDelete]: Trash2,
+  [MENU_ITEM.BrowseVideos]: FolderOpen,
+  [MENU_ITEM.Clips]: Clapperboard,
+  [MENU_ITEM.Highlights]: Crown,
+  [MENU_ITEM.Settings]: SettingsIcon,
 };
 
 interface RowProps {
@@ -65,7 +68,7 @@ const MenuRow: React.FC<RowProps> = ({
   onSetDefault,
 }) => {
   const Icon = MENU_ICONS[item.id];
-  const isSettings = item.id === 'Settings';
+  const isSettings = item.id === MENU_ITEM.Settings;
   const [visibilityCooldown, setVisibilityCooldown] = useState(false);
 
   const handleToggleVisible = () => {
@@ -195,7 +198,7 @@ export default function MenuCustomizationSection({
   updateSettings,
 }: MenuCustomizationSectionProps) {
   const appState = useAppState();
-  const defaultItem = settings.defaultMenuItem ?? 'Full Sessions';
+  const defaultItem = settings.defaultMenuItem ?? MENU_ITEM.Sessions;
 
   const sourceItems: MenuItemPreference[] = normalizeMenuItems(settings.menuItems);
 
@@ -237,7 +240,7 @@ export default function MenuCustomizationSection({
   }, [settings.menuItems, updateSettings]);
 
   const toggleVisible = (id: MenuItemId) => {
-    if (id === 'Settings') return;
+    if (id === MENU_ITEM.Settings) return;
     const next = sourceItems.map((item) =>
       item.id === id ? { ...item, visible: !item.visible } : item,
     );
@@ -258,7 +261,7 @@ export default function MenuCustomizationSection({
   const setDefault = (id: MenuItemId) => {
     if (id === defaultItem) return;
     const target = sourceItems.find((item) => item.id === id);
-    if (!target || (!target.visible && id !== 'Settings')) return;
+    if (!target || (!target.visible && id !== MENU_ITEM.Settings)) return;
     updateSettings({ defaultMenuItem: id });
   };
 
@@ -271,7 +274,9 @@ export default function MenuCustomizationSection({
       <div className="space-y-2 max-w-md">
         {localItems.map((item, index) => {
           const forceShownReason: 'content' | null =
-            !item.visible && item.id !== 'Settings' && menuItemHasContent(item.id, appState.content)
+            !item.visible &&
+            item.id !== MENU_ITEM.Settings &&
+            menuItemHasContent(item.id, appState.content)
               ? 'content'
               : null;
           return (

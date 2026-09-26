@@ -608,6 +608,13 @@ namespace Segra.Backend.Core
                 hasChanges = true;
             }
 
+            if (settings.ReadyToDeleteWarningCount != updatedSettings.ReadyToDeleteWarningCount)
+            {
+                Log.Information($"ReadyToDeleteWarningCount changed from '{settings.ReadyToDeleteWarningCount}' to '{updatedSettings.ReadyToDeleteWarningCount}'");
+                settings.ReadyToDeleteWarningCount = updatedSettings.ReadyToDeleteWarningCount;
+                hasChanges = true;
+            }
+
             if (!settings.InputDevices.SequenceEqual(updatedSettings.InputDevices, new DeviceSettingEqualityComparer()))
             {
                 Log.Information($"InputDevice changed from '[{string.Join(", ", settings.InputDevices.Select(d => $"{d.Name}"))}]' to '[{string.Join(", ", updatedSettings.InputDevices.Select(d => $"{d.Name}"))}]'");
@@ -869,7 +876,9 @@ namespace Segra.Backend.Core
                                 UploadId = metadata.UploadId,
                                 IgdbId = metadata.IgdbId,
                                 AudioTrackNames = metadata.AudioTrackNames,
-                                IsImported = metadata.IsImported
+                                IsImported = metadata.IsImported,
+                                PendingEditSourceType = metadata.PendingEditSourceType,
+                                ReadyToDeleteSourceType = metadata.ReadyToDeleteSourceType
                             });
                         }
                         catch (Exception ex)

@@ -1,3 +1,5 @@
+using Segra.Backend.App;
+using Segra.Backend.Core;
 using Segra.Backend.Core.Models;
 using Segra.Backend.Media;
 using Segra.Backend.Shared;
@@ -202,13 +204,48 @@ namespace Segra.Backend.Windows.Storage
             if (currentUsageBytes > storageLimit * BYTES_PER_GB)
             {
                 double excessGB = (currentUsageBytes - (storageLimit * BYTES_PER_GB)) / (double)BYTES_PER_GB;
-                Log.Information($"Storage limit exceeded by {excessGB:F2} GB, starting cleanup");
-                await DeleteOldestContent(contentFolder, currentUsageBytes - (storageLimit * BYTES_PER_GB));
+                Log.Information($"Storage limit exceeded by {excessGB:F2} GB, moving oldest content to 準備刪除");
+                await MoveOldestContentToReadyToDelete(contentFolder, currentUsageBytes - (storageLimit * BYTES_PER_GB));
             }
             else
             {
                 Log.Information("Storage usage is within limits, no cleanup needed");
             }
+
+            await WarnIfReadyToDeleteOverThreshold(contentFolder);
+        }
+
+        internal static int CountReadyToDeleteVideos(string contentFolder)
+        {
+            string folderPath = Path.Combine(contentFolder, FolderNames.ReadyToDelete);
+            if (!Directory.Exists(folderPath))
+                return 0;
+
+            try
+            {
+                return Directory.GetFiles(folderPath, "*", SearchOption.AllDirectories).Length;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Error counting 準備刪除 videos: {ex.Message}");
+                return 0;
+            }
+        }
+
+        private static async Task WarnIfReadyToDeleteOverThreshold(string contentFolder)
+        {
+            int count = CountReadyToDeleteVideos(contentFolder);
+            int threshold = Settings.Instance.ReadyToDeleteWarningCount;
+            if (count <= threshold)
+                return;
+
+            for (int i = 0; i < 20 && Program.Window == null; i++)
+                await Task.Delay(250);
+
+            await MessageService.ShowModal(
+                "準備刪除區已超過上限",
+                $"目前有 {count} 部影片在「準備刪除」（上限 {threshold} 部）。請盡快到側欄該區刪除，以真正釋出磁碟空間。",
+                "warning");
         }
 
         internal static long CalculateStorageLimitedFolderSize(string contentFolder)
@@ -245,46 +282,42 @@ namespace Segra.Backend.Windows.Storage
             return size;
         }
 
-        private static async Task DeleteOldestContent(string contentFolder, long spaceToFreeBytes)
+        private static async Task MoveOldestContentToReadyToDelete(string contentFolder, long spaceToFreeBytes)
         {
-            double spaceToFreeGB = (double)spaceToFreeBytes / BYTES_PER_GB;
-
-            // Do not delete files older than 1 hour since they are likely still in use
+            // Do not move files newer than 1 hour since they are likely still in use
             DateTime oneHourAgo = DateTime.Now.AddHours(-1);
-            List<FileInfo> deletionCandidates = new List<FileInfo>();
+            List<FileInfo> moveCandidates = new List<FileInfo>();
 
             string sessionsFolder = Path.Combine(contentFolder, FolderNames.Sessions);
             string buffersFolder = Path.Combine(contentFolder, FolderNames.Buffers);
 
             if (Directory.Exists(sessionsFolder))
             {
-                // Search recursively to find files in game subfolders
                 var sessionFiles = Directory.GetFiles(sessionsFolder, "*", SearchOption.AllDirectories)
                     .Select(f => new FileInfo(f))
                     .Where(f => f.LastWriteTime < oneHourAgo);
 
-                deletionCandidates.AddRange(sessionFiles);
+                moveCandidates.AddRange(sessionFiles);
                 Log.Information($"Found {sessionFiles.Count()} eligible session files older than 1 hour");
             }
 
             if (Directory.Exists(buffersFolder))
             {
-                // Search recursively to find files in game subfolders
                 var bufferFiles = Directory.GetFiles(buffersFolder, "*", SearchOption.AllDirectories)
                     .Select(f => new FileInfo(f))
                     .Where(f => f.LastWriteTime < oneHourAgo);
 
-                deletionCandidates.AddRange(bufferFiles);
+                moveCandidates.AddRange(bufferFiles);
                 Log.Information($"Found {bufferFiles.Count()} eligible buffer files older than 1 hour");
             }
 
-            deletionCandidates = deletionCandidates.OrderBy(f => f.CreationTime).ToList();
-            Log.Information($"Total files eligible for deletion: {deletionCandidates.Count}, ordered by creation time");
+            moveCandidates = moveCandidates.OrderBy(f => f.CreationTime).ToList();
+            Log.Information($"Total files eligible to move to 準備刪除: {moveCandidates.Count}, ordered by creation time");
 
             long freedSpaceBytes = 0;
-            int deletedCount = 0;
+            int movedCount = 0;
 
-            foreach (FileInfo file in deletionCandidates)
+            foreach (FileInfo file in moveCandidates)
             {
                 if (freedSpaceBytes >= spaceToFreeBytes)
                     break;
@@ -295,7 +328,6 @@ namespace Segra.Backend.Windows.Storage
 
                 try
                 {
-                    // Determine content type based on path (handles game subfolders)
                     Content.ContentType? detectedType = FolderNames.GetContentTypeFromPath(fileFullName);
                     if (detectedType == null)
                     {
@@ -304,29 +336,33 @@ namespace Segra.Backend.Windows.Storage
                     }
                     Content.ContentType contentType = detectedType.Value;
 
-                    Log.Information($"Deleting {contentType} file: {fileFullName} ({fileSizeMB:F2} MB)");
-                    await ContentService.DeleteContent(fileFullName, contentType);
+                    Log.Information($"Moving {contentType} file to 準備刪除: {fileFullName} ({fileSizeMB:F2} MB)");
+                    bool moved = await ContentService.MoveContentToReadyToDelete(fileFullName, contentType);
+                    if (!moved)
+                        continue;
 
                     freedSpaceBytes += fileSize;
-                    deletedCount++;
+                    movedCount++;
 
                     double freedSpaceGB = (double)freedSpaceBytes / BYTES_PER_GB;
-                    Log.Information($"Successfully deleted file, freed space so far: {freedSpaceGB:F2} GB");
+                    Log.Information($"Successfully moved file, quota released so far: {freedSpaceGB:F2} GB");
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"Error deleting file {fileFullName}: {ex.Message}");
+                    Log.Error($"Error moving file {fileFullName}: {ex.Message}");
                 }
             }
 
             double totalFreedGB = (double)freedSpaceBytes / BYTES_PER_GB;
-            Log.Information($"Storage cleanup completed: {deletedCount} files deleted, {totalFreedGB:F2} GB freed");
+            Log.Information($"Storage park completed: {movedCount} files moved to 準備刪除, {totalFreedGB:F2} GB released from quota");
 
             if (freedSpaceBytes < spaceToFreeBytes)
             {
                 double stillNeededGB = (double)(spaceToFreeBytes - freedSpaceBytes) / BYTES_PER_GB;
-                Log.Information($"Warning: Could not free enough space. Still needed: {stillNeededGB:F2} GB");
+                Log.Information($"Warning: Could not free enough quota. Still needed: {stillNeededGB:F2} GB");
             }
+
+            await SettingsService.LoadContentFromFolderIntoState(true);
         }
     }
 }

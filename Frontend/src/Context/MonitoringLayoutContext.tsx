@@ -12,7 +12,6 @@ import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { isMonitoringWindowLocation } from '../Utils/monitoringWindow';
 import { hasLiveRecordingActivity, type State } from '../Models/types';
 import { useAppState } from './AppStateContext';
-import { useWebSocketContext } from './WebSocketContext';
 
 type MonitoringLayoutContextValue = {
   monitoringWindowOpen: boolean;
@@ -22,10 +21,8 @@ type MonitoringLayoutContextValue = {
 
 const MonitoringLayoutContext = createContext<MonitoringLayoutContextValue | null>(null);
 
-function sendMonitoringWindowCommand(enabled: boolean, sendRawMessage: (message: string) => void) {
-  const payload = { Method: 'SetMonitoringWindowLayout', Parameters: { enabled } };
+function sendMonitoringWindowCommand(enabled: boolean) {
   sendMessageToBackend('SetMonitoringWindowLayout', { enabled });
-  sendRawMessage(JSON.stringify(payload));
 }
 
 function isRecordingLive(state: State): boolean {
@@ -33,7 +30,6 @@ function isRecordingLive(state: State): boolean {
 }
 
 export function MonitoringLayoutProvider({ children }: { children: ReactNode }) {
-  const { sendRawMessage } = useWebSocketContext();
   const appState = useAppState();
   const isMainApp = !isMonitoringWindowLocation();
   const isLive = isRecordingLive(appState);
@@ -53,12 +49,12 @@ export function MonitoringLayoutProvider({ children }: { children: ReactNode }) 
   }, []);
 
   const enterMonitoringLayout = useCallback(() => {
-    sendMonitoringWindowCommand(true, sendRawMessage);
-  }, [sendRawMessage]);
+    sendMonitoringWindowCommand(true);
+  }, []);
 
   const exitMonitoringLayout = useCallback(() => {
-    sendMonitoringWindowCommand(false, sendRawMessage);
-  }, [sendRawMessage]);
+    sendMonitoringWindowCommand(false);
+  }, []);
 
   useEffect(() => {
     if (!isMainApp) return;

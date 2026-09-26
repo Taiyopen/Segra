@@ -354,6 +354,12 @@ namespace Segra.Backend.App
 
                 // Start WebSocket and Load Settings
                 Task.Run(MessageService.StartWebsocket);
+#if WINDOWS
+                // Native in-app audio playback (Windows only; makes Discord/OBS app-audio
+                // capture of the Segra window work). The frontend falls back to webview-rendered
+                // audio when this endpoint is absent (e.g. on Linux).
+                Task.Run(AudioStreamServer.StartAsync);
+#endif
                 Task.Run(StorageService.EnsureStorageBelowLimit);
 
                 // Check for updates
@@ -1471,11 +1477,8 @@ namespace Segra.Backend.App
                 }
 
                 SaveWindowState();
-                DetachMonitoringWindowOwner();
-                PresentMonitoringWindow(activate: false);
-                Window = null;
-                Log.Information("Application window closing to tray");
-                return false;
+                HideApplicationWindow();
+                return true;
             });
 
             Window.WaitForClose();
@@ -1546,14 +1549,8 @@ namespace Segra.Backend.App
                                 {
                                     if (Window != null)
                                     {
-                                        Window.Invoke(() =>
-                                        {
-                                            Window.SetMinimized(false);
-                                            Window.SetTopMost(true);
-                                        });
-                                        Thread.Sleep(200);
-                                        Window.Invoke(() => Window.SetTopMost(false));
-                                        Log.Information("Window brought to foreground directly from pipe server");
+                                        _ = ShowApplicationWindow();
+                                        Log.Information("ShowApplicationWindow from pipe server");
                                     }
                                     else
                                     {

@@ -1,70 +1,70 @@
 ---
-description: Behavioral guidelines to reduce common LLM coding mistakes. Use when writing, reviewing, or refactoring code to avoid overcomplication, make surgical changes, surface assumptions, and define verifiable success criteria.
+description: 寫程式鐵則，必須遵守。減少 LLM 常見錯誤：避免過度複雜、只動該動的、把假設攤開、定義可驗證的完成條件。寫、review、重構時一律套用，不可當成建議略過。
 alwaysApply: true
 ---
 
-# Karpathy behavioral guidelines
+# Karpathy 行為鐵則
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+這是寫、review、重構時的**鐵則**，必須遵守，不可當成建議略過。與專案既有指示一併生效。
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+**取捨：** 這份鐵則偏謹慎、不偏快。瑣碎任務可自行判斷，但四條原則本身不因此失效。
 
-## 1. Think Before Coding
+## 1. 動手寫之前先想
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**不要假設。不要藏困惑。把取捨攤開。**
 
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+實作之前：
+- 明確寫出你的假設。不確定就問。
+- 若有多種解讀，全部列出——不要默默選一個。
+- 若有更簡單的做法，說出來。該反駁就反駁。
+- 有不清楚的地方就停。說清楚卡在哪。問。
 
-## 2. Simplicity First
+## 2. 簡單優先
 
-**Minimum code that solves the problem. Nothing speculative.**
+**用最少的程式解決問題。不要寫臆測性的碼。**
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+- 沒被要求的功能不要加。
+- 只用一次的程式不要抽抽象。
+- 沒被要求的「彈性」或「可設定」不要做。
+- 不可能發生的情境不要寫錯誤處理。
+- 寫了 200 行但其實 50 行就夠，就重寫。
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+問自己：「資深工程師會不會覺得這過度複雜？」會的話就簡化。
 
-## 3. Surgical Changes
+## 3. 精準動刀
 
-**Touch only what you must. Clean up only your own mess.**
+**只動必須動的。只清自己弄出來的殘留。**
 
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+改既有程式時：
+- 不要「順便改進」旁邊的程式、註解或格式。
+- 沒壞的東西不要重構。
+- 跟上現有風格，即使你會用不同寫法。
+- 看到無關的死碼，提一下——不要刪。
 
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
+你的改動若造成孤兒：
+- 刪掉「你這次改動」讓它變沒用的 import／變數／函式。
+- 原本就有的死碼，沒被要求就不要刪。
 
-The test: Every changed line should trace directly to the user's request.
+檢驗標準：每一行改動都要能直接對應到使用者的要求。
 
-## 4. Goal-Driven Execution
+## 4. 目標導向執行
 
-**Define success criteria. Loop until verified.**
+**定義完成條件。驗證通過才算完。**
 
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
+把任務轉成可驗證的目標：
+- 「加驗證」→「先寫無效輸入的測試，再讓測試通過」
+- 「修 bug」→「先寫能重現的測試，再讓它通過」
+- 「重構 X」→「重構前後測試都要過」
 
-For multi-step tasks, state a brief plan:
+多步驟任務，先寫簡短計畫：
 ```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
+1. [步驟] → 驗證：[檢查]
+2. [步驟] → 驗證：[檢查]
+3. [步驟] → 驗證：[檢查]
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+完成條件夠強，才能自己迴圈做到完。完成條件太弱（「讓它能動」）就要一直問。
 
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+**這份鐵則有用的跡象：** diff 裡少了不必要的改動、因過度複雜而重寫的次數變少、釐清問題發生在實作之前而不是做錯之後。

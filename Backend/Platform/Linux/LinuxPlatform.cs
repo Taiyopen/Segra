@@ -404,4 +404,15 @@ namespace Segra.Backend.Platform.Linux
             }
         }
     }
+
+    /// <summary>
+    /// No-op on Linux for now: PCM streaming targets Windows, where it makes Segra's own audio
+    /// capturable as "application audio" (Discord/OBS). The webview path is used as-is elsewhere.
+    /// </summary>
+    internal sealed class LinuxAudioStreamPlayer : IAudioStreamPlayer
+    {
+        public void Start(int sampleRate, int channels) { }
+        public void Write(byte[] pcmData) { }
+        public void Flush() { }
+    }
 }

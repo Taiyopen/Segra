@@ -1,9 +1,20 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { useSettings } from '../Context/SettingsContext';
 import { useAppState } from '../Context/AppStateContext';
-import { Content, includeInHighlight } from '../Models/types';
+import { Content, includeInHighlight, CONTENT_TYPE_FOLDER, MENU_ITEM } from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { openFileLocation } from '../Utils/FileUtils';
+import {
+  isPendingEditSourceType,
+  resolvePendingEditSourceType,
+  sendMoveToPendingEdit,
+  sendMoveOutOfPendingEdit,
+} from '../Utils/PendingEditUtils';
+import {
+  isRecordingSourceType,
+  resolveRecordingSourceType,
+  sendMoveOutOfReadyToDelete,
+} from '../Utils/ReadyToDeleteUtils';
 import { useAuth } from '../Hooks/useAuth.tsx';
 import { useModal } from '../Context/ModalContext';
 import UploadModal from './UploadModal';
@@ -27,7 +38,8 @@ import { useCompression } from '../Context/CompressionContext';
 import Button from './Button';
 import { useDeleteConfirmation } from '../Hooks/useDeleteConfirmation';
 
-type VideoType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit' | 'External';
+type VideoType =
+  'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit' | 'ReadyToDelete' | 'External';
 
 interface VideoCardProps {
   content?: Content; // Optional for skeleton cards
@@ -186,19 +198,7 @@ export default function ContentCard({
   }
 
   const getThumbnailPath = (): string => {
-    // Map type to folder name for thumbnails in AppData
-    const folderName =
-      type === 'Session'
-        ? 'Full Sessions'
-        : type === 'Buffer'
-          ? 'Replay Buffers'
-          : type === 'Clip'
-            ? 'Clips'
-            : type === 'PendingEdit'
-              ? '待剪輯'
-              : type === 'External'
-                ? '瀏覽影片'
-                : 'Highlights';
+    const folderName = CONTENT_TYPE_FOLDER[type];
     const thumbnailPath = `${cacheFolder}/thumbnails/${folderName}/${content?.fileName}.jpeg`;
     return `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(thumbnailPath)}`;
   };
@@ -334,12 +334,16 @@ export default function ContentCard({
 
     const menuWidth = 208;
     const isPending = type === 'PendingEdit' || content?.type === 'PendingEdit';
+    const isReadyToDelete = type === 'ReadyToDelete' || content?.type === 'ReadyToDelete';
     const canMoveToPending =
-      (type === 'Session' || type === 'Buffer') && content?.type !== 'PendingEdit';
-    const pendingHasSource =
-      isPending &&
-      (content?.pendingEditSourceType === 'Session' || content?.pendingEditSourceType === 'Buffer');
+      (type === 'Session' || type === 'Buffer') &&
+      content?.type !== 'PendingEdit' &&
+      content?.type !== 'ReadyToDelete';
+    const pendingHasSource = isPending && isPendingEditSourceType(content?.pendingEditSourceType);
     const pendingNeedsChoice = isPending && !pendingHasSource;
+    const readyHasSource =
+      isReadyToDelete && isRecordingSourceType(content?.readyToDeleteSourceType);
+    const readyNeedsChoice = isReadyToDelete && !readyHasSource;
     const actionCount =
       3 +
       (!airplaneMode && (type === 'Clip' || type === 'Highlight') ? 1 : 0) +
@@ -347,12 +351,14 @@ export default function ContentCard({
       type === 'Highlight' ||
       type === 'Buffer' ||
       type === 'PendingEdit' ||
+      type === 'ReadyToDelete' ||
       type === 'External'
         ? 1
         : 0) +
       ((type === 'Session' || type === 'PendingEdit') && enableAi ? 1 : 0) +
       (canMoveToPending ? 1 : 0) +
       (pendingHasSource ? 1 : pendingNeedsChoice ? 2 : 0) +
+      (readyHasSource ? 1 : readyNeedsChoice ? 2 : 0) +
       ((type === 'Clip' || type === 'Highlight') && !content?.fileName?.endsWith('_compressed')
         ? 1
         : 0);
@@ -391,6 +397,7 @@ export default function ContentCard({
         type === 'Highlight' ||
         type === 'Buffer' ||
         type === 'PendingEdit' ||
+        type === 'ReadyToDelete' ||
         type === 'External') && (
         <li>
           <Button
@@ -429,44 +436,44 @@ export default function ContentCard({
           </Button>
         </li>
       )}
-      {(type === 'Session' || type === 'Buffer') && content?.type !== 'PendingEdit' && (
-        <li>
-          <Button
-            variant="menu"
-            onClick={() => {
-              closeMenu();
-              sendMessageToBackend('MoveToPendingEdit', {
-                Items: [{ FileName: content!.fileName, ContentType: type }],
-              });
-            }}
-          >
-            <Inbox size={20} />
-            <span>移至待剪輯</span>
-          </Button>
-        </li>
-      )}
-      {(type === 'PendingEdit' || content?.type === 'PendingEdit') &&
-        (content?.pendingEditSourceType === 'Session' ||
-        content?.pendingEditSourceType === 'Buffer' ? (
+      {(type === 'Session' || type === 'Buffer') &&
+        content?.type !== 'PendingEdit' &&
+        content?.type !== 'ReadyToDelete' && (
           <li>
             <Button
               variant="menu"
               onClick={() => {
                 closeMenu();
-                sendMessageToBackend('MoveOutOfPendingEdit', {
-                  Items: [
-                    {
-                      FileName: content!.fileName,
-                      TargetType: content!.pendingEditSourceType,
-                    },
-                  ],
-                });
+                sendMoveToPendingEdit([{ fileName: content!.fileName, contentType: type }]);
+              }}
+            >
+              <Inbox size={20} />
+              <span>移至待剪輯</span>
+            </Button>
+          </li>
+        )}
+      {(type === 'PendingEdit' || content?.type === 'PendingEdit') &&
+        (isPendingEditSourceType(content?.pendingEditSourceType) ? (
+          <li>
+            <Button
+              variant="menu"
+              onClick={() => {
+                closeMenu();
+                sendMoveOutOfPendingEdit([
+                  {
+                    fileName: content!.fileName,
+                    targetType: resolvePendingEditSourceType(content!.pendingEditSourceType),
+                  },
+                ]);
               }}
             >
               <FolderOutput size={20} />
               <span>
                 移出待剪輯（
-                {content.pendingEditSourceType === 'Buffer' ? 'Replay Buffer' : 'Full Sessions'}）
+                {content.pendingEditSourceType === 'Buffer'
+                  ? MENU_ITEM.ReplayBuffer
+                  : MENU_ITEM.Sessions}
+                ）
               </span>
             </Button>
           </li>
@@ -477,13 +484,13 @@ export default function ContentCard({
                 variant="menu"
                 onClick={() => {
                   closeMenu();
-                  sendMessageToBackend('MoveOutOfPendingEdit', {
-                    Items: [{ FileName: content!.fileName, TargetType: 'Session' }],
-                  });
+                  sendMoveOutOfPendingEdit([
+                    { fileName: content!.fileName, targetType: 'Session' },
+                  ]);
                 }}
               >
                 <FolderOutput size={20} />
-                <span>移回 Full Sessions</span>
+                <span>移回 {MENU_ITEM.Sessions}</span>
               </Button>
             </li>
             <li>
@@ -491,13 +498,68 @@ export default function ContentCard({
                 variant="menu"
                 onClick={() => {
                   closeMenu();
-                  sendMessageToBackend('MoveOutOfPendingEdit', {
-                    Items: [{ FileName: content!.fileName, TargetType: 'Buffer' }],
-                  });
+                  sendMoveOutOfPendingEdit([{ fileName: content!.fileName, targetType: 'Buffer' }]);
                 }}
               >
                 <FolderOutput size={20} />
-                <span>移回 Replay Buffer</span>
+                <span>移回 {MENU_ITEM.ReplayBuffer}</span>
+              </Button>
+            </li>
+          </>
+        ))}
+      {(type === 'ReadyToDelete' || content?.type === 'ReadyToDelete') &&
+        (isRecordingSourceType(content?.readyToDeleteSourceType) ? (
+          <li>
+            <Button
+              variant="menu"
+              onClick={() => {
+                closeMenu();
+                sendMoveOutOfReadyToDelete([
+                  {
+                    fileName: content!.fileName,
+                    targetType: resolveRecordingSourceType(content!.readyToDeleteSourceType),
+                  },
+                ]);
+              }}
+            >
+              <FolderOutput size={20} />
+              <span>
+                移出準備刪除（
+                {content.readyToDeleteSourceType === 'Buffer'
+                  ? MENU_ITEM.ReplayBuffer
+                  : MENU_ITEM.Sessions}
+                ）
+              </span>
+            </Button>
+          </li>
+        ) : (
+          <>
+            <li>
+              <Button
+                variant="menu"
+                onClick={() => {
+                  closeMenu();
+                  sendMoveOutOfReadyToDelete([
+                    { fileName: content!.fileName, targetType: 'Session' },
+                  ]);
+                }}
+              >
+                <FolderOutput size={20} />
+                <span>移回 {MENU_ITEM.Sessions}</span>
+              </Button>
+            </li>
+            <li>
+              <Button
+                variant="menu"
+                onClick={() => {
+                  closeMenu();
+                  sendMoveOutOfReadyToDelete([
+                    { fileName: content!.fileName, targetType: 'Buffer' },
+                  ]);
+                }}
+              >
+                <FolderOutput size={20} />
+                <span>移回 {MENU_ITEM.ReplayBuffer}</span>
               </Button>
             </li>
           </>
@@ -589,6 +651,7 @@ export default function ContentCard({
           (type === 'Session' ||
             type === 'Buffer' ||
             type === 'PendingEdit' ||
+            type === 'ReadyToDelete' ||
             type === 'External') &&
           showNewBadgeOnVideos && (
             <span

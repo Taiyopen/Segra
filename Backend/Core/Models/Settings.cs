@@ -12,13 +12,14 @@ namespace Segra.Backend.Core.Models
         // its field initializers (static fields initialize in source order).
         public static readonly List<string> KnownMenuItemIds = new List<string>
         {
-            "Full Sessions",
-            "Replay Buffer",
-            "待剪輯", // 待剪輯
-            "瀏覽影片", // 瀏覽影片
-            "Clips",
-            "Highlights",
-            "Settings"
+            Shared.MenuIds.Sessions,
+            Shared.MenuIds.ReplayBuffer,
+            Shared.MenuIds.PendingEdit,
+            Shared.MenuIds.ReadyToDelete,
+            Shared.MenuIds.BrowseVideos,
+            Shared.MenuIds.Clips,
+            Shared.MenuIds.Highlights,
+            Shared.MenuIds.Settings
         };
 
         private static Settings _instance = new Settings();
@@ -42,6 +43,7 @@ namespace Segra.Backend.Core.Models
         private string? _selectedOBSVersion = null; // null means automatic (latest non-beta)
         private bool _pendingOBSUpdate = false;
         private int _storageLimit = 100;
+        private int _readyToDeleteWarningCount = 10;
         private List<DeviceSetting> _inputDevices = new List<DeviceSetting>();
         private List<DeviceSetting> _outputDevices = new List<DeviceSetting>();
         private bool _forceMonoInputSources = false;
@@ -101,7 +103,7 @@ namespace Segra.Backend.Core.Models
         private List<MenuItemPreference> _menuItems = KnownMenuItemIds
             .Select(id => new MenuItemPreference { Id = id, Visible = true })
             .ToList();
-        private string _defaultMenuItem = "Full Sessions";
+        private string _defaultMenuItem = Shared.MenuIds.Sessions;
 
         private static List<Keybind> GetDefaultKeybindings()
         {
@@ -331,6 +333,16 @@ namespace Segra.Backend.Core.Models
             set
             {
                 _storageLimit = value;
+            }
+        }
+
+        [JsonPropertyName("readyToDeleteWarningCount")]
+        public int ReadyToDeleteWarningCount
+        {
+            get => _readyToDeleteWarningCount;
+            set
+            {
+                _readyToDeleteWarningCount = value < 1 ? 1 : value;
             }
         }
 
@@ -1095,7 +1107,7 @@ namespace Segra.Backend.Core.Models
             {
                 if (string.IsNullOrEmpty(value) || !KnownMenuItemIds.Contains(value))
                 {
-                    _defaultMenuItem = "Full Sessions";
+                    _defaultMenuItem = Shared.MenuIds.Sessions;
                     return;
                 }
                 _defaultMenuItem = value;
@@ -1274,7 +1286,8 @@ namespace Segra.Backend.Core.Models
             Clip,
             Highlight,
             PendingEdit,
-            External
+            External,
+            ReadyToDelete
         }
 
         public ContentType Type { get; set; } = ContentType.Session;
@@ -1332,6 +1345,13 @@ namespace Segra.Backend.Core.Models
         /// </summary>
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public ContentType? PendingEditSourceType { get; set; }
+
+        /// <summary>
+        /// When <see cref="Type"/> is <see cref="ContentType.ReadyToDelete"/>, the original
+        /// Session/Buffer type to restore when moving out of 準備刪除.
+        /// </summary>
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ContentType? ReadyToDeleteSourceType { get; set; }
     }
 
     public class AiAnalysis

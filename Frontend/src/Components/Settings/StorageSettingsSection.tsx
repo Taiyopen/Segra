@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FolderInput } from 'lucide-react';
-import { Settings as SettingsType } from '../../Models/types';
+import { CONTENT_TYPE_FOLDER, Settings as SettingsType } from '../../Models/types';
 import { sendMessageToBackend } from '../../Utils/MessageUtils';
 import { useModal } from '../../Context/ModalContext';
 import ConfirmationModal from '../ConfirmationModal';
@@ -12,7 +12,7 @@ import { useContentMigration } from '../../Context/ContentMigrationContext';
 
 const normalizePath = (path: string) => path.replace(/\\/g, '/').replace(/\/+$/, '');
 
-const TYPE_FOLDERS = ['Full Sessions', 'Replay Buffers', 'Clips', 'Highlights'];
+const TYPE_FOLDERS = Object.values(CONTENT_TYPE_FOLDER);
 
 // The recording-path root a file currently lives under (the part before its content-type folder).
 const deriveSourceRoot = (filePath: string) => {
@@ -38,6 +38,9 @@ export default function StorageSettingsSection({
   const appState = useAppState();
   const { isMigrating } = useContentMigration();
   const [localStorageLimit, setLocalStorageLimit] = useState<string>(String(settings.storageLimit));
+  const [localReadyToDeleteWarningCount, setLocalReadyToDeleteWarningCount] = useState<string>(
+    String(settings.readyToDeleteWarningCount ?? 10),
+  );
   const { openModal, closeModal } = useModal();
   const driveUsedGb = appState.recordingDriveUsedGb;
   const driveFreeGb = appState.recordingDriveFreeGb;
@@ -61,6 +64,10 @@ export default function StorageSettingsSection({
   useEffect(() => {
     setLocalStorageLimit(String(settings.storageLimit));
   }, [settings.storageLimit]);
+
+  useEffect(() => {
+    setLocalReadyToDeleteWarningCount(String(settings.readyToDeleteWarningCount ?? 10));
+  }, [settings.readyToDeleteWarningCount]);
 
   useEffect(() => {
     sendMessageToBackend('RefreshStorageStats');
@@ -138,7 +145,7 @@ export default function StorageSettingsSection({
       openModal(
         <ConfirmationModal
           title="Storage Limit Warning"
-          description={`The storage limit you entered (${numericLimit} GB) is lower than your current folder size (${currentFolderSizeGb.toFixed(2)} GB).\n\nThis will cause older recordings to be automatically deleted to free up space.\n\nAre you sure you want to continue?`}
+          description={`The storage limit you entered (${numericLimit} GB) is lower than your current folder size (${currentFolderSizeGb.toFixed(2)} GB).\n\nThis will move older recordings to「準備刪除」until you delete them there.\n\nAre you sure you want to continue?`}
           confirmText="Apply Limit"
           cancelText="Cancel"
           onConfirm={() => {
@@ -155,6 +162,12 @@ export default function StorageSettingsSection({
     } else {
       updateSettings({ storageLimit: numericLimit });
     }
+  };
+
+  const handleReadyToDeleteWarningCountBlur = () => {
+    const numericCount = Math.max(1, Number(localReadyToDeleteWarningCount) || 10);
+    setLocalReadyToDeleteWarningCount(String(numericCount));
+    updateSettings({ readyToDeleteWarningCount: numericCount });
   };
 
   return (
@@ -226,6 +239,28 @@ export default function StorageSettingsSection({
             min="1"
             className="input input-bordered bg-base-200 w-full block outline-none focus:border-base-400"
           />
+        </div>
+
+        {/* Ready-to-delete warning count */}
+        <div className="form-control">
+          <label className="label block px-0 pb-1">
+            <span className="label-text text-base-content">準備刪除提醒數量</span>
+          </label>
+          <input
+            type="number"
+            name="readyToDeleteWarningCount"
+            value={localReadyToDeleteWarningCount}
+            onChange={(e) => setLocalReadyToDeleteWarningCount(e.target.value)}
+            onBlur={handleReadyToDeleteWarningCountBlur}
+            placeholder="超過此數量時提醒刪除"
+            min="1"
+            className="input input-bordered bg-base-200 w-full block outline-none focus:border-base-400"
+          />
+          <label className="label px-0 pt-1">
+            <span className="label-text-alt text-base-content/60">
+              準備刪除區超過此部數時，啟動與新影片加入會跳出提醒（預設 10）
+            </span>
+          </label>
         </div>
 
         <div className="form-control">

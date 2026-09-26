@@ -415,14 +415,22 @@ namespace Segra.Backend.Api
         private static bool IsBrowserNativeVideo(string ext) =>
             ext.Equals(".mp4", StringComparison.OrdinalIgnoreCase) ||
             ext.Equals(".webm", StringComparison.OrdinalIgnoreCase) ||
-            ext.Equals(".m4v", StringComparison.OrdinalIgnoreCase);
+            ext.Equals(".m4v", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".mkv", StringComparison.OrdinalIgnoreCase);
 
-        private static string GetVideoMimeType(string ext) =>
-            ext.Equals(".webm", StringComparison.OrdinalIgnoreCase) ? "video/webm" : "video/mp4";
+        private static string GetVideoMimeType(string ext)
+        {
+            if (ext.Equals(".webm", StringComparison.OrdinalIgnoreCase))
+                return "video/webm";
+            if (ext.Equals(".mkv", StringComparison.OrdinalIgnoreCase))
+                return "video/x-matroska";
+            return "video/mp4";
+        }
 
         /// <summary>
-        /// Returns a path the browser can play. MKV/MOV/AVI are remuxed (or lightly
+        /// Returns a path the browser can play. MOV/AVI are remuxed (or lightly
         /// re-encoded for audio) into a cached MP4 under the Segra cache folder.
+        /// MKV is served as-is; waveform / multi-track features may fail.
         /// </summary>
         private static async Task<string> EnsureBrowserPlayableAsync(string sourcePath)
         {

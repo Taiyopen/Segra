@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { PreRecording, Recording, GameResponse, Game, Display } from '../Models/types';
+import { PreRecording, Recording, GameResponse, GameSetting, Display } from '../Models/types';
 
 import { Gamepad2, Monitor, Ellipsis, Ban, OctagonX } from 'lucide-react';
 
@@ -11,7 +11,7 @@ import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
 
 import { useAppState } from '../Context/AppStateContext';
 
-import { sendMessageToBackend, stopRecordingSlot } from '../Utils/MessageUtils';
+import { stopRecordingSlot } from '../Utils/MessageUtils';
 
 import Button from './Button';
 import DropdownSelect from './DropdownSelect';
@@ -31,7 +31,7 @@ interface RecordingCardProps {
 const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }) => {
   const timerRef = useRef<HTMLSpanElement>(null);
 
-  const { showGameBackground, selectedDisplay } = useSettings();
+  const { showGameBackground, games, selectedDisplay } = useSettings();
   const updateSettings = useSettingsUpdater();
 
   const { gameList, displays } = useAppState();
@@ -103,16 +103,39 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
   const handleAddToBlocklist = useCallback(() => {
     if (!gameListEntry) return;
 
-    const game: Game = {
-      name: gameListEntry.name,
+    const currentGames = games ?? [];
+    const existing = currentGames.find(
+      (g) =>
+        g.name === gameListEntry.name ||
+        (gameListEntry.igdbId != null && g.igdbId === gameListEntry.igdbId),
+    );
+    const mergedPaths = existing
+      ? Array.from(new Set([...existing.paths, ...gameListEntry.executables]))
+      : gameListEntry.executables;
+    const blocked: GameSetting = existing
+      ? { ...existing, record: false, paths: mergedPaths }
+      : {
+          name: gameListEntry.name,
+          paths: mergedPaths,
+          igdbId: gameListEntry.igdbId ?? null,
+          icon: gameListEntry.icon,
+          customIcon: null,
+          record: false,
+          qualityOverride: null,
+          recordingModeOverride: null,
+          discardSessionsWithoutBookmarksOverride: null,
+          enableHdrOverride: null,
+          volumeOverride: null,
+        };
 
-      paths: gameListEntry.executables,
-    };
-
-    sendMessageToBackend('AddToBlacklist', { game });
+    updateSettings({
+      games: existing
+        ? currentGames.map((g) => (g.name === existing.name ? blocked : g))
+        : [...currentGames, blocked],
+    });
 
     stopRecordingSlot(slot);
-  }, [gameListEntry, slot]);
+  }, [gameListEntry, games, slot, updateSettings]);
 
   const updateMenuPosition = useCallback(() => {
     const anchor = menuAnchorRef.current;

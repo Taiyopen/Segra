@@ -373,3 +373,7 @@ MigrationBackup/
 
 # OBS Linux bundle is a throwaway build artifact (Flatpak regenerates + bundles it)
 Obs/*linux.tar.gz
+
+# Merge leftovers (not the execution path)
+.merge-frontend/
+.merge-tmp/

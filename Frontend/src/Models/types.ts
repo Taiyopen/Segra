@@ -1,4 +1,16 @@
-export type ContentType = 'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit' | 'External';
+export type ContentType =
+  'Session' | 'Buffer' | 'Clip' | 'Highlight' | 'PendingEdit' | 'ReadyToDelete' | 'External';
+
+/** Cache/video folder names; must match Backend/Shared/FolderNames.cs. */
+export const CONTENT_TYPE_FOLDER: Record<ContentType, string> = {
+  Session: 'Full Sessions',
+  Buffer: 'Replay Buffers',
+  Clip: 'Clips',
+  Highlight: 'Highlights',
+  PendingEdit: '待剪輯',
+  ReadyToDelete: '準備刪除',
+  External: '外部影片庫',
+};
 
 export type RecordingMode = 'Session' | 'Buffer' | 'Hybrid';
 
@@ -26,6 +38,8 @@ export interface Content {
   audioTrackNames?: string[];
   /** Original Session/Buffer type when this item lives in 待剪輯. */
   pendingEditSourceType?: 'Session' | 'Buffer';
+  /** Original Session/Buffer type when this item lives in 準備刪除. */
+  readyToDeleteSourceType?: 'Session' | 'Buffer';
 }
 
 export interface OBSVersion {
@@ -279,8 +293,23 @@ export type ClipPreset =
 export type VideoQualityPreset = 'low' | 'standard' | 'high' | 'custom';
 export type ClipQualityPreset = 'low' | 'standard' | 'high' | 'custom';
 
-export type MenuItemId =
-  'Full Sessions' | 'Replay Buffer' | '待剪輯' | '瀏覽影片' | 'Clips' | 'Highlights' | 'Settings';
+/**
+ * Sidebar menu IDs persisted in settings.
+ * Reuses CONTENT_TYPE_FOLDER where the label matches the disk folder.
+ * Replay Buffer is singular (folder is Replay Buffers); 瀏覽影片 is the browse page, not 外部影片庫.
+ */
+export const MENU_ITEM = {
+  Sessions: CONTENT_TYPE_FOLDER.Session,
+  ReplayBuffer: 'Replay Buffer',
+  PendingEdit: CONTENT_TYPE_FOLDER.PendingEdit,
+  ReadyToDelete: CONTENT_TYPE_FOLDER.ReadyToDelete,
+  BrowseVideos: '瀏覽影片',
+  Clips: CONTENT_TYPE_FOLDER.Clip,
+  Highlights: CONTENT_TYPE_FOLDER.Highlight,
+  Settings: 'Settings',
+} as const;
+
+export type MenuItemId = (typeof MENU_ITEM)[keyof typeof MENU_ITEM];
 
 export interface MenuItemPreference {
   id: MenuItemId;
@@ -288,13 +317,14 @@ export interface MenuItemPreference {
 }
 
 export const ALL_MENU_ITEM_IDS: MenuItemId[] = [
-  'Full Sessions',
-  'Replay Buffer',
-  '待剪輯',
-  '瀏覽影片',
-  'Clips',
-  'Highlights',
-  'Settings',
+  MENU_ITEM.Sessions,
+  MENU_ITEM.ReplayBuffer,
+  MENU_ITEM.PendingEdit,
+  MENU_ITEM.ReadyToDelete,
+  MENU_ITEM.BrowseVideos,
+  MENU_ITEM.Clips,
+  MENU_ITEM.Highlights,
+  MENU_ITEM.Settings,
 ];
 
 export const DEFAULT_MENU_ITEMS: MenuItemPreference[] = ALL_MENU_ITEM_IDS.map((id) => ({
@@ -316,13 +346,14 @@ export function normalizeMenuItems(
 }
 
 export const MENU_ITEM_CONTENT_TYPES: Record<MenuItemId, ContentType[]> = {
-  'Full Sessions': ['Session'],
-  'Replay Buffer': ['Buffer'],
-  待剪輯: ['PendingEdit'],
-  瀏覽影片: [],
-  Clips: ['Clip'],
-  Highlights: ['Highlight'],
-  Settings: [],
+  [MENU_ITEM.Sessions]: ['Session'],
+  [MENU_ITEM.ReplayBuffer]: ['Buffer'],
+  [MENU_ITEM.PendingEdit]: ['PendingEdit'],
+  [MENU_ITEM.ReadyToDelete]: ['ReadyToDelete'],
+  [MENU_ITEM.BrowseVideos]: [],
+  [MENU_ITEM.Clips]: ['Clip'],
+  [MENU_ITEM.Highlights]: ['Highlight'],
+  [MENU_ITEM.Settings]: [],
 };
 
 export const menuItemHasContent = (id: MenuItemId, content: Content[]): boolean => {
@@ -345,6 +376,7 @@ export interface Settings {
   encoder: 'gpu' | 'cpu';
   codec: Codec | null;
   storageLimit: number;
+  readyToDeleteWarningCount: number;
   contentFolder: string;
   cacheFolder: string;
   inputDevices: DeviceSetting[];
@@ -443,6 +475,7 @@ export const initialSettings: Settings = {
   encoder: 'gpu',
   codec: null,
   storageLimit: 100,
+  readyToDeleteWarningCount: 10,
   contentFolder: '',
   cacheFolder: '',
   inputDevices: [],
@@ -496,7 +529,7 @@ export const initialSettings: Settings = {
   discardSessionsWithoutBookmarks: false,
   disableWindowsGameMode: false,
   menuItems: DEFAULT_MENU_ITEMS,
-  defaultMenuItem: 'Full Sessions',
+  defaultMenuItem: MENU_ITEM.Sessions,
   keybindings: [
     { keys: [119], action: KeybindAction.CreateBookmark, enabled: true }, // 119 is F8
     { keys: [120], action: KeybindAction.ToggleRecording, enabled: true }, // 120 is F9
