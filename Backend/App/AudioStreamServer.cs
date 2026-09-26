@@ -58,8 +58,9 @@ namespace Segra.Backend.App
                         PlatformServices.StreamAudio.Flush();
 
                         HttpListenerWebSocketContext wsContext = await context.AcceptWebSocketAsync(null);
-                        activeWebSocket = wsContext.WebSocket;
-                        _ = Task.Run(() => HandleWebSocketAsync(activeWebSocket));
+                        WebSocket socket = wsContext.WebSocket;
+                        activeWebSocket = socket;
+                        _ = Task.Run(() => HandleWebSocketAsync(socket));
                     }
                     else
                     {

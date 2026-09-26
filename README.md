@@ -40,7 +40,7 @@
 ## Installation
 
 ### Windows
-1. **Download**: Get `Segra-win-Setup.exe` from the [latest release](https://github.com/Segergren/Segra/releases/latest).  
+1. **Download**: Get `Segra-win-Setup.exe` from the [latest release](https://github.com/Taiyopen/Segra/releases/latest). Local packaging steps are in [pack-local.md](pack-local.md).  
 2. **Install**: Run the setup.  
 3. **Configure**:  
    - Set recording directory and video quality.  

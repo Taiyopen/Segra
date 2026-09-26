@@ -12,8 +12,11 @@ namespace Segra.Backend.App
     public static class UpdateService
     {
         public static UpdateInfo? LatestUpdateInfo { get; private set; } = null;
-        public static GithubSource Source = new("https://github.com/Segergren/Segra", null, false);
-        public static GithubSource BetaSource = new("https://github.com/Segergren/Segra", null, true);
+
+        // Fork 發布到 Taiyopen/Segra。官方安裝不會讀這個來源。
+        private const string UpdateRepository = "Taiyopen/Segra";
+        public static GithubSource Source = new($"https://github.com/{UpdateRepository}", null, false);
+        public static GithubSource BetaSource = new($"https://github.com/{UpdateRepository}", null, true);
         public static UpdateManager UpdateManager { get; private set; } = new(Source);
 
         // Falls back to the assembly version when Velopack has no metadata (dev builds, Flatpak).
@@ -320,7 +323,7 @@ namespace Segra.Backend.App
                 httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Segra", currentVersion.ToString()));
 
                 // Fetch releases from GitHub API
-                var response = await httpClient.GetAsync($"https://api.github.com/repos/Segergren/Segra/releases");
+                var response = await httpClient.GetAsync($"https://api.github.com/repos/{UpdateRepository}/releases");
                 response.EnsureSuccessStatusCode();
 
                 var content = await response.Content.ReadAsStringAsync();

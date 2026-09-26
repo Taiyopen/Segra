@@ -15,15 +15,17 @@ export interface NativeAudioSink {
   play(sampleRate: number, channels: number): void;
   /** Stops native playback and discards buffered PCM. */
   flush(): void;
+  /** Stops this sink from forwarding PCM. Leaves the shared native player running. */
+  stopForwarding(): void;
   /** Queues an interleaved IEEE float32 PCM block. No-op unless playing. */
   sendPcm(interleaved: Float32Array): void;
 }
 
 let socket: WebSocket | null = null;
 let socketPromise: Promise<NativeAudioSink | null> | null = null;
-let playing = false;
 
 function createSink(ws: WebSocket): NativeAudioSink {
+  let playing = false;
   return {
     play(sampleRate, channels) {
       playing = true;
@@ -36,6 +38,9 @@ function createSink(ws: WebSocket): NativeAudioSink {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'flush' }));
       }
+    },
+    stopForwarding() {
+      playing = false;
     },
     sendPcm(interleaved) {
       if (playing && ws.readyState === WebSocket.OPEN) {
@@ -65,6 +70,7 @@ export function getNativeAudioSink(): Promise<NativeAudioSink | null> {
       settled = true;
       clearTimeout(timeout);
       if (result) {
+        socketPromise = null;
         resolve(result);
       } else {
         socket = null;
@@ -89,10 +95,14 @@ export function getNativeAudioSink(): Promise<NativeAudioSink | null> {
       ws.onopen = () => done(createSink(ws));
       ws.onerror = () => done(null);
       ws.onclose = () => {
-        // Reset the shared state so a future attach (e.g. the next video opened) reconnects.
-        playing = false;
-        if (socket === ws) socket = null;
-        if (socketPromise) socketPromise = null;
+        // Only drop this socket. A replacement connection may already be stored.
+        if (socket !== ws) return;
+        socket = null;
+        if (!settled) {
+          done(null);
+          return;
+        }
+        socketPromise = null;
       };
     } catch {
       done(null);
