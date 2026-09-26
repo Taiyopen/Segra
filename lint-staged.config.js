@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 export default {
   'Frontend/**/*.{ts,tsx,js,jsx,css,md,json,html}': (files) => {
     const quoted = files.map((f) => `"${f}"`).join(' ');
@@ -7,8 +9,8 @@ export default {
     ];
   },
   '**/*.cs': (files) => {
-    const quoted = files.map((f) => `"${f}"`).join(' ');
-    // Run dotnet format on the whole solution - more reliable than per-file
-    return [`dotnet format Segra.sln`];
+    const quoted = files.map((f) => `"${path.relative(process.cwd(), f)}"`).join(' ');
+    // Format only the staged files so another agent's uncommitted .cs work is left untouched
+    return [`dotnet format Segra.sln --include ${quoted}`];
   },
 };

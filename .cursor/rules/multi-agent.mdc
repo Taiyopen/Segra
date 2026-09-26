@@ -1,0 +1,35 @@
+---
+description: Cursor 與 Claude Code 可能同時改這個 repo。開工先看 git status，不碰別人未 commit 的改動，commit 只加自己的檔。
+alwaysApply: true
+---
+
+# 多 agent 協作
+
+使用者會讓 Cursor 和 Claude Code 同時在這個工作目錄做事。你看到的未 commit 改動，可能是另一個 agent 做到一半的工作。
+
+## 開工
+
+先跑 `git status`。不是你這次改的檔，一律當成別人進行中的工作：
+
+- 不改、不 format、不 revert
+- 不 `git stash`、`git checkout -- <檔>`、`git reset --hard`、`git clean`（這些會連別人的改動一起收掉或刪掉）
+
+你要改的檔已經有別人未 commit 的改動 → 停下來問使用者，不要疊上去改。
+
+## Commit
+
+- 只 `git add <明確路徑>`，列出你這次改的檔
+- 禁止 `git add -A`、`git add .`、`git commit -a`
+- commit 後再跑一次 `git status`，確認別人的改動還在、沒被帶進去
+
+## Changelog
+
+`changelogs/YYYY-MM-DD.md` 兩邊都會寫。追加前先重讀檔尾，確認沒有覆蓋到剛被寫入的條目。標題結尾標上是誰寫的：
+
+```markdown
+## 03:47 — 本機 WebSocket 只收自己前端的連線（Claude）
+```
+
+## 建置
+
+`build-local.ps1` 會關掉 Segra 並覆寫 `publish\`，同時只能有一個 agent 在跑。遇到鎖檔錯誤，先確認是不是另一個 agent 正在編，再重跑。

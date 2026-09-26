@@ -7,6 +7,19 @@ alwaysApply: true
 
 Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內嵌 **React Frontend**。FE 經 `window.external.sendMessage` 送 `{ Method, Parameters }` JSON；BE 由 `MessageService.HandleMessage` 分派，再用 WebSocket 把狀態推回 FE。
 
+**FE→BE 指令一律走 `sendMessageToBackend`。** WebSocket 44030 只負責 BE→FE 推送：入站只回 `ping`，其他訊息直接丟掉；而且只接受 localhost 來源（防外部網頁拿 token、送指令）。
+
+## 本機 port
+
+| Port | 用途 | 位置 |
+|---|---|---|
+| 44040（起，往上找空的） | 靜態檔 server，提供前端 | `Program.cs` |
+| 2882 | Vite dev server（Debug 模式載這個） | `Frontend/vite.config.ts` |
+| 44030 | WebSocket：BE→FE 狀態推送 | `MessageService.StartWebsocket` |
+| 44031 | WebSocket：剪輯頁聲音從 Segra 播出 | `AudioStreamServer` |
+| 2222 | HTTP：影片、縮圖、預覽、Discord 登入 callback | `Api/ContentServer.cs` |
+| 5000 | 舊版前端相容：推 AppVersion 逼它重載後關閉 | `MessageService.StartLegacyPortFallback` |
+
 本 repo 是 **fork**：upstream 錄影／剪輯／遊戲偵測之上，另有雙槽錄影、待剪輯、瀏覽影片、外部影片庫、獨立 PiP 監控窗、VRChat VVMW。現況與星等見 `SYNC.md`；`SYNC_v1.7.0.md` 只是 2026-08-06 那次合併紀錄。
 
 ## 資料流
@@ -50,11 +63,11 @@ Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內
 | `Backend/Api/ContentServer.cs` | 本機 HTTP：影片、縮圖、waveform |
 | `Backend/Services/BrowseService.cs` | **fork**：瀏覽任意資料夾影片（舊路徑，僅此檔） |
 | `Backend/Auth/` | Discord / Segra.tv 登入 |
-| `Backend/Platform/` | Windows / Linux 服務定位；Linux 僅部分合入 |
+| `Backend/Platform/` | Windows / Linux 服務定位；Linux 僅部分合入。Linux TFM（`net10.0`）目前編不過，使用者說先不管 |
 | `Backend/Windows/` | 音訊、顯示器、熱鍵、磁碟、Game Mode、HDR |
 | `Backend/Shared/` | `FolderNames`、`PathUtils`、`IconUtils` |
 
-`.merge-frontend/`、`.merge-tmp/` 是合併殘留，**不是**執行路徑。
+`.merge-frontend/`、`.merge-tmp/` 是合併殘留，**不是**執行路徑。`.merge-frontend/` 已列入 `.gitignore`，但仍被 git 追蹤（要移除得 `git rm -r --cached`）。
 
 ## Frontend（`Frontend/src`）
 

@@ -15,7 +15,7 @@ Frontend、Backend、`wwwroot`、`Segra.csproj` 有改動，且該回合工作�
 .\build-local.ps1
 ```
 
-工作目錄必須是 repo 根。`publish` 可能要數分鐘，`block_until_ms` 給夠（建議 ≥ 180000），失敗就讀輸出修好再編一次。
+工作目錄必須是 repo 根。`publish` 可能要數分鐘，工具的 timeout 給夠（建議 ≥ 180000），失敗就讀輸出修好再編一次。
 
 只改 `.cursor/rules`、`changelogs/`、`SYNC.md`：不必編。
 
