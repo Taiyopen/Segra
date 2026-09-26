@@ -15,7 +15,7 @@
 | ★★ | 值得要：實用，但要手移，或會碰到熱檔 |
 | ★ | 低優先或預設跳過：跟 fork 核心纏太深、或本 fork 用不到 |
 
-熱檔：`OBSService.cs`、`video.tsx`、`MessageService.cs`、`ContentService.cs`、`ContentCard.tsx`、`Program.cs`
+熱檔：`OBSService.cs`、`video.tsx`、`MessageService.cs`、`ContentService.cs`、`ContentCard.tsx`、`Program.cs`（fork 拆出去的部分對照見 `.cursor/rules/upstream-sync.mdc`）
 
 **Release 欄**：對應 GitHub 穩定 Release 頁的描述（繁中，保留官方分類）。沒出現在穩定 Release 的寫 `Release 未列`，不要用 commit 主旨冒充。
 

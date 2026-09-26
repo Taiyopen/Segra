@@ -20,6 +20,10 @@ alwaysApply: true
 
 `OBSService.cs`、`video.tsx`、`MessageService.cs`、`ContentService.cs`、`ContentCard.tsx`、`Program.cs`
 
+fork 已把部分熱檔拆開，上游改到下列位置時，要到 fork 的新檔找對應的方法：
+
+- 上游 `OBSService.cs` 的 `StartRecording` → `OBSService.StartRecording.cs`（拆成 `DecideHdrForGlobalCanvas`、`AddCaptureSources`、`ConfigureVideoEncoderSettings`、`AddAudioSources`、`CreateAudioEncoders`、`CreateOutputs`、`StartOutputs`）；多音軌遮罩／名稱在 `AudioTrackLayout.cs`
+
 ## 預設跳過
 
 - `OBSService` 改用 ObsKit built-ins（雙槽長在這份檔）
