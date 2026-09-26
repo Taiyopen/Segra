@@ -1,12 +1,5 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import {
-  Content,
-  BookmarkType,
-  Segment,
-  Bookmark,
-  CONTENT_TYPE_FOLDER,
-  MENU_ITEM,
-} from '../Models/types';
+import { Content, BookmarkType, Segment, Bookmark } from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import {
   isPendingEditSourceType,
@@ -21,7 +14,6 @@ import {
 } from '../Utils/ReadyToDeleteUtils';
 import { useSettings, useSettingsUpdater } from '../Context/SettingsContext';
 import { useAppState } from '../Context/AppStateContext';
-import { openFileLocation } from '../Utils/FileUtils';
 import { useSelectedVideo } from '../Context/SelectedVideoContext';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -30,17 +22,11 @@ import { useSegments } from '../Context/SegmentsContext';
 import { useUploads } from '../Context/UploadContext';
 import { useModal } from '../Context/ModalContext';
 import UploadModal from '../Components/UploadModal';
-import type { LucideIcon } from 'lucide-react';
-import { Icon } from 'lucide-react';
-import { crosshair2Dot, soccerBall } from '@lucide/lab';
 import {
   Trash2,
   SquarePlus,
-  Bookmark as BookmarkIcon,
   BookmarkPlus,
   Clapperboard,
-  HeartHandshake,
-  Swords,
   Pause,
   Play,
   RotateCcw,
@@ -51,7 +37,6 @@ import {
   Volume1,
   Maximize,
   Minimize,
-  ArrowLeft,
   Skull,
   Plus,
   Minus,
@@ -63,11 +48,6 @@ import {
   Repeat,
   ArrowLeftToLine,
   ArrowRightToLine,
-  ChevronLeft,
-  ChevronRight,
-  Inbox,
-  PenLine,
-  FolderOutput,
 } from 'lucide-react';
 import { useContentPlaylist } from '../Hooks/useContentPlaylist';
 import VideoPlaylistPanel from '../Components/VideoPlaylistPanel';
@@ -76,413 +56,23 @@ import { useAudioTracks } from '../Hooks/useAudioTracks';
 import { useNativeElementAudio } from '../Hooks/useNativeElementAudio';
 import { AnimatePresence, motion } from 'framer-motion';
 import Button from '../Components/Button';
-
-const MAX_SEGMENT_UNDO = 40;
-
-function cloneSegmentsForUndo(segs: Segment[]): Segment[] {
-  return segs.map((s) => ({
-    ...s,
-    mutedAudioTracks: s.mutedAudioTracks ? [...s.mutedAudioTracks] : undefined,
-    audioTrackVolumes: s.audioTrackVolumes ? { ...s.audioTrackVolumes } : undefined,
-  }));
-}
-
-const Crosshair2Dot = React.forwardRef<SVGSVGElement, React.ComponentProps<typeof Icon>>(
-  (props, ref) => <Icon {...props} ref={ref} iconNode={crosshair2Dot} />,
-) as LucideIcon;
-
-const SoccerBall = React.forwardRef<SVGSVGElement, React.ComponentProps<typeof Icon>>(
-  (props, ref) => <Icon {...props} ref={ref} iconNode={soccerBall} />,
-) as LucideIcon;
-
-// Converts time string in format "HH:MM:SS.mmm" to seconds
-const timeStringToSeconds = (timeStr: string): number => {
-  const [time, milliseconds] = timeStr.split('.');
-  const [hours, minutes, seconds] = time.split(':').map(Number);
-  return hours * 3600 + minutes * 60 + seconds + (milliseconds ? Number(`0.${milliseconds}`) : 0);
-};
-
-// Render waveform bars onto a canvas for a given pixel range [regionLeft, regionLeft + canvas.width).
-// peaksMax is the loudest absolute peak in the whole clip; bars are scaled against it so
-// the loudest moment fills the canvas height regardless of the recording's overall level.
-function renderWaveformRegion(
-  canvas: HTMLCanvasElement,
-  peaks: number[],
-  peaksMax: number,
-  totalWidth: number,
-  regionLeft: number,
-) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  const { width, height } = canvas;
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = '#49515b';
-
-  const columns = Math.floor(peaks.length / 2);
-  if (columns === 0) return;
-  const barWidth = totalWidth / columns;
-  const denom = peaksMax > 0 ? peaksMax : 128;
-  const maxBarHeight = height * 0.8;
-
-  for (let px = 0; px < width; px++) {
-    const worldX = regionLeft + px;
-    const colStart = Math.max(0, Math.floor(worldX / barWidth));
-    const colEnd = Math.min(columns, Math.ceil((worldX + 1) / barWidth));
-
-    let maxAmp = 0;
-    for (let i = colStart; i < colEnd; i++) {
-      const amp = Math.max(Math.abs(peaks[i * 2]), Math.abs(peaks[i * 2 + 1]));
-      if (amp > maxAmp) maxAmp = amp;
-    }
-
-    const amplitude = Math.min(1, maxAmp / denom);
-    const barHeight = Math.max(1, amplitude * maxBarHeight);
-    ctx.fillRect(px, height - barHeight, 1, barHeight);
-  }
-}
-
-const PLAYBACK_RATE_MIN = 0.1;
-const PLAYBACK_RATE_MAX = 5;
-const PLAYBACK_RATE_STEP = 0.1;
-
-const clampPlaybackRate = (rate: number) =>
-  Math.round(Math.max(PLAYBACK_RATE_MIN, Math.min(PLAYBACK_RATE_MAX, rate)) * 10) / 10;
-
-const formatPlaybackRateLabel = (rate: number) => {
-  const rounded = clampPlaybackRate(rate);
-  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}x`;
-};
-
-const playbackRateSliderPercent = (rate: number) =>
-  ((clampPlaybackRate(rate) - PLAYBACK_RATE_MIN) / (PLAYBACK_RATE_MAX - PLAYBACK_RATE_MIN)) * 100;
-
-const DEFAULT_ICON_MAPPING: Record<BookmarkType, LucideIcon> = {
-  Manual: BookmarkIcon,
-  Kill: Crosshair2Dot,
-  Goal: SoccerBall,
-  Assist: HeartHandshake,
-  Death: Skull,
-};
-
-const GAME_ICON_OVERRIDES: Record<number, Partial<Record<BookmarkType, LucideIcon>>> = {
-  115: { Kill: Swords }, // League of Legends
-};
-
-function getIconMapping(igdbId?: number): Record<BookmarkType, LucideIcon> {
-  if (igdbId && GAME_ICON_OVERRIDES[igdbId]) {
-    return { ...DEFAULT_ICON_MAPPING, ...GAME_ICON_OVERRIDES[igdbId] };
-  }
-  return DEFAULT_ICON_MAPPING;
-}
-
-interface TopInfoBarProps {
-  video: Content;
-  currentIndex: number;
-  playlistCount: number;
-  prevVideo: Content | null;
-  nextVideo: Content | null;
-  onSelectVideo: (video: Content) => void;
-  onDelete: () => void;
-  onMoveToPendingEdit: () => void;
-  showMoveToPendingEdit: boolean;
-  onMoveOutOfPendingEdit: (targetType?: 'Session' | 'Buffer') => void;
-  showMoveOutOfPendingEdit: boolean;
-  pendingEditSourceType?: 'Session' | 'Buffer';
-  onMoveOutOfReadyToDelete: (targetType?: 'Session' | 'Buffer') => void;
-  showMoveOutOfReadyToDelete: boolean;
-  readyToDeleteSourceType?: 'Session' | 'Buffer';
-}
-
-function TopInfoBar({
-  video,
-  currentIndex,
-  playlistCount,
-  prevVideo,
-  nextVideo,
-  onSelectVideo,
-  onDelete,
-  onMoveToPendingEdit,
-  showMoveToPendingEdit,
-  onMoveOutOfPendingEdit,
-  showMoveOutOfPendingEdit,
-  pendingEditSourceType,
-  onMoveOutOfReadyToDelete,
-  showMoveOutOfReadyToDelete,
-  readyToDeleteSourceType,
-}: TopInfoBarProps) {
-  const { setSelectedVideo } = useSelectedVideo();
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState('');
-  const renameInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setIsRenaming(false);
-  }, [video.fileName]);
-
-  const startRenaming = () => {
-    setRenameValue(video.title || video.fileName || '');
-    setIsRenaming(true);
-    setTimeout(() => {
-      renameInputRef.current?.focus();
-      renameInputRef.current?.select();
-    }, 0);
-  };
-
-  const commitRename = () => {
-    if (!isRenaming) return;
-    setIsRenaming(false);
-    const trimmed = renameValue.trim();
-    const invalidChars = /[<>:"/\\|?*]/;
-    if (!trimmed || invalidChars.test(trimmed)) return;
-    if (trimmed === (video.title || video.fileName || '')) return;
-    sendMessageToBackend('RenameContent', {
-      FileName: video.fileName,
-      ContentType: video.type,
-      Title: trimmed,
-    });
-  };
-
-  const created = new Date(video.createdAt);
-  const isValidDate = !isNaN(created.getTime());
-  const locale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase() || '';
-  const isUS = locale.includes('-us');
-  const createdDateStr = !isValidDate
-    ? video.createdAt
-    : isUS
-      ? created.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })
-      : `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}-${String(created.getDate()).padStart(2, '0')}`;
-
-  const createdTimeStr = !isValidDate
-    ? ''
-    : created.toLocaleTimeString(isUS ? 'en-US' : undefined, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: isUS,
-      });
-
-  const positionLabel =
-    currentIndex >= 0 && playlistCount > 0
-      ? `${currentIndex + 1} / ${playlistCount}`
-      : playlistCount > 0
-        ? `— / ${playlistCount}`
-        : null;
-
-  return (
-    <div className="flex items-center gap-2 px-2 py-1 mb-2 text-xs leading-tight text-gray-300 border rounded-lg shrink-0 bg-base-300 border-base-400">
-      <Button
-        variant="ghost"
-        size="xs"
-        className="h-6 min-h-0 px-1"
-        onClick={() => setSelectedVideo(null)}
-        aria-label="Back"
-        title="返回列表"
-      >
-        <ArrowLeft className="w-4 h-4" />
-      </Button>
-
-      {playlistCount > 1 && (
-        <div className="flex items-center border rounded-md join border-base-400 shrink-0">
-          <Button
-            variant="ghost"
-            size="xs"
-            className="h-6 min-h-0 px-1 join-item"
-            disabled={!prevVideo}
-            onClick={() => prevVideo && onSelectVideo(prevVideo)}
-            aria-label="上一部"
-            title="上一部"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          {positionLabel && (
-            <span className="px-1 text-[10px] tabular-nums text-gray-400 join-item">
-              {positionLabel}
-            </span>
-          )}
-          <Button
-            variant="ghost"
-            size="xs"
-            className="h-6 min-h-0 px-1 join-item"
-            disabled={!nextVideo}
-            onClick={() => nextVideo && onSelectVideo(nextVideo)}
-            aria-label="下一部"
-            title="下一部"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-
-      <div className="flex items-center gap-1 shrink-0">
-        {showMoveToPendingEdit && (
-          <Button
-            variant="ghost"
-            size="xs"
-            className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
-            onClick={onMoveToPendingEdit}
-            title="移至待剪輯（不會被儲存空間自動清理刪除）"
-          >
-            <Inbox className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">待剪輯</span>
-          </Button>
-        )}
-        {showMoveOutOfPendingEdit &&
-          (pendingEditSourceType ? (
-            <Button
-              variant="ghost"
-              size="xs"
-              className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
-              onClick={() => onMoveOutOfPendingEdit(pendingEditSourceType)}
-              title={`移出待剪輯，回到 ${pendingEditSourceType === 'Buffer' ? MENU_ITEM.ReplayBuffer : MENU_ITEM.Sessions}`}
-            >
-              <FolderOutput className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">移出待剪輯</span>
-            </Button>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
-                onClick={() => onMoveOutOfPendingEdit('Session')}
-                title={`舊檔無來源記錄：移回 ${MENU_ITEM.Sessions}`}
-              >
-                <FolderOutput className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">→ Sessions</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
-                onClick={() => onMoveOutOfPendingEdit('Buffer')}
-                title={`舊檔無來源記錄：移回 ${MENU_ITEM.ReplayBuffer}`}
-              >
-                <FolderOutput className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">→ Buffer</span>
-              </Button>
-            </>
-          ))}
-        {showMoveOutOfReadyToDelete &&
-          (readyToDeleteSourceType ? (
-            <Button
-              variant="ghost"
-              size="xs"
-              className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
-              onClick={() => onMoveOutOfReadyToDelete(readyToDeleteSourceType)}
-              title={`移出準備刪除，回到 ${readyToDeleteSourceType === 'Buffer' ? MENU_ITEM.ReplayBuffer : MENU_ITEM.Sessions}`}
-            >
-              <FolderOutput className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">移出準備刪除</span>
-            </Button>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
-                onClick={() => onMoveOutOfReadyToDelete('Session')}
-                title={`舊檔無來源記錄：移回 ${MENU_ITEM.Sessions}`}
-              >
-                <FolderOutput className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">→ Sessions</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
-                onClick={() => onMoveOutOfReadyToDelete('Buffer')}
-                title={`舊檔無來源記錄：移回 ${MENU_ITEM.ReplayBuffer}`}
-              >
-                <FolderOutput className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">→ Buffer</span>
-              </Button>
-            </>
-          ))}
-        <Button
-          variant="ghost"
-          size="xs"
-          className="h-6 min-h-0 px-1.5 border border-base-400"
-          onClick={startRenaming}
-          aria-label="Rename"
-          title="重新命名（同步更新磁碟檔名）"
-        >
-          <PenLine className="w-3.5 h-3.5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="xs"
-          className="h-6 min-h-0 px-1.5 text-error hover:text-error"
-          onClick={onDelete}
-          aria-label="Delete"
-          title="刪除影片"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-2 overflow-hidden min-w-0">
-        {isRenaming ? (
-          <input
-            ref={renameInputRef}
-            type="text"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commitRename();
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                setIsRenaming(false);
-              }
-            }}
-            className="min-w-0 max-w-48 px-1 py-0 font-medium truncate bg-base-200 border rounded outline-none border-base-400 focus:border-primary"
-            placeholder={video.game || 'Untitled'}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={startRenaming}
-            className="min-w-0 font-medium truncate whitespace-nowrap hover:underline"
-            title="點擊重新命名"
-          >
-            {video.title || video.game}
-          </button>
-        )}
-        <span className="shrink-0">•</span>
-        <span className="whitespace-nowrap shrink-0">
-          Created: {createdDateStr}
-          {createdTimeStr ? ` ${createdTimeStr}` : ''}
-        </span>
-        <span className="shrink-0">•</span>
-        <span className="whitespace-nowrap shrink-0">Size: {video.fileSize}</span>
-        <span className="shrink-0">•</span>
-        <span className="flex items-center gap-1 min-w-0">
-          <span className="whitespace-nowrap shrink-0">Location:</span>
-          <a
-            className="text-gray-300 cursor-pointer hover:underline hover:text-gray-200 truncate"
-            onClick={() => openFileLocation(video.filePath)}
-          >
-            {video.filePath.replace(/\\/g, '/')}
-          </a>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// Fetches a video thumbnail from the backend for a specific timestamp
-const fetchThumbnailAtTime = async (videoPath: string, timeInSeconds: number): Promise<string> => {
-  const url = `http://localhost:2222/api/thumbnail?input=${encodeURIComponent(videoPath)}&time=${timeInSeconds}`;
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch thumbnail: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  return URL.createObjectURL(blob);
-};
+import VideoTopInfoBar from '../Components/VideoTopInfoBar';
+import { useSegmentUndo } from '../Hooks/useSegmentUndo';
+import { useVideoZoomPan } from '../Hooks/useVideoZoomPan';
+import { useTimelineWaveform } from '../Hooks/useTimelineWaveform';
+import { useBookmarkFilter } from '../Hooks/useBookmarkFilter';
+import { getIconMapping } from '../Utils/BookmarkIcons';
+import {
+  timeStringToSeconds,
+  PLAYBACK_RATE_MIN,
+  PLAYBACK_RATE_MAX,
+  PLAYBACK_RATE_STEP,
+  clampPlaybackRate,
+  formatPlaybackRateLabel,
+  playbackRateSliderPercent,
+  fetchThumbnailAtTime,
+  getWaveformUrl,
+} from '../Utils/VideoEditorUtils';
 
 export default function VideoComponent({ video }: { video: Content }) {
   // Context hooks
@@ -526,11 +116,6 @@ export default function VideoComponent({ video }: { video: Content }) {
   const latestDraggedSegmentRef = useRef<Segment | null>(null);
   const pendingScrollRef = useRef<number | null>(null);
   const zoomAnimationRef = useRef<number>(0);
-  const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
-  const peaksRef = useRef<number[] | null>(null);
-  const peaksMaxRef = useRef<number>(128);
-  const waveformStateRef = useRef({ pixelsPerSecond: 0, duration: 0 });
-  const waveformBufferRef = useRef({ regionLeft: 0, regionRight: 0 });
 
   const navigateAfterRemoval = useCallback(() => {
     if (nextVideo) {
@@ -713,18 +298,19 @@ export default function VideoComponent({ video }: { video: Content }) {
   }, [video.filePath, metadataDuration]);
   const [zoom, setZoom] = useState(1);
 
-  // Scale and pan state for zooming into the video element itself
-  const [videoScale, setVideoScale] = useState(1);
-  const [videoTranslate, setVideoTranslate] = useState({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const videoPanStartRef = useRef<{ x: number; y: number } | null>(null);
-  const videoLastPointerRef = useRef<number | null>(null);
-  const panMovedRef = useRef(false);
-  const videoScaleRef = useRef<number>(videoScale);
-
-  useEffect(() => {
-    videoScaleRef.current = videoScale;
-  }, [videoScale]);
+  const {
+    videoScale,
+    videoTranslate,
+    isPanning,
+    videoScaleRef,
+    applyVideoScale,
+    resetVideoZoom,
+    consumePanClick,
+    onVideoWheel,
+    onVideoPointerDown,
+    onVideoPointerMove,
+    onVideoPointerUp,
+  } = useVideoZoomPan(videoRef, playerContainerRef);
 
   // Close timeline audio menu when clicking outside
   useEffect(() => {
@@ -734,89 +320,6 @@ export default function VideoComponent({ video }: { video: Content }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [timelineAudioMenu?.visible]);
-
-  // Clamp translation so the video remains at least partially visible
-  const clampTranslate = (t: { x: number; y: number }) => {
-    const el = playerContainerRef.current;
-    const vid = videoRef.current;
-    if (!el || !vid) return t;
-    const vw = el.clientWidth;
-    const vh = el.clientHeight;
-    const sw = vid.clientWidth * videoScaleRef.current;
-    const sh = vid.clientHeight * videoScaleRef.current;
-
-    // Horizontal clamp: if video wider than container, allow panning between left and right edges.
-    // Otherwise center horizontally.
-    let minX: number;
-    let maxX: number;
-    if (sw > vw) {
-      minX = vw - sw; // video right edge aligns with container right
-      maxX = 0; // video left edge aligns with container left
-    } else {
-      // center
-      minX = maxX = (vw - sw) / 2;
-    }
-
-    // Vertical clamp: enforce the requested rules.
-    // - when panning down, if top of video moves below top of parent, clip to top (y <= 0)
-    // - when panning up, if bottom of video moves above bottom of parent, clip to bottom (y >= vh - sh)
-    let minY: number;
-    let maxY: number;
-    if (sh > vh) {
-      minY = vh - sh; // bottom of video aligned with bottom of parent
-      maxY = 0; // top of video aligned with top of parent
-    } else {
-      // center vertically
-      minY = maxY = (vh - sh) / 2;
-    }
-
-    return {
-      x: Math.max(minX, Math.min(maxX, t.x)),
-      y: Math.max(minY, Math.min(maxY, t.y)),
-    };
-  };
-
-  const clampVideoScale = (s: number) => Math.min(Math.max(s, 1), 4);
-
-  // Change video scale, optionally focusing on a specific point, otherwise center
-  const applyVideoScale = (desiredScale: number, focusPoint?: { x: number; y: number }) => {
-    const videoEl = videoRef.current;
-    if (!videoEl) return;
-
-    const previousScale = videoScaleRef.current || 1;
-    const nextScale = clampVideoScale(desiredScale);
-    if (previousScale === nextScale) return;
-
-    const cx = focusPoint?.x ?? videoEl.clientWidth / 2;
-    const cy = focusPoint?.y ?? videoEl.clientHeight / 2;
-    const ratio = nextScale / previousScale;
-
-    videoScaleRef.current = nextScale;
-    setVideoScale(nextScale);
-    setVideoTranslate((prev) => {
-      if (nextScale === 1) {
-        return { x: 0, y: 0 };
-      }
-
-      const x = prev.x - (cx - prev.x) * (ratio - 1);
-      const y = prev.y - (cy - prev.y) * (ratio - 1);
-      return clampTranslate({ x, y });
-    });
-  };
-
-  // Wheel zoom handler for the video element (use Ctrl/Meta to activate)
-  const onVideoWheel = (e: React.WheelEvent) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
-    e.preventDefault();
-    const videoEl = e.currentTarget;
-    const rect = videoEl.getBoundingClientRect();
-    const currentScale = videoScaleRef.current || 1;
-    const localX = (e.clientX - rect.left) / currentScale;
-    const localY = (e.clientY - rect.top) / currentScale;
-    const factor = e.deltaY < 0 ? 1.12 : 0.9;
-
-    applyVideoScale(currentScale * factor, { x: localX, y: localY });
-  };
 
   // Container state
   const [containerWidth, setContainerWidth] = useState(0);
@@ -881,10 +384,13 @@ export default function VideoComponent({ video }: { video: Content }) {
   // Computed values
   const basePixelsPerSecond = duration > 0 ? containerWidth / duration : 0;
   const pixelsPerSecond = basePixelsPerSecond * zoom;
-  useEffect(() => {
-    waveformStateRef.current.pixelsPerSecond = pixelsPerSecond;
-    waveformStateRef.current.duration = duration;
-  }, [pixelsPerSecond, duration]);
+  const waveformCanvasRef = useTimelineWaveform({
+    enabled: settings.showAudioWaveformInTimeline,
+    peaksUrl: getWaveformUrl(appState.cacheFolder, video.type, video.fileName),
+    scrollContainerRef,
+    pixelsPerSecond,
+    duration,
+  });
 
   // Make sure bookmarks are only shown when we have valid duration and zoom
   // Prevents weird positioning on initial load
@@ -912,9 +418,6 @@ export default function VideoComponent({ video }: { video: Content }) {
     clipPreviewLoopRef.current = clipPreviewLoop;
   }, [clipPreviewLoop]);
 
-  const [, setSegmentUndoPast] = useState<Segment[][]>([]);
-  const [, setSegmentUndoFuture] = useState<Segment[][]>([]);
-
   useEffect(() => {
     if (sortedClipSegments.length === 0 && clipPreviewLoop) {
       setClipPreviewLoop(false);
@@ -924,8 +427,6 @@ export default function VideoComponent({ video }: { video: Content }) {
   useEffect(() => {
     setClipPreviewLoop(false);
     setClipEditTargetSegmentId(null);
-    setSegmentUndoPast([]);
-    setSegmentUndoFuture([]);
   }, [video.filePath]);
 
   useEffect(() => {
@@ -941,47 +442,19 @@ export default function VideoComponent({ video }: { video: Content }) {
     segmentsRef.current = segments;
   }, [segments]);
 
-  const pushSegmentUndoSnapshot = useCallback(() => {
-    setSegmentUndoFuture([]);
-    setSegmentUndoPast((past) => {
-      const next = [...past, cloneSegmentsForUndo(segments)];
-      while (next.length > MAX_SEGMENT_UNDO) next.shift();
-      return next;
-    });
-  }, [segments]);
-
-  const undoSegmentHistory = useCallback(() => {
-    setSegmentUndoPast((past) => {
-      if (past.length === 0) return past;
-      const restored = past[past.length - 1];
-      setSegmentUndoFuture((future) => [...future, cloneSegmentsForUndo(segments)]);
-      updateSegmentsArray(restored);
-      return past.slice(0, -1);
-    });
-  }, [updateSegmentsArray, segments]);
-
-  const redoSegmentHistory = useCallback(() => {
-    setSegmentUndoFuture((future) => {
-      if (future.length === 0) return future;
-      const restored = future[future.length - 1];
-      setSegmentUndoPast((past) => [...past, cloneSegmentsForUndo(segments)]);
-      updateSegmentsArray(restored);
-      return future.slice(0, -1);
-    });
-  }, [updateSegmentsArray, segments]);
-
-  const removeSegmentWithUndo = useCallback(
-    (id: number) => {
-      pushSegmentUndoSnapshot();
-      removeSegment(id);
-    },
-    [pushSegmentUndoSnapshot, removeSegment],
+  const {
+    pushSegmentUndoSnapshot,
+    undoSegmentHistory,
+    redoSegmentHistory,
+    removeSegmentWithUndo,
+    clearAllSegmentsWithUndo,
+  } = useSegmentUndo(
+    segments,
+    updateSegmentsArray,
+    removeSegment,
+    clearAllSegments,
+    video.filePath,
   );
-
-  const clearAllSegmentsWithUndo = useCallback(() => {
-    pushSegmentUndoSnapshot();
-    clearAllSegments();
-  }, [pushSegmentUndoSnapshot, clearAllSegments]);
 
   const handleSidebarSegmentSeek = useCallback(
     (segment: Segment) => {
@@ -1574,44 +1047,10 @@ export default function VideoComponent({ video }: { video: Content }) {
     );
   };
 
-  // Pointer handlers for panning the video when zoomed
-  const onVideoPointerDown = (e: React.PointerEvent) => {
-    if (videoScaleRef.current <= 1) return;
-    (e.target as Element).setPointerCapture(e.pointerId);
-    setIsPanning(true);
-    // Reset pan-moved flag for this gesture
-    panMovedRef.current = false;
-    videoPanStartRef.current = { x: e.clientX - videoTranslate.x, y: e.clientY - videoTranslate.y };
-    videoLastPointerRef.current = e.pointerId;
-  };
-
-  const onVideoPointerMove = (e: React.PointerEvent) => {
-    if (!isPanning || !videoPanStartRef.current) return;
-    const start = videoPanStartRef.current;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    // If movement exceeds a small threshold, mark this gesture as a pan so we can suppress click
-    if (Math.hypot(dx, dy) > 4) panMovedRef.current = true;
-    setVideoTranslate((_prev) => clampTranslate({ x: dx, y: dy }));
-  };
-
-  const onVideoPointerUp = (e: React.PointerEvent) => {
-    try {
-      (e.target as Element).releasePointerCapture?.(e.pointerId);
-    } catch (err) {
-      // ignore pointer release errors
-      // console.debug('pointer release error', err);
-    }
-    setIsPanning(false);
-    videoPanStartRef.current = null;
-    videoLastPointerRef.current = null;
-  };
-
   // Click handler for the video element which suppresses clicks that are actually pans
   const onVideoClick = (e: React.MouseEvent) => {
-    if (panMovedRef.current) {
-      // This click is the end of a pan gesture — ignore it and reset the flag
-      panMovedRef.current = false;
+    if (consumePanClick()) {
+      // This click is the end of a pan gesture — ignore it
       e.stopPropagation();
       return;
     }
@@ -1650,8 +1089,7 @@ export default function VideoComponent({ video }: { video: Content }) {
       el.style.overflow = '';
       body.style.overflow = '';
     }
-    setVideoTranslate({ x: 0, y: 0 });
-    applyVideoScale(1);
+    resetVideoZoom();
     return () => {
       el.style.overflow = '';
       body.style.overflow = '';
@@ -1977,120 +1415,6 @@ export default function VideoComponent({ video }: { video: Content }) {
     }
   };
 
-  // Render a 3x-viewport buffer and position it; scrolling just moves the canvas
-  const renderWaveformBuffer = useCallback(() => {
-    const canvas = waveformCanvasRef.current;
-    const peaks = peaksRef.current;
-    const scroller = scrollContainerRef.current;
-    if (!canvas || !peaks || peaks.length === 0 || !scroller) return;
-    const { pixelsPerSecond: pps, duration: dur } = waveformStateRef.current;
-    const totalWidth = dur * pps;
-    const viewportWidth = scroller.clientWidth;
-    const scrollLeft = scroller.scrollLeft;
-
-    // Buffer: 3x viewport centered on current scroll, clamped to timeline bounds
-    const bufferWidth = Math.min(viewportWidth * 3, Math.ceil(totalWidth));
-    const regionLeft = Math.max(0, Math.floor(scrollLeft - viewportWidth));
-    const regionRight = regionLeft + bufferWidth;
-
-    if (canvas.width !== bufferWidth) canvas.width = bufferWidth;
-    if (canvas.height !== 49) canvas.height = 49;
-
-    canvas.style.left = `${regionLeft}px`;
-    renderWaveformRegion(canvas, peaks, peaksMaxRef.current, totalWidth, regionLeft);
-    waveformBufferRef.current = { regionLeft, regionRight };
-  }, []);
-
-  // Reposition canvas on scroll; only re-render if scrolled past buffer edges
-  const updateWaveformScroll = useCallback(() => {
-    const canvas = waveformCanvasRef.current;
-    const scroller = scrollContainerRef.current;
-    if (!canvas || !peaksRef.current?.length || !scroller) return;
-    const scrollLeft = scroller.scrollLeft;
-    const viewportWidth = scroller.clientWidth;
-    const { regionLeft, regionRight } = waveformBufferRef.current;
-
-    // If viewport is fully within the buffer, no redraw needed
-    if (scrollLeft >= regionLeft && scrollLeft + viewportWidth <= regionRight) return;
-
-    // Scrolled past buffer — re-render a new buffer region
-    renderWaveformBuffer();
-  }, [renderWaveformBuffer]);
-
-  // Fetch waveform peaks data
-  useEffect(() => {
-    if (!settings.showAudioWaveformInTimeline) {
-      peaksRef.current = null;
-      return;
-    }
-
-    peaksRef.current = null;
-    waveformBufferRef.current = { regionLeft: 0, regionRight: 0 };
-    const canvas = waveformCanvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-    let cancelled = false;
-    const peaksUrl = getWaveformPath();
-    fetch(peaksUrl)
-      .then((response) => response.json())
-      .then((peaksData) => {
-        if (cancelled) return;
-        const data: number[] = Array.isArray(peaksData?.data) ? peaksData.data : [];
-        peaksRef.current = data;
-        let maxAbs = 0;
-        for (let i = 0; i < data.length; i++) {
-          const v = data[i] < 0 ? -data[i] : data[i];
-          if (v > maxAbs) maxAbs = v;
-        }
-        peaksMaxRef.current = maxAbs > 0 ? maxAbs : 128;
-        const canvas = waveformCanvasRef.current;
-        if (canvas) {
-          requestAnimationFrame(renderWaveformBuffer);
-        }
-      })
-      .catch((error: Error) => {
-        console.error('Error loading audio peaks:', error);
-      });
-
-    return () => {
-      cancelled = true;
-      peaksRef.current = null;
-    };
-  }, [
-    settings.showAudioWaveformInTimeline,
-    renderWaveformBuffer,
-    video.fileName,
-    video.type,
-    appState.cacheFolder,
-  ]);
-
-  // Re-render waveform buffer when zoom changes
-  useEffect(() => {
-    if (!peaksRef.current?.length || pixelsPerSecond <= 0) return;
-    waveformBufferRef.current = { regionLeft: 0, regionRight: 0 };
-    const id = requestAnimationFrame(renderWaveformBuffer);
-    return () => cancelAnimationFrame(id);
-  }, [pixelsPerSecond, duration, renderWaveformBuffer]);
-
-  // On scroll: check if buffer needs re-rendering (most scrolls are free)
-  useEffect(() => {
-    const scroller = scrollContainerRef.current;
-    if (!scroller || !settings.showAudioWaveformInTimeline) return;
-    let rafId = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(updateWaveformScroll);
-    };
-    scroller.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      scroller.removeEventListener('scroll', onScroll);
-      cancelAnimationFrame(rafId);
-    };
-  }, [settings.showAudioWaveformInTimeline, updateWaveformScroll]);
-
   // Prepare to resize on drag (click-through on simple click)
   const handleResizeMouseDown = (
     e: React.MouseEvent<HTMLDivElement>,
@@ -2206,13 +1530,6 @@ export default function VideoComponent({ video }: { video: Content }) {
     return `http://localhost:2222/api/content?input=${encodeURIComponent(video.filePath)}&type=${video.type.toLowerCase()}`;
   };
 
-  // Get audio waveform URL - waveforms are stored in AppData
-  const getWaveformPath = (): string => {
-    const folderName = CONTENT_TYPE_FOLDER[video.type];
-    const waveformPath = `${appState.cacheFolder}/waveforms/${folderName}/${video.fileName}.peaks.json`;
-    return `http://localhost:2222/api/content?input=${encodeURIComponent(waveformPath)}&type=${video.type.toLowerCase()}`;
-  };
-
   // Handle video upload operation
   const handleUpload = () => {
     // Ensure video is paused before opening upload modal
@@ -2250,36 +1567,8 @@ export default function VideoComponent({ video }: { video: Content }) {
     setTimeout(() => setFileCopied(false), 1500);
   };
 
-  const [selectedBookmarkTypes, setSelectedBookmarkTypes] = useState<Set<BookmarkType>>(
-    new Set(Object.values(BookmarkType)),
-  );
-
-  const availableBookmarkTypes = useMemo(() => {
-    const order = [
-      BookmarkType.Kill,
-      BookmarkType.Goal,
-      BookmarkType.Assist,
-      BookmarkType.Death,
-      BookmarkType.Manual,
-    ];
-    return order.filter((type) => video.bookmarks.some((b) => b.type === type));
-  }, [video.bookmarks]);
-
-  const filteredBookmarks = useMemo(() => {
-    return video.bookmarks.filter((bookmark) => selectedBookmarkTypes.has(bookmark.type));
-  }, [video.bookmarks, selectedBookmarkTypes]);
-
-  const toggleBookmarkType = (type: BookmarkType) => {
-    setSelectedBookmarkTypes((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(type)) {
-        newSet.delete(type);
-      } else {
-        newSet.add(type);
-      }
-      return newSet;
-    });
-  };
+  const { selectedBookmarkTypes, availableBookmarkTypes, filteredBookmarks, toggleBookmarkType } =
+    useBookmarkFilter(video.bookmarks);
 
   const handleAddBookmark = () => {
     if (!videoRef.current) return;
@@ -2380,7 +1669,7 @@ export default function VideoComponent({ video }: { video: Content }) {
     <DndProvider backend={HTML5Backend}>
       <div className="flex w-full h-full overflow-hidden bg-base-200" ref={containerRef}>
         <div className="flex flex-col flex-1 w-full h-full p-4 pb-2 overflow-hidden lg:w-3/4">
-          <TopInfoBar
+          <VideoTopInfoBar
             video={video}
             currentIndex={currentIndex}
             playlistCount={playlist.length}

@@ -83,6 +83,9 @@ Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內
 | `Pages/pending-edit.tsx` | **fork**：待剪輯 |
 | `Pages/browse-videos.tsx` | **fork**：瀏覽影片 |
 | `Pages/video.tsx` | 剪輯時間軸（最大 FE 檔；待剪輯／playlist 也在這） |
+| `Components/VideoTopInfoBar.tsx` | 剪輯頁標題列：返回、上下部、移動、重新命名、刪除、檔案資訊 |
+| `Hooks/useSegmentUndo.ts` `useVideoZoomPan.ts` `useTimelineWaveform.ts` `useBookmarkFilter.ts` | 從 `video.tsx` 拆出的片段復原、影片放大平移、時間軸波形、書籤篩選 |
+| `Utils/VideoEditorUtils.ts` / `BookmarkIcons.tsx` | 剪輯頁的純函式（時間換算、倍速、縮圖、波形網址）與書籤圖示 |
 | `Pages/settings.tsx` | 設定頁，組 `Components/Settings/*` |
 | `Components/ContentCard.tsx` / `ContentPage.tsx` | 內容卡片／列表頁殼 |
 | `Components/RecordingCard.tsx` | **fork**：雙槽錄影卡 |
@@ -104,5 +107,5 @@ Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內
 - 新 FE Method → `MessageUtils` 呼叫 + `MessageService` case + 必要時 Settings
 - 新內容類型／資料夾名 → `FolderNames` + `ContentService` + FE pages
 - 遊戲偵測／封鎖 → `GameSettingsService` / `Settings.Games`（不要寫舊 `Whitelist`/`Blacklist`）
-- 剪輯時間軸 → `video.tsx` + `ClipService`
+- 剪輯時間軸 → `video.tsx`（加上上面拆出的 hooks）+ `ClipService`
 - 監控窗 → `Program.MonitoringWindow.cs`（第二 Photino）+ `MonitoringApp.tsx`

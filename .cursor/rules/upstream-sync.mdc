@@ -23,6 +23,7 @@ alwaysApply: true
 fork 已把部分熱檔拆開，上游改到下列位置時，要到 fork 的新檔找對應的方法：
 
 - 上游 `OBSService.cs` 的 `StartRecording` → `OBSService.StartRecording.cs`（拆成 `DecideHdrForGlobalCanvas`、`AddCaptureSources`、`ConfigureVideoEncoderSettings`、`AddAudioSources`、`CreateAudioEncoders`、`CreateOutputs`、`StartOutputs`）；多音軌遮罩／名稱在 `AudioTrackLayout.cs`
+- 上游 `video.tsx`：`TopInfoBar` → `Components/VideoTopInfoBar.tsx`；片段 undo → `Hooks/useSegmentUndo.ts`；影片放大平移 → `Hooks/useVideoZoomPan.ts`；波形 → `Hooks/useTimelineWaveform.ts`；書籤篩選 → `Hooks/useBookmarkFilter.ts`；檔頭的輔助函式與常數 → `Utils/VideoEditorUtils.ts`、`Utils/BookmarkIcons.tsx`
 - 上游 `Program.cs` 裡監控窗相關的方法 → `Program.MonitoringWindow.cs`（上游沒有 PiP 窗，通常只會碰到共用的 Win32 宣告與主窗邏輯，那些仍在 `Program.cs`）
 
 ## 預設跳過
