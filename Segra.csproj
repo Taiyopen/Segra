@@ -31,7 +31,7 @@
     <!-- Exclude leftover build output from the removed Inspector sub-project. Its generated
          AssemblyInfo.cs sits under this project folder and would otherwise be globbed into
          this compilation, leaking a duplicate AssemblyVersion (and masking the real version). -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);Inspector\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Inspector\**;Segra.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Windows-only build settings -->
@@ -67,6 +67,10 @@
     <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageReference Include="Velopack" Version="1.2.0" />
     <PackageReference Include="ObsKit.NET" Version="1.5.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Segra.Tests" />
   </ItemGroup>
 
   <!-- Windows-only packages (NAudio/WASAPI, WMI, DirectX) -->

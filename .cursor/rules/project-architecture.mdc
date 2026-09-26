@@ -57,7 +57,7 @@ Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內
 | `Backend/Games/<Game>/` | CS2、LoL、Dota2、PUBG 等 |
 | `Backend/Games/VrChat/VrChatVvmwIntegration.cs` | **fork**：VVMW replay-tail clip |
 | `Backend/Core/Models/Settings.cs` | 全部設定欄位 |
-| `Backend/Core/SettingsService.cs` | 讀寫設定；`UpdateSettingsInstance` 逐欄套用 |
+| `Backend/Core/SettingsService.cs` | 讀寫設定；`ApplySettingsPayload` 依 `JsonPropertyName` 自動套用 FE 送來的欄位，只有會擋更新或要觸發動作的欄位寫在 `CanApplySetting`／`OnSettingChanged` |
 | `Backend/Core/Models/AppState.cs` | 執行期狀態（含雙槽 recording 陣列） |
 | `Backend/Core/Models/RecordingSlots.cs` | **fork**：雙槽常數 |
 | `Backend/Api/ContentServer.cs` | 本機 HTTP：影片、縮圖、waveform |
@@ -88,8 +88,15 @@ Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內
 | `Utils/MessageUtils.ts` | `sendMessageToBackend` |
 | `Models/types.ts` | 與 BE 對齊的 TS 型別 |
 
+## 測試與 CI
+
+- `Segra.Tests/`：xUnit，`dotnet test Segra.Tests/Segra.Tests.csproj`。只測不碰 OBS／登錄檔／真實設定檔的邏輯；測試用 `new Settings()`，不要動 `Settings.Instance`
+- `.github/workflows/ci.yml`：push 到 main 或開 PR 時跑上面的 `dotnet test`（連帶建置前端與後端）
+- `build-local.ps1` 仍是本機完成標準；有動到可測邏輯時，另外跑 `dotnet test`
+
 ## 改動時對應
 
+- 新設定 → `Settings.cs` 加屬性（要有 `JsonPropertyName`）+ `types.ts` + UI。改了會觸發動作或需要擋下的，才在 `SettingsService.CanApplySetting`／`OnSettingChanged` 加 case。只有後端能寫的欄位加進 `BackendOwnedSettings`
 - 錄影開始/停止/雙槽 → `OBSService` + `RecordingCard` + `AppState`
 - 新 FE Method → `MessageUtils` 呼叫 + `MessageService` case + 必要時 Settings
 - 新內容類型／資料夾名 → `FolderNames` + `ContentService` + FE pages

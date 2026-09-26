@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-2025-vs2026
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Building the test project builds Segra too, whose BuildFrontendAssets target runs
+      # `npm ci` and `npm run build` (tsc + vite), so this covers the frontend as well.
+      - name: Build and test
+        run: dotnet test Segra.Tests/Segra.Tests.csproj -c Release

@@ -9,6 +9,7 @@ using Segra.Backend.Platform;
 using Segra.Backend.Windows.Input;
 using Segra.Backend.Windows.Storage;
 using System.Text.Json.Serialization;
+using System.Reflection;
 #if WINDOWS
 using Segra.Backend.Windows.GameMode;
 #endif
@@ -177,18 +178,24 @@ namespace Segra.Backend.Core
         {
             try
             {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
-                };
+                var settings = Settings.Instance;
 
-                // Deserialize the settings from the parameters
-                var updatedSettings = JsonSerializer.Deserialize<Settings>(settingsElement.GetRawText(), options);
+                // Begin bulk update to suppress multiple state updates
+                settings.BeginBulkUpdate();
 
-                if (updatedSettings != null)
+                bool hasChanges = await ApplySettingsPayload(settings, settingsElement);
+
+                // Only save settings and send to frontend if changes were actually made
+                if (hasChanges)
                 {
-                    await UpdateSettingsInstance(updatedSettings);
+                    Log.Information("Settings updated, saving changes");
+                    settings.EndBulkUpdateAndSaveSettings();
+                }
+                else
+                {
+                    // End bulk update without saving if no changes were made
+                    settings._isBulkUpdating = false;
+                    Log.Information("No settings changes detected");
                 }
             }
             catch (Exception ex)
@@ -197,621 +204,175 @@ namespace Segra.Backend.Core
             }
         }
 
-        private static async Task UpdateSettingsInstance(Settings updatedSettings)
+        private static readonly JsonSerializerOptions PayloadOptions = new()
         {
-            var settings = Settings.Instance;
-            bool hasChanges = false;
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        };
 
-            // Begin bulk update to suppress multiple state updates
-            settings.BeginBulkUpdate();
+        // Owned by the backend: tokens come from AuthService and PendingOBSUpdate from OBSService.
+        private static readonly HashSet<string> BackendOwnedSettings = [nameof(Settings.Auth), nameof(Settings.PendingOBSUpdate)];
 
-            if (settings.ClipClearSegmentsAfterCreatingClip != updatedSettings.ClipClearSegmentsAfterCreatingClip)
+        private static readonly Dictionary<string, PropertyInfo> SettingsByJsonName = typeof(Settings)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanWrite && !BackendOwnedSettings.Contains(p.Name))
+            .Select(p => (Property: p, Attribute: p.GetCustomAttribute<JsonPropertyNameAttribute>()))
+            .Where(x => x.Attribute != null)
+            .ToDictionary(x => x.Attribute!.Name, x => x.Property, StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Applies every setting in a frontend payload whose value differs from <paramref name="settings"/>, then runs
+        /// the follow-up actions of the ones that changed. Settings missing from the payload are left alone.
+        /// </summary>
+        internal static async Task<bool> ApplySettingsPayload(Settings settings, JsonElement payload)
+        {
+            var nullability = new NullabilityInfoContext();
+            var changed = new List<string>();
+
+            foreach (JsonProperty entry in payload.EnumerateObject())
             {
-                Log.Information($"ClipClearSegmentsAfterCreatingClip changed from '{settings.ClipClearSegmentsAfterCreatingClip}' to '{updatedSettings.ClipClearSegmentsAfterCreatingClip}'");
-                settings.ClipClearSegmentsAfterCreatingClip = updatedSettings.ClipClearSegmentsAfterCreatingClip;
-                hasChanges = true;
-            }
-
-            bool hasAutoSelectedClipCodec = false;
-            if (settings.ClipEncoder != updatedSettings.ClipEncoder)
-            {
-                Log.Information($"ClipEncoder changed from '{settings.ClipEncoder}' to '{updatedSettings.ClipEncoder}'");
-                settings.ClipEncoder = updatedSettings.ClipEncoder;
-
-                Log.Information($"Automatically changing ClipCodec to 'h264' due to ClipEncoder change");
-                settings.ClipCodec = "h264";
-                hasAutoSelectedClipCodec = true;
-
-                hasChanges = true;
-            }
-
-            if (settings.ClipShowInBrowserAfterUpload != updatedSettings.ClipShowInBrowserAfterUpload)
-            {
-                Log.Information($"ClipShowInBrowserAfterUpload changed from '{settings.ClipShowInBrowserAfterUpload}' to '{updatedSettings.ClipShowInBrowserAfterUpload}'");
-                settings.ClipShowInBrowserAfterUpload = updatedSettings.ClipShowInBrowserAfterUpload;
-                hasChanges = true;
-            }
-
-            if (settings.ClipQualityCpu != updatedSettings.ClipQualityCpu)
-            {
-                Log.Information($"ClipQualityCpu changed from '{settings.ClipQualityCpu}' to '{updatedSettings.ClipQualityCpu}'");
-                settings.ClipQualityCpu = updatedSettings.ClipQualityCpu;
-                hasChanges = true;
-            }
-
-            if (settings.ClipQualityGpu != updatedSettings.ClipQualityGpu)
-            {
-                Log.Information($"ClipQualityGpu changed from '{settings.ClipQualityGpu}' to '{updatedSettings.ClipQualityGpu}'");
-                settings.ClipQualityGpu = updatedSettings.ClipQualityGpu;
-                hasChanges = true;
-            }
-
-            if (settings.ClipCodec != updatedSettings.ClipCodec && !hasAutoSelectedClipCodec)
-            {
-                Log.Information($"ClipCodec changed from '{settings.ClipCodec}' to '{updatedSettings.ClipCodec}'");
-                settings.ClipCodec = updatedSettings.ClipCodec;
-                hasChanges = true;
-            }
-
-            if (settings.ClipFps != updatedSettings.ClipFps)
-            {
-                Log.Information($"ClipFps changed from '{settings.ClipFps}' to '{updatedSettings.ClipFps}'");
-                settings.ClipFps = updatedSettings.ClipFps;
-                hasChanges = true;
-            }
-
-            if (settings.ClipAudioQuality != updatedSettings.ClipAudioQuality)
-            {
-                Log.Information($"ClipAudioQuality changed from '{settings.ClipAudioQuality}' to '{updatedSettings.ClipAudioQuality}'");
-                settings.ClipAudioQuality = updatedSettings.ClipAudioQuality;
-                hasChanges = true;
-            }
-
-            if (settings.ClipPreset != updatedSettings.ClipPreset)
-            {
-                Log.Information($"ClipPreset changed from '{settings.ClipPreset}' to '{updatedSettings.ClipPreset}'");
-                settings.ClipPreset = updatedSettings.ClipPreset;
-                hasChanges = true;
-            }
-
-            if (settings.ClipKeepSeparateAudioTracks != updatedSettings.ClipKeepSeparateAudioTracks)
-            {
-                Log.Information($"ClipKeepSeparateAudioTracks changed from '{settings.ClipKeepSeparateAudioTracks}' to '{updatedSettings.ClipKeepSeparateAudioTracks}'");
-                settings.ClipKeepSeparateAudioTracks = updatedSettings.ClipKeepSeparateAudioTracks;
-                hasChanges = true;
-            }
-
-            if (settings.SoundEffectsVolume != updatedSettings.SoundEffectsVolume)
-            {
-                Log.Information($"SoundEffectsVolume changed from '{settings.SoundEffectsVolume}' to '{updatedSettings.SoundEffectsVolume}'");
-                settings.SoundEffectsVolume = updatedSettings.SoundEffectsVolume;
-                // Play the sound with the new volume to provide immediate feedback
-                _ = Task.Run(() => OBSService.PlaySound("start"));
-                hasChanges = true;
-            }
-
-            if (settings.ShowNewBadgeOnVideos != updatedSettings.ShowNewBadgeOnVideos)
-            {
-                Log.Information($"ShowNewBadgeOnVideos changed from '{settings.ShowNewBadgeOnVideos}' to '{updatedSettings.ShowNewBadgeOnVideos}'");
-                settings.ShowNewBadgeOnVideos = updatedSettings.ShowNewBadgeOnVideos;
-                hasChanges = true;
-            }
-
-            if (settings.ShowGameBackground != updatedSettings.ShowGameBackground)
-            {
-                Log.Information($"ShowGameBackground changed from '{settings.ShowGameBackground}' to '{updatedSettings.ShowGameBackground}'");
-                settings.ShowGameBackground = updatedSettings.ShowGameBackground;
-                hasChanges = true;
-            }
-
-            if (settings.ShowAudioWaveformInTimeline != updatedSettings.ShowAudioWaveformInTimeline)
-            {
-                Log.Information($"ShowAudioWaveformInTimeline changed from '{settings.ShowAudioWaveformInTimeline}' to '{updatedSettings.ShowAudioWaveformInTimeline}'");
-                settings.ShowAudioWaveformInTimeline = updatedSettings.ShowAudioWaveformInTimeline;
-                hasChanges = true;
-            }
-
-            if (settings.EnableSeparateAudioTracks != updatedSettings.EnableSeparateAudioTracks)
-            {
-                Log.Information($"EnableSeparateAudioTracks changed from '{settings.EnableSeparateAudioTracks}' to '{updatedSettings.EnableSeparateAudioTracks}'");
-                settings.EnableSeparateAudioTracks = updatedSettings.EnableSeparateAudioTracks;
-                hasChanges = true;
-            }
-
-            if (settings.AudioOutputMode != updatedSettings.AudioOutputMode)
-            {
-                Log.Information($"AudioOutputMode changed from '{settings.AudioOutputMode}' to '{updatedSettings.AudioOutputMode}'");
-                settings.AudioOutputMode = updatedSettings.AudioOutputMode;
-                hasChanges = true;
-            }
-
-            if (settings.VideoQualityPreset != updatedSettings.VideoQualityPreset)
-            {
-                Log.Information($"VideoQualityPreset changed from '{settings.VideoQualityPreset}' to '{updatedSettings.VideoQualityPreset}'");
-                settings.VideoQualityPreset = updatedSettings.VideoQualityPreset;
-                hasChanges = true;
-            }
-
-            if (settings.ClipQualityPreset != updatedSettings.ClipQualityPreset)
-            {
-                Log.Information($"ClipQualityPreset changed from '{settings.ClipQualityPreset}' to '{updatedSettings.ClipQualityPreset}'");
-                settings.ClipQualityPreset = updatedSettings.ClipQualityPreset;
-                hasChanges = true;
-            }
-
-            if (settings.ConfirmBeforeDeleting != updatedSettings.ConfirmBeforeDeleting)
-            {
-                Log.Information($"ConfirmBeforeDeleting changed from '{settings.ConfirmBeforeDeleting}' to '{updatedSettings.ConfirmBeforeDeleting}'");
-                settings.ConfirmBeforeDeleting = updatedSettings.ConfirmBeforeDeleting;
-                hasChanges = true;
-            }
-
-            if (settings.RemoveOriginalAfterCompression != updatedSettings.RemoveOriginalAfterCompression)
-            {
-                Log.Information($"RemoveOriginalAfterCompression changed from '{settings.RemoveOriginalAfterCompression}' to '{updatedSettings.RemoveOriginalAfterCompression}'");
-                settings.RemoveOriginalAfterCompression = updatedSettings.RemoveOriginalAfterCompression;
-                hasChanges = true;
-            }
-
-            if (settings.DiscardSessionsWithoutBookmarks != updatedSettings.DiscardSessionsWithoutBookmarks)
-            {
-                Log.Information($"DiscardSessionsWithoutBookmarks changed from '{settings.DiscardSessionsWithoutBookmarks}' to '{updatedSettings.DiscardSessionsWithoutBookmarks}'");
-                settings.DiscardSessionsWithoutBookmarks = updatedSettings.DiscardSessionsWithoutBookmarks;
-                hasChanges = true;
-            }
-
-            if (settings.DisableWindowsGameMode != updatedSettings.DisableWindowsGameMode)
-            {
-                Log.Information($"DisableWindowsGameMode changed from '{settings.DisableWindowsGameMode}' to '{updatedSettings.DisableWindowsGameMode}'");
-                settings.DisableWindowsGameMode = updatedSettings.DisableWindowsGameMode;
-                // Enabling the option proactively disables Game Mode; disabling it leaves Game Mode untouched.
-                if (settings.DisableWindowsGameMode)
+                if (!SettingsByJsonName.TryGetValue(entry.Name, out PropertyInfo? property))
                 {
-#if WINDOWS
-                    GameModeService.EnforceDisabledIfEnabled();
-#endif
-                }
-                hasChanges = true;
-            }
-
-            if (updatedSettings.GameIntegrations != null)
-            {
-                var current = settings.GameIntegrations;
-                var updated = updatedSettings.GameIntegrations;
-
-                if (current.CounterStrike2.Enabled != updated.CounterStrike2.Enabled)
-                {
-                    Log.Information($"GameIntegrations.CounterStrike2.Enabled changed from '{current.CounterStrike2.Enabled}' to '{updated.CounterStrike2.Enabled}'");
-                    current.CounterStrike2.Enabled = updated.CounterStrike2.Enabled;
-                    hasChanges = true;
-                }
-                if (current.LeagueOfLegends.Enabled != updated.LeagueOfLegends.Enabled)
-                {
-                    Log.Information($"GameIntegrations.LeagueOfLegends.Enabled changed from '{current.LeagueOfLegends.Enabled}' to '{updated.LeagueOfLegends.Enabled}'");
-                    current.LeagueOfLegends.Enabled = updated.LeagueOfLegends.Enabled;
-                    hasChanges = true;
-                }
-                if (current.Pubg.Enabled != updated.Pubg.Enabled)
-                {
-                    Log.Information($"GameIntegrations.Pubg.Enabled changed from '{current.Pubg.Enabled}' to '{updated.Pubg.Enabled}'");
-                    current.Pubg.Enabled = updated.Pubg.Enabled;
-                    hasChanges = true;
-                }
-                if (current.RocketLeague.Enabled != updated.RocketLeague.Enabled)
-                {
-                    Log.Information($"GameIntegrations.RocketLeague.Enabled changed from '{current.RocketLeague.Enabled}' to '{updated.RocketLeague.Enabled}'");
-                    current.RocketLeague.Enabled = updated.RocketLeague.Enabled;
-                    hasChanges = true;
-                }
-                if (current.Gta.Enabled != updated.Gta.Enabled)
-                {
-                    Log.Information($"GameIntegrations.Gta.Enabled changed from '{current.Gta.Enabled}' to '{updated.Gta.Enabled}'");
-                    current.Gta.Enabled = updated.Gta.Enabled;
-                    hasChanges = true;
-                }
-                if (current.Dota2.Enabled != updated.Dota2.Enabled)
-                {
-                    Log.Information($"GameIntegrations.Dota2.Enabled changed from '{current.Dota2.Enabled}' to '{updated.Dota2.Enabled}'");
-                    current.Dota2.Enabled = updated.Dota2.Enabled;
-                    hasChanges = true;
-                }
-                if (current.Rust.Enabled != updated.Rust.Enabled)
-                {
-                    Log.Information($"GameIntegrations.Rust.Enabled changed from '{current.Rust.Enabled}' to '{updated.Rust.Enabled}'");
-                    current.Rust.Enabled = updated.Rust.Enabled;
-                    hasChanges = true;
-                }
-                if (current.Minecraft.Enabled != updated.Minecraft.Enabled)
-                {
-                    Log.Information($"GameIntegrations.Minecraft.Enabled changed from '{current.Minecraft.Enabled}' to '{updated.Minecraft.Enabled}'");
-                    current.Minecraft.Enabled = updated.Minecraft.Enabled;
-                    hasChanges = true;
-                }
-                if (current.RunescapeDragonwilds.Enabled != updated.RunescapeDragonwilds.Enabled)
-                {
-                    Log.Information($"GameIntegrations.RunescapeDragonwilds.Enabled changed from '{current.RunescapeDragonwilds.Enabled}' to '{updated.RunescapeDragonwilds.Enabled}'");
-                    current.RunescapeDragonwilds.Enabled = updated.RunescapeDragonwilds.Enabled;
-                    hasChanges = true;
-                }
-                if (current.WarThunder.Enabled != updated.WarThunder.Enabled)
-                {
-                    Log.Information($"GameIntegrations.WarThunder.Enabled changed from '{current.WarThunder.Enabled}' to '{updated.WarThunder.Enabled}'");
-                    current.WarThunder.Enabled = updated.WarThunder.Enabled;
-                    hasChanges = true;
-                }
-            }
-
-            if (updatedSettings.Games != null)
-            {
-                // The per-game list carries nested overrides; compare by serialized JSON to detect any change.
-                string currentGamesJson = JsonSerializer.Serialize(settings.Games);
-                string updatedGamesJson = JsonSerializer.Serialize(updatedSettings.Games);
-                if (currentGamesJson != updatedGamesJson)
-                {
-                    Log.Information($"Games changed from {settings.Games.Count} entries to {updatedSettings.Games.Count} entries");
-                    settings.Games = updatedSettings.Games;
-                    hasChanges = true;
-                }
-            }
-
-            if (settings.AutoRecordGames != updatedSettings.AutoRecordGames)
-            {
-                Log.Information($"AutoRecordGames changed from '{settings.AutoRecordGames}' to '{updatedSettings.AutoRecordGames}'");
-                settings.AutoRecordGames = updatedSettings.AutoRecordGames;
-                hasChanges = true;
-            }
-
-            if (settings.ContentFolder != updatedSettings.ContentFolder)
-            {
-                Log.Information($"ContentFolder changed from '{settings.ContentFolder}' to '{updatedSettings.ContentFolder}'");
-
-                // Check if the new folder would exceed storage limit
-                bool shouldProceed = await StorageWarningService.CheckContentFolderChange(updatedSettings.ContentFolder);
-                if (shouldProceed)
-                {
-                    settings.ContentFolder = updatedSettings.ContentFolder;
-                    hasChanges = true;
-                }
-                // If not proceeding, a warning modal was sent to the frontend
-            }
-
-            if (settings.CacheFolder != updatedSettings.CacheFolder)
-            {
-                Log.Information($"CacheFolder changed from '{settings.CacheFolder}' to '{updatedSettings.CacheFolder}'");
-                settings.CacheFolder = updatedSettings.CacheFolder;
-                hasChanges = true;
-            }
-
-            if (settings.RecordingMode != updatedSettings.RecordingMode)
-            {
-                Log.Information($"RecordingMode changed from '{settings.RecordingMode}' to '{updatedSettings.RecordingMode}'");
-                settings.RecordingMode = updatedSettings.RecordingMode;
-                hasChanges = true;
-            }
-
-            if (settings.ReplayBufferDuration != updatedSettings.ReplayBufferDuration)
-            {
-                Log.Information($"ReplayBufferDuration changed from '{settings.ReplayBufferDuration}' to '{updatedSettings.ReplayBufferDuration}'");
-                settings.ReplayBufferDuration = updatedSettings.ReplayBufferDuration;
-                hasChanges = true;
-            }
-
-            if (settings.ReplayBufferMaxSize != updatedSettings.ReplayBufferMaxSize)
-            {
-                Log.Information($"ReplayBufferMaxSize changed from '{settings.ReplayBufferMaxSize}' to '{updatedSettings.ReplayBufferMaxSize}'");
-                settings.ReplayBufferMaxSize = updatedSettings.ReplayBufferMaxSize;
-                hasChanges = true;
-            }
-
-            if (settings.Resolution != updatedSettings.Resolution)
-            {
-                Log.Information($"Resolution changed from '{settings.Resolution}' to '{updatedSettings.Resolution}'");
-                settings.Resolution = updatedSettings.Resolution;
-                hasChanges = true;
-            }
-
-            if (settings.FrameRate != updatedSettings.FrameRate)
-            {
-                Log.Information($"FrameRate changed from '{settings.FrameRate}' to '{updatedSettings.FrameRate}'");
-                settings.FrameRate = updatedSettings.FrameRate;
-                hasChanges = true;
-            }
-
-            if (settings.Stretch4By3 != updatedSettings.Stretch4By3)
-            {
-                Log.Information($"Stretch4By3 changed from '{settings.Stretch4By3}' to '{updatedSettings.Stretch4By3}'");
-                settings.Stretch4By3 = updatedSettings.Stretch4By3;
-                hasChanges = true;
-            }
-
-            if (settings.EnableHdr != updatedSettings.EnableHdr)
-            {
-                Log.Information($"EnableHdr changed from '{settings.EnableHdr}' to '{updatedSettings.EnableHdr}'");
-                settings.EnableHdr = updatedSettings.EnableHdr;
-                hasChanges = true;
-            }
-
-            if (settings.Bitrate != updatedSettings.Bitrate)
-            {
-                Log.Information($"Bitrate changed from '{settings.Bitrate} Mbps' to '{updatedSettings.Bitrate} Mbps'");
-                settings.Bitrate = updatedSettings.Bitrate;
-                hasChanges = true;
-            }
-
-            // Update MinBitrate (VBR only)
-            if (settings.MinBitrate != updatedSettings.MinBitrate)
-            {
-                Log.Information($"MinBitrate changed from '{settings.MinBitrate} Mbps' to '{updatedSettings.MinBitrate} Mbps'");
-                settings.MinBitrate = updatedSettings.MinBitrate;
-                hasChanges = true;
-            }
-
-            // Update MaxBitrate (VBR only)
-            if (settings.MaxBitrate != updatedSettings.MaxBitrate)
-            {
-                Log.Information($"MaxBitrate changed from '{settings.MaxBitrate} Mbps' to '{updatedSettings.MaxBitrate} Mbps'");
-                settings.MaxBitrate = updatedSettings.MaxBitrate;
-                hasChanges = true;
-            }
-
-            bool hasAutoSelectedCodec = false;
-            bool hasAutoSelectedRateControl = false;
-            if (settings.Encoder != updatedSettings.Encoder)
-            {
-                Log.Information($"Encoder changed from '{settings.Encoder}' to '{updatedSettings.Encoder}'");
-                settings.Encoder = updatedSettings.Encoder;
-
-                // When encoder changes, automatically select an appropriate codec
-                var newCodec = OBSService.SelectDefaultCodec(settings.Encoder, AppState.Instance.Codecs);
-                if (newCodec != null && (settings.Codec == null || !settings.Codec.Equals(newCodec)))
-                {
-                    Log.Information($"Automatically changing codec to '{newCodec.FriendlyName}' based on encoder change");
-                    settings.Codec = newCodec;
-                    hasAutoSelectedCodec = true;
+                    continue;
                 }
 
-                // Ensure CRF is only used with CPU encoder; if user switches to GPU, switch to CQP
-                if (settings.Encoder == "gpu" && settings.RateControl == "CRF")
+                object? value;
+                try
                 {
-                    Log.Information($"Automatically changing RateControl from 'CRF' to 'CQP' because encoder is GPU");
-                    settings.RateControl = "CQP";
-                    hasAutoSelectedRateControl = true;
+                    value = entry.Value.Deserialize(property.PropertyType, PayloadOptions);
                 }
-                else if (settings.Encoder == "cpu" && settings.RateControl == "CQP")
+                catch (JsonException ex)
                 {
-                    Log.Information($"Automatically changing RateControl from 'CQP' to 'CRF' because encoder is CPU");
-                    settings.RateControl = "CRF";
-                    hasAutoSelectedRateControl = true;
+                    Log.Warning($"Ignoring invalid value for setting {entry.Name}: {ex.Message}");
+                    continue;
                 }
 
-                hasChanges = true;
-            }
-
-            if (settings.Codec != null && updatedSettings.Codec != null && !settings.Codec.Equals(updatedSettings.Codec) && !hasAutoSelectedCodec)
-            {
-                if (!OBSService.IsInitialized)
+                // Null only means something ("automatic", "none") for settings declared nullable.
+                if (value == null && nullability.Create(property).WriteState != NullabilityState.Nullable)
                 {
-                    Log.Warning($"Codec change before OBS initialization, skipping");
+                    continue;
                 }
-                else
+
+                string oldJson = JsonSerializer.Serialize(property.GetValue(settings), PayloadOptions);
+                string newJson = JsonSerializer.Serialize(value, PayloadOptions);
+                if (oldJson == newJson || !await CanApplySetting(settings, property.Name, value))
                 {
-                    Log.Information($"Codec changed from '{settings.Codec.FriendlyName}' to '{updatedSettings.Codec.FriendlyName}'");
-                    settings.Codec = updatedSettings.Codec;
-                    hasChanges = true;
+                    continue;
                 }
+
+                Log.Information("{Setting} changed from {Old} to {New}", property.Name, Shorten(oldJson), Shorten(newJson));
+                property.SetValue(settings, value);
+                changed.Add(property.Name);
             }
 
-            if (settings.StorageLimit != updatedSettings.StorageLimit)
+            // Run after every value is in, so the auto-selections below win over what the payload carried.
+            foreach (string name in changed)
             {
-                Log.Information($"StorageLimit changed from '{settings.StorageLimit} GB' to '{updatedSettings.StorageLimit} GB'");
-                settings.StorageLimit = updatedSettings.StorageLimit;
-                hasChanges = true;
+                OnSettingChanged(settings, name);
             }
 
-            if (settings.ReadyToDeleteWarningCount != updatedSettings.ReadyToDeleteWarningCount)
+            return changed.Count > 0;
+        }
+
+        private static async Task<bool> CanApplySetting(Settings settings, string name, object? value)
+        {
+            switch (name)
             {
-                Log.Information($"ReadyToDeleteWarningCount changed from '{settings.ReadyToDeleteWarningCount}' to '{updatedSettings.ReadyToDeleteWarningCount}'");
-                settings.ReadyToDeleteWarningCount = updatedSettings.ReadyToDeleteWarningCount;
-                hasChanges = true;
-            }
-
-            if (!settings.InputDevices.SequenceEqual(updatedSettings.InputDevices, new DeviceSettingEqualityComparer()))
-            {
-                Log.Information($"InputDevice changed from '[{string.Join(", ", settings.InputDevices.Select(d => $"{d.Name}"))}]' to '[{string.Join(", ", updatedSettings.InputDevices.Select(d => $"{d.Name}"))}]'");
-                settings.InputDevices = updatedSettings.InputDevices;
-                hasChanges = true;
-            }
-
-            if (!settings.OutputDevices.SequenceEqual(updatedSettings.OutputDevices, new DeviceSettingEqualityComparer()))
-            {
-                Log.Information($"OutputDevice changed from '[{string.Join(", ", settings.OutputDevices.Select(d => $"{d.Name}"))}]' to '[{string.Join(", ", updatedSettings.OutputDevices.Select(d => $"{d.Name}"))}]'");
-                settings.OutputDevices = updatedSettings.OutputDevices;
-                hasChanges = true;
-            }
-
-            if (settings.ForceMonoInputSources != updatedSettings.ForceMonoInputSources)
-            {
-                Log.Information($"ForceMonoInputSources changed from '{settings.ForceMonoInputSources}' to '{updatedSettings.ForceMonoInputSources}'");
-                settings.ForceMonoInputSources = updatedSettings.ForceMonoInputSources;
-                hasChanges = true;
-            }
-
-            if (settings.InputNoiseSuppression != updatedSettings.InputNoiseSuppression)
-            {
-                Log.Information($"InputNoiseSuppression changed from '{settings.InputNoiseSuppression}' to '{updatedSettings.InputNoiseSuppression}'");
-                settings.InputNoiseSuppression = updatedSettings.InputNoiseSuppression;
-                hasChanges = true;
-            }
-
-            if (settings.RateControl != updatedSettings.RateControl && !hasAutoSelectedRateControl)
-            {
-                Log.Information($"RateControl changed from '{settings.RateControl}' to '{updatedSettings.RateControl}'");
-                settings.RateControl = updatedSettings.RateControl;
-                hasChanges = true;
-            }
-
-            if (settings.CrfValue != updatedSettings.CrfValue)
-            {
-                Log.Information($"CrfValue changed from '{settings.CrfValue}' to '{updatedSettings.CrfValue}'");
-                settings.CrfValue = updatedSettings.CrfValue;
-                hasChanges = true;
-            }
-
-            if (settings.CqLevel != updatedSettings.CqLevel)
-            {
-                Log.Information($"CqLevel changed from '{settings.CqLevel}' to '{updatedSettings.CqLevel}'");
-                settings.CqLevel = updatedSettings.CqLevel;
-                hasChanges = true;
-            }
-
-            if ((settings.LastWindowState == null && updatedSettings.LastWindowState != null) ||
-                (settings.LastWindowState != null && updatedSettings.LastWindowState == null) ||
-                (settings.LastWindowState != null && updatedSettings.LastWindowState != null && !settings.LastWindowState.Equals(updatedSettings.LastWindowState)))
-            {
-                settings.LastWindowState = updatedSettings.LastWindowState;
-                hasChanges = true;
-            }
-
-            if ((settings.SelectedDisplay == null && updatedSettings.SelectedDisplay != null) ||
-                (settings.SelectedDisplay != null && updatedSettings.SelectedDisplay == null) ||
-                (settings.SelectedDisplay != null && updatedSettings.SelectedDisplay != null && !settings.SelectedDisplay.Equals(updatedSettings.SelectedDisplay)))
-            {
-                Log.Information($"SelectedDisplay changed from '{settings.SelectedDisplay}' to '{updatedSettings.SelectedDisplay}'");
-                settings.SelectedDisplay = updatedSettings.SelectedDisplay;
-
-                // Update the live display capture in place; only meaningful while recording without a game hook.
-                if (AppState.Instance.Recording != null && !AppState.Instance.Recording.IsUsingGameHook)
-                {
-                    OBSService.UpdateMonitorCapture();
-                }
-                hasChanges = true;
-            }
-
-            if (settings.DisplayCaptureMethod != updatedSettings.DisplayCaptureMethod)
-            {
-                Log.Information($"DisplayCaptureMethod changed from '{settings.DisplayCaptureMethod}' to '{updatedSettings.DisplayCaptureMethod}'");
-                settings.DisplayCaptureMethod = updatedSettings.DisplayCaptureMethod;
-                hasChanges = true;
-            }
-
-            if (settings.EnableAi != updatedSettings.EnableAi)
-            {
-                Log.Information($"EnableAi changed from '{settings.EnableAi}' to '{updatedSettings.EnableAi}'");
-                settings.EnableAi = updatedSettings.EnableAi;
-                hasChanges = true;
-            }
-
-            if (settings.AutoGenerateHighlights != updatedSettings.AutoGenerateHighlights)
-            {
-                Log.Information($"AutoGenerateHighlights changed from '{settings.AutoGenerateHighlights}' to '{updatedSettings.AutoGenerateHighlights}'");
-                settings.AutoGenerateHighlights = updatedSettings.AutoGenerateHighlights;
-                hasChanges = true;
-            }
-
-            if (settings.HighlightPaddingBefore != updatedSettings.HighlightPaddingBefore)
-            {
-                Log.Information($"HighlightPaddingBefore changed from '{settings.HighlightPaddingBefore}' to '{updatedSettings.HighlightPaddingBefore}'");
-                settings.HighlightPaddingBefore = updatedSettings.HighlightPaddingBefore;
-                hasChanges = true;
-            }
-
-            if (settings.HighlightPaddingAfter != updatedSettings.HighlightPaddingAfter)
-            {
-                Log.Information($"HighlightPaddingAfter changed from '{settings.HighlightPaddingAfter}' to '{updatedSettings.HighlightPaddingAfter}'");
-                settings.HighlightPaddingAfter = updatedSettings.HighlightPaddingAfter;
-                hasChanges = true;
-            }
-
-            if (settings.ReceiveBetaUpdates != updatedSettings.ReceiveBetaUpdates)
-            {
-                Log.Information($"ReceiveBetaUpdates changed from '{settings.ReceiveBetaUpdates}' to '{updatedSettings.ReceiveBetaUpdates}'");
-                settings.ReceiveBetaUpdates = updatedSettings.ReceiveBetaUpdates;
-                hasChanges = true;
-                _ = Task.Run(() => UpdateService.UpdateAppIfNecessary(forceCheck: true));
-                _ = Task.Run(() => UpdateService.GetReleaseNotes(forceCheck: true));
-            }
-
-            if (settings.RunOnStartup != updatedSettings.RunOnStartup)
-            {
-                Log.Information($"RunOnStartup changed from '{settings.RunOnStartup}' to '{updatedSettings.RunOnStartup}'");
-                settings.RunOnStartup = updatedSettings.RunOnStartup;
-                hasChanges = true;
-            }
-
-            if (settings.StartupWindowMode != updatedSettings.StartupWindowMode)
-            {
-                Log.Information($"StartupWindowMode changed from '{settings.StartupWindowMode}' to '{updatedSettings.StartupWindowMode}'");
-                settings.StartupWindowMode = updatedSettings.StartupWindowMode;
-                hasChanges = true;
-            }
-
-            if (settings.CloseButtonAction != updatedSettings.CloseButtonAction)
-            {
-                Log.Information($"CloseButtonAction changed from '{settings.CloseButtonAction}' to '{updatedSettings.CloseButtonAction}'");
-                settings.CloseButtonAction = updatedSettings.CloseButtonAction;
-                hasChanges = true;
-            }
-
-            if (settings.AirplaneMode != updatedSettings.AirplaneMode)
-            {
-                Log.Information($"AirplaneMode changed from '{settings.AirplaneMode}' to '{updatedSettings.AirplaneMode}'");
-                settings.AirplaneMode = updatedSettings.AirplaneMode;
-                hasChanges = true;
-            }
-
-            if (settings.SelectedOBSVersion != updatedSettings.SelectedOBSVersion)
-            {
-                Log.Information($"SelectedOBSVersion changed from '{settings.SelectedOBSVersion ?? "Automatic"}' to '{updatedSettings.SelectedOBSVersion ?? "Automatic"}'");
-                settings.SelectedOBSVersion = updatedSettings.SelectedOBSVersion;
-                hasChanges = true;
-
-                // If we're changing OBS version, check if we need to download it
-                if (OBSService.IsInitialized)
-                {
-                    _ = Task.Run(() => OBSService.CheckIfExistsOrDownloadAsync(true));
-                }
-            }
-
-            if (updatedSettings.MenuItems != null)
-            {
-                bool menuItemsChanged = settings.MenuItems.Count != updatedSettings.MenuItems.Count ||
-                    settings.MenuItems.Zip(updatedSettings.MenuItems, (a, b) => a.Id == b.Id && a.Visible == b.Visible).Any(eq => !eq);
-
-                if (menuItemsChanged)
-                {
-                    Log.Information("MenuItems changed");
-                    settings.MenuItems = updatedSettings.MenuItems;
-                    hasChanges = true;
-                }
-            }
-
-            if (!string.IsNullOrEmpty(updatedSettings.DefaultMenuItem) && settings.DefaultMenuItem != updatedSettings.DefaultMenuItem)
-            {
-                Log.Information($"DefaultMenuItem changed from '{settings.DefaultMenuItem}' to '{updatedSettings.DefaultMenuItem}'");
-                settings.DefaultMenuItem = updatedSettings.DefaultMenuItem;
-                hasChanges = true;
-            }
-
-            if (updatedSettings.Keybindings != null)
-            {
-                settings.Keybindings = updatedSettings.Keybindings;
-                KeybindCaptureService.RefreshKeybindingsCache();
-                hasChanges = true;
-            }
-
-            // Only save settings and send to frontend if changes were actually made
-            if (hasChanges)
-            {
-                Log.Information("Settings updated, saving changes");
-                settings.EndBulkUpdateAndSaveSettings();
-            }
-            else
-            {
-                // End bulk update without saving if no changes were made
-                settings._isBulkUpdating = false;
-                Log.Information("No settings changes detected");
+                case nameof(Settings.ContentFolder):
+                    // If not proceeding, a warning modal was sent to the frontend
+                    return await StorageWarningService.CheckContentFolderChange((string)value!);
+                case nameof(Settings.Codec):
+                    if (settings.Codec == null || value == null)
+                    {
+                        return false;
+                    }
+                    if (!OBSService.IsInitialized)
+                    {
+                        Log.Warning($"Codec change before OBS initialization, skipping");
+                        return false;
+                    }
+                    return true;
+                case nameof(Settings.DefaultMenuItem):
+                    return !string.IsNullOrEmpty((string?)value);
+                default:
+                    return true;
             }
         }
+
+        private static void OnSettingChanged(Settings settings, string name)
+        {
+            switch (name)
+            {
+                case nameof(Settings.ClipEncoder):
+                    Log.Information($"Automatically changing ClipCodec to 'h264' due to ClipEncoder change");
+                    settings.ClipCodec = "h264";
+                    break;
+
+                case nameof(Settings.Encoder):
+                    // When encoder changes, automatically select an appropriate codec
+                    var newCodec = OBSService.SelectDefaultCodec(settings.Encoder, AppState.Instance.Codecs);
+                    if (newCodec != null && (settings.Codec == null || !settings.Codec.Equals(newCodec)))
+                    {
+                        Log.Information($"Automatically changing codec to '{newCodec.FriendlyName}' based on encoder change");
+                        settings.Codec = newCodec;
+                    }
+
+                    // Ensure CRF is only used with CPU encoder; if user switches to GPU, switch to CQP
+                    if (settings.Encoder == "gpu" && settings.RateControl == "CRF")
+                    {
+                        Log.Information($"Automatically changing RateControl from 'CRF' to 'CQP' because encoder is GPU");
+                        settings.RateControl = "CQP";
+                    }
+                    else if (settings.Encoder == "cpu" && settings.RateControl == "CQP")
+                    {
+                        Log.Information($"Automatically changing RateControl from 'CQP' to 'CRF' because encoder is CPU");
+                        settings.RateControl = "CRF";
+                    }
+                    break;
+
+                case nameof(Settings.SoundEffectsVolume):
+                    // Play the sound with the new volume to provide immediate feedback
+                    _ = Task.Run(() => OBSService.PlaySound("start"));
+                    break;
+
+                case nameof(Settings.DisableWindowsGameMode):
+                    // Enabling the option proactively disables Game Mode; disabling it leaves Game Mode untouched.
+#if WINDOWS
+                    if (settings.DisableWindowsGameMode)
+                    {
+                        GameModeService.EnforceDisabledIfEnabled();
+                    }
+#endif
+                    break;
+
+                case nameof(Settings.SelectedDisplay):
+                    // Update the live display capture in place; only meaningful while recording without a game hook.
+                    if (AppState.Instance.Recording != null && !AppState.Instance.Recording.IsUsingGameHook)
+                    {
+                        OBSService.UpdateMonitorCapture();
+                    }
+                    break;
+
+                case nameof(Settings.ReceiveBetaUpdates):
+                    _ = Task.Run(() => UpdateService.UpdateAppIfNecessary(forceCheck: true));
+                    _ = Task.Run(() => UpdateService.GetReleaseNotes(forceCheck: true));
+                    break;
+
+                case nameof(Settings.SelectedOBSVersion):
+                    // If we're changing OBS version, check if we need to download it
+                    if (OBSService.IsInitialized)
+                    {
+                        _ = Task.Run(() => OBSService.CheckIfExistsOrDownloadAsync(true));
+                    }
+                    break;
+
+                case nameof(Settings.Keybindings):
+                    KeybindCaptureService.RefreshKeybindingsCache();
+                    break;
+            }
+        }
+
+        private static string Shorten(string json) => json.Length <= 200 ? json : json[..200] + "...";
 
         public static async Task LoadContentFromFolderIntoState(bool sendToFrontend = true)
         {
