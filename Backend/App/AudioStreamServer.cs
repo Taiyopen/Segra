@@ -46,7 +46,13 @@ namespace Segra.Backend.App
                 {
                     HttpListenerContext context = await listener.GetContextAsync();
 
-                    if (context.Request.IsWebSocketRequest)
+                    if (context.Request.IsWebSocketRequest && !MessageService.IsLocalOrigin(context.Request))
+                    {
+                        Log.Warning("Rejected audio stream connection from origin {Origin}", context.Request.Headers["Origin"]);
+                        context.Response.StatusCode = 403;
+                        context.Response.Close();
+                    }
+                    else if (context.Request.IsWebSocketRequest)
                     {
                         if (activeWebSocket != null && activeWebSocket.State == WebSocketState.Open)
                         {

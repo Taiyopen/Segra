@@ -227,8 +227,17 @@ namespace Segra.Backend.App
                             if (openInBrowserParameterElement.TryGetProperty("Url", out JsonElement urlElement))
                             {
                                 string url = urlElement.GetString()!;
-                                Log.Information($"Opening URL in browser: {url}");
-                                PlatformServices.Dialogs.OpenUrl(url);
+                                // Shell-executing the raw string would also launch local programs; only hand web URLs to the browser.
+                                if (Uri.TryCreate(url, UriKind.Absolute, out Uri? webUri) &&
+                                    (webUri.Scheme == Uri.UriSchemeHttps || webUri.Scheme == Uri.UriSchemeHttp))
+                                {
+                                    Log.Information($"Opening URL in browser: {url}");
+                                    PlatformServices.Dialogs.OpenUrl(webUri.AbsoluteUri);
+                                }
+                                else
+                                {
+                                    Log.Warning("Refused to open non-web URL: {Url}", url);
+                                }
                             }
                             else
                             {
@@ -643,7 +652,13 @@ namespace Segra.Backend.App
                 {
                     HttpListenerContext context = await listener.GetContextAsync();
 
-                    if (context.Request.IsWebSocketRequest)
+                    if (context.Request.IsWebSocketRequest && !IsLocalOrigin(context.Request))
+                    {
+                        Log.Warning("Rejected WebSocket connection from origin {Origin}", context.Request.Headers["Origin"]);
+                        context.Response.StatusCode = 403;
+                        context.Response.Close();
+                    }
+                    else if (context.Request.IsWebSocketRequest)
                     {
                         Log.Information("Received WebSocket connection request");
 
@@ -749,9 +764,16 @@ namespace Segra.Backend.App
                     }
                     else
                     {
+                        // Commands arrive over Photino's web message channel; this socket only carries the heartbeat.
                         string receivedMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        Log.Information($"Received message: {receivedMessage}");
-                        await HandleMessage(receivedMessage);
+                        if (receivedMessage == "ping")
+                        {
+                            await SendFrontendMessage("pong", new { });
+                        }
+                        else
+                        {
+                            Log.Warning("Ignored non-heartbeat WebSocket message ({Length} bytes)", result.Count);
+                        }
                     }
                 }
             }
@@ -781,6 +803,15 @@ namespace Segra.Backend.App
                 }
                 Log.Information("WebSocket connection closed ({Count} active).", activeWebSockets.Count);
             }
+        }
+
+        // Browsers attach Origin to every WebSocket handshake, so a page on another site can't pass as the
+        // app's own frontend (served from localhost: 44040+ in release, 2882 under Vite).
+        internal static bool IsLocalOrigin(HttpListenerRequest request)
+        {
+            return Uri.TryCreate(request.Headers["Origin"], UriKind.Absolute, out Uri? origin) &&
+                origin.Scheme == Uri.UriSchemeHttp &&
+                (origin.Host == "localhost" || origin.Host == "127.0.0.1");
         }
 
         public static async Task SendFrontendMessage(string method, object content)
