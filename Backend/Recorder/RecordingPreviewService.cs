@@ -68,8 +68,12 @@ namespace Segra.Backend.Recorder
                 _activeSlots.Add(slot);
                 if (_activeSlots.Count == 1)
                     _enabled = StartPreviewLocked();
-                else
+                else if (_enabled)
+                {
+                    if (slot == 0)
+                        EnsureMainCanvasSubscriptionLocked();
                     EnsureScreenshotLoopRunningLocked();
+                }
             }
 
             BroadcastState();

@@ -181,9 +181,9 @@ namespace Segra.Backend.Games
                     // Proton game: stop once no process carries this install path anymore.
                     if (!AnyProcessHasSteamInstall(current, _recordingSteamInstallPath))
                     {
-                        Log.Information("[OnTrackedProcessExited] Steam/Proton game closed. Stopping recording.");
+                        string installDir = _recordingSteamInstallPath;
                         _recordingSteamInstallPath = null;
-                        _ = Task.Run(OBSService.StopRecording);
+                        StopSlotsForSteamInstall(installDir);
                     }
                 }
                 else
@@ -239,17 +239,7 @@ namespace Segra.Backend.Games
         {
             try
             {
-                var recordingPid = AppState.Instance.Recording?.Pid;
-                var preRecordingPid = AppState.Instance.PreRecording?.Pid;
-
-                bool matchesRecordingPid = recordingPid.HasValue && pid == recordingPid.Value;
-                bool matchesPreRecordingPid = preRecordingPid.HasValue && pid == preRecordingPid.Value;
-
-                if (matchesRecordingPid || matchesPreRecordingPid)
-                {
-                    Log.Information($"[OnTrackedProcessExited] PID {pid} is no longer running. Stopping recording.");
-                    _ = Task.Run(OBSService.StopRecording);
-                }
+                StopSlotTrackingProcess(pid, exePath: null, "[OnTrackedProcessExited]");
             }
             catch (Exception ex)
             {
@@ -352,12 +342,15 @@ namespace Segra.Backend.Games
 
                 OBSService.OnVoiceChatAppStarted(exePath);
 
-                // Capture once: teardown can null PreRecording on another thread between the check and the dereference.
-                var preRecording = AppState.Instance.PreRecording;
-                if (preRecording != null && GameUtils.IsGameExePath(exePath))
+                if (GameUtils.IsGameExePath(exePath))
                 {
-                    preRecording.Exe = exePath;
-                    OBSService.UpdateGameCaptureWindow(exePath);
+                    for (int i = 0; i < RecordingSlots.Max; i++)
+                    {
+                        var waiting = AppState.Instance.GetPreRecording(i);
+                        if (waiting == null) continue;
+                        waiting.Exe = exePath;
+                        OBSService.UpdateGameCaptureWindow(exePath, i);
+                    }
                 }
 
                 if (ShouldRecordGame(exePath))
@@ -374,7 +367,7 @@ namespace Segra.Backend.Games
 #if WINDOWS
         private static void OnProcessStopped(object sender, EventArrivedEventArgs e)
         {
-            if (AppState.Instance.Recording == null && AppState.Instance.PreRecording == null) return;
+            if (!AppState.Instance.HasAnyRecording() && !AppState.Instance.HasAnyPreRecording()) return;
 
             try
             {
@@ -386,23 +379,9 @@ namespace Segra.Backend.Games
 
                 if (IsIrrelevantProcessPath(exePath)) return;
 
-                string fileNameWithExtension = Path.GetFileName(exePath);
-
                 Log.Information($"[OnProcessStopped] Application stopped: PID {pid}, Path: {exePath}");
 
-                var recordingPid = AppState.Instance.Recording?.Pid;
-                var preRecordingPid = AppState.Instance.PreRecording?.Pid;
-                var recordingFileName = AppState.Instance.Recording?.FileName;
-
-                bool matchesFileName = !string.IsNullOrEmpty(recordingFileName) && fileNameWithExtension == recordingFileName;
-                bool matchesRecordingPid = recordingPid.HasValue && pid == recordingPid.Value;
-                bool matchesPreRecordingPid = preRecordingPid.HasValue && pid == preRecordingPid.Value;
-
-                if (matchesFileName || matchesRecordingPid || matchesPreRecordingPid)
-                {
-                    Log.Information($"[OnTrackedProcessExited] Confirmed that PID {pid} is no longer running. Stopping recording.");
-                    _ = Task.Run(OBSService.StopRecording);
-                }
+                StopSlotTrackingProcess(pid, exePath, "[OnTrackedProcessExited]");
             }
             catch (Exception ex)
             {
@@ -413,19 +392,34 @@ namespace Segra.Backend.Games
 
         private static void StartGameRecording(int pid, string exePath)
         {
-            if (AppState.Instance.Recording != null || AppState.Instance.PreRecording != null)
+            if (AppState.Instance.IsPidBeingRecorded(pid) || IsExeAlreadyTracked(exePath))
             {
-                Log.Information("[StartGameRecording] Recording already in progress. Skipping...");
+                Log.Information("[StartGameRecording] PID {Pid} or exe already tracked. Skipping...", pid);
                 return;
             }
 
-            Log.Information($"[StartGameRecording] Starting recording for game: PID {pid}, Path: {exePath}");
+            int? slot = AppState.Instance.GetFreeSlot();
+            if (slot == null)
+            {
+                Log.Information("[StartGameRecording] No free recording slot. Skipping...");
+                return;
+            }
+
+            Log.Information("[StartGameRecording] Starting recording for game: PID {Pid}, Path: {Path}, Slot: {Slot}", pid, exePath, slot.Value);
 
             string gameName = ExtractGameName(exePath);
             string? coverImageId = GameUtils.GetCoverImageIdFromExePath(exePath);
 
-            AppState.Instance.PreRecording = new PreRecording { Game = gameName, Status = "Waiting to start", CoverImageId = coverImageId, Pid = pid, Exe = exePath };
-            OBSService.StartRecording(gameName, exePath, pid: pid);
+            AppState.Instance.SetPreRecording(slot.Value, new PreRecording
+            {
+                Game = gameName,
+                Status = "Waiting to start",
+                CoverImageId = coverImageId,
+                Pid = pid,
+                Exe = exePath,
+                Slot = slot.Value,
+            });
+            OBSService.StartRecording(gameName, exePath, pid: pid, reservedSlot: slot.Value);
         }
 
 #if WINDOWS
@@ -451,7 +445,9 @@ namespace Segra.Backend.Games
 
         private static bool ShouldRecordGame(string exePath, string? fileDescription = null)
         {
-            if (string.IsNullOrEmpty(exePath) || AppState.Instance.Recording != null || AppState.Instance.PreRecording != null) return false;
+            if (string.IsNullOrEmpty(exePath)) return false;
+            if (AppState.Instance.GetFreeSlot() == null) return false;
+            if (IsExeAlreadyTracked(exePath)) return false;
 
             // Normalize path for consistent comparison
             string normalizedExePath = exePath.Replace("\\", "/");
@@ -744,21 +740,130 @@ namespace Segra.Backend.Games
         }
 #endif
 
+        private static int? FindSlotTrackingProcess(int pid, string? exePath)
+        {
+            var recByPid = AppState.Instance.GetRecordingByPid(pid);
+            if (recByPid != null) return recByPid.Slot;
+
+            var preByPid = AppState.Instance.GetPreRecordingByPid(pid);
+            if (preByPid != null) return preByPid.Slot;
+
+            string? fileName = string.IsNullOrEmpty(exePath) ? null : Path.GetFileName(exePath);
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                var recording = AppState.Instance.GetRecording(i);
+                if (recording != null
+                    && !string.IsNullOrEmpty(fileName)
+                    && string.Equals(recording.FileName, fileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+
+                var preRecording = AppState.Instance.GetPreRecording(i);
+                if (preRecording?.Exe != null
+                    && !string.IsNullOrEmpty(exePath)
+                    && string.Equals(
+                        PathUtils.Normalize(preRecording.Exe),
+                        PathUtils.Normalize(exePath),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsExeAlreadyTracked(string exePath)
+        {
+            string normalized = PathUtils.Normalize(exePath);
+            string fileName = Path.GetFileName(exePath);
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                var recording = AppState.Instance.GetRecording(i);
+                if (recording != null)
+                {
+                    if (!string.IsNullOrEmpty(recording.ExePath)
+                        && string.Equals(PathUtils.Normalize(recording.ExePath), normalized, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                    if (!string.IsNullOrEmpty(recording.FileName)
+                        && string.Equals(recording.FileName, fileName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+
+                var preRecording = AppState.Instance.GetPreRecording(i);
+                if (preRecording?.Exe != null
+                    && string.Equals(PathUtils.Normalize(preRecording.Exe), normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void StopSlotTrackingProcess(int pid, string? exePath, string logContext)
+        {
+            int? slot = FindSlotTrackingProcess(pid, exePath);
+            if (slot == null) return;
+
+            Log.Information($"{logContext} PID {pid} is no longer running. Stopping recording slot {slot.Value}.");
+            _ = Task.Run(() => OBSService.StopRecordingSlot(slot.Value));
+        }
+
+        private static void StopSlotsWhoseProcessExited()
+        {
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                var recording = AppState.Instance.GetRecording(i);
+                if (recording?.Pid is int pid && !IsProcessRunning(pid))
+                {
+                    int slotToStop = i;
+                    Log.Warning($"[ProcessCheck] Recording process PID {pid} is no longer running. Stopping slot {slotToStop}.");
+                    _ = Task.Run(() => OBSService.StopRecordingSlot(slotToStop));
+                }
+            }
+        }
+
+#if !WINDOWS
+        private static void StopSlotsForSteamInstall(string installDir)
+        {
+            string normalized = PathUtils.Normalize(installDir);
+            bool stoppedAny = false;
+            for (int i = 0; i < RecordingSlots.Max; i++)
+            {
+                string? exe = AppState.Instance.GetRecording(i)?.ExePath
+                    ?? AppState.Instance.GetPreRecording(i)?.Exe;
+                if (string.IsNullOrEmpty(exe)) continue;
+                if (!PathUtils.Normalize(exe).StartsWith(normalized, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                int slotToStop = i;
+                Log.Information("[OnTrackedProcessExited] Steam/Proton game closed. Stopping recording slot {Slot}.", slotToStop);
+                _ = Task.Run(() => OBSService.StopRecordingSlot(slotToStop));
+                stoppedAny = true;
+            }
+
+            if (!stoppedAny)
+            {
+                Log.Information("[OnTrackedProcessExited] Steam/Proton game closed. No slot matched install path; stopping all slots.");
+                _ = Task.Run(OBSService.StopRecording);
+            }
+        }
+#endif
+
         private static void CheckForGames()
         {
             try
             {
-                // First, check if we're currently recording and if that process is still alive
-                if (AppState.Instance.Recording != null)
+                StopSlotsWhoseProcessExited();
+
+                if (AppState.Instance.GetFreeSlot() == null)
                 {
-                    int? recordingPid = AppState.Instance.Recording.Pid;
-                    if (recordingPid.HasValue && !IsProcessRunning(recordingPid.Value))
-                    {
-                        Log.Warning($"[ProcessCheck] Recording process PID {recordingPid} is no longer running. Stopping recording.");
-                        _ = Task.Run(OBSService.StopRecording);
-                        return;
-                    }
-                    // Process is still running, no need to check for new games
                     return;
                 }
 
@@ -1235,7 +1340,7 @@ namespace Segra.Backend.Games
                     // Reset retry recording flag to allow retrying recording if the user has changed foreground window
                     PreventRetryRecording = false;
 
-                    if (AppState.Instance.Recording != null) return;
+                    if (AppState.Instance.GetFreeSlot() == null) return;
 
                     // The foreground hook can fire repeatedly for the same window; skip if it matches what we last logged
                     if (hwnd == _lastLoggedHwnd) return;

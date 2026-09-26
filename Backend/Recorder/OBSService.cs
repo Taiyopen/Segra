@@ -981,6 +981,16 @@ namespace Segra.Backend.Recorder
                             }
                         }
 
+                        // Drop the flag from the initial "existing hook found". This pump cannot
+                        // see lines that arrive during the wait, so a stale true would skip a real stop.
+                        if (affectedSlot is int slotToReset)
+                            _isStillHookedAfterUnhookBySlot[slotToReset] = false;
+                        else
+                        {
+                            for (int i = 0; i < MaxSessionSlots; i++)
+                                _isStillHookedAfterUnhookBySlot[i] = false;
+                        }
+
                         Log.Information("Capture window no longer exists, waiting a second to make sure it's not a false positive.");
                         await Task.Delay(1000);
 
@@ -1090,7 +1100,7 @@ namespace Segra.Backend.Recorder
             _ = startManually;
             for (int i = 0; i < MaxSessionSlots; i++)
             {
-                if (AppState.Instance.GetRecording(i) != null)
+                if (AppState.Instance.IsSlotOccupied(i))
                     continue;
                 if (Pipeline(i).SessionOutput != null)
                     continue;
@@ -1619,12 +1629,13 @@ namespace Segra.Backend.Recorder
                         }
                         else
                         {
-                            (windowWidth, windowHeight) = EnsureEvenDimensions(windowWidth, windowHeight);
+                            uint fitWidth = _currentBaseWidth > 0 ? _currentBaseWidth : windowWidth;
+                            uint fitHeight = _currentBaseHeight > 0 ? _currentBaseHeight : windowHeight;
                             Log.Information(
-                                "Using existing canvas dimensions for slot {Slot} game bounds ({Width}x{Height})",
-                                slot, windowWidth, windowHeight);
-                            pl.GameCaptureItem?.SetBounds(ObsBoundsType.ScaleInner, windowWidth, windowHeight).SetPosition(0, 0);
-                            pl.DisplayItem?.SetBounds(ObsBoundsType.ScaleInner, windowWidth, windowHeight).SetPosition(0, 0);
+                                "Fitting slot {Slot} onto existing canvas {CanvasW}x{CanvasH} (game window {Width}x{Height})",
+                                slot, fitWidth, fitHeight, windowWidth, windowHeight);
+                            pl.GameCaptureItem?.SetBounds(ObsBoundsType.ScaleInner, fitWidth, fitHeight).SetPosition(0, 0);
+                            pl.DisplayItem?.SetBounds(ObsBoundsType.ScaleInner, fitWidth, fitHeight).SetPosition(0, 0);
                         }
                     }
                     else
@@ -2767,21 +2778,21 @@ namespace Segra.Backend.Recorder
         }
 
         /// <summary>
-        /// Repoints active game capture sources at a newly launched game executable.
+        /// Repoints one slot's game capture source at a newly launched game executable.
         /// </summary>
-        public static void UpdateGameCaptureWindow(string exePath)
+        public static void UpdateGameCaptureWindow(string exePath, int slot)
         {
             try
             {
+                if (slot < 0 || slot >= MaxSessionSlots) return;
+                if (_isStoppingSlot[slot]) return;
+
+                var source = Pipeline(slot).GameCapture;
+                if (source == null) return;
+
                 string fileName = Path.GetFileName(exePath);
-                for (int i = 0; i < MaxSessionSlots; i++)
-                {
-                    if (_isStoppingSlot[i]) continue;
-                    var source = Pipeline(i).GameCapture;
-                    if (source == null) continue;
-                    source.Update(s => s.Set("window", $"*:*:{fileName}"));
-                    Log.Information($"Updated game capture source to: {fileName} (slot {i})");
-                }
+                source.Update(s => s.Set("window", $"*:*:{fileName}"));
+                Log.Information("Updated game capture source to: {FileName} (slot {Slot})", fileName, slot);
             }
             catch (Exception ex)
             {
