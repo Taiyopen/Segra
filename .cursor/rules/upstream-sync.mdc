@@ -9,8 +9,11 @@ alwaysApply: true
 
 ## 做法
 
-1. `git fetch upstream --tags`，對 **穩定 tag**（現況目標 `v1.8.0`），不要追 `upstream/main`。
-2. 讀該 tag 的 GitHub **Release 頁**（不是只看 `git log`）。寫入／更新 `SYNC.md` 時，每個功能列都要有 **Release** 欄：官方 bullet 的繁中（保留分類詞如 Performance／Recording）。同一 bullet 對一列；一列對多條就全寫。穩定 Release 沒寫到的才標 `Release 未列`，不要用 commit 主旨冒充。不要把 Release 收成內部簡稱而把數字藏起來（例如不可只寫「記憶體」而漏 -24%／-28%／托盤）。
+1. `git fetch upstream`，對 **穩定 tag**（現況目標 `upstream/v1.8.1`），不要追 `upstream/main`。使用者指定時才加看 beta（現況另看 `upstream/v1.9.0-beta.2`）。
+   - 上游 tag 會自動放在 `upstream/` 底下（`remote.upstream.fetch` 有 `+refs/tags/*:refs/tags/upstream/*`、`tagOpt --no-tags`），不要再用 `--tags`，否則會跟 fork 自己的 tag 撞名。
+   - 沒有前綴的 `v*`（例如 `v1.9.0`～`v1.9.2`）是 **fork 自己**的 release，不是上游。
+2. 讀該 tag 的 GitHub **Release 頁**（不是只看 `git log`）。寫入／更新 `SYNC.md` 時，每個功能列都要有 **Release** 欄：官方 bullet 的繁中（保留分類詞如 Performance／Recording）。同一 bullet 對一列；一列對多條就全寫。穩定 Release 沒寫到的才標 `Release 未列`，不要用 commit 主旨冒充。不要把 Release 收成內部簡稱而把數字藏起來（例如不可只寫「記憶體」而漏 -24%／-28%／托盤）。beta 項目用 beta Release 頁，並標（beta）。
+   - 每個「未合」列也要填 **建議** 欄：要不要改、怎麼改（fork 對應檔與行號、能不能直接 pick、跟哪些列要一起做）。要先對過 fork 現有程式再寫，不要只看上游 diff 下結論。
 3. 讀 `SYNC.md`：只挑 ★★★／★★ 且狀態為「未合」的項目。
 4. 一個功能一條 branch；能 cherry-pick 就 pick，衝突就改成對 fork 檔手移。
 5. 合完只 smoke fork 功能：雙槽、待剪輯、瀏覽影片、外部庫、PiP、VVMW。
