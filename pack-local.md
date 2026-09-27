@@ -29,7 +29,21 @@ vpk pack -u Segra -v <版本> -p ./publish -e Segra.exe -o ./output --packTitle 
 
 `--framework` 會讓 Setup 在缺少時先裝好 WebView2 與 Visual C++ 2015–2022 x64 runtime。少了 VC++ runtime，全新的 Windows 上 OBS 會默默載入失敗（上游 v1.8.1 的修正）。
 
-4. 上傳到 GitHub Release。不要勾 Pre-release，否則預設關閉「接收測試版」的安裝不會看到這包。
+4. 打包 Stream Deck 插件，輸出到 `StreamDeck/dist/com.taiyopen.segra.streamDeckPlugin`
+
+```powershell
+cd StreamDeck
+npm ci
+npm run build
+npm run pack '--' --version <版本>
+cd ..
+```
+
+`'--'` 的引號不能省：Windows PowerShell 會吃掉沒加引號的 `--`，npm 就只印出自己的版本號，不會打包。
+
+`--version` 會把 `<版本>` 寫進 `StreamDeck/com.taiyopen.segra.sdPlugin/manifest.json`（自動補成四碼，例如 `1.10.2.0`）。發布後把這個改動一起 commit。
+
+5. 上傳到 GitHub Release。不要勾 Pre-release，否則預設關閉「接收測試版」的安裝不會看到這包。
 
 ```powershell
 gh release create "v<版本>" --repo Taiyopen/Segra --title "Release v<版本>" --notes "這版改了什麼" `
@@ -37,10 +51,13 @@ gh release create "v<版本>" --repo Taiyopen/Segra --title "Release v<版本>" 
   ./output/RELEASES `
   ./output/releases.win.json `
   ./output/assets.win.json `
-  ./output/Segra-<版本>-full.nupkg
+  ./output/Segra-<版本>-full.nupkg `
+  ./StreamDeck/dist/com.taiyopen.segra.streamDeckPlugin
 ```
 
 `gh` 需要能寫 `Taiyopen/Segra` 的權限。Release 說明會出現在 App 的 What's New。
+
+Stream Deck 插件不會自動更新。插件有改的版本，Release 說明要寫「請重新安裝 Stream Deck 插件」。
 
 ## 版本號
 
@@ -55,3 +72,5 @@ gh release create "v<版本>" --repo Taiyopen/Segra --title "Release v<版本>" 
 這份安裝的應用識別與官方相同，都是 `Segra`。對方若已裝官方版，這次安裝會蓋掉它。
 
 之後：你照上面發布更高的版本號。對方開 App 時會下載並提示安裝，不必再傳檔。對方也可以自己到 Releases 下載新的 Setup 再裝一次。
+
+Stream Deck 插件（選用，需要 Stream Deck 7.1 以上）：從同一個 Release 下載 `com.taiyopen.segra.streamDeckPlugin`，點兩下安裝。Release 說明寫了要重新安裝時，再下載新的那包裝一次。
