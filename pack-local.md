@@ -41,12 +41,18 @@ cd ..
 
 `'--'` 的引號不能省：Windows PowerShell 會吃掉沒加引號的 `--`，npm 就只印出自己的版本號，不會打包。
 
-`--version` 會把 `<版本>` 寫進 `StreamDeck/com.taiyopen.segra.sdPlugin/manifest.json`（自動補成四碼，例如 `1.10.2.0`）。發布後把這個改動一起 commit。
+`--version` 會把 `<版本>` 寫進 `StreamDeck/com.taiyopen.segra.sdPlugin/manifest.json`（自動補成四碼，例如 `1.10.2.0`）。打包完就 commit 這個改動，然後推上去：
+
+```powershell
+git push origin main
+```
+
+一定要在下一步之前推。Release 的標籤是 GitHub 那邊打的，本機還沒推的 commit 不會在標籤裡。
 
 5. 上傳到 GitHub Release。不要勾 Pre-release，否則預設關閉「接收測試版」的安裝不會看到這包。
 
 ```powershell
-gh release create "v<版本>" --repo Taiyopen/Segra --title "Release v<版本>" --notes "這版改了什麼" `
+gh release create "v<版本>" --repo Taiyopen/Segra --target (git rev-parse HEAD) --title "Release v<版本>" --notes "這版改了什麼" `
   ./output/Segra-win-Setup.exe `
   ./output/RELEASES `
   ./output/releases.win.json `
@@ -54,6 +60,8 @@ gh release create "v<版本>" --repo Taiyopen/Segra --title "Release v<版本>" 
   ./output/Segra-<版本>-full.nupkg `
   ./StreamDeck/dist/com.taiyopen.segra.streamDeckPlugin
 ```
+
+`--target` 讓標籤打在剛推上去的 commit。它要完整的 commit 編號，給縮短版（例如 `7751a06`）會被 GitHub 拒絕，所以用 `git rev-parse HEAD`。
 
 `gh` 需要能寫 `Taiyopen/Segra` 的權限。Release 說明會出現在 App 的 What's New。
 
