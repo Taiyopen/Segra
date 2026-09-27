@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import {
   BookmarkPlus,
   CirclePause,
@@ -250,6 +250,62 @@ function PipAlwaysOnPreview({ since }: { since: Date }) {
   );
 }
 
+// Matches the card's `duration-300` height transition
+const HEIGHT_TRANSITION_MS = 300;
+
+/**
+ * Keeps the PiP window as tall as its content. Growing resizes the (transparent) window first so the card can slide
+ * down into it; shrinking slides the card up first and resizes the window once the animation ends.
+ */
+function usePipAutoHeight() {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [cardHeight, setCardHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    let lastHeight: number | null = null;
+    let shrinkTimer: number | undefined;
+
+    // offsetWidth/offsetHeight are unzoomed layout px, so the ratio holds at any window width
+    const fitWindow = () => {
+      shrinkTimer = undefined;
+      if (content.offsetWidth > 0) {
+        sendMessageToBackend('FitMonitoringWindowHeight', {
+          heightRatio: content.offsetHeight / content.offsetWidth,
+        });
+      }
+    };
+
+    const onContentResize = () => {
+      const height = content.offsetHeight;
+      if (height === lastHeight) return;
+      const growing = lastHeight === null || height > lastHeight;
+      lastHeight = height;
+      setCardHeight(height);
+      window.clearTimeout(shrinkTimer);
+      if (growing) fitWindow();
+      else shrinkTimer = window.setTimeout(fitWindow, HEIGHT_TRANSITION_MS);
+    };
+
+    // A width change rescales the content, so the window height has to follow
+    const onWindowResize = () => {
+      if (shrinkTimer === undefined) fitWindow();
+    };
+
+    const observer = new ResizeObserver(onContentResize);
+    observer.observe(content);
+    window.addEventListener('resize', onWindowResize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', onWindowResize);
+      window.clearTimeout(shrinkTimer);
+    };
+  }, []);
+
+  return { contentRef, cardHeight };
+}
+
 export default function MonitoringCompactShell() {
   const settings = useSettings();
   const appState = useAppState();
@@ -287,6 +343,7 @@ export default function MonitoringCompactShell() {
   const alwaysOnActive = !!appState.alwaysOnBufferActive && !hasLiveActivity;
   const [alwaysOnSince, setAlwaysOnSince] = useState<Date | null>(null);
   const [alwaysOnToggleCooldown, setAlwaysOnToggleCooldown] = useState(false);
+  const { contentRef, cardHeight } = usePipAutoHeight();
 
   useEffect(() => {
     setAlwaysOnSince((prev) => (alwaysOnActive ? (prev ?? new Date()) : null));
@@ -387,8 +444,11 @@ export default function MonitoringCompactShell() {
   };
 
   return (
-    <div className="monitoring-pip-root h-screen w-screen overflow-hidden rounded-3xl bg-black shadow-[0_12px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/10">
-      <div className="relative flex h-full w-full min-h-0 flex-col overflow-hidden">
+    <div
+      className="monitoring-pip-root w-screen overflow-hidden rounded-3xl bg-black shadow-[0_12px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/10 transition-[height] duration-300 ease-out"
+      style={{ height: cardHeight ?? undefined }}
+    >
+      <div ref={contentRef} className="relative flex w-full flex-col overflow-hidden">
         <div
           className="relative shrink-0 cursor-grab active:cursor-grabbing"
           onMouseDown={beginWindowDrag}
@@ -443,41 +503,35 @@ export default function MonitoringCompactShell() {
             </div>
           </div>
 
-          <div
-            className={`relative w-full overflow-hidden bg-black px-2 pb-2 ${isDualLive ? 'max-h-[calc(100vh-9rem)] overflow-y-auto' : ''}`}
-          >
-            {inactive && alwaysOnActive && alwaysOnSince ? (
-              <PipAlwaysOnPreview since={alwaysOnSince} />
-            ) : inactive ? (
-              <div className="relative aspect-video w-full overflow-hidden rounded-md bg-black">
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-base-300/80 to-black px-4 text-center text-xs text-white/70">
-                  <Video className="mb-2 h-10 w-10 text-white/15" strokeWidth={1.25} aria-hidden />
-                  <span>點下方按鈕開始錄製</span>
+          {/* Nothing to show collapses the window to the header and controls */}
+          {(!inactive || (alwaysOnActive && alwaysOnSince)) && (
+            <div className="relative w-full overflow-hidden bg-black px-2 pb-2">
+              {inactive ? (
+                alwaysOnSince && <PipAlwaysOnPreview since={alwaysOnSince} />
+              ) : (
+                <div className={isDualLive ? 'space-y-2' : ''}>
+                  {pipPanels.map((panel) => (
+                    <PipRecordingPreview
+                      key={panel.key}
+                      slot={panel.slot}
+                      gameName={panel.gameName}
+                      recording={panel.recording}
+                      preRecording={panel.preRecording}
+                      compact={isDualLive}
+                      showStopButton={isDualLive}
+                      onStop={() => stopSlot(panel.slot)}
+                    />
+                  ))}
                 </div>
-              </div>
-            ) : (
-              <div className={isDualLive ? 'space-y-2' : ''}>
-                {pipPanels.map((panel) => (
-                  <PipRecordingPreview
-                    key={panel.key}
-                    slot={panel.slot}
-                    gameName={panel.gameName}
-                    recording={panel.recording}
-                    preRecording={panel.preRecording}
-                    compact={isDualLive}
-                    showStopButton={isDualLive}
-                    onStop={() => stopSlot(panel.slot)}
-                  />
-                ))}
-              </div>
-            )}
+              )}
 
-            {showShockwave && (
-              <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-                <div className="animate-shockwave absolute left-1/2 top-1/2 h-0 w-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50" />
-              </div>
-            )}
-          </div>
+              {showShockwave && (
+                <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+                  <div className="animate-shockwave absolute left-1/2 top-1/2 h-0 w-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/50" />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="monitoring-no-drag relative z-40 mt-auto shrink-0 px-3 pb-3 pt-2">

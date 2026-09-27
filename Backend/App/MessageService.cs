@@ -133,6 +133,11 @@ namespace Segra.Backend.App
                                 Program.SetMonitoringWindowTopMost(topMost);
                             }
                             break;
+                        case "FitMonitoringWindowHeight":
+                            if (root.TryGetProperty("Parameters", out var fitParams) &&
+                                fitParams.TryGetProperty("heightRatio", out var heightRatioEl))
+                                Program.FitMonitoringWindowHeight(heightRatioEl.GetDouble());
+                            break;
                         case "CreateRecordingBookmark":
                             if (RecordingHotkeyActions.TryCreateBookmark())
                                 await SendFrontendMessage("BookmarkCreated", new { });

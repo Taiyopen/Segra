@@ -354,6 +354,57 @@ namespace Segra.Backend.App
             return window.Load(monitoringUrl);
         }
 
+        /// <summary>
+        /// Sizes the PiP to its content: height = current width × <paramref name="heightRatio"/>. The top edge stays put;
+        /// the window only moves up when growing would pass the bottom of its screen.
+        /// </summary>
+        public static void FitMonitoringWindowHeight(double heightRatio)
+        {
+            if (MonitoringWindow == null || Window == null || !(heightRatio > 0)) return;
+
+#if WINDOWS
+            void Fit()
+            {
+                try
+                {
+                    if (!TryGetMonitoringWindowHandle(out IntPtr hwnd)) return;
+
+                    var size = MonitoringWindow!.Size;
+                    var location = MonitoringWindow.Location;
+                    if (size.Width <= 0) return;
+
+                    int height = Math.Max(1, (int)Math.Round(size.Width * heightRatio));
+                    int y = location.Y;
+                    if (TryGetWorkAreaForWindow(hwnd, out var work))
+                    {
+                        height = Math.Min(height, work.Height);
+                        if (y + height > work.Bottom)
+                            y = Math.Max(work.Top, work.Bottom - height);
+                    }
+
+                    if (Math.Abs(height - size.Height) <= 1 && y == location.Y) return;
+
+                    SetWindowPos(hwnd, IntPtr.Zero, location.X, y, size.Width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+                    _monitoringWindowLocation = new Point(location.X, y);
+                    _monitoringWindowSize = new Size(size.Width, height);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "FitMonitoringWindowHeight failed");
+                }
+            }
+
+            try
+            {
+                Window.Invoke(Fit);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "FitMonitoringWindowHeight Invoke failed");
+            }
+#endif
+        }
+
         public static void SetMonitoringWindowTopMost(bool enabled)
         {
             _monitoringWindowTopMost = enabled;
@@ -526,11 +577,19 @@ namespace Segra.Backend.App
         {
             work = default;
 #if WINDOWS
+            IntPtr hwnd = GetMainWindowHandle();
+            return hwnd != IntPtr.Zero && TryGetWorkAreaForWindow(hwnd, out work);
+#else
+            return false;
+#endif
+        }
+
+        private static bool TryGetWorkAreaForWindow(IntPtr hwnd, out Rectangle work)
+        {
+            work = default;
+#if WINDOWS
             try
             {
-                IntPtr hwnd = GetMainWindowHandle();
-                if (hwnd == IntPtr.Zero) return false;
-
                 IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
                 if (monitor == IntPtr.Zero) return false;
 
@@ -543,7 +602,7 @@ namespace Segra.Backend.App
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Failed to get main window monitor work area");
+                Log.Warning(ex, "Failed to get the window's monitor work area");
             }
 #endif
             return false;
