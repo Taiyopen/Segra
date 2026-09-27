@@ -17,11 +17,12 @@ import AdvancedSection from '../Components/Settings/AdvancedSection';
 import PendingRecordingSettingsBanner from '../Components/Settings/PendingRecordingSettingsBanner';
 
 type SectionId =
-  'account' | 'recording' | 'clips' | 'games' | 'storage' | 'preferences' | 'advanced';
+  'account' | 'recording' | 'audio' | 'clips' | 'games' | 'storage' | 'preferences' | 'advanced';
 
 const ALL_NAV_ITEMS: { id: SectionId; label: string }[] = [
   { id: 'account', label: 'Account' },
   { id: 'recording', label: 'Recording' },
+  { id: 'audio', label: 'Audio' },
   { id: 'clips', label: 'Clips' },
   { id: 'storage', label: 'Storage' },
   { id: 'games', label: 'Games' },
@@ -148,8 +149,11 @@ export default function Settings() {
         <SectionHeader id="recording">Recording</SectionHeader>
         <CaptureModeSection settings={settings} updateSettings={updateSettings} />
         <VideoSettingsSection settings={settings} updateSettings={updateSettings} />
-        <AudioDevicesSection settings={settings} updateSettings={updateSettings} />
         <KeybindingsSection settings={settings} updateSettings={updateSettings} />
+
+        {/* AUDIO */}
+        <SectionHeader id="audio">Audio</SectionHeader>
+        <AudioDevicesSection settings={settings} updateSettings={updateSettings} />
 
         {/* CLIPS */}
         <SectionHeader id="clips">Clips</SectionHeader>
