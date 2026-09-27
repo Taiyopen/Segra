@@ -31,7 +31,8 @@
     <!-- Exclude leftover build output from the removed Inspector sub-project. Its generated
          AssemblyInfo.cs sits under this project folder and would otherwise be globbed into
          this compilation, leaking a duplicate AssemblyVersion (and masking the real version). -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);Inspector\**;Segra.Tests\**</DefaultItemExcludes>
+    <!-- StreamDeck\ is the separate Node.js plugin project; keep its node_modules out of this build. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Inspector\**;Segra.Tests\**;StreamDeck\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Windows-only build settings -->

@@ -1,0 +1,70 @@
+{
+	"Name": "Segra",
+	"Version": "1.0.0.0",
+	"Author": "Taiyopen",
+	"Actions": [
+		{
+			"Name": "開始／停止錄影",
+			"UUID": "com.taiyopen.segra.toggle-recording",
+			"Icon": "imgs/actions/toggle-recording/icon",
+			"Tooltip": "開始或停止 Segra 錄影，錄影中按鍵變紅。",
+			"Controllers": ["Keypad"],
+			"DisableAutomaticStates": true,
+			"States": [
+				{ "Image": "imgs/actions/toggle-recording/off" },
+				{ "Image": "imgs/actions/toggle-recording/on" }
+			]
+		},
+		{
+			"Name": "存重播",
+			"UUID": "com.taiyopen.segra.save-replay",
+			"Icon": "imgs/actions/save-replay/icon",
+			"Tooltip": "把重播緩衝存成影片。",
+			"Controllers": ["Keypad"],
+			"States": [
+				{ "Image": "imgs/actions/save-replay/key" }
+			]
+		},
+		{
+			"Name": "加書籤",
+			"UUID": "com.taiyopen.segra.bookmark",
+			"Icon": "imgs/actions/bookmark/icon",
+			"Tooltip": "在目前的錄影加一個書籤。",
+			"Controllers": ["Keypad"],
+			"States": [
+				{ "Image": "imgs/actions/bookmark/key" }
+			]
+		},
+		{
+			"Name": "常駐重播緩衝 開／關",
+			"UUID": "com.taiyopen.segra.always-on-buffer",
+			"Icon": "imgs/actions/always-on-buffer/icon",
+			"Tooltip": "打開或關閉常駐重播緩衝，開著時按鍵亮起。",
+			"Controllers": ["Keypad"],
+			"DisableAutomaticStates": true,
+			"States": [
+				{ "Image": "imgs/actions/always-on-buffer/off" },
+				{ "Image": "imgs/actions/always-on-buffer/on" }
+			]
+		}
+	],
+	"Category": "Segra",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "用 Stream Deck 控制 Segra 錄影。",
+	"Icon": "imgs/plugin/icon",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "7.1"
+	},
+	"OS": [
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "24"
+	},
+	"UUID": "com.taiyopen.segra"
+}

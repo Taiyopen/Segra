@@ -374,3 +374,6 @@ Obs/*linux.tar.gz
 # Merge leftovers (not the execution path)
 .merge-frontend/
 .merge-tmp/
+
+# Packed Stream Deck plugin (its bin/, logs/ and node_modules/ are already ignored above)
+/StreamDeck/dist/

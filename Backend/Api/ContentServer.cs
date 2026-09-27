@@ -109,6 +109,10 @@ namespace Segra.Backend.Api
                 {
                     await HandleContentRequest(context);
                 }
+                else if (path.StartsWith(ControlApi.PathPrefix))
+                {
+                    await ControlApi.HandleRequest(context);
+                }
                 else if (DiscordLoginService.IsCallbackPath(path))
                 {
                     await DiscordLoginService.HandleCallbackAsync(context);
