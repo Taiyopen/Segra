@@ -24,8 +24,10 @@ dotnet tool install -g vpk --version 1.2.0
 
 ```powershell
 if (Test-Path .\output) { Remove-Item .\output -Recurse -Force }
-vpk pack -u Segra -v <版本> -p ./publish -e Segra.exe -o ./output --packTitle "Segra" --noPortable -i ./Resources/icon.ico -s ./Resources/splash.png --splashProgressColor "#fecb00" --framework webview2
+vpk pack -u Segra -v <版本> -p ./publish -e Segra.exe -o ./output --packTitle "Segra" --noPortable -i ./Resources/icon.ico -s ./Resources/splash.png --splashProgressColor "#fecb00" --framework webview2,vcredist143-x64
 ```
+
+`--framework` 會讓 Setup 在缺少時先裝好 WebView2 與 Visual C++ 2015–2022 x64 runtime。少了 VC++ runtime，全新的 Windows 上 OBS 會默默載入失敗（上游 v1.8.1 的修正）。
 
 4. 上傳到 GitHub Release。不要勾 Pre-release，否則預設關閉「接收測試版」的安裝不會看到這包。
 

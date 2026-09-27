@@ -189,7 +189,7 @@
 |---|---|---|---|---|---|---|
 | 編碼器消失時自動換一個 | `0dce1c4` `3436526`＋`3dd1b85` 的 PresetsService 段 | ★★★ | 未合 | v1.8.1：**Recording**：已存的編碼器不存在時（例如換了顯卡）不再錄不起來，改用可用的編碼器並跳提示。 | **要，手移。** fork `OBSService.cs:2926` 只在設定是空的時候選預設值，換顯卡後會錄不起來。改成「是空的，或不在 `AppState.Instance.Codecs` 裡」都重選，然後跳提示、存檔、`SendSettingsToFrontend`。fork 的 `SettingsService` 寫法不同，要在 `CanApplySetting` 的 `case nameof(Settings.Codec)` 加「不在清單就拒絕」，並確認被拒後前端下拉會跳回原值。`PresetsService.cs:110` 換編碼器時要一起重選 codec | `OBSService`、SettingsService、PresetsService |
 | 縮圖不再全黑 | `c60d472` | ★★★ | 未合 | v1.8.1：**Thumbnails**：遊戲切到背景時縮圖不再全黑；第一張是黑的就改挑別的時間點。 | **要，可直接 pick。** fork 的 `CreateThumbnailFile` 跟上游改之前一樣，`RunAndCaptureOutput` 也在，不是熱檔。瀏覽影片、外部庫一起受惠 | FFmpegService |
-| 安裝時一併裝 VC++ runtime | `05ece84` | ★★★ | 未合 | v1.8.1：**Installer**：安裝時一併安裝 Visual C++ runtime，修正全新 Windows 上錄影元件默默載入失敗。 | **要，可直接 pick。** fork 自己用 CI 發 `Segra-win-Setup.exe`，這條直接影響新裝的使用者；只改兩個 workflow 的 `--framework webview2` → `webview2,vcredist143-x64` | `.github/workflows` |
+| 安裝時一併裝 VC++ runtime | `05ece84` | ★★★ | 已追上 | v1.8.1：**Installer**：安裝時一併安裝 Visual C++ runtime，修正全新 Windows 上錄影元件默默載入失敗。 | **要，可直接 pick。** fork 自己用 CI 發 `Segra-win-Setup.exe`，這條直接影響新裝的使用者；只改兩個 workflow 的 `--framework webview2` → `webview2,vcredist143-x64`。2026-09-27 已追上：cherry-pick 並同步改 `pack-local.md`（fork 實際用本機打包） | `.github/workflows` |
 | OBS 包升到 FFmpeg 9.0.2 | `9597aff` | ★★ | 未合 | v1.8.1：**OBS**：OBS 32.2.2 build 更新到 FFmpeg 9.0.2，修 #214（剪輯建立問題）。 | **要，但不單獨合。** 併入「OBS 內建包家族」，直接用這一版的 `OBS 32.2.2-segra.zip` | bundle |
 | 各處小 bug 修正 | `3dd1b85` `1679d3d` | ★★★ | 未合 | v1.8.1：**Stability**：修正設定、上傳、影片播放器、遊戲偵測裡幾個少見情況的 bug。 | **不要整包 pick。** Release 頁只寫一條，但裡面有二十幾個小修正，兩個 commit 都碰熱檔（`MessageService`、`video.tsx`），fork 的設定頁也拆成不同檔。拆項見下表 | 見下表 |
 
