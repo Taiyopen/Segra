@@ -105,6 +105,10 @@ namespace Segra.Backend.Api
                 {
                     await HandleRecordingAudioLevelsRequest(context);
                 }
+                else if (rawUrl.StartsWith("/api/audio-mixer"))
+                {
+                    await HandleAudioMixerRequest(context);
+                }
                 else if (rawUrl.StartsWith("/api/content"))
                 {
                     await HandleContentRequest(context);
@@ -252,6 +256,45 @@ namespace Segra.Backend.Api
             response.ContentType = "application/json";
             response.AddHeader("Cache-Control", "no-cache, no-store, must-revalidate");
             byte[] body = JsonSerializer.SerializeToUtf8Bytes(new { inputTracks, outputTracks });
+            response.ContentLength64 = body.Length;
+            await response.OutputStream.WriteAsync(body, 0, body.Length);
+        }
+
+        /// <summary>Live level, mute and volume of every OBS audio source being recorded (PiP mixer).</summary>
+        private static async Task HandleAudioMixerRequest(HttpListenerContext context)
+        {
+            var request = context.Request;
+            var response = context.Response;
+            response.AddHeader("Access-Control-Allow-Origin", "*");
+
+            if (request.HttpMethod == "OPTIONS")
+            {
+                response.AddHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+                response.AddHeader("Access-Control-Allow-Headers", "Content-Type");
+                response.StatusCode = (int)HttpStatusCode.NoContent;
+                return;
+            }
+
+            if (request.HttpMethod != "GET")
+            {
+                response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                return;
+            }
+
+            var sources = AudioMixerService.GetSnapshot().Select(s => new
+            {
+                id = s.Id,
+                name = s.Name,
+                kind = s.Kind,
+                peakDb = MathF.Round(s.PeakDb, 1),
+                muted = s.Muted,
+                volume = s.Volume,
+            });
+
+            response.StatusCode = (int)HttpStatusCode.OK;
+            response.ContentType = "application/json";
+            response.AddHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            byte[] body = JsonSerializer.SerializeToUtf8Bytes(new { sources });
             response.ContentLength64 = body.Length;
             await response.OutputStream.WriteAsync(body, 0, body.Length);
         }

@@ -11,7 +11,7 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import RecordingPreviewAudioMeters from './RecordingPreviewAudioMeters';
+import PipAudioMixer from './PipAudioMixer';
 import { useMonitoringLayout } from '../Context/MonitoringLayoutContext';
 import { useSettings } from '../Context/SettingsContext';
 import { useAppState } from '../Context/AppStateContext';
@@ -482,7 +482,7 @@ export default function MonitoringCompactShell() {
 
         <div className="monitoring-no-drag relative z-40 mt-auto shrink-0 px-3 pb-3 pt-2">
           <div className="relative space-y-2.5">
-            <RecordingPreviewAudioMeters poll={hasLoadedObs && (isLive || alwaysOnActive)} pip />
+            <PipAudioMixer poll={hasLoadedObs && (isLive || alwaysOnActive)} />
 
             <div className="flex items-center justify-center gap-3 rounded-full bg-black/40 px-4 py-2.5 backdrop-blur-md ring-1 ring-white/10">
               {!isDualLive && (

@@ -191,6 +191,58 @@ namespace Segra.Backend.Recorder
             }
         }
 
+        /// <summary>Every audio source feeding a recording, in mixer order and labelled for the PiP mixer.</summary>
+        internal static List<(string Id, string Name, string Kind, Source Source)> GetMixerSources()
+        {
+            var result = new List<(string Id, string Name, string Kind, Source Source)>();
+            try
+            {
+                static List<string> DeviceLabels(List<DeviceSetting>? devices, string defaultLabel) =>
+                    (devices ?? []).Where(d => !string.IsNullOrEmpty(d.Id))
+                        .Select(d => d.Id == "default" ? defaultLabel : d.Name)
+                        .ToList();
+
+                var micLabels = DeviceLabels(Settings.Instance.InputDevices, "預設麥克風");
+                var desktopLabels = DeviceLabels(Settings.Instance.OutputDevices, "預設輸出");
+
+                // Shared mic/desktop/voice sources live in exactly one pipeline, so indexes don't collide
+                foreach (var pl in _pipelines)
+                {
+                    var mics = pl.MicSources.ToArray();
+                    for (int i = 0; i < mics.Length; i++)
+                        if (mics[i] != null)
+                            result.Add(($"mic{i}", i < micLabels.Count ? micLabels[i] : $"麥克風 {i + 1}", "mic", mics[i]));
+
+                    var desktops = pl.DesktopSources.ToArray();
+                    for (int i = 0; i < desktops.Length; i++)
+                        if (desktops[i] != null)
+                            result.Add(($"desktop{i}", i < desktopLabels.Count ? desktopLabels[i] : $"桌面聲音 {i + 1}", "desktop", desktops[i]));
+                }
+
+                // Game capture only carries audio outside the "All" mode
+                for (int slot = 0; slot < MaxSessionSlots; slot++)
+                {
+                    var pl = _pipelines[slot];
+                    var game = pl.GameCapture;
+                    if (game != null && pl.AudioOutputMode != AudioOutputMode.All)
+                        result.Add(($"game{slot}", AppState.Instance.GetRecording(slot)?.Game ?? "遊戲聲音", "game", game));
+                }
+
+                foreach (var pl in _pipelines)
+                {
+                    var voices = pl.VoiceChatSources.ToArray();
+                    for (int i = 0; i < voices.Length; i++)
+                        if (voices[i].Source != null)
+                            result.Add(($"voice{i}", voices[i].Name, "voice", voices[i].Source));
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Failed to list mixer sources");
+            }
+            return result;
+        }
+
         /// <summary>
         /// Attach an existing shared audio source to another slot's scene so it stays active
         /// on that canvas without opening a second WASAPI/Discord capture.
@@ -232,7 +284,7 @@ namespace Segra.Backend.Recorder
             {
                 try
                 {
-                    micSource.Dispose();
+                    AudioMixerService.DisposeSource(micSource);
                 }
                 catch (Exception ex)
                 {
@@ -245,7 +297,7 @@ namespace Segra.Backend.Recorder
             {
                 try
                 {
-                    desktopSource.Dispose();
+                    AudioMixerService.DisposeSource(desktopSource);
                 }
                 catch (Exception ex)
                 {
@@ -258,7 +310,7 @@ namespace Segra.Backend.Recorder
             {
                 try
                 {
-                    voiceSource.Dispose();
+                    AudioMixerService.DisposeSource(voiceSource);
                 }
                 catch (Exception ex)
                 {
@@ -1332,6 +1384,7 @@ namespace Segra.Backend.Recorder
                 try { KeybindCaptureService.Stop(); }
                 catch (Exception ex) { Log.Debug(ex, "KeybindCaptureService.Stop during shutdown"); }
 
+                AudioMixerService.DisposeAll();
                 _obsContext?.Dispose();
                 _obsContext = null;
 
@@ -2421,7 +2474,7 @@ namespace Segra.Backend.Recorder
 
                 try
                 {
-                    pl.GameCapture.Dispose();
+                    AudioMixerService.DisposeSource(pl.GameCapture);
                 }
                 catch (Exception ex)
                 {
