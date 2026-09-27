@@ -14,15 +14,10 @@ import HighlightsSection from '../Components/Settings/HighlightsSection';
 import PreferencesSection from '../Components/Settings/PreferencesSection';
 import MenuCustomizationSection from '../Components/Settings/MenuCustomizationSection';
 import AdvancedSection from '../Components/Settings/AdvancedSection';
+import PendingRecordingSettingsBanner from '../Components/Settings/PendingRecordingSettingsBanner';
 
 type SectionId =
-  | 'account'
-  | 'recording'
-  | 'clips'
-  | 'games'
-  | 'storage'
-  | 'preferences'
-  | 'advanced';
+  'account' | 'recording' | 'clips' | 'games' | 'storage' | 'preferences' | 'advanced';
 
 const ALL_NAV_ITEMS: { id: SectionId; label: string }[] = [
   { id: 'account', label: 'Account' },
@@ -139,6 +134,8 @@ export default function Settings() {
 
       {/* Content */}
       <div className="p-5 space-y-6">
+        <PendingRecordingSettingsBanner />
+
         {/* ACCOUNT */}
         {!settings.airplaneMode && (
           <>

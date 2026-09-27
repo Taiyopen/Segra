@@ -1,7 +1,6 @@
 import { useSettings } from '../../Context/SettingsContext';
-import { useAppState } from '../../Context/AppStateContext';
 import { sendMessageToBackend } from '../../Utils/MessageUtils';
-import { GameIntegrations, hasLiveRecordingActivity } from '../../Models/types';
+import { GameIntegrations } from '../../Models/types';
 
 interface GameIntegration {
   id: string;
@@ -118,7 +117,6 @@ interface GameIntegrationCardProps {
   integration: GameIntegration;
   enabled: boolean;
   showBackground: boolean;
-  isRecording: boolean;
   onToggle: (enabled: boolean) => void;
 }
 
@@ -126,7 +124,6 @@ function GameIntegrationCard({
   integration,
   enabled,
   showBackground,
-  isRecording,
   onToggle,
 }: GameIntegrationCardProps) {
   return (
@@ -167,7 +164,6 @@ function GameIntegrationCard({
               type="checkbox"
               className="toggle toggle-primary"
               checked={enabled}
-              disabled={isRecording}
               onChange={(e) => onToggle(e.target.checked)}
             />
             <span className="text-sm">{enabled ? 'Enabled' : 'Disabled'}</span>
@@ -180,7 +176,6 @@ function GameIntegrationCard({
 
 export default function GameIntegrationsSection() {
   const settings = useSettings();
-  const appState = useAppState();
 
   const handleToggle = (settingsKey: GameIntegration['settingsKey'], enabled: boolean) => {
     sendMessageToBackend('UpdateSettings', {
@@ -210,7 +205,6 @@ export default function GameIntegrationsSection() {
             integration={integration}
             enabled={settings.gameIntegrations[integration.settingsKey].enabled}
             showBackground={settings.showGameBackground}
-            isRecording={hasLiveRecordingActivity(appState)}
             onToggle={(enabled) => handleToggle(integration.settingsKey, enabled)}
           />
         ))}

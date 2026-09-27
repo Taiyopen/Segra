@@ -108,6 +108,9 @@ namespace Segra.Backend.Recorder
             /// <summary>Secondary canvas for slot 1+; slot 0 uses the main canvas.</summary>
             public Canvas? RecordingCanvas;
             public EffectiveRecordingSettings? EffectiveSettings;
+            // Global audio settings as they were when this slot started; settings changed mid-recording apply to the next one
+            public AudioOutputMode AudioOutputMode;
+            public bool EnableSeparateAudioTracks;
             public uint VoiceChatMixerMask = 1u << 0;
             public int UnexpectedStopHandled;
         }
@@ -504,6 +507,10 @@ namespace Segra.Backend.Recorder
             });
         private static DateTime _lastSuppressedAudioTsLogAtUtc = DateTime.MinValue;
         private static int _suppressedAudioTsLogCount = 0;
+
+        /// <summary>The recording mode a slot started with (per-game override aware), for hotkeys acting on that slot.</summary>
+        public static RecordingMode GetSlotRecordingMode(int slot) =>
+            Pipeline(slot).EffectiveSettings?.RecordingMode ?? Settings.Instance.RecordingMode;
 
         public static async Task<bool> SaveReplayBuffer(int slot = 0)
         {
@@ -1741,10 +1748,10 @@ namespace Segra.Backend.Recorder
 
                 DisposeDisplaySource(slotIndex);
 
-                var audioOutputMode = Settings.Instance.AudioOutputMode;
+                var audioOutputMode = pl.AudioOutputMode;
                 if (audioOutputMode != AudioOutputMode.All)
                 {
-                    bool preserveDesktopForHybridTracks = Settings.Instance.EnableSeparateAudioTracks;
+                    bool preserveDesktopForHybridTracks = pl.EnableSeparateAudioTracks;
 
                     if (!preserveDesktopForHybridTracks)
                     {
@@ -1806,7 +1813,7 @@ namespace Segra.Backend.Recorder
             _ = capture;
             Log.Information("Game unhooked.");
 
-            var audioOutputMode = Settings.Instance.AudioOutputMode;
+            var audioOutputMode = Pipeline(slotIndex).AudioOutputMode;
             if (audioOutputMode != AudioOutputMode.All)
             {
                 // Only restore desktop/Discord fallback when no other slot still has a hooked game.
@@ -2069,8 +2076,6 @@ namespace Segra.Backend.Recorder
         {
             try
             {
-                if (Settings.Instance.AudioOutputMode != AudioOutputMode.GameAndDiscord) return;
-
                 SessionPipeline? owner = null;
                 GameCapture? capture = null;
                 for (int i = 0; i < MaxSessionSlots; i++)
@@ -2095,6 +2100,8 @@ namespace Segra.Backend.Recorder
                     }
                 }
                 if (owner == null || capture == null) return;
+                // The mode the owning recording started with, not whatever the setting says now
+                if (owner.AudioOutputMode != AudioOutputMode.GameAndDiscord) return;
 
                 string fileName = Path.GetFileName(exePath);
                 foreach (var app in VoiceChatApps)

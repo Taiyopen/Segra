@@ -38,7 +38,8 @@ namespace Segra.Backend.Windows.Input
         public static bool TryCreateBookmark()
         {
             var recording = GetTargetRecordingForHotkey();
-            var recordingMode = Settings.Instance.RecordingMode;
+            // The mode this recording started with; the setting may have changed since
+            var recordingMode = recording != null ? OBSService.GetSlotRecordingMode(recording.Slot) : Settings.Instance.RecordingMode;
 
             if (recording != null && (recordingMode == RecordingMode.Session || recordingMode == RecordingMode.Hybrid))
             {
@@ -58,7 +59,8 @@ namespace Segra.Backend.Windows.Input
         public static bool TrySaveReplayBuffer()
         {
             var recording = GetTargetRecordingForHotkey();
-            var recordingMode = Settings.Instance.RecordingMode;
+            // The mode this recording started with; the setting may have changed since
+            var recordingMode = recording != null ? OBSService.GetSlotRecordingMode(recording.Slot) : Settings.Instance.RecordingMode;
             // With nothing recording, a save goes to the always-on display buffer
             bool saveAlwaysOn = recording == null && OBSService.IsAlwaysOnBufferActive;
 

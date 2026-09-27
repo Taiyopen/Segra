@@ -148,6 +148,7 @@ export interface Recording {
   gameImage?: string; // Base64 encoded image of the game executable icon
   /** 0 = primary output, 1 = secondary (dual session). */
   slot?: number;
+  startSettings?: Partial<Settings>; // Recording-related settings as they were at start
 }
 
 export interface PreRecording {

@@ -10,6 +10,7 @@ using Segra.Backend.Shared;
 using Segra.Backend.Windows.Storage;
 using Serilog;
 using System.Diagnostics;
+using System.Text.Json.Nodes;
 using static Segra.Backend.App.MessageService;
 #if WINDOWS
 using Segra.Backend.Windows.Display;
@@ -136,6 +137,9 @@ namespace Segra.Backend.Recorder
                 _isStoppingSlot[slot] = false;
                 var pl = Pipeline(slot);
                 pl.EffectiveSettings = eff;
+                JsonObject? startSettings = alwaysOn ? null : MessageService.GetRecordingStartSettings();
+                pl.AudioOutputMode = Settings.Instance.AudioOutputMode;
+                pl.EnableSeparateAudioTracks = Settings.Instance.EnableSeparateAudioTracks;
                 pl.UnexpectedStopHandled = 0;
                 bool anotherSlotActive = IsAnotherSlotRecording(slot);
                 bool usesDedicatedCanvas = slot >= 1;
@@ -225,6 +229,7 @@ namespace Segra.Backend.Recorder
                     ExePath = exePath,
                     CoverImageId = GameUtils.GetCoverImageIdFromExePath(exePath),
                     AudioTrackNames = actualAudioTrackNames,
+                    StartSettings = startSettings,
                 };
                 AppState.Instance.SetRecording(slot, newRecording);
 
@@ -355,10 +360,10 @@ namespace Segra.Backend.Recorder
                     Log.Information("Game capture color space set to Rec.2100 PQ (HDR)");
                 }
 
-                if (Settings.Instance.AudioOutputMode != AudioOutputMode.All)
+                if (pl.AudioOutputMode != AudioOutputMode.All)
                 {
                     pl.GameCapture.Update(s => s.Set("capture_audio", true));
-                    Log.Information($"Game capture audio enabled (mode: {Settings.Instance.AudioOutputMode})");
+                    Log.Information($"Game capture audio enabled (mode: {pl.AudioOutputMode})");
                 }
 
                 Log.Information($"Game capture configured for: {fileName}");
@@ -500,7 +505,7 @@ namespace Segra.Backend.Recorder
         /// <summary>Adds mic, desktop and voice-chat audio, reusing the other slot's sources when it already has them.</summary>
         private static void AddAudioSources(int slot, SessionPipeline pl, EffectiveRecordingSettings eff)
         {
-            var audioOutputMode = Settings.Instance.AudioOutputMode;
+            var audioOutputMode = pl.AudioOutputMode;
 
             // Mic/desktop WASAPI + Discord must be created once across dual slots (game capture_audio may duplicate).
             lock (_sharedAudioLock)
@@ -602,7 +607,7 @@ namespace Segra.Backend.Recorder
         /// </summary>
         private static (uint TracksMask, List<string> TrackNames) CreateAudioEncoders(int slot, SessionPipeline pl)
         {
-            bool separateTracks = Settings.Instance.EnableSeparateAudioTracks;
+            bool separateTracks = pl.EnableSeparateAudioTracks;
             pl.AudioEncoders.Clear();
             var actualAudioTrackNames = new List<string>();
             int recordingAudioKbps = GetRecordingAudioBitrateKbps();
