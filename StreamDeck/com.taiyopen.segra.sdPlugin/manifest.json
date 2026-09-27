@@ -1,6 +1,6 @@
 {
 	"Name": "Segra",
-	"Version": "1.0.0.0",
+	"Version": "1.10.2.0",
 	"Author": "Taiyopen",
 	"Actions": [
 		{
@@ -8,11 +8,17 @@
 			"UUID": "com.taiyopen.segra.toggle-recording",
 			"Icon": "imgs/actions/toggle-recording/icon",
 			"Tooltip": "開始或停止 Segra 錄影，錄影中按鍵變紅。",
-			"Controllers": ["Keypad"],
+			"Controllers": [
+				"Keypad"
+			],
 			"DisableAutomaticStates": true,
 			"States": [
-				{ "Image": "imgs/actions/toggle-recording/off" },
-				{ "Image": "imgs/actions/toggle-recording/on" }
+				{
+					"Image": "imgs/actions/toggle-recording/off"
+				},
+				{
+					"Image": "imgs/actions/toggle-recording/on"
+				}
 			]
 		},
 		{
@@ -20,9 +26,13 @@
 			"UUID": "com.taiyopen.segra.save-replay",
 			"Icon": "imgs/actions/save-replay/icon",
 			"Tooltip": "把重播緩衝存成影片。",
-			"Controllers": ["Keypad"],
+			"Controllers": [
+				"Keypad"
+			],
 			"States": [
-				{ "Image": "imgs/actions/save-replay/key" }
+				{
+					"Image": "imgs/actions/save-replay/key"
+				}
 			]
 		},
 		{
@@ -30,9 +40,13 @@
 			"UUID": "com.taiyopen.segra.bookmark",
 			"Icon": "imgs/actions/bookmark/icon",
 			"Tooltip": "在目前的錄影加一個書籤。",
-			"Controllers": ["Keypad"],
+			"Controllers": [
+				"Keypad"
+			],
 			"States": [
-				{ "Image": "imgs/actions/bookmark/key" }
+				{
+					"Image": "imgs/actions/bookmark/key"
+				}
 			]
 		},
 		{
@@ -40,11 +54,17 @@
 			"UUID": "com.taiyopen.segra.always-on-buffer",
 			"Icon": "imgs/actions/always-on-buffer/icon",
 			"Tooltip": "打開或關閉常駐重播緩衝，開著時按鍵亮起。",
-			"Controllers": ["Keypad"],
+			"Controllers": [
+				"Keypad"
+			],
 			"DisableAutomaticStates": true,
 			"States": [
-				{ "Image": "imgs/actions/always-on-buffer/off" },
-				{ "Image": "imgs/actions/always-on-buffer/on" }
+				{
+					"Image": "imgs/actions/always-on-buffer/off"
+				},
+				{
+					"Image": "imgs/actions/always-on-buffer/on"
+				}
 			]
 		}
 	],
