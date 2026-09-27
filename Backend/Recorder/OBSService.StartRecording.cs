@@ -352,7 +352,7 @@ namespace Segra.Backend.Recorder
             {
                 pl.GameCapture = new GameCapture($"gameplay_{slot}", GameCapture.CaptureMode.SpecificWindow);
                 pl.GameCapture.SetWindow($"*:*:{fileName}");
-                pl.GameCapture.Volume = eff.VolumeMultiplier;
+                SetSourceVolume(pl.GameCapture, eff.VolumeMultiplier);
 
                 if (_isHdrRecording && slot == 0 && !anotherSlotActive)
                 {
@@ -540,7 +540,7 @@ namespace Segra.Backend.Recorder
 
                             SetForceMono(micSource, Settings.Instance.ForceMonoInputSources);
 
-                            micSource.Volume = deviceSetting.Volume * eff.VolumeMultiplier;
+                            SetSourceVolume(micSource, deviceSetting.Volume * eff.VolumeMultiplier);
 
                             pl.MainScene!.AddSource(micSource);
                             pl.MicSources.Add(micSource);
@@ -581,7 +581,7 @@ namespace Segra.Backend.Recorder
                                 ? AudioOutputCapture.FromDefault(sourceName)
                                 : AudioOutputCapture.FromDevice(deviceSetting.Id, sourceName);
 
-                            desktopSource.Volume = deviceSetting.Volume * eff.VolumeMultiplier;
+                            SetSourceVolume(desktopSource, deviceSetting.Volume * eff.VolumeMultiplier);
 
                             pl.MainScene!.AddSource(desktopSource);
                             pl.DesktopSources.Add(desktopSource);
@@ -600,6 +600,12 @@ namespace Segra.Backend.Recorder
                 }
             }
         }
+
+        /// <summary>
+        /// Sets a source's volume multiplier. ObsKit's <c>Volume</c> setter clamps to 0–1, so boosts above 100% are set in dB.
+        /// </summary>
+        private static void SetSourceVolume(Source source, float multiplier) =>
+            source.VolumeDb = multiplier > 0 ? 20f * MathF.Log10(multiplier) : float.NegativeInfinity;
 
         /// <summary>
         /// Routes every audio source to its mixer tracks and creates one AAC encoder per recorded track.
