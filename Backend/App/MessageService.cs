@@ -105,6 +105,22 @@ namespace Segra.Backend.App
                         case "BeginMonitoringWindowDrag":
                             Program.BeginMonitoringWindowDrag();
                             break;
+                        case "SetAlwaysOnReplayBuffer":
+                            // From the PiP window: a dedicated message so its possibly stale settings copy can't overwrite others
+                            if (root.TryGetProperty("Parameters", out var alwaysOnParams)
+                                && alwaysOnParams.TryGetProperty("enabled", out var alwaysOnEnabledEl))
+                            {
+                                bool alwaysOnEnabled = alwaysOnEnabledEl.GetBoolean();
+                                Log.Information("SetAlwaysOnReplayBuffer: enabled={Enabled}", alwaysOnEnabled);
+                                Settings.Instance.AlwaysOnReplayBuffer = alwaysOnEnabled;
+                                SettingsService.SaveSettings();
+                                await SendSettingsToFrontend("Always-on replay buffer toggled");
+                            }
+                            else
+                            {
+                                Log.Warning("SetAlwaysOnReplayBuffer missing Parameters.enabled");
+                            }
+                            break;
                         case "SetMonitoringWindowTopMost":
                             if (root.TryGetProperty("Parameters", out var topMostParams))
                             {

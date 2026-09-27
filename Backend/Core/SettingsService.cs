@@ -48,6 +48,9 @@ namespace Segra.Backend.Core
             {
                 Log.Error($"Failed to save settings: {ex.Message}");
             }
+
+            // Every settings change is saved through here, so the always-on buffer picks up new values
+            OBSService.SyncAlwaysOnBuffer();
         }
 
         public static bool LoadSettings()

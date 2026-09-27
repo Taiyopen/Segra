@@ -3,6 +3,7 @@ using Segra.Backend.App;
 using Segra.Backend.Core;
 using Segra.Backend.Shared;
 using Segra.Backend.Platform;
+using Segra.Backend.Recorder;
 using System.Text.Json.Serialization;
 using static Segra.Backend.Shared.GeneralUtils;
 
@@ -18,6 +19,7 @@ namespace Segra.Backend.Core.Models
         private PreRecording?[] _preRecordingsBySlot = new PreRecording?[RecordingSlots.Max];
         private Recording?[] _recordingsBySlot = new Recording?[RecordingSlots.Max];
         private bool _hasLoadedObs = false;
+        private bool _alwaysOnBufferActive = false;
         private List<Content> _content = [];
 
         private List<AudioDevice> _inputDevices = [];
@@ -263,6 +265,21 @@ namespace Segra.Backend.Core.Models
             }
             if (changed)
                 SendToFrontend("State update: PreRecording");
+        }
+
+        // True while the always-on display replay buffer runs in slot 0. It is not a recording.
+        [JsonPropertyName("alwaysOnBufferActive")]
+        public bool AlwaysOnBufferActive
+        {
+            get => _alwaysOnBufferActive;
+            set
+            {
+                if (_alwaysOnBufferActive != value)
+                {
+                    _alwaysOnBufferActive = value;
+                    SendToFrontend("State update: AlwaysOnBufferActive");
+                }
+            }
         }
 
         [JsonPropertyName("hasLoadedObs")]
@@ -576,6 +593,7 @@ namespace Segra.Backend.Core.Models
             if (hasChanged)
             {
                 SendToFrontend("Display change detected");
+                OBSService.SyncAlwaysOnBuffer();
             }
         }
     }

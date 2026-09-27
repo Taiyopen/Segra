@@ -22,10 +22,45 @@ namespace Segra.Backend.Recorder
     {
         public static bool StartRecording(string name = "Manual Recording", string exePath = "Unknown", bool startManually = false, int? pid = null, int? reservedSlot = null)
         {
-            // Wait for pending StopRecording to complete before starting. Prevents race conditions where a new recording starts before cleanup finishes
+            // Wait for pending StopRecording to complete before starting. Prevents race conditions where a new recording starts before cleanup finishes.
+            // Also stops the always-on buffer so this recording can take slot 0.
             _stopRecordingSemaphore.Wait();
-            _stopRecordingSemaphore.Release();
+            try
+            {
+                // Counted while still holding the semaphore, so the buffer can't slip back into slot 0 before this start owns it
+                Interlocked.Increment(ref _recordingStartsInFlight);
+                Task.Run(StopAlwaysOnBufferCoreAsync).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to stop the always-on replay buffer before recording");
+            }
+            finally
+            {
+                _stopRecordingSemaphore.Release();
+            }
 
+            bool started = false;
+            try
+            {
+                started = StartRecordingCore(name, exePath, startManually, pid, reservedSlot, alwaysOn: false);
+                return started;
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _recordingStartsInFlight);
+                if (!started)
+                    SyncAlwaysOnBuffer();
+            }
+        }
+
+        /// <summary>
+        /// Builds and starts one slot. <paramref name="alwaysOn"/> starts the always-on display buffer in slot 0 instead of a
+        /// recording: Buffer mode, no disk checks, sounds, modals, recording card or integrations. Caller holds
+        /// <c>_stopRecordingSemaphore</c> for an always-on start.
+        /// </summary>
+        private static bool StartRecordingCore(string name, string exePath, bool startManually, int? pid, int? reservedSlot, bool alwaysOn)
+        {
             if (!IsOBSInstalled())
             {
                 Log.Information("OBS is not installed. Skipping recording.");
@@ -39,13 +74,16 @@ namespace Segra.Backend.Recorder
             }
 
             EffectiveRecordingSettings eff = GameSettingsService.Resolve(exePath);
+            if (alwaysOn)
+                eff.RecordingMode = RecordingMode.Buffer;
 
             bool isReplayBufferMode = eff.RecordingMode == RecordingMode.Buffer;
 
             string fileName = Path.GetFileName(exePath);
 
-            // Prevent starting if any of the system, recording or temp drives are almost full
-            List<StorageService.FullDrive> fullDrives = StorageService.GetFullDrives();
+            // Prevent starting if any of the system, recording or temp drives are almost full.
+            // The always-on buffer lives in memory until a save, so it skips this check.
+            List<StorageService.FullDrive> fullDrives = alwaysOn ? [] : StorageService.GetFullDrives();
             if (fullDrives.Count > 0)
             {
                 string drivesText = string.Join(", ", fullDrives.Select(d => $"{d.Label} ({d.Root.TrimEnd('\\')}) is {d.UsedPercent:F1}% full"));
@@ -70,7 +108,8 @@ namespace Segra.Backend.Recorder
                 if (AppState.Instance.GetRecording(slot) != null)
                 {
                     Log.Information("Cannot start recording: slot {Slot} already has an active recording.", slot);
-                    ClearPendingPreRecordingForSlot(slot);
+                    if (!alwaysOn)
+                        ClearPendingPreRecordingForSlot(slot);
                     return false;
                 }
             }
@@ -137,7 +176,7 @@ namespace Segra.Backend.Recorder
                 CreateRecordingScene(slot, pl, dedicatedCanvasWidth, dedicatedCanvasHeight);
 
                 // The helpers below clean up the partial slot themselves before returning false.
-                if (!AddCaptureSources(slot, pl, eff, fileName, startManually, anotherSlotActive, usesDedicatedCanvas, dedicatedCanvasWidth, dedicatedCanvasHeight))
+                if (!AddCaptureSources(slot, pl, eff, fileName, startManually, anotherSlotActive, usesDedicatedCanvas, dedicatedCanvasWidth, dedicatedCanvasHeight, alwaysOn))
                     return false;
 
                 // Only slot 0 drives the main program mix. Additional slots record from their own canvas.
@@ -161,8 +200,15 @@ namespace Segra.Backend.Recorder
 
                 fileName = pl.HookedExecutableFileName ?? fileName;
 
-                if (!StartOutputs(slot, pl, out DateTime? startTime))
+                if (!StartOutputs(slot, pl, alwaysOn, out DateTime? startTime))
                     return false;
+
+                // The always-on buffer is not a recording: no card, PiP, tray state, priority boost or integrations
+                if (alwaysOn)
+                {
+                    MarkAlwaysOnBufferStarted(actualAudioTrackNames);
+                    return true;
+                }
 
                 string? gameImage = GameIconUtils.ExtractIconAsBase64(exePath);
 
@@ -213,7 +259,8 @@ namespace Segra.Backend.Recorder
             catch (Exception ex)
             {
                 Log.Error(ex, "StartRecording failed for slot {Slot}", slot);
-                CleanupPartialSlot(slot);
+                // A game may have reserved slot 0 while the always-on buffer was starting; leave its reservation alone
+                CleanupPartialSlot(slot, clearPreRecording: !alwaysOn);
                 return false;
             }
             finally
@@ -281,13 +328,15 @@ namespace Segra.Backend.Recorder
             bool anotherSlotActive,
             bool usesDedicatedCanvas,
             uint? dedicatedCanvasWidth,
-            uint? dedicatedCanvasHeight)
+            uint? dedicatedCanvasHeight,
+            bool alwaysOn = false)
         {
             // For manual recording, use display capture directly without game hooking
             if (startManually)
             {
-                Log.Information("Manual recording started - using display capture");
-                AddMonitorCapture(slot);
+                Log.Information(alwaysOn ? "Always-on replay buffer - using display capture" : "Manual recording started - using display capture");
+                // The always-on buffer restarts often; a missing display shouldn't raise a modal each time
+                AddMonitorCapture(slot, warnIfNotFound: !alwaysOn);
                 pl.DisplayItem?.SetBounds(ObsBoundsType.ScaleInner, _currentBaseWidth, _currentBaseHeight).SetPosition(0, 0);
                 return true;
             }
@@ -706,7 +755,7 @@ namespace Segra.Backend.Recorder
         /// Starts the session output, then the replay buffer, playing the start sound once.
         /// Returns false, after showing an error and cleaning up the slot, if either fails to start.
         /// </summary>
-        private static bool StartOutputs(int slot, SessionPipeline pl, out DateTime? startTime)
+        private static bool StartOutputs(int slot, SessionPipeline pl, bool alwaysOn, out DateTime? startTime)
         {
             startTime = null;
             bool hasPlayedStartSound = false;
@@ -738,14 +787,17 @@ namespace Segra.Backend.Recorder
                 {
                     string error = pl.BufferOutput.LastError ?? "Unknown error";
                     Log.Error($"Failed to start replay buffer (slot {slot}): {error}");
-                    Task.Run(() => ShowModal("Replay buffer failed", "Failed to start replay buffer. Check the log for more details.", "error"));
-                    Task.Run(() => PlaySound("error", 500));
-                    ClearPendingPreRecordingForSlot(slot);
-                    CleanupPartialSlot(slot);
+                    if (!alwaysOn)
+                    {
+                        Task.Run(() => ShowModal("Replay buffer failed", "Failed to start replay buffer. Check the log for more details.", "error"));
+                        Task.Run(() => PlaySound("error", 500));
+                        ClearPendingPreRecordingForSlot(slot);
+                    }
+                    CleanupPartialSlot(slot, clearPreRecording: !alwaysOn);
                     return false;
                 }
 
-                if (!hasPlayedStartSound)
+                if (!hasPlayedStartSound && !alwaysOn)
                 {
                     _ = Task.Run(() => PlaySound("start"));
                     hasPlayedStartSound = true;

@@ -24,6 +24,7 @@ export function AppStateProvider({ children }: AppStateProviderProps) {
       revived.recordings = undefined;
       revived.preRecordings = undefined;
       revived.hasLoadedObs = false;
+      revived.alwaysOnBufferActive = false;
       return revived;
     };
 

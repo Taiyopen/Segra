@@ -176,7 +176,9 @@ namespace Segra.Backend.Windows.Input
                     break;
 
                 case KeybindAction.SaveReplayBuffer:
-                    if (recording != null && (recordingMode == RecordingMode.Buffer || recordingMode == RecordingMode.Hybrid))
+                    // With nothing recording, a save goes to the always-on display buffer (slot 0, the default)
+                    if ((recording != null && (recordingMode == RecordingMode.Buffer || recordingMode == RecordingMode.Hybrid))
+                        || (recording == null && OBSService.IsAlwaysOnBufferActive))
                     {
                         Log.Information("Saving replay buffer...");
                         // Immediate keypress acknowledgment (sound + shockwave); the separate

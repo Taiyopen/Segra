@@ -62,6 +62,7 @@ namespace Segra.Backend.Core.Models
         private RecordingMode _recordingMode = RecordingMode.Hybrid;
         private int _replayBufferDuration = 30;
         private int _replayBufferMaxSize = 1000;
+        private bool _alwaysOnReplayBuffer = false;
         private List<Keybind> _keybindings;
         private List<GameSetting> _games = new List<GameSetting>();
         private bool _autoRecordGames = true;
@@ -600,6 +601,14 @@ namespace Segra.Backend.Core.Models
                     _replayBufferMaxSize = value;
                 }
             }
+        }
+
+        // Keeps a display replay buffer running in slot 0 whenever no slot is recording.
+        [JsonPropertyName("alwaysOnReplayBuffer")]
+        public bool AlwaysOnReplayBuffer
+        {
+            get => _alwaysOnReplayBuffer;
+            set => _alwaysOnReplayBuffer = value;
         }
 
         [JsonPropertyName("forceMonoInputSources")]

@@ -3,6 +3,7 @@ using Photino.NET;
 using System.Drawing;
 using System.Text.Json;
 using System.Runtime.InteropServices;
+using Segra.Backend.Recorder;
 #if WINDOWS
 using Segra.Backend.Windows.Display;
 #endif
@@ -16,6 +17,7 @@ namespace Segra.Backend.App
         private const string MonitoringBrowserInitParameters =
             "--enable-blink-features=AudioVideoTracks --disable-http-cache";
         public static PhotinoWindow? MonitoringWindow { get; private set; }
+        public static bool IsMonitoringWindowOpen => MonitoringWindow != null;
         private static bool _monitoringWindowTopMost = true;
         private static Point? _monitoringWindowLocation;
         private static Size? _monitoringWindowSize;
@@ -339,7 +341,7 @@ namespace Segra.Backend.App
                     {
                         SaveMonitoringWindowBounds((PhotinoWindow)sender);
                         MonitoringWindow = null;
-                        _ = MessageService.SendFrontendMessage("MonitoringWindowState", new { open = false });
+                        NotifyMonitoringWindowClosed();
                     }
                     return false;
                 });
@@ -419,6 +421,7 @@ namespace Segra.Backend.App
         private static void NotifyMonitoringWindowOpened()
         {
             _ = MessageService.SendFrontendMessage("MonitoringWindowState", new { open = true });
+            OBSService.SyncAlwaysOnPreview();
             _ = Task.Run(async () =>
             {
                 await Task.Delay(400);
@@ -426,6 +429,12 @@ namespace Segra.Backend.App
                 await MessageService.SendGameList();
             });
             Log.Information("Monitoring window opened");
+        }
+
+        private static void NotifyMonitoringWindowClosed()
+        {
+            _ = MessageService.SendFrontendMessage("MonitoringWindowState", new { open = false });
+            OBSService.SyncAlwaysOnPreview();
         }
 
         /// <summary>
@@ -486,7 +495,7 @@ namespace Segra.Backend.App
                 MonitoringWindow = null;
                 SaveMonitoringWindowBounds(window);
                 window.Close();
-                _ = MessageService.SendFrontendMessage("MonitoringWindowState", new { open = false });
+                NotifyMonitoringWindowClosed();
             }
             catch (Exception ex)
             {

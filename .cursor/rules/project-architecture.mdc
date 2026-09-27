@@ -45,6 +45,8 @@ Segra 是 OBS 遊戲錄影桌面 App：**C# Backend**（Photino + WebView2）內
 | `Backend/App/MigrationService.cs` | settings / 資料夾遷移 |
 | `Backend/Recorder/OBSService.cs` | OBS 生命週期、停止錄影、replay buffer、雙槽（最大檔） |
 | `Backend/Recorder/OBSService.StartRecording.cs` | 開始錄影（同一個 partial class）：`StartRecording` 依序呼叫 HDR、擷取來源、影像編碼器、音源、音軌、輸出、啟動各步驟 |
+| `Backend/Recorder/OBSService.AlwaysOnBuffer.cs` | **fork**：常駐桌面重播緩衝（同一個 partial class）；沒有槽在錄時佔 slot 0，任何開錄前先停；PiP 開著才產生預覽 |
+| `Backend/Recorder/AlwaysOnBufferPolicy.cs` | 常駐緩衝何時該跑、失敗要不要重試（純函式，有測試） |
 | `Backend/Recorder/AudioTrackLayout.cs` | 多音軌遮罩與音軌名稱（純函式，有測試） |
 | `Backend/Recorder/RecordingPreviewService.cs` | 錄影預覽 |
 | `Backend/Recorder/RecoveryService.cs` | 當機未完成檔恢復 |

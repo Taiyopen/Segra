@@ -346,6 +346,22 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
           </AnimatePresence>
 
           <AnimatePresence>
+            {appState.alwaysOnBufferActive && !hasLiveActivity && (
+              <motion.div
+                key="always-on-buffer"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center justify-center gap-1.5 py-1 text-xs leading-none text-gray-400"
+              >
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+                桌面重播緩衝中
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
             {activePreRecordings.map((pre) => (
               <AnimatedCard key={`pre-recording-${pre.slot ?? pre.game}`}>
                 <RecordingCard preRecording={pre} />

@@ -523,8 +523,11 @@ namespace Segra.Backend.Recorder
 
                 Log.Information($"Replay buffer saved to: {savedPath}");
                 var recording = AppState.Instance.GetRecording(slot);
-                string game = recording?.Game ?? "Unknown";
+                // With no recording in the slot, a save comes from the always-on display buffer
+                var alwaysOn = recording == null && slot == AlwaysOnBufferSlot ? _alwaysOnBuffer : null;
+                string game = recording?.Game ?? (alwaysOn != null ? AlwaysOnBufferName : "Unknown");
                 string? exePath = recording?.ExePath;
+                List<string>? audioTrackNames = recording?.AudioTrackNames ?? alwaysOn?.AudioTrackNames;
                 int? igdbId = !string.IsNullOrEmpty(exePath) ? GameUtils.GetIgdbIdFromExePath(exePath) : null;
 
                 await EnsureFileReady(savedPath);
@@ -554,7 +557,7 @@ namespace Segra.Backend.Recorder
 
                 _ = MessageService.SendFrontendMessage("ReplayBufferSaved", new { });
 
-                await ContentService.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game, igdbId: igdbId, audioTrackNames: recording?.AudioTrackNames);
+                await ContentService.CreateMetadataFile(savedPath, Content.ContentType.Buffer, game, igdbId: igdbId, audioTrackNames: audioTrackNames);
                 await ContentService.CreateThumbnail(savedPath, Content.ContentType.Buffer);
                 _ = Task.Run(async () => await ContentService.CreateWaveformFile(savedPath, Content.ContentType.Buffer));
 
@@ -588,6 +591,9 @@ namespace Segra.Backend.Recorder
         {
             var buffer = Pipeline(slot).BufferOutput;
             if (buffer == null || !buffer.IsActive)
+                return false;
+            // The always-on display buffer is not the VRChat recording's buffer
+            if (slot == AlwaysOnBufferSlot && _alwaysOnBuffer != null)
                 return false;
             if (tailDurationSeconds < VrChatVvmwIntegration.MinWallClipSeconds)
                 return false;
@@ -924,6 +930,8 @@ namespace Segra.Backend.Recorder
             {
                 string error = buffer.LastError ?? "Unknown error";
                 Log.Error($"Failed to restart replay buffer after reset (slot {slot}): {error}");
+                if (slot == AlwaysOnBufferSlot && _alwaysOnBuffer != null)
+                    OnAlwaysOnBufferFailed();
             }
             else
             {
@@ -1131,6 +1139,9 @@ namespace Segra.Backend.Recorder
         {
             if (AppState.Instance.GetRecording(slot) != null)
                 return true;
+            // The always-on buffer is not a recording; stopping recordings leaves it running
+            if (slot == AlwaysOnBufferSlot && _alwaysOnBuffer != null)
+                return false;
             if (SlotHasPipelineResources(slot))
                 return true;
             return false;
@@ -1139,7 +1150,7 @@ namespace Segra.Backend.Recorder
         /// <summary>
         /// Tears down a slot that never reached a stable recording state (e.g. start cancelled or failed mid-setup).
         /// </summary>
-        private static void CleanupPartialSlot(int slot)
+        private static void CleanupPartialSlot(int slot, bool clearPreRecording = true)
         {
             if (slot < 0 || slot >= MaxSessionSlots)
                 return;
@@ -1181,7 +1192,8 @@ namespace Segra.Backend.Recorder
                 Obs.ClearOutputSource(0);
 
             pl.HookedExecutableFileName = null;
-            ClearPendingPreRecordingForSlot(slot);
+            if (clearPreRecording)
+                ClearPendingPreRecordingForSlot(slot);
             ClearCapturedWindowDimensions(slot);
         }
 
@@ -1281,6 +1293,7 @@ namespace Segra.Backend.Recorder
                 _ = Task.Run(RecoveryService.CheckForOrphanedFilesAsync);
                 _ = GameDetectionService.StartAsync();
                 GameDetectionService.ForegroundHook.Start();
+                SyncAlwaysOnBuffer();
             }
             catch (Exception ex)
             {
@@ -1302,6 +1315,8 @@ namespace Segra.Backend.Recorder
                 Log.Information("OBS is not initialized, skipping shutdown");
                 return;
             }
+
+            StopAlwaysOnBufferForExit();
 
             try
             {
@@ -1394,7 +1409,7 @@ namespace Segra.Backend.Recorder
             AddMonitorCapture(slotIndex);
         }
 
-        public static void AddMonitorCapture(int slot)
+        public static void AddMonitorCapture(int slot, bool warnIfNotFound = true)
         {
             var pl = Pipeline(slot);
             if (pl.MainScene == null)
@@ -1403,7 +1418,7 @@ namespace Segra.Backend.Recorder
                 return;
             }
 
-            int monitorIndex = ResolveSelectedMonitorIndex(warnIfNotFound: true);
+            int monitorIndex = ResolveSelectedMonitorIndex(warnIfNotFound);
 
 #if WINDOWS
             var captureMethod = Settings.Instance.DisplayCaptureMethod switch
@@ -1685,6 +1700,7 @@ namespace Segra.Backend.Recorder
             finally
             {
                 _stopRecordingSemaphore.Release();
+                SyncAlwaysOnBuffer();
             }
         }
 
@@ -1865,6 +1881,17 @@ namespace Segra.Backend.Recorder
         {
             if (e.IsSuccess)
                 return;
+
+            // The always-on buffer fails quietly: no modal, it retries or stays off (see OnAlwaysOnBufferFailed)
+            if (slot == AlwaysOnBufferSlot && _alwaysOnBuffer != null)
+            {
+                if (!_isStoppingSlot[slot])
+                {
+                    Log.Error($"Always-on replay buffer stopped unexpectedly (code {e.Code}); last error: {e.LastError ?? "(none)"}");
+                    OnAlwaysOnBufferFailed();
+                }
+                return;
+            }
 
             var code = e.Code;
             if (_isStoppingSlot[slot])

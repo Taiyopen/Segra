@@ -59,10 +59,12 @@ namespace Segra.Backend.Windows.Input
         {
             var recording = GetTargetRecordingForHotkey();
             var recordingMode = Settings.Instance.RecordingMode;
+            // With nothing recording, a save goes to the always-on display buffer
+            bool saveAlwaysOn = recording == null && OBSService.IsAlwaysOnBufferActive;
 
-            if (recording != null && (recordingMode == RecordingMode.Buffer || recordingMode == RecordingMode.Hybrid))
+            if ((recording != null && (recordingMode == RecordingMode.Buffer || recordingMode == RecordingMode.Hybrid)) || saveAlwaysOn)
             {
-                int slot = recording.Slot;
+                int slot = recording?.Slot ?? OBSService.AlwaysOnBufferSlot;
                 // Ignore duplicate hotkey/UI triggers while a save is running. Without this, a second
                 // queued save runs after ResetReplayBuffer and produces an empty clip.
                 if (Interlocked.CompareExchange(ref _replaySaveInProgress, 1, 0) != 0)
