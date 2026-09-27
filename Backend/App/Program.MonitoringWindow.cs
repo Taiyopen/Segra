@@ -576,7 +576,11 @@ namespace Segra.Backend.App
             return GetCenteredMonitoringLocation(size);
         }
 
-        private static void PresentMonitoringWindow(bool activate)
+        /// <param name="keepPosition">
+        /// True for an already-open PiP: keep wherever the user dragged it unless it is off every screen.
+        /// False right after creation: place it at the computed main-monitor location.
+        /// </param>
+        private static void PresentMonitoringWindow(bool activate, bool keepPosition = true)
         {
 #if WINDOWS
             try
@@ -584,13 +588,18 @@ namespace Segra.Backend.App
                 if (!TryGetMonitoringWindowHandle(out IntPtr hwnd))
                     return;
 
+                // Restore first so Size/Location report real bounds, not the minimized placeholder.
+                ShowWindow(hwnd, SW_RESTORE);
+
                 var size = MonitoringWindow!.Size;
                 if (size.Width <= 0 || size.Height <= 0)
                     size = GetScaledMonitoringDefaultSize();
 
-                var location = GetPipLocationOnMainMonitor(size);
+                var current = MonitoringWindow.Location;
+                var location = keepPosition && IsWindowBoundsOnScreen(current, size)
+                    ? current
+                    : GetPipLocationOnMainMonitor(size);
 
-                ShowWindow(hwnd, SW_RESTORE);
                 ShowWindow(hwnd, activate ? SW_SHOW : SW_SHOWNOACTIVATE);
 
                 SetWindowPos(
@@ -644,7 +653,7 @@ namespace Segra.Backend.App
 
                     try
                     {
-                        Window?.Invoke(() => PresentMonitoringWindow(activate));
+                        Window?.Invoke(() => PresentMonitoringWindow(activate, keepPosition: false));
                     }
                     catch (Exception ex)
                     {
