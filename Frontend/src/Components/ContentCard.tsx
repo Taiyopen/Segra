@@ -60,7 +60,7 @@ export default function ContentCard({
   isSelectionMode = false,
   isHighlighted = false,
 }: VideoCardProps) {
-  const { enableAi, showNewBadgeOnVideos, airplaneMode } = useSettings();
+  const { enableAi, airplaneMode } = useSettings();
   const { cacheFolder } = useAppState();
   const { session } = useAuth();
   const { openModal, closeModal } = useModal();
@@ -652,8 +652,7 @@ export default function ContentCard({
             type === 'Buffer' ||
             type === 'PendingEdit' ||
             type === 'ReadyToDelete' ||
-            type === 'External') &&
-          showNewBadgeOnVideos && (
+            type === 'External') && (
             <span
               className={`absolute top-2 left-2 badge badge-primary badge-sm text-base-300 transition-opacity duration-200 ${isSelectionMode ? 'opacity-0' : 'opacity-90'}`}
             >

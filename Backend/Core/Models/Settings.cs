@@ -84,7 +84,6 @@ namespace Segra.Backend.Core.Models
         private string _clipPreset = "veryfast";
         private bool _clipKeepSeparateAudioTracks = false;
         private float _soundEffectsVolume = 0.5f;
-        private bool _showNewBadgeOnVideos = false;
         private bool _showGameBackground = true;
         private bool _showAudioWaveformInTimeline = true;
         private bool _enableSeparateAudioTracks = false;
@@ -853,19 +852,6 @@ namespace Segra.Backend.Core.Models
                 if (_soundEffectsVolume != value)
                 {
                     _soundEffectsVolume = value;
-                }
-            }
-        }
-
-        [JsonPropertyName("showNewBadgeOnVideos")]
-        public bool ShowNewBadgeOnVideos
-        {
-            get => _showNewBadgeOnVideos;
-            set
-            {
-                if (_showNewBadgeOnVideos != value)
-                {
-                    _showNewBadgeOnVideos = value;
                 }
             }
         }

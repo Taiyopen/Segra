@@ -179,22 +179,6 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
         </label>
       </div>
 
-      <div className="flex items-center">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            name="showNewBadgeOnVideos"
-            checked={settings.showNewBadgeOnVideos}
-            onChange={(e) => updateSettings({ showNewBadgeOnVideos: e.target.checked })}
-            className="checkbox checkbox-primary checkbox-sm"
-          />
-          <span className="flex items-center gap-1 cursor-pointer">
-            Show<span className="badge badge-primary badge-sm text-base-300 mx-1">NEW</span>
-            Badge on New Sessions and Replay Buffers
-          </span>
-        </label>
-      </div>
-
       <div className="pt-3 border-t border-custom">
         <span className="text-md mb-2 block">
           Sound Effects Volume
