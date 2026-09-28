@@ -235,7 +235,7 @@ export default function ContentCard({
     const createdAt = new Date(content.createdAt);
     const now = new Date();
     const diffInHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-    return diffInHours <= 1; // Content is considered recent if created within the last hour
+    return diffInHours <= 24; // Content is considered recent if created within the last day
   }, [content?.fileName, content?.createdAt]);
 
   // Mark content as viewed when clicked
