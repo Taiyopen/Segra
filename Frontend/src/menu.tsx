@@ -7,14 +7,12 @@ import { useUploads } from './Context/UploadContext';
 import { useImports } from './Context/ImportContext';
 import { useContentMigration } from './Context/ContentMigrationContext';
 import { useClipping } from './Context/ClippingContext';
-import { useUpdate } from './Context/UpdateContext';
 import { useObsDownload } from './Context/ObsDownloadContext';
 import { useAiHighlights } from './Context/AiHighlightsContext';
 import UploadCard from './Components/UploadCard';
 import ImportCard from './Components/ImportCard';
 import ContentMigrationCard from './Components/ContentMigrationCard';
 import ClippingCard from './Components/ClippingCard';
-import UpdateCard from './Components/UpdateCard';
 import UnavailableDeviceCard from './Components/UnavailableDeviceCard';
 import AnimatedCard from './Components/AnimatedCard';
 import {
@@ -90,7 +88,6 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
     activePreRecordings.length +
     activeRecordings.filter((r) => r.endTime == null || r.endTime === undefined).length;
   const useGlobalStop = !hasLiveActivity || liveActivityCount <= 1;
-  const { updateInfo } = useUpdate();
   const { aiProgress } = useAiHighlights();
   const { obsDownloadProgress } = useObsDownload();
   const { migrations: contentMigrations, isMigrating } = useContentMigration();
@@ -168,7 +165,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
 
   if (sidebarMode === 'hidden') {
     return (
-      <div className="h-screen w-8 bg-base-300 border-r border-base-400 flex flex-col items-center pt-2 shrink-0">
+      <div className="h-full w-8 bg-base-300 border-r border-base-400 flex flex-col items-center pt-2 shrink-0">
         <Button
           variant="ghost"
           className="min-h-8 h-8 w-8 p-0"
@@ -185,7 +182,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
 
   return (
     <div
-      className={`bg-base-300 h-screen flex flex-col border-r border-base-400 overflow-hidden transition-[width] duration-200 ease-in-out ${
+      className={`bg-base-300 h-full flex flex-col border-r border-base-400 overflow-hidden transition-[width] duration-200 ease-in-out ${
         isIcons ? 'w-14' : 'w-56'
       }`}
     >
@@ -305,14 +302,6 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
       {/* Status Cards */}
       {!isIcons && (
         <div className="mt-auto p-2 space-y-1.5 max-h-[min(52vh,28rem)] overflow-y-auto overflow-x-hidden shrink-0">
-          <AnimatePresence>
-            {updateInfo && (
-              <AnimatedCard key="update-card">
-                <UpdateCard />
-              </AnimatedCard>
-            )}
-          </AnimatePresence>
-
           <AnimatePresence>
             {Object.values(uploads).map((file) => (
               <AnimatedCard key={file.fileName}>

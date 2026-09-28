@@ -351,6 +351,7 @@ namespace Segra.Backend.App
 
                 // Check for updates
                 Task.Run(() => UpdateService.UpdateAppIfNecessary(forceCheck: true));
+                UpdateService.StartPeriodicUpdateChecks();
 
                 // Check if application was launched from startup. Only minimize to tray when the
                 // user has chosen the Minimized startup window mode; otherwise open normally.
@@ -793,6 +794,10 @@ namespace Segra.Backend.App
             windowBuilder = hasRestoredLocation
                 ? windowBuilder.SetUseOsDefaultLocation(false).SetLocation(restoredLocation)
                 : windowBuilder.Center();
+
+#if WINDOWS
+            windowBuilder = windowBuilder.RegisterWindowCreatedHandler((sender, _) => ApplyCustomTitleBar((PhotinoWindow)sender!));
+#endif
 
             Window = windowBuilder
                 .RegisterWebMessageReceivedHandler((sender, message) =>

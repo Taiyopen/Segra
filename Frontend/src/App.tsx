@@ -1,6 +1,7 @@
 import { useEffect, useState, createContext, useRef } from 'react';
 import Settings from './Pages/settings';
 import Menu from './menu';
+import TitleBar from './Components/TitleBar';
 import Sessions from './Pages/sessions';
 import Clips from './Pages/clips';
 import ReplayBuffer from './Pages/replay-buffer';
@@ -197,12 +198,15 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen">
+    <div className="flex h-screen w-screen flex-col">
       {needsUsername && <SetupProfileModal />}
-      <div className="h-full shrink-0">
-        <Menu selectedMenu={selectedMenu} onSelectMenu={handleMenuSelection} />
+      <TitleBar />
+      <div className="flex min-h-0 flex-1">
+        <div className="h-full shrink-0">
+          <Menu selectedMenu={selectedMenu} onSelectMenu={handleMenuSelection} />
+        </div>
+        <div className="flex-1 h-full max-h-full overflow-auto">{renderContent()}</div>
       </div>
-      <div className="flex-1 h-full max-h-full overflow-auto">{renderContent()}</div>
     </div>
   );
 }

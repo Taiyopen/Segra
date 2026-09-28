@@ -39,8 +39,11 @@ namespace Segra.Backend.App
         // Serializes Velopack operations that share the on-disk .velopack_lock.
         private static readonly SemaphoreSlim _updateGate = new(1, 1);
 
-        // 1-hour cache for automatic update checks. Manual checks and startup pass forceCheck=true to bypass.
-        private static readonly TimeSpan UpdateCheckCacheTtl = TimeSpan.FromHours(1);
+        // Automatic checks run at most this often. Manual checks and startup pass forceCheck=true to bypass.
+        private static readonly TimeSpan UpdateCheckCacheTtl = TimeSpan.FromHours(6);
+        // How often the periodic check wakes to see whether a check is due
+        private static readonly TimeSpan PeriodicCheckInterval = TimeSpan.FromMinutes(10);
+        private static bool _updateDownloaded;
         private static DateTime _lastUpdateCheckUtc = DateTime.MinValue;
         private static DateTime _lastReleaseNotesFetchUtc = DateTime.MinValue;
         private static List<object>? _cachedReleaseNotesList = null;
@@ -77,6 +80,35 @@ namespace Segra.Backend.App
             {
                 await MessageService.SendFrontendMessage("UpdateProgress", updateProgress);
             }
+        }
+
+        /// <summary>
+        /// While the app runs, checks for updates every <see cref="UpdateCheckCacheTtl"/>. Waits while a game records
+        /// (the download is large) and stops once an update is downloaded; the desktop replay buffer doesn't count.
+        /// </summary>
+        public static void StartPeriodicUpdateChecks()
+        {
+            _ = Task.Run(async () =>
+            {
+                using var timer = new PeriodicTimer(PeriodicCheckInterval);
+                while (await timer.WaitForNextTickAsync())
+                {
+                    if (_updateDownloaded || IsAnySlotRecording())
+                        continue;
+                    await UpdateAppIfNecessary();
+                }
+            });
+        }
+
+        private static bool IsAnySlotRecording()
+        {
+            var state = Core.Models.AppState.Instance;
+            for (int slot = 0; slot < Core.Models.RecordingSlots.Max; slot++)
+            {
+                if (state.GetRecording(slot) != null || state.GetPreRecording(slot) != null)
+                    return true;
+            }
+            return false;
         }
 
         public static async Task<bool> UpdateAppIfNecessary(bool forceCheck = false)
@@ -151,6 +183,8 @@ namespace Segra.Backend.App
                     newVersion,
                     progress => SendUpdateProgressToFrontend(targetVersion, progress)
                 );
+
+                _updateDownloaded = true;
 
                 // Notify frontend that update is ready to install
                 await SendUpdateProgressToFrontend(

@@ -133,6 +133,11 @@ namespace Segra.Backend.App
                                 Program.SetMonitoringWindowTopMost(topMost);
                             }
                             break;
+                        case "MainWindowCommand":
+                            if (root.TryGetProperty("Parameters", out var windowCommandParams) &&
+                                windowCommandParams.TryGetProperty("action", out var windowActionEl))
+                                Program.HandleMainWindowCommand(windowActionEl.GetString() ?? "");
+                            break;
                         case "FitMonitoringWindowHeight":
                             if (root.TryGetProperty("Parameters", out var fitParams) &&
                                 fitParams.TryGetProperty("heightRatio", out var heightRatioEl))
