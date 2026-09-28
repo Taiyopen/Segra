@@ -583,6 +583,11 @@ namespace Segra.Backend.Recorder
 
                             SetSourceVolume(desktopSource, deviceSetting.Volume * eff.VolumeMultiplier);
 
+                            // The game may already have hooked before this source existed; mute it as the hook would
+                            if (audioOutputMode != AudioOutputMode.All && !pl.EnableSeparateAudioTracks &&
+                                pl.GameCapture?.IsHooked == true)
+                                desktopSource.IsMuted = true;
+
                             pl.MainScene!.AddSource(desktopSource);
                             pl.DesktopSources.Add(desktopSource);
 
@@ -591,12 +596,14 @@ namespace Segra.Backend.Recorder
                     }
                 }
 
-                // In GameAndDiscord mode, capture voice-chat apps (muted until game hooks).
-                // Additional apps that launch mid-recording are added via OnVoiceChatAppStarted.
-                if (audioOutputMode == AudioOutputMode.GameAndDiscord && pl.GameCapture != null)
+                // In GameAndDiscord mode, capture voice-chat apps (see ShouldMuteVoiceChat for when they're muted).
+                // On separate tracks they record even without a game (e.g. the always-on buffer); in one shared mix
+                // they only make sense once a game can hook. Apps launched mid-recording come via OnVoiceChatAppStarted.
+                if (audioOutputMode == AudioOutputMode.GameAndDiscord && (pl.GameCapture != null || pl.EnableSeparateAudioTracks))
                 {
+                    bool muted = ShouldMuteVoiceChat(pl, pl.GameCapture?.IsHooked == true);
                     foreach (var app in VoiceChatApps)
-                        TryAddVoiceChatSource(pl, app, muted: true);
+                        TryAddVoiceChatSource(pl, app, muted);
                 }
             }
         }

@@ -504,9 +504,6 @@ namespace Segra.Backend.Recorder
             ("Discord", "Discord:Chrome_WidgetWin_1:Discord.exe"),
             ("Discord Canary", "DiscordCanary:Chrome_WidgetWin_1:DiscordCanary.exe"),
             ("Discord PTB", "DiscordPTB:Chrome_WidgetWin_1:DiscordPTB.exe"),
-            ("TeamSpeak", "TeamSpeak:Chrome_WidgetWin_1:TeamSpeak.exe"),
-            ("TeamSpeak 3", "TeamSpeak 3:Qt5152QWindowIcon:ts3client_win64.exe"),
-            ("TeamSpeak 3", "TeamSpeak 3:Qt5152QWindowIcon:ts3client_win32.exe"),
         ];
 
         private static System.Threading.Timer? _diskSpaceMonitorTimer;
@@ -1822,7 +1819,8 @@ namespace Segra.Backend.Recorder
                         Log.Information("Keeping desktop audio sources active (separate audio tracks: do not mute output capture on hook).");
                     }
 
-                    if (audioOutputMode == AudioOutputMode.GameAndDiscord)
+                    // On separate tracks voice chat is never muted, so there is nothing to switch on
+                    if (audioOutputMode == AudioOutputMode.GameAndDiscord && !pl.EnableSeparateAudioTracks)
                     {
                         foreach (var (voiceName, _, voiceSource) in EnumerateVoiceChatSources())
                         {
@@ -1892,7 +1890,8 @@ namespace Segra.Backend.Recorder
                     }
                     Log.Information("Unmuted desktop audio sources (game unhooked, falling back to desktop audio)");
 
-                    if (audioOutputMode == AudioOutputMode.GameAndDiscord)
+                    if (audioOutputMode == AudioOutputMode.GameAndDiscord &&
+                        ShouldMuteVoiceChat(Pipeline(slotIndex), gameHooked: false))
                     {
                         foreach (var (voiceName, _, voiceSource) in EnumerateVoiceChatSources())
                         {
@@ -2083,6 +2082,13 @@ namespace Segra.Backend.Recorder
         }
 
 
+        /// <summary>
+        /// Whether voice-chat sources should be muted. With separate tracks they are never muted and follow only the
+        /// track settings; in one shared mix they wait for the game hook, since until then desktop audio carries them.
+        /// </summary>
+        private static bool ShouldMuteVoiceChat(SessionPipeline pl, bool gameHooked) =>
+            !pl.EnableSeparateAudioTracks && !gameHooked;
+
         private static Source? TryAddVoiceChatSource(SessionPipeline pl, (string Name, string Window) app, bool muted)
         {
             if (pl.MainScene == null)
@@ -2154,9 +2160,11 @@ namespace Segra.Backend.Recorder
                         }
                     }
                 }
-                if (owner == null || capture == null) return;
+                if (owner == null) return;
                 // The mode the owning recording started with, not whatever the setting says now
                 if (owner.AudioOutputMode != AudioOutputMode.GameAndDiscord) return;
+                // Without a game only separate tracks record voice chat (see AddAudioSources)
+                if (capture == null && !owner.EnableSeparateAudioTracks) return;
 
                 string fileName = Path.GetFileName(exePath);
                 foreach (var app in VoiceChatApps)
@@ -2164,7 +2172,7 @@ namespace Segra.Backend.Recorder
                     string appExe = app.Window.Split(':')[^1];
                     if (!string.Equals(fileName, appExe, StringComparison.OrdinalIgnoreCase)) continue;
                     if (owner.VoiceChatSources.Any(v => v.Window == app.Window)) return;
-                    TryAddVoiceChatSource(owner, app, muted: !capture.IsHooked);
+                    TryAddVoiceChatSource(owner, app, ShouldMuteVoiceChat(owner, capture?.IsHooked == true));
                     return;
                 }
             }
