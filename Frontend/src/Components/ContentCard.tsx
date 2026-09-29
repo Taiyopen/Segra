@@ -1,7 +1,14 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { useSettings } from '../Context/SettingsContext';
 import { useAppState } from '../Context/AppStateContext';
-import { Content, includeInHighlight, CONTENT_TYPE_FOLDER, MENU_ITEM } from '../Models/types';
+import {
+  Content,
+  includeInHighlight,
+  CONTENT_TYPE_FOLDER,
+  MENU_ITEM,
+  MENU_ITEM_LABELS,
+  displayGameName,
+} from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { openFileLocation } from '../Utils/FileUtils';
 import {
@@ -288,12 +295,12 @@ export default function ContentCard({
 
     const displayName = content!.title || content!.game || content!.fileName;
     confirmDelete({
-      title: `Delete ${type.toLowerCase()}?`,
+      title: '刪除這支影片？',
       description: (
         <>
-          Are you sure you want to permanently delete <strong>{displayName}</strong>?
+          確定要永久刪除 <strong>{displayName}</strong> 嗎？
           <br />
-          <span className="text-sm text-gray-400">This action cannot be undone.</span>
+          <span className="text-sm text-gray-400">刪除後無法復原。</span>
         </>
       ),
       onConfirm: () => sendMessageToBackend('DeleteContent', parameters),
@@ -389,7 +396,7 @@ export default function ContentCard({
             }}
           >
             <Upload size={20} />
-            <span>Upload</span>
+            <span>上傳</span>
           </Button>
         </li>
       )}
@@ -410,7 +417,7 @@ export default function ContentCard({
             }}
           >
             <Copy size={20} />
-            <span>Copy</span>
+            <span>複製</span>
           </Button>
         </li>
       )}
@@ -428,10 +435,10 @@ export default function ContentCard({
             <Crown size={20} />
             <span>
               {isCreatingHighlight
-                ? 'Creating Highlight...'
+                ? '正在建立精華…'
                 : hasHighlightBookmarks
-                  ? 'Create Highlight'
-                  : 'No Highlights'}
+                  ? '建立精華'
+                  : '沒有可用的精華標記'}
             </span>
           </Button>
         </li>
@@ -471,8 +478,8 @@ export default function ContentCard({
               <span>
                 移出待剪輯（
                 {content.pendingEditSourceType === 'Buffer'
-                  ? MENU_ITEM.ReplayBuffer
-                  : MENU_ITEM.Sessions}
+                  ? MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]
+                  : MENU_ITEM_LABELS[MENU_ITEM.Sessions]}
                 ）
               </span>
             </Button>
@@ -490,7 +497,7 @@ export default function ContentCard({
                 }}
               >
                 <FolderOutput size={20} />
-                <span>移回 {MENU_ITEM.Sessions}</span>
+                <span>移回{MENU_ITEM_LABELS[MENU_ITEM.Sessions]}</span>
               </Button>
             </li>
             <li>
@@ -502,7 +509,7 @@ export default function ContentCard({
                 }}
               >
                 <FolderOutput size={20} />
-                <span>移回 {MENU_ITEM.ReplayBuffer}</span>
+                <span>移回{MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}</span>
               </Button>
             </li>
           </>
@@ -526,8 +533,8 @@ export default function ContentCard({
               <span>
                 移出準備刪除（
                 {content.readyToDeleteSourceType === 'Buffer'
-                  ? MENU_ITEM.ReplayBuffer
-                  : MENU_ITEM.Sessions}
+                  ? MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]
+                  : MENU_ITEM_LABELS[MENU_ITEM.Sessions]}
                 ）
               </span>
             </Button>
@@ -545,7 +552,7 @@ export default function ContentCard({
                 }}
               >
                 <FolderOutput size={20} />
-                <span>移回 {MENU_ITEM.Sessions}</span>
+                <span>移回{MENU_ITEM_LABELS[MENU_ITEM.Sessions]}</span>
               </Button>
             </li>
             <li>
@@ -559,7 +566,7 @@ export default function ContentCard({
                 }}
               >
                 <FolderOutput size={20} />
-                <span>移回 {MENU_ITEM.ReplayBuffer}</span>
+                <span>移回{MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}</span>
               </Button>
             </li>
           </>
@@ -573,7 +580,7 @@ export default function ContentCard({
           }}
         >
           <PenLine size={20} />
-          <span>Rename</span>
+          <span>重新命名</span>
         </Button>
       </li>
       <li>
@@ -585,7 +592,7 @@ export default function ContentCard({
           }}
         >
           <FolderOpen size={20} />
-          <span>Open File Location</span>
+          <span>開啟檔案位置</span>
         </Button>
       </li>
       {(type === 'Clip' || type === 'Highlight') && !content?.fileName?.endsWith('_compressed') && (
@@ -598,7 +605,7 @@ export default function ContentCard({
             }}
           >
             <Minimize2 size={20} />
-            <span>Compress</span>
+            <span>壓縮</span>
           </Button>
         </li>
       )}
@@ -611,7 +618,7 @@ export default function ContentCard({
           }}
         >
           <Trash2 size={20} />
-          <span>Delete</span>
+          <span>刪除</span>
         </Button>
       </li>
     </>
@@ -663,12 +670,12 @@ export default function ContentCard({
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
             <p className="text-white text-sm mb-2">
               {currentCompressionProgress.status === 'compressing'
-                ? 'Compressing...'
+                ? '壓縮中…'
                 : currentCompressionProgress.status === 'done'
-                  ? 'Done!'
+                  ? '壓縮完成'
                   : currentCompressionProgress.status === 'skipped'
-                    ? 'Skipped'
-                    : 'Error'}
+                    ? '已略過'
+                    : '壓縮失敗'}
             </p>
             {currentCompressionProgress.status === 'compressing' && (
               <div className="w-2/3 h-1.5 bg-white/20 rounded-full overflow-hidden">
@@ -705,11 +712,11 @@ export default function ContentCard({
               }}
               onClick={(e) => e.stopPropagation()}
               className="card-title !block truncate bg-transparent outline-none w-full"
-              placeholder={content!.game || 'Untitled'}
+              placeholder={displayGameName(content!.game) || '未命名'}
             />
           ) : (
             <h2 className="card-title !block truncate">
-              {content!.title || content!.game || 'Untitled'}
+              {content!.title || displayGameName(content!.game) || '未命名'}
             </h2>
           )}
           <div

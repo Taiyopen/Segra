@@ -47,7 +47,7 @@ export default function VideoSettingsSection({
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-xl font-semibold">Video Settings</h2>
+        <h2 className="text-xl font-semibold">影像設定</h2>
       </div>
 
       {/* Quality Preset Selector */}
@@ -59,7 +59,7 @@ export default function VideoSettingsSection({
             } cursor-pointer hover:bg-base-300`}
             onClick={() => handlePresetChange('low')}
           >
-            <div className="text-sm font-semibold">Low Quality</div>
+            <div className="text-sm font-semibold">低畫質</div>
             <div className="text-xs text-base-content text-opacity-70 mt-1">720p • 30fps</div>
           </div>
           <div
@@ -68,7 +68,7 @@ export default function VideoSettingsSection({
             } cursor-pointer hover:bg-base-300`}
             onClick={() => handlePresetChange('standard')}
           >
-            <div className="text-sm font-semibold">Standard</div>
+            <div className="text-sm font-semibold">標準</div>
             <div className="text-xs text-base-content text-opacity-70 mt-1">1080p • 60fps</div>
           </div>
           <div
@@ -77,7 +77,7 @@ export default function VideoSettingsSection({
             } cursor-pointer hover:bg-base-300`}
             onClick={() => handlePresetChange('high')}
           >
-            <div className="text-sm font-semibold">High Quality</div>
+            <div className="text-sm font-semibold">高畫質</div>
             <div className="text-xs text-base-content text-opacity-70 mt-1">
               {appState.maxDisplayHeight >= 1440 ? '1440p' : '1080p'} • 60fps
             </div>
@@ -88,8 +88,8 @@ export default function VideoSettingsSection({
             } cursor-pointer hover:bg-base-300`}
             onClick={() => handlePresetChange('custom')}
           >
-            <div className="text-sm font-semibold">Custom</div>
-            <div className="text-xs text-base-content text-opacity-70 mt-1">Manual config</div>
+            <div className="text-sm font-semibold">自訂</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">手動設定</div>
           </div>
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function VideoSettingsSection({
               {/* Resolution */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Resolution</span>
+                  <span className="label-text text-base-content">解析度</span>
                 </label>
                 <DropdownSelect
                   items={[
@@ -141,7 +141,7 @@ export default function VideoSettingsSection({
               {/* Frame Rate */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Frame Rate (FPS)</span>
+                  <span className="label-text text-base-content">影格率（FPS）</span>
                 </label>
                 <DropdownSelect
                   items={[24, 30, 60, 120, 144].map((v) => ({
@@ -156,23 +156,23 @@ export default function VideoSettingsSection({
               {/* Rate Control */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Rate Control</span>
+                  <span className="label-text text-base-content">位元率控制</span>
                 </label>
                 <DropdownSelect
                   items={[
-                    { value: 'CBR', label: 'CBR (Constant Bitrate)' },
-                    { value: 'VBR', label: 'VBR (Variable Bitrate)' },
+                    { value: 'CBR', label: 'CBR（固定位元率）' },
+                    { value: 'VBR', label: 'VBR（變動位元率）' },
                     ...(settings.encoder === 'cpu'
-                      ? [{ value: 'CRF', label: 'CRF (Constant Rate Factor)' }]
+                      ? [{ value: 'CRF', label: 'CRF（固定畫質係數）' }]
                       : []),
                     ...(settings.encoder !== 'cpu'
-                      ? [{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' }]
+                      ? [{ value: 'CQP', label: 'CQP（固定量化參數）' }]
                       : []),
                     ...(settings.encoder === 'gpu' && isNvencCodec
                       ? [
                           {
                             value: 'CQVBR',
-                            label: 'CQVBR (Target Quality + Max Bitrate, OBS 31+ NVENC)',
+                            label: 'CQVBR（目標畫質＋最高位元率，需 OBS 31 以上的 NVENC）',
                           },
                         ]
                       : []),
@@ -186,7 +186,7 @@ export default function VideoSettingsSection({
               {settings.rateControl === 'CBR' && (
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text text-base-content">Bitrate</span>
+                    <span className="label-text text-base-content">位元率</span>
                   </label>
                   <DropdownSelect
                     items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
@@ -204,7 +204,7 @@ export default function VideoSettingsSection({
                 <>
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text text-base-content">Minimum Bitrate</span>
+                      <span className="label-text text-base-content">最低位元率</span>
                     </label>
                     <DropdownSelect
                       items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
@@ -221,7 +221,7 @@ export default function VideoSettingsSection({
                   </div>
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text text-base-content">Maximum Bitrate</span>
+                      <span className="label-text text-base-content">最高位元率</span>
                     </label>
                     <DropdownSelect
                       items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
@@ -249,7 +249,7 @@ export default function VideoSettingsSection({
               {settings.rateControl === 'CRF' && (
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text text-base-content">CRF Value (0-51)</span>
+                    <span className="label-text text-base-content">CRF 值（0–51）</span>
                   </label>
                   <input
                     type="number"
@@ -272,7 +272,7 @@ export default function VideoSettingsSection({
               {settings.rateControl === 'CQP' && (
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text text-base-content">CQ Level (0-30)</span>
+                    <span className="label-text text-base-content">CQ 等級（0–30）</span>
                   </label>
                   <input
                     type="number"
@@ -296,7 +296,7 @@ export default function VideoSettingsSection({
                 <>
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text text-base-content">Maximum Bitrate (Mbps)</span>
+                      <span className="label-text text-base-content">最高位元率（Mbps）</span>
                     </label>
                     <DropdownSelect
                       items={Array.from({ length: 19 }, (_, i) => (i + 2) * 5).map((v) => ({
@@ -319,10 +319,9 @@ export default function VideoSettingsSection({
                   <div className="form-control">
                     <label className="label">
                       <span className="label-text text-base-content">
-                        Target Quality (CQ){' '}
+                        目標畫質（CQ）{' '}
                         <span className="text-base-content/60 text-sm">
-                          ({codecIdLower.includes('av1') ? '1–63' : '1–51'} · lower is higher
-                          quality)
+                          （{codecIdLower.includes('av1') ? '1–63' : '1–51'}，數字越小畫質越好）
                         </span>
                       </span>
                     </label>
@@ -350,7 +349,7 @@ export default function VideoSettingsSection({
               {/* Encoder */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Video Encoder</span>
+                  <span className="label-text text-base-content">影像編碼器</span>
                 </label>
                 <DropdownSelect
                   items={[
@@ -365,7 +364,7 @@ export default function VideoSettingsSection({
               {/* Codec */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Codec</span>
+                  <span className="label-text text-base-content">編碼格式</span>
                 </label>
                 <DropdownSelect
                   items={appState.codecs
@@ -407,17 +406,17 @@ export default function VideoSettingsSection({
 
       <div className="grid grid-cols-2 gap-4 mt-3">
         <div className="flex flex-col">
-          <span className="font-medium">Monitor Selection</span>
+          <span className="font-medium">錄影螢幕</span>
           <DropdownSelect
             items={[
-              { value: 'Automatic', label: 'Automatic' },
+              { value: 'Automatic', label: '自動' },
               ...appState.displays.map((d, i) => {
                 const hasDuplicateName = appState.displays.some(
                   (other, j) => j !== i && other.deviceName === d.deviceName,
                 );
                 const label = hasDuplicateName
-                  ? `${d.deviceName} (${i + 1})${d.isPrimary ? ' (Primary)' : ''}`
-                  : `${d.deviceName}${d.isPrimary ? ' (Primary)' : ''}`;
+                  ? `${d.deviceName} (${i + 1})${d.isPrimary ? '（主螢幕）' : ''}`
+                  : `${d.deviceName}${d.isPrimary ? '（主螢幕）' : ''}`;
                 return { value: d.deviceId, label };
               }),
             ]}
@@ -433,12 +432,12 @@ export default function VideoSettingsSection({
           />
         </div>
         <div className="flex flex-col">
-          <span className="font-medium">Capture Method</span>
+          <span className="font-medium">擷取方式</span>
           <DropdownSelect
             items={[
-              { value: 'Auto', label: 'Auto' },
-              { value: 'DXGI', label: 'DXGI (Desktop Duplication)' },
-              { value: 'WGC', label: 'WGC (Windows Graphics Capture)' },
+              { value: 'Auto', label: '自動' },
+              { value: 'DXGI', label: 'DXGI（桌面複製）' },
+              { value: 'WGC', label: 'WGC（Windows 圖形擷取）' },
             ]}
             value={settings.displayCaptureMethod}
             onChange={(val) =>
@@ -457,7 +456,7 @@ export default function VideoSettingsSection({
             onChange={(e) => updateSettings({ stretch4By3: e.target.checked })}
             className="checkbox checkbox-primary checkbox-sm"
           />
-          <span>Stretch 4:3 content to 16:9</span>
+          <span>把 4:3 畫面拉伸成 16:9</span>
         </label>
       </div>
 
@@ -471,7 +470,7 @@ export default function VideoSettingsSection({
               onChange={(e) => updateSettings({ enableHdr: e.target.checked })}
               className="checkbox checkbox-primary checkbox-sm"
             />
-            <span>Record in HDR</span>
+            <span>以 HDR 錄影</span>
           </label>
         </div>
       )}

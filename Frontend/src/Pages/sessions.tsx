@@ -16,7 +16,7 @@ export default function Sessions() {
     <ContentPage
       contentType="Session"
       sectionId="sessions"
-      title="Sessions"
+      title="完整錄影"
       Icon={Play}
       progressItems={isRecordingFinishing ? { recording: true } : {}}
       isProgressVisible={isRecordingFinishing}

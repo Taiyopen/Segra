@@ -107,7 +107,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }
           }}
         >
-          <button>close</button>
+          <button>關閉</button>
         </form>
       </dialog>
     </ModalContext.Provider>

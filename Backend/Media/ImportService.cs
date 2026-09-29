@@ -19,7 +19,7 @@ namespace Segra.Backend.Media
                 if (!parameters.TryGetProperty("sectionId", out JsonElement sectionIdElement))
                 {
                     Log.Error("sectionId not found in ImportFile parameters");
-                    await MessageService.ShowModal("Import Error", "Missing section ID parameter", "error");
+                    await MessageService.ShowModal("匯入錯誤", "缺少要匯入的分類。", "error");
                     return;
                 }
 
@@ -36,13 +36,13 @@ namespace Segra.Backend.Media
                         break;
                     default:
                         Log.Error($"Invalid sectionId: {sectionId}");
-                        await MessageService.ShowModal("Import Error", $"Invalid section ID: {sectionId}", "error");
+                        await MessageService.ShowModal("匯入錯誤", $"無效的分類：{sectionId}", "error");
                         return;
                 }
 
                 // The platform dialog runs on its own thread (STA on Windows / zenity on Linux).
                 string[]? selectedFiles = await Platform.PlatformServices.Dialogs.PickFilesAsync(
-                    "Import MP4 Video Files", "MP4 Video Files (*.mp4)", "mp4");
+                    "匯入 MP4 影片", "MP4 影片 (*.mp4)", "mp4");
 
                 if (selectedFiles == null || selectedFiles.Length == 0)
                 {
@@ -71,11 +71,11 @@ namespace Segra.Backend.Media
                     {
                         id = importId,
                         progress = 0,
-                        fileName = "Import Failed",
+                        fileName = "匯入失敗",
                         totalFiles = 0,
                         currentFileIndex = 0,
                         status = "error",
-                        message = $"Import process failed: {ex.Message}"
+                        message = $"匯入失敗：{ex.Message}"
                     });
                 }
                 catch (Exception msgEx)
@@ -83,7 +83,7 @@ namespace Segra.Backend.Media
                     Log.Warning($"Failed to send import error message: {msgEx.Message}");
                 }
 
-                await MessageService.ShowModal("Import Error", $"An error occurred during import: {ex.Message}", "error");
+                await MessageService.ShowModal("匯入錯誤", $"匯入時發生錯誤：{ex.Message}", "error");
             }
         }
 
@@ -279,7 +279,7 @@ namespace Segra.Backend.Media
                             totalFiles = selectedFiles.Length,
                             currentFileIndex = i + 1,
                             status = "error",
-                            message = $"Failed to import: {ex.Message}"
+                            message = $"匯入失敗：{ex.Message}"
                         });
                     }
                     catch (Exception msgEx)

@@ -128,15 +128,15 @@ export default function CustomGameModal({ onSave, onClose, initialName }: Custom
   if (pathPendingRemoval) {
     return (
       <ConfirmationModal
-        title="Remove executable?"
+        title="移除這個執行檔？"
         description={
           <>
-            Remove this executable from the custom game?
+            要從這款自訂遊戲移除這個執行檔嗎？
             <br />
             <span className="text-sm text-gray-400 break-all">{pathPendingRemoval}</span>
           </>
         }
-        confirmText="Remove"
+        confirmText="移除"
         onConfirm={() => {
           setSelectedExes((prev) => prev.filter((e) => e.path !== pathPendingRemoval));
           setPathPendingRemoval(null);
@@ -161,16 +161,16 @@ export default function CustomGameModal({ onSave, onClose, initialName }: Custom
           </Button>
         </div>
         <div className="modal-body pt-8">
-          <h3 className="font-bold text-2xl mb-6">Add Custom Game</h3>
+          <h3 className="font-bold text-2xl mb-6">加入自訂遊戲</h3>
 
           <div className="form-control w-full mb-4">
             <label className="label">
-              <span className="label-text text-base-content">Game Name</span>
+              <span className="label-text text-base-content">遊戲名稱</span>
             </label>
             <input
               type="text"
               className="input input-bordered bg-base-300 w-full focus:outline-none"
-              placeholder="Enter game name..."
+              placeholder="輸入遊戲名稱…"
               value={customGameName}
               onChange={(e) => {
                 setNameEdited(true);
@@ -181,7 +181,7 @@ export default function CustomGameModal({ onSave, onClose, initialName }: Custom
 
           <div className="form-control w-full">
             <label className="label">
-              <span className="label-text text-base-content">Executables</span>
+              <span className="label-text text-base-content">執行檔</span>
             </label>
             <Button
               variant="primary"
@@ -190,7 +190,7 @@ export default function CustomGameModal({ onSave, onClose, initialName }: Custom
               disabled={isSelectingFile}
             >
               <FolderOpen size={18} />
-              {isSelectingFile ? 'Selecting...' : 'Browse Executable'}
+              {isSelectingFile ? '選擇中…' : '選擇執行檔'}
             </Button>
 
             {selectedExes.length > 0 && (
@@ -223,7 +223,7 @@ export default function CustomGameModal({ onSave, onClose, initialName }: Custom
             disabled={!customGameName.trim() || selectedExes.length === 0}
           >
             <Plus className="w-5 h-5" />
-            Add Game
+            加入遊戲
           </Button>
         </div>
       </div>

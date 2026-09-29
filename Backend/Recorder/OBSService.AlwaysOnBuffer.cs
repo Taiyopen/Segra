@@ -311,6 +311,7 @@ namespace Segra.Backend.Recorder
                 s.Encoder, s.Codec?.InternalEncoderId, s.EnableHdr, s.Stretch4By3, s.ReplayBufferDuration, s.ReplayBufferMaxSize,
                 s.InputDevices, s.OutputDevices, s.ForceMonoInputSources, s.InputNoiseSuppression, s.EnableSeparateAudioTracks,
                 s.AudioOutputMode, s.RecordingAudioBitrate, s.RecordingAudioTrackNames, s.GameAudioTrackMask, s.DiscordAudioTrackMask,
+                s.GameAudioVolume, s.DiscordAudioVolume,
                 s.SelectedDisplay, s.DisplayCaptureMethod, s.ContentFolder, AppState.Instance.Displays
             });
         }

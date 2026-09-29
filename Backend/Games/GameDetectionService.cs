@@ -413,7 +413,7 @@ namespace Segra.Backend.Games
             AppState.Instance.SetPreRecording(slot.Value, new PreRecording
             {
                 Game = gameName,
-                Status = "Waiting to start",
+                Status = "等待開始",
                 CoverImageId = coverImageId,
                 Pid = pid,
                 Exe = exePath,

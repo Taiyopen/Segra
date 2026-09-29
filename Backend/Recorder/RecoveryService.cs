@@ -40,10 +40,10 @@ namespace Segra.Backend.Recorder
 
                     string typeLabel = orphanedFile.Type switch
                     {
-                        Content.ContentType.Session => "Session Recording",
-                        Content.ContentType.Clip => "Clip",
-                        Content.ContentType.Highlight => "Highlight",
-                        Content.ContentType.Buffer => "Replay Buffer",
+                        Content.ContentType.Session => "完整錄影",
+                        Content.ContentType.Clip => "剪輯片段",
+                        Content.ContentType.Highlight => "精華",
+                        Content.ContentType.Buffer => "重播緩衝",
                         _ => orphanedFile.Type.ToString()
                     };
 

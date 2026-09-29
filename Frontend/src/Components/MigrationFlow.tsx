@@ -12,12 +12,12 @@ export default function MigrationFlow({ fromPaths, toPath, count, sizeGb }: Migr
   return (
     <div>
       <p className="mb-4 text-base">
-        Move {count} video{count === 1 ? '' : 's'} ({sizeGb.toFixed(2)} GB) to your recording path.
+        把 {count} 支影片（{sizeGb.toFixed(2)} GB）搬到錄影資料夾。
       </p>
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0 rounded-lg border border-base-400 bg-base-200 p-3">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/60">
-            From
+            來源
           </div>
           <div className="space-y-2">
             {fromPaths.map((path) => (
@@ -43,7 +43,7 @@ export default function MigrationFlow({ fromPaths, toPath, count, sizeGb }: Migr
 
         <div className="flex-1 min-w-0 rounded-lg border border-primary/40 bg-primary/10 p-3">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/60">
-            To
+            目的地
           </div>
           <div className="flex items-center gap-2">
             <HardDrive size={16} className="shrink-0 text-primary" />

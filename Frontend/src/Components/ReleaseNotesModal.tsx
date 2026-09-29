@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
-import { gt } from 'semver';
+import { gt, valid } from 'semver';
 import Markdown from 'markdown-to-jsx';
 import { CircleCheck, X, Calendar } from 'lucide-react';
 import { GithubIcon } from './icons/BrandIcons';
@@ -104,6 +104,8 @@ const contentStyles = `
 interface ReleaseNotesModalProps {
   onClose: () => void;
   filterVersion: string | null;
+  // The installed version; its entry gets a "目前版本" badge.
+  currentVersion: string | null;
 }
 
 const GITHUB_REPO_URL = 'https://github.com/Taiyopen/Segra';
@@ -116,13 +118,13 @@ function decodeBase64(base64: string): string {
   try {
     return decodeURIComponent(escape(atob(base64)));
   } catch {
-    return 'Error decoding content';
+    return '無法讀取這則更新內容';
   }
 }
 
 function formatAbsoluteDate(isoDate: string): string {
   try {
-    return new Date(isoDate).toLocaleDateString('en-US', {
+    return new Date(isoDate).toLocaleDateString('zh-TW', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -137,28 +139,33 @@ function formatRelativeDate(isoDate: string): string | null {
     const then = new Date(isoDate).getTime();
     if (Number.isNaN(then)) return null;
     const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
-    if (diffSec < 60) return 'just now';
+    if (diffSec < 60) return '剛剛';
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffMin < 60) return `${diffMin} 分鐘前`;
     const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffHours < 24) return `${diffHours} 小時前`;
     const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 7) return `${diffDays} 天前`;
     const diffWeeks = Math.floor(diffDays / 7);
-    if (diffWeeks < 5) return `${diffWeeks}w ago`;
+    if (diffWeeks < 5) return `${diffWeeks} 週前`;
     const diffMonths = Math.floor(diffDays / 30);
-    if (diffMonths < 12) return `${diffMonths}mo ago`;
+    if (diffMonths < 12) return `${diffMonths} 個月前`;
     const diffYears = Math.floor(diffDays / 365);
-    return `${diffYears}y ago`;
+    return `${diffYears} 年前`;
   } catch {
     return null;
   }
 }
 
+// Null for anything semver can't read, e.g. "Developer Preview" from an unstamped local build.
+function toVersion(version: string | null): string | null {
+  return version ? valid(version, { loose: true }) : null;
+}
+
 function getReleaseChannel(version: string): { text: string; className: string } | null {
   if (version.includes('-beta')) {
     return {
-      text: 'Beta',
+      text: '測試版',
       className: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
     };
   }
@@ -250,7 +257,11 @@ function ReleaseSkeleton() {
   );
 }
 
-export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNotesModalProps) {
+export default function ReleaseNotesModal({
+  onClose,
+  filterVersion,
+  currentVersion,
+}: ReleaseNotesModalProps) {
   const [notes, setNotes] = useState<ReleaseNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { releaseNotes } = useContext(ReleaseNotesContext);
@@ -265,8 +276,14 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
     }
   }, [releaseNotes]);
 
-  const filteredNotes = filterVersion
-    ? notes.filter((note) => gt(note.version, filterVersion, { loose: true }))
+  // An unreadable filter version shows every note instead of throwing and blanking the app.
+  const filterFrom = toVersion(filterVersion);
+  const current = toVersion(currentVersion);
+  const filteredNotes = filterFrom
+    ? notes.filter((note) => {
+        const version = toVersion(note.version);
+        return version !== null && gt(version, filterFrom);
+      })
     : notes;
 
   const handleOpenGithubReleases = () => {
@@ -282,14 +299,12 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
       {/* Header */}
       <div className="flex items-start justify-between gap-4 pb-4 border-b border-base-400">
         <div className="min-w-0">
-          <h2 className="font-bold text-2xl text-white leading-tight">What's New</h2>
+          <h2 className="font-bold text-2xl text-white leading-tight">更新內容</h2>
           <p className="text-sm text-gray-400 mt-0.5">
-            {filterVersion
-              ? `Updates since v${filterVersion}`
-              : 'Browse recent releases from Segra'}
+            {filterFrom ? `v${filterFrom} 之後的更新` : '瀏覽 Segra 最近的版本'}
           </p>
         </div>
-        <Button variant="ghost" icon size="sm" onClick={onClose} aria-label="Close">
+        <Button variant="ghost" icon size="sm" onClick={onClose} aria-label="關閉">
           <X size={18} />
         </Button>
       </div>
@@ -304,18 +319,19 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
               <CircleCheck size={30} />
             </div>
             <h3 className="text-lg font-semibold text-white mb-1">
-              {filterVersion ? "You're up to date!" : 'No release notes available'}
+              {filterFrom ? '已經是最新版本' : '目前沒有更新內容'}
             </h3>
             <p className="text-sm text-gray-400 max-w-sm">
-              {filterVersion
-                ? 'You are on the latest version of Segra. Check back after the next release for new changes.'
-                : 'We could not find any release notes to display right now.'}
+              {filterFrom
+                ? '你用的已經是最新版的 Segra，下一版推出後再來看看新功能。'
+                : '現在找不到可以顯示的更新內容。'}
             </p>
           </div>
         ) : (
           filteredNotes.map((note, index) => {
             const channel = getReleaseChannel(note.version);
             const isLatest = index === 0;
+            const isCurrent = current !== null && toVersion(note.version) === current;
             const relative = formatRelativeDate(note.releaseDate);
             const absolute = formatAbsoluteDate(note.releaseDate);
             return (
@@ -327,7 +343,12 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
                   </span>
                   {isLatest && (
                     <span className="inline-flex items-center h-6 bg-success/15 text-success px-2 rounded-md text-[11px] font-medium tracking-wide uppercase border border-success/25 leading-none">
-                      Latest
+                      最新
+                    </span>
+                  )}
+                  {isCurrent && (
+                    <span className="inline-flex items-center h-6 bg-info/15 text-info px-2 rounded-md text-[11px] font-medium tracking-wide border border-info/25 leading-none">
+                      目前版本
                     </span>
                   )}
                   {channel && (
@@ -367,13 +388,9 @@ export default function ReleaseNotesModal({ onClose, filterVersion }: ReleaseNot
       {/* Footer */}
       {!isLoading && filteredNotes.length > 0 && (
         <div className="mt-6 pt-4 border-t border-base-400 flex items-center justify-between gap-3">
-          <span className="text-xs text-gray-500">
-            Showing {filteredNotes.length} release
-            {filteredNotes.length === 1 ? '' : 's'}
-          </span>
+          <span className="text-xs text-gray-500">共 {filteredNotes.length} 個版本</span>
           <Button variant="primary" size="sm" onClick={handleOpenGithubReleases}>
-            <GithubIcon size={14} />
-            View on GitHub
+            <GithubIcon size={14} />在 GitHub 查看
           </Button>
         </div>
       )}

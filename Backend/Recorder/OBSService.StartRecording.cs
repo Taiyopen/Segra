@@ -90,7 +90,18 @@ namespace Segra.Backend.Recorder
                 string drivesText = string.Join(", ", fullDrives.Select(d => $"{d.Label} ({d.Root.TrimEnd('\\')}) is {d.UsedPercent:F1}% full"));
                 Log.Error($"Cannot start recording, drive(s) over {StorageService.DriveFullThresholdPercent:F0}% full: {drivesText}");
                 GameDetectionService.PreventRetryRecording = true;
-                Task.Run(() => ShowModal("Not enough disk space", $"Recording cannot start because {drivesText}. Free up some space and try again.", "error"));
+                string drivesTextZh = string.Join("、", fullDrives.Select(d =>
+                {
+                    string label = d.Label switch
+                    {
+                        "System drive" => "系統磁碟",
+                        "Recording drive" => "錄影磁碟",
+                        "Temp drive" => "暫存磁碟",
+                        _ => d.Label,
+                    };
+                    return $"{label}（{d.Root.TrimEnd('\\')}）已使用 {d.UsedPercent:F1}%";
+                }));
+                Task.Run(() => ShowModal("磁碟空間不足", $"無法開始錄影：{drivesTextZh}。請清出一些空間後再試一次。", "error"));
                 Task.Run(() => PlaySound("error"));
                 ClearAllPendingPreRecordings();
                 return false;
@@ -352,7 +363,7 @@ namespace Segra.Backend.Recorder
             {
                 pl.GameCapture = new GameCapture($"gameplay_{slot}", GameCapture.CaptureMode.SpecificWindow);
                 pl.GameCapture.SetWindow($"*:*:{fileName}");
-                SetSourceVolume(pl.GameCapture, eff.VolumeMultiplier);
+                SetSourceVolume(pl.GameCapture, Settings.Instance.GameAudioVolume * eff.VolumeMultiplier);
 
                 if (_isHdrRecording && slot == 0 && !anotherSlotActive)
                 {
@@ -784,7 +795,7 @@ namespace Segra.Backend.Recorder
                 {
                     string error = pl.SessionOutput.LastError ?? "Unknown error";
                     Log.Error($"Failed to start recording: {error}");
-                    Task.Run(() => ShowModal("Recording failed", "Failed to start recording. Check the log for more details.", "error"));
+                    Task.Run(() => ShowModal("錄影失敗", "無法開始錄影，詳細原因請查看日誌。", "error"));
                     Task.Run(() => PlaySound("error", 500));
                     ClearPendingPreRecordingForSlot(slot);
                     CleanupPartialSlot(slot);
@@ -807,7 +818,7 @@ namespace Segra.Backend.Recorder
                     Log.Error($"Failed to start replay buffer (slot {slot}): {error}");
                     if (!alwaysOn)
                     {
-                        Task.Run(() => ShowModal("Replay buffer failed", "Failed to start replay buffer. Check the log for more details.", "error"));
+                        Task.Run(() => ShowModal("重播緩衝失敗", "無法啟動重播緩衝，詳細原因請查看日誌。", "error"));
                         Task.Run(() => PlaySound("error", 500));
                         ClearPendingPreRecordingForSlot(slot);
                     }

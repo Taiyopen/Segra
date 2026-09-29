@@ -8,13 +8,13 @@ export default function ImportCard({ importItem }: ImportCardProps) {
   const getStatusText = () => {
     switch (importItem.status) {
       case 'importing':
-        return `Importing ${importItem.currentFileIndex} of ${importItem.totalFiles}`;
+        return `匯入中 ${importItem.currentFileIndex}／${importItem.totalFiles}`;
       case 'done':
-        return 'Import Complete';
+        return '匯入完成';
       case 'error':
-        return importItem.message || 'Import Error';
+        return importItem.message || '匯入失敗';
       default:
-        return 'Importing...';
+        return '匯入中…';
     }
   };
 

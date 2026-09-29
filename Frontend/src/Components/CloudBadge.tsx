@@ -10,7 +10,7 @@ interface CloudBadgeProps {
 }
 
 export default function CloudBadge({
-  tip = 'Uses internet',
+  tip = '需要網路連線',
   side = 'top',
   className = '',
   iconClassName = '',

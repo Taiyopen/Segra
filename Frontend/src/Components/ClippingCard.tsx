@@ -60,7 +60,7 @@ const ClippingCard: React.FC<ClippingCardProps> = ({ clipping }) => {
                 onClick={handleCancel}
                 disabled={isCancelling}
                 className="absolute right-0 top-1/2 -translate-y-1/2 p-1 transition-colors cursor-pointer disabled:opacity-50"
-                aria-label="Cancel clip"
+                aria-label="取消建立片段"
               >
                 <X size={16} />
               </button>
@@ -68,10 +68,10 @@ const ClippingCard: React.FC<ClippingCardProps> = ({ clipping }) => {
             <div
               className={`text-sm font-medium truncate ${isError ? 'text-error' : 'text-gray-200'}`}
             >
-              {isError ? 'Clip Failed' : 'Creating Clip'}
+              {isError ? '建立片段失敗' : '正在建立片段'}
             </div>
             <div className={`text-xs truncate ${isError ? 'text-error/70' : 'text-gray-400'}`}>
-              {isError ? clipping.error || 'Unknown error' : `${Math.round(displayProgress)}%`}
+              {isError ? clipping.error || '未知錯誤' : `${Math.round(displayProgress)}%`}
             </div>
           </div>
         </div>

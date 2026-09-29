@@ -21,15 +21,15 @@ export default function UploadCard({ upload }: UploadCardProps) {
   const getStatusText = () => {
     switch (upload.status) {
       case 'uploading':
-        return `Uploading ${Math.round(upload.progress)}%`;
+        return `上傳中 ${Math.round(upload.progress)}%`;
       case 'processing':
-        return 'Processing';
+        return '處理中';
       case 'done':
-        return 'Upload Complete';
+        return '上傳完成';
       case 'error':
-        return upload.message || 'Upload Failed';
+        return upload.message || '上傳失敗';
       default:
-        return 'Uploading...';
+        return '上傳中…';
     }
   };
 
@@ -56,7 +56,7 @@ export default function UploadCard({ upload }: UploadCardProps) {
                   onClick={handleCancel}
                   disabled={isCancelling}
                   className="absolute right-0 top-1/2 -translate-y-1/2 p-1 transition-colors cursor-pointer disabled:opacity-50"
-                  aria-label="Cancel upload"
+                  aria-label="取消上傳"
                 >
                   <X size={16} />
                 </motion.button>

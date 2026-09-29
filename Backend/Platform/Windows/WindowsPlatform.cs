@@ -31,8 +31,8 @@ namespace Segra.Backend.Platform.Windows
                 };
 
                 var menu = new ContextMenuStrip();
-                menu.Items.Add("Open", null, (s, e) => onOpen());
-                menu.Items.Add("Exit", null, (s, e) => onExit());
+                menu.Items.Add("開啟", null, (s, e) => onOpen());
+                menu.Items.Add("結束", null, (s, e) => onExit());
                 icon.ContextMenuStrip = menu;
 
                 icon.MouseDoubleClick += (s, e) =>

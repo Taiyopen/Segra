@@ -175,7 +175,7 @@ namespace Segra.Backend.App
                     version: targetVersion,
                     progress: 0,
                     status: "downloading",
-                    message: $"Starting download of update to version {targetVersion}...");
+                    message: $"開始下載 {targetVersion} 版…");
 
                 // Download and apply the update with progress reporting
                 Log.Information($"Installing update to version {targetVersion}");
@@ -191,7 +191,7 @@ namespace Segra.Backend.App
                     version: targetVersion,
                     progress: 100,
                     status: "ready",
-                    message: $"Update to version {targetVersion} is ready to install");
+                    message: $"{targetVersion} 版已下載好，可以安裝");
 
                 return true;
             }
@@ -207,7 +207,7 @@ namespace Segra.Backend.App
             }
         }
 
-        public static void ApplyUpdate()
+        public static async Task ApplyUpdate()
         {
             Log.Information("Applying update");
             if (UpdateManager == null || LatestUpdateInfo == null)
@@ -216,25 +216,44 @@ namespace Segra.Backend.App
                 return;
             }
 
-            // Stop any active recording first so OBS finalizes cleanly, mirroring Program.cs's shutdown path.
-            if (Core.Models.AppState.Instance.Recording != null || Core.Models.AppState.Instance.PreRecording != null)
+            string targetVersion = LatestUpdateInfo.TargetFullRelease.Version.ToString();
+            await SendUpdateProgressToFrontend(
+                version: targetVersion,
+                progress: 100,
+                status: "installing",
+                message: "正在停止錄影並關閉錄影元件，完成後會自動關閉並安裝");
+
+            try
             {
-                Log.Information("Active recording detected while applying update; stopping it first.");
-                try
+                // Stop any active recording first so OBS finalizes cleanly, mirroring Program.cs's shutdown path.
+                if (Core.Models.AppState.Instance.Recording != null || Core.Models.AppState.Instance.PreRecording != null)
                 {
-                    Task.Run(() => OBSService.StopRecording()).GetAwaiter().GetResult();
+                    Log.Information("Active recording detected while applying update; stopping it first.");
+                    try
+                    {
+                        await OBSService.StopRecording();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Error stopping recording before applying update");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "Error stopping recording before applying update");
-                }
+
+                // Shutdown OBS before restarting to unload graphics-hook64.dll from game processes.
+                // ApplyUpdatesAndRestart kills the process immediately, bypassing Program.Shutdown().
+                OBSService.Shutdown();
+
+                UpdateManager.ApplyUpdatesAndRestart(LatestUpdateInfo);
             }
-
-            // Shutdown OBS before restarting to unload graphics-hook64.dll from game processes.
-            // ApplyUpdatesAndRestart kills the process immediately, bypassing Program.Shutdown().
-            OBSService.Shutdown();
-
-            UpdateManager.ApplyUpdatesAndRestart(LatestUpdateInfo);
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error applying update");
+                await SendUpdateProgressToFrontend(
+                    version: targetVersion,
+                    progress: 100,
+                    status: "error",
+                    message: "安裝更新失敗，請重新開啟 Segra 再試一次");
+            }
         }
 
         private static async Task SendUpdateProgressToFrontend(string version, int progress, string status, string message)
@@ -250,8 +269,8 @@ namespace Segra.Backend.App
             {
                 string status = progress < 100 ? "downloading" : "downloaded";
                 string message = progress < 100
-                    ? $"Downloading update: {progress}% complete"
-                    : "Download complete, preparing to install";
+                    ? $"下載更新中：{progress}%"
+                    : "下載完成，準備安裝";
 
                 await SendUpdateProgressToFrontend(version, progress, status, message);
 
@@ -402,7 +421,7 @@ namespace Segra.Backend.App
 
                     string releaseNotes = !string.IsNullOrEmpty(release.Body)
                         ? release.Body
-                        : $"No release notes available for version {versionString}";
+                        : $"{versionString} 版沒有更新說明";
 
                     string base64Markdown = Convert.ToBase64String(Encoding.UTF8.GetBytes(releaseNotes));
 

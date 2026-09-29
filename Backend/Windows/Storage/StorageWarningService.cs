@@ -119,12 +119,12 @@ namespace Segra.Backend.Windows.Storage
                     await MessageService.SendFrontendMessage("StorageWarning", new
                     {
                         warningId,
-                        title = "Storage Limit Warning",
-                        description = $"The selected folder contains {newFolderSizeGb:F2} GB of content, which exceeds your storage limit of {storageLimitGb} GB.\n\n" +
-                                     $"Older recordings may be automatically deleted to stay within the limit.\n\n" +
-                                     $"Do you want to use this folder anyway?",
-                        confirmText = "Use Folder",
-                        cancelText = "Cancel",
+                        title = "儲存上限提醒",
+                        description = $"選取的資料夾裡有 {newFolderSizeGb:F2} GB 的影片，超過你設定的儲存上限 {storageLimitGb} GB。\n\n" +
+                                     $"為了維持在上限內，較舊的錄影可能會被自動刪除。\n\n" +
+                                     $"還是要使用這個資料夾嗎？",
+                        confirmText = "使用這個資料夾",
+                        cancelText = "取消",
                         action = "contentFolder",
                         actionData = new { warningId }
                     });
@@ -177,16 +177,16 @@ namespace Segra.Backend.Windows.Storage
                     await MessageService.SendFrontendMessage("StorageWarning", new
                     {
                         warningId,
-                        title = "Storage Limit Warning",
-                        description = $"Importing these files ({totalImportSizeGb:F2} GB) will exceed your storage limit.\n\n" +
-                                     $"Current folder size: {currentFolderSizeGb:F2} GB\n" +
-                                     $"Files to import: {totalImportSizeGb:F2} GB\n" +
-                                     $"Projected total: {projectedSizeGb:F2} GB\n" +
-                                     $"Storage limit: {storageLimitGb} GB\n\n" +
-                                     $"Older recordings may be automatically deleted to make room.\n\n" +
-                                     $"Do you want to continue with the import?",
-                        confirmText = "Import Anyway",
-                        cancelText = "Cancel",
+                        title = "儲存上限提醒",
+                        description = $"匯入這些檔案（{totalImportSizeGb:F2} GB）會超過你的儲存上限。\n\n" +
+                                     $"目前資料夾大小：{currentFolderSizeGb:F2} GB\n" +
+                                     $"要匯入的檔案：{totalImportSizeGb:F2} GB\n" +
+                                     $"匯入後總計：{projectedSizeGb:F2} GB\n" +
+                                     $"儲存上限：{storageLimitGb} GB\n\n" +
+                                     $"為了騰出空間，較舊的錄影可能會被自動刪除。\n\n" +
+                                     $"還是要繼續匯入嗎？",
+                        confirmText = "仍要匯入",
+                        cancelText = "取消",
                         action = "import",
                         actionData = new { warningId }
                     });

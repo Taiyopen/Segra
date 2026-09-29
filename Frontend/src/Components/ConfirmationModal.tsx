@@ -14,8 +14,8 @@ export interface ConfirmationModalProps {
 export default function ConfirmationModal({
   title,
   description,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText = '確定',
+  cancelText = '取消',
   onConfirm,
   onCancel,
 }: ConfirmationModalProps) {

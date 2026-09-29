@@ -257,9 +257,9 @@ export default function GameDetectionSection() {
 
   const removeGame = (name: string) => {
     confirmDelete({
-      title: 'Remove game settings?',
-      description: `Remove ${name} and all of its recording overrides? Existing recordings will not be deleted.`,
-      confirmText: 'Remove',
+      title: '移除這款遊戲的設定？',
+      description: `要移除 ${name} 以及它所有的錄影覆寫設定嗎？已經錄好的影片不會被刪除。`,
+      confirmText: '移除',
       onConfirm: () => {
         updateSettings({ games: games.filter((g) => g.name !== name) });
         if (selectedName === name) setSelectedName(null);
@@ -269,11 +269,10 @@ export default function GameDetectionSection() {
 
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-      <h2 className="text-xl font-semibold mb-2">Game Recording &amp; Overrides</h2>
+      <h2 className="text-xl font-semibold mb-2">遊戲錄影與覆寫設定</h2>
       <p className="text-sm opacity-80 mb-4">
-        Add a game here to force Segra to record it (or stop it from recording), and optionally
-        override your recording settings for that game. Most games are detected automatically, so
-        add one only if it isn&apos;t being recorded, or when you want different settings for it.
+        在這裡加入遊戲，就能強制 Segra
+        錄影（或不錄影），也可以替這款遊戲覆寫錄影設定。大部分遊戲都會自動偵測，只有沒被錄到、或想用不同設定時才需要加入。
       </p>
 
       {/* Global auto-record toggle */}
@@ -285,10 +284,9 @@ export default function GameDetectionSection() {
           onChange={(e) => updateSettings({ autoRecordGames: e.target.checked })}
         />
         <div>
-          <div className="font-semibold">Auto-record Games</div>
+          <div className="font-semibold">自動錄影遊戲</div>
           <div className="text-xs opacity-70 mt-0.5">
-            Automatically start recording when a game launches. Games you&apos;ve added with
-            recording enabled and manual recordings are unaffected.
+            遊戲一啟動就自動開始錄影。你加入且開啟錄影的遊戲，以及手動錄影，都不受這個選項影響。
           </div>
         </div>
       </label>
@@ -296,7 +294,7 @@ export default function GameDetectionSection() {
       {/* Add game search */}
       <div className="mb-5 relative" ref={searchRef}>
         <label className="label pb-1">
-          <span className="label-text text-base-content font-semibold">Add a game</span>
+          <span className="label-text text-base-content font-semibold">加入遊戲</span>
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -305,7 +303,7 @@ export default function GameDetectionSection() {
           <input
             type="text"
             className="input input-bordered w-full pl-10 bg-base-200"
-            placeholder="Search for a game to record..."
+            placeholder="搜尋要錄影的遊戲…"
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -333,7 +331,7 @@ export default function GameDetectionSection() {
 
             {filteredGames.length === 0 && (
               <div className="px-3 pt-3 pb-1 text-xs text-gray-400">
-                No matching game in the catalog.
+                遊戲清單裡找不到符合的遊戲。
               </div>
             )}
 
@@ -348,7 +346,7 @@ export default function GameDetectionSection() {
               <div className="w-8 h-8 rounded-md bg-base-300 flex items-center justify-center flex-shrink-0">
                 <Plus size={18} />
               </div>
-              <div className="font-medium truncate">Add a custom game</div>
+              <div className="font-medium truncate">加入自訂遊戲</div>
             </div>
           </div>
         )}
@@ -356,7 +354,7 @@ export default function GameDetectionSection() {
 
       {games.length === 0 ? (
         <div className="bg-base-200 rounded-lg border border-base-400 text-center text-gray-500 py-10">
-          No custom games yet. Search for a game above to customize how Segra records it.
+          還沒有加入任何遊戲。在上方搜尋遊戲，就能自訂 Segra 怎麼錄它。
         </div>
       ) : (
         <>
@@ -365,7 +363,7 @@ export default function GameDetectionSection() {
             {canScrollLeft && (
               <button
                 type="button"
-                aria-label="Scroll left"
+                aria-label="往左捲動"
                 onClick={() => scrollTabs(-1)}
                 className="absolute left-0 top-0 bottom-0 z-10 flex items-center justify-center px-1 bg-gradient-to-r from-base-300 via-base-300 to-transparent text-base-content cursor-pointer"
               >
@@ -375,7 +373,7 @@ export default function GameDetectionSection() {
             {canScrollRight && (
               <button
                 type="button"
-                aria-label="Scroll right"
+                aria-label="往右捲動"
                 onClick={() => scrollTabs(1)}
                 className="absolute right-0 top-0 bottom-0 z-10 flex items-center justify-center px-1 bg-gradient-to-l from-base-300 via-base-300 to-transparent text-base-content cursor-pointer"
               >
@@ -407,7 +405,7 @@ export default function GameDetectionSection() {
                     <span className="text-sm font-medium">{g.name}</span>
                     <button
                       type="button"
-                      aria-label={`Remove ${g.name}`}
+                      aria-label={`移除 ${g.name}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         removeGame(g.name);
@@ -499,14 +497,14 @@ function GamePanel({
         <div className="min-w-0 flex-1">
           <div className="font-semibold text-lg truncate">{game.name}</div>
           <div className="text-xs text-gray-400 truncate">
-            {game.paths.length === 1 ? game.paths[0] : `${game.paths.length} executables`}
+            {game.paths.length === 1 ? game.paths[0] : `${game.paths.length} 個執行檔`}
           </div>
         </div>
         <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
           <span
             className={`text-sm font-semibold ${game.record ? 'text-primary' : 'text-gray-400'}`}
           >
-            {game.record ? 'Recording on' : 'Recording off'}
+            {game.record ? '會錄影' : '不錄影'}
           </span>
           <input
             type="checkbox"
@@ -519,8 +517,8 @@ function GamePanel({
 
       {/* Recording quality override */}
       <OverrideSection
-        title="Recording Quality"
-        description="Override resolution, frame rate and bitrate for this game."
+        title="錄影畫質"
+        description="替這款遊戲覆寫解析度、影格率和位元率。"
         enabled={q != null}
         onToggle={(enabled) => (enabled ? enableQuality() : onUpdate({ qualityOverride: null }))}
       >
@@ -536,8 +534,8 @@ function GamePanel({
 
       {/* Recording mode override */}
       <OverrideSection
-        title="Recording Mode"
-        description="Override whether this game records a full session, a replay buffer, or both."
+        title="錄影方式"
+        description="替這款遊戲覆寫要錄完整錄影、重播緩衝，還是兩者都要。"
         enabled={mode != null}
         onToggle={(enabled) => (enabled ? enableMode() : onUpdate({ recordingModeOverride: null }))}
       >
@@ -552,7 +550,7 @@ function GamePanel({
                     mode.recordingMode === m ? 'border-primary' : 'border-base-400'
                   }`}
                 >
-                  {m === 'Hybrid' ? 'Hybrid' : m === 'Session' ? 'Session' : 'Replay Buffer'}
+                  {m === 'Hybrid' ? '混合模式' : m === 'Session' ? '完整錄影' : '重播緩衝'}
                 </button>
               ))}
             </div>
@@ -575,7 +573,7 @@ function GamePanel({
                   <div className="grid grid-cols-2 gap-4">
                     <div className="form-control">
                       <label className="label text-base-content px-0 !block mb-1">
-                        <span className="label-text">Buffer Duration (seconds)</span>
+                        <span className="label-text">緩衝長度（秒）</span>
                       </label>
                       <input
                         type="number"
@@ -598,7 +596,7 @@ function GamePanel({
                     </div>
                     <div className="form-control">
                       <label className="label text-base-content px-0 !block mb-1">
-                        <span className="label-text">Buffer Maximum Size (MB)</span>
+                        <span className="label-text">緩衝大小上限（MB）</span>
                       </label>
                       <input
                         type="number"
@@ -629,8 +627,8 @@ function GamePanel({
 
       {/* Discard sessions without bookmarks override */}
       <OverrideSection
-        title="Discard Sessions Without Bookmarks"
-        description="Override whether sessions of this game are discarded when they have no manual bookmarks."
+        title="捨棄沒有標記的完整錄影"
+        description="替這款遊戲覆寫：完整錄影裡沒有手動標記時要不要捨棄。"
         enabled={game.discardSessionsWithoutBookmarksOverride != null}
         onToggle={(enabled) =>
           onUpdate({
@@ -649,14 +647,14 @@ function GamePanel({
               onUpdate({ discardSessionsWithoutBookmarksOverride: e.target.checked })
             }
           />
-          <span>Discard Session Recordings Without Manual Bookmarks</span>
+          <span>沒有手動標記的完整錄影直接捨棄</span>
         </label>
       </OverrideSection>
 
       {/* HDR recording override */}
       <OverrideSection
-        title="HDR Recording"
-        description="Override whether HDR recording is enabled for this game (e.g. disable it for games where HDR injection tools break capture)."
+        title="HDR 錄影"
+        description="替這款遊戲覆寫是否用 HDR 錄影（例如某些遊戲的 HDR 注入工具會讓擷取失敗，就可以關掉）。"
         enabled={game.enableHdrOverride != null}
         onToggle={(enabled) => onUpdate({ enableHdrOverride: enabled ? settings.enableHdr : null })}
       >
@@ -667,14 +665,14 @@ function GamePanel({
             checked={game.enableHdrOverride ?? false}
             onChange={(e) => onUpdate({ enableHdrOverride: e.target.checked })}
           />
-          <span>Record in HDR when the display supports it</span>
+          <span>螢幕支援時以 HDR 錄影</span>
         </label>
       </OverrideSection>
 
       {/* Recording volume override */}
       <OverrideSection
-        title="Recording Volume"
-        description="Override the captured game/system audio volume for this game, without changing your own in-game or Windows volume."
+        title="錄影音量"
+        description="替這款遊戲覆寫錄進去的遊戲與系統聲音音量，不會改變你自己在遊戲或 Windows 裡聽到的音量。"
         enabled={game.volumeOverride != null}
         onToggle={(enabled) => onUpdate({ volumeOverride: enabled ? 1.0 : null })}
       >
@@ -720,14 +718,14 @@ function QualityOverrideEditor({
   onChange: (patch: Partial<GameQualityOverride>) => void;
 }) {
   const presets: { id: VideoQualityPreset; label: string; sub: string }[] = [
-    { id: 'low', label: 'Low Quality', sub: '720p • 30fps' },
-    { id: 'standard', label: 'Standard', sub: '1080p • 60fps' },
+    { id: 'low', label: '低畫質', sub: '720p • 30fps' },
+    { id: 'standard', label: '標準', sub: '1080p • 60fps' },
     {
       id: 'high',
-      label: 'High Quality',
+      label: '高畫質',
       sub: `${maxDisplayHeight >= 1440 ? '1440p' : '1080p'} • 60fps`,
     },
-    { id: 'custom', label: 'Custom', sub: 'Manual config' },
+    { id: 'custom', label: '自訂', sub: '手動設定' },
   ];
 
   return (
@@ -766,7 +764,7 @@ function QualityOverrideEditor({
               {/* Resolution */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Resolution</span>
+                  <span className="label-text text-base-content">解析度</span>
                 </label>
                 <DropdownSelect
                   items={[
@@ -785,7 +783,7 @@ function QualityOverrideEditor({
               {/* Frame rate */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Frame Rate (FPS)</span>
+                  <span className="label-text text-base-content">影格率（FPS）</span>
                 </label>
                 <DropdownSelect
                   items={[24, 30, 60, 120, 144].map((v) => ({
@@ -800,15 +798,15 @@ function QualityOverrideEditor({
               {/* Rate control */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Rate Control</span>
+                  <span className="label-text text-base-content">位元率控制</span>
                 </label>
                 <DropdownSelect
                   items={[
-                    { value: 'CBR', label: 'CBR (Constant Bitrate)' },
-                    { value: 'VBR', label: 'VBR (Variable Bitrate)' },
+                    { value: 'CBR', label: 'CBR（固定位元率）' },
+                    { value: 'VBR', label: 'VBR（變動位元率）' },
                     ...(value.encoder === 'cpu'
-                      ? [{ value: 'CRF', label: 'CRF (Constant Rate Factor)' }]
-                      : [{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' }]),
+                      ? [{ value: 'CRF', label: 'CRF（固定畫質係數）' }]
+                      : [{ value: 'CQP', label: 'CQP（固定量化參數）' }]),
                   ]}
                   value={value.rateControl}
                   onChange={(val) => onChange({ rateControl: val })}
@@ -819,7 +817,7 @@ function QualityOverrideEditor({
               {value.rateControl === 'CBR' && (
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text text-base-content">Bitrate</span>
+                    <span className="label-text text-base-content">位元率</span>
                   </label>
                   <DropdownSelect
                     items={BITRATE_OPTIONS.map((v) => ({ value: String(v), label: `${v} Mbps` }))}
@@ -834,7 +832,7 @@ function QualityOverrideEditor({
                 <>
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text text-base-content">Minimum Bitrate</span>
+                      <span className="label-text text-base-content">最低位元率</span>
                     </label>
                     <DropdownSelect
                       items={BITRATE_OPTIONS.map((v) => ({ value: String(v), label: `${v} Mbps` }))}
@@ -847,7 +845,7 @@ function QualityOverrideEditor({
                   </div>
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text text-base-content">Maximum Bitrate</span>
+                      <span className="label-text text-base-content">最高位元率</span>
                     </label>
                     <DropdownSelect
                       items={BITRATE_OPTIONS.map((v) => ({ value: String(v), label: `${v} Mbps` }))}
@@ -865,7 +863,7 @@ function QualityOverrideEditor({
               {value.rateControl === 'CRF' && (
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text text-base-content">CRF Value (0-51)</span>
+                    <span className="label-text text-base-content">CRF 值（0–51）</span>
                   </label>
                   <input
                     type="number"
@@ -886,7 +884,7 @@ function QualityOverrideEditor({
               {value.rateControl === 'CQP' && (
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text text-base-content">CQ Level (0-30)</span>
+                    <span className="label-text text-base-content">CQ 等級（0–30）</span>
                   </label>
                   <input
                     type="number"
@@ -904,7 +902,7 @@ function QualityOverrideEditor({
               {/* Encoder */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Video Encoder</span>
+                  <span className="label-text text-base-content">影像編碼器</span>
                 </label>
                 <DropdownSelect
                   items={[
@@ -932,7 +930,7 @@ function QualityOverrideEditor({
               {/* Codec */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Codec</span>
+                  <span className="label-text text-base-content">編碼格式</span>
                 </label>
                 <DropdownSelect
                   items={codecs

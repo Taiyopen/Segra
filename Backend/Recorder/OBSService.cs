@@ -1272,17 +1272,17 @@ namespace Segra.Backend.Recorder
                 Log.Error($"OBS installation failed: {ex.Message}");
 #if WINDOWS
                 await MessageService.ShowModal(
-                    "Recorder Error",
-                    "The recorder installation failed. Please check your internet connection and try again. If you have any games running, please close them and restart Segra.",
+                    "錄影元件錯誤",
+                    "錄影元件安裝失敗。請確認網路連線後再試一次；如果有遊戲正在執行，請先關掉遊戲再重新開啟 Segra。",
                     "error",
-                    "Could not install recorder"
+                    "無法安裝錄影元件"
                 );
 #else
                 await MessageService.ShowModal(
-                    "Recorder not found",
-                    "Segra's Linux recorder needs OBS Studio's libraries (libobs). Install OBS with your package manager, for example:\n\n    sudo apt install obs-studio\n\nThen restart Segra.",
+                    "找不到錄影元件",
+                    "Segra 的 Linux 版錄影需要 OBS Studio 的函式庫（libobs）。請用套件管理員安裝 OBS，例如：\n\n    sudo apt install obs-studio\n\n裝好後重新開啟 Segra。",
                     "error",
-                    "OBS Studio not found"
+                    "找不到 OBS Studio"
                 );
 #endif
                 AppState.Instance.HasLoadedObs = true;
@@ -1357,10 +1357,10 @@ namespace Segra.Backend.Recorder
             {
                 Log.Error($"Failed to initialize OBS: {ex.Message}");
                 await MessageService.ShowModal(
-                    "Recorder Error",
-                    "Failed to initialize the recorder. Please check the logs for more details.",
+                    "錄影元件錯誤",
+                    "錄影元件初始化失敗，詳細原因請查看日誌。",
                     "error",
-                    "Could not initialize recorder"
+                    "無法初始化錄影元件"
                 );
                 AppState.Instance.HasLoadedObs = true;
             }
@@ -1556,7 +1556,7 @@ namespace Segra.Backend.Recorder
                 return foundIndex.Value;
 
             if (warnIfNotFound)
-                _ = MessageService.ShowModal("Display recording", "Could not find selected display. Defaulting to first automatically detected display.", "warning");
+                _ = MessageService.ShowModal("螢幕錄影", "找不到選取的螢幕，改用第一個自動偵測到的螢幕。", "warning");
 
             return 0;
         }
@@ -2000,22 +2000,22 @@ namespace Segra.Backend.Recorder
                     || lastError.Contains("not enough space", StringComparison.OrdinalIgnoreCase)
                     || lastError.Contains("disk full", StringComparison.OrdinalIgnoreCase))
                 {
-                    return ("Recording stopped: disk full",
-                        $"OBS stopped the recording because the disk is full. Free up space and try again.\n\nDetails: {lastError}");
+                    return ("錄影已停止：磁碟已滿",
+                        $"磁碟已滿，OBS 停止了錄影。請清出空間後再試一次。\n\n詳細資訊：{lastError}");
                 }
 
-                return ("Recording stopped unexpectedly",
-                    $"OBS stopped the recording.\n\nDetails: {lastError}");
+                return ("錄影意外停止",
+                    $"OBS 停止了錄影。\n\n詳細資訊：{lastError}");
             }
 
             return code switch
             {
-                ObsOutputStopCode.EncodeError => ("Recording stopped: encoder error",
-                    "OBS reported an encoder error and stopped the recording. Check that your GPU drivers are up to date and try a different encoder in Settings."),
-                ObsOutputStopCode.Error => ("Recording stopped unexpectedly",
-                    "OBS stopped the recording due to an error. Check the logs for details."),
-                _ => ("Recording stopped unexpectedly",
-                    $"OBS stopped the recording (code {code}). Check the logs for details.")
+                ObsOutputStopCode.EncodeError => ("錄影已停止：編碼器錯誤",
+                    "OBS 回報編碼器錯誤並停止了錄影。請確認顯示卡驅動程式是最新版，或到設定換一個影像編碼器試試。"),
+                ObsOutputStopCode.Error => ("錄影意外停止",
+                    "OBS 因為發生錯誤而停止了錄影，詳細原因請查看日誌。"),
+                _ => ("錄影意外停止",
+                    $"OBS 停止了錄影（代碼 {code}），詳細原因請查看日誌。")
             };
         }
 
@@ -2115,6 +2115,7 @@ namespace Segra.Backend.Recorder
                     s.Set("priority", 2);
                 });
                 voiceSource.IsMuted = muted;
+                SetSourceVolume(voiceSource, Settings.Instance.DiscordAudioVolume * (pl.EffectiveSettings?.VolumeMultiplier ?? 1f));
                 try { voiceSource.AudioMixers = pl.VoiceChatMixerMask; }
                 catch (Exception ex) { Log.Warning($"Failed to set mixer for {app.Name} source: {ex.Message}"); }
                 pl.MainScene.AddSource(voiceSource);
@@ -2373,8 +2374,8 @@ namespace Segra.Backend.Recorder
                 {
                     try
                     {
-                        await ShowModal("Recording stopped: running low on disk space",
-                            $"The recording drive is running low on space ({freeMb:F0} MB free), so recording was stopped to save the file safely. Free up some space before recording again.",
+                        await ShowModal("錄影已停止：磁碟空間不足",
+                            $"錄影所在的磁碟快滿了（剩 {freeMb:F0} MB），為了安全保存檔案已停止錄影。請先清出一些空間再錄影。",
                             "error");
                         _ = Task.Run(() => PlaySound("error"));
                     }
@@ -2753,7 +2754,7 @@ namespace Segra.Backend.Recorder
                 Settings.Instance.PendingOBSUpdate = true;
                 SettingsService.SaveSettings();
                 await UpdateService.ForceReinstallCurrentVersionAsync();
-                await ShowModal("OBS Update", "Please restart Segra to apply the update.");
+                await ShowModal("OBS 更新", "請重新開啟 Segra 以套用更新。");
                 return;
             }
 
@@ -2915,7 +2916,7 @@ namespace Segra.Backend.Recorder
 
                     if (Settings.Instance.PendingOBSUpdate)
                     {
-                        await ShowModal("OBS Update", $"OBS update to {versionToDownload.Version} applied successfully.");
+                        await ShowModal("OBS 更新", $"已更新 OBS 到 {versionToDownload.Version}。");
                         Settings.Instance.PendingOBSUpdate = false;
                         SettingsService.SaveSettings();
                     }
@@ -2923,7 +2924,7 @@ namespace Segra.Backend.Recorder
                 catch (Exception ex)
                 {
                     Log.Error($"Failed to extract OBS: {ex.Message}");
-                    await ShowModal("OBS Update", "Failed to apply OBS update. Please try again.", "error");
+                    await ShowModal("OBS 更新", "OBS 更新失敗，請再試一次。", "error");
                     throw;
                 }
 

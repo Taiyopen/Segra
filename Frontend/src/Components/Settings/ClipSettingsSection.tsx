@@ -121,7 +121,7 @@ export default function ClipSettingsSection({
 
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-      <h2 className="text-xl font-semibold mb-4">Clip Settings</h2>
+      <h2 className="text-xl font-semibold mb-4">剪輯片段設定</h2>
 
       {/* Quality Preset Selector */}
       <div className="mb-4">
@@ -132,7 +132,7 @@ export default function ClipSettingsSection({
             }`}
             onClick={() => handlePresetChange('low')}
           >
-            <div className="text-sm font-semibold">Low Quality</div>
+            <div className="text-sm font-semibold">低畫質</div>
             <div className="text-xs text-base-content text-opacity-70 mt-1">720p • 30fps</div>
           </div>
           <div
@@ -141,7 +141,7 @@ export default function ClipSettingsSection({
             }`}
             onClick={() => handlePresetChange('standard')}
           >
-            <div className="text-sm font-semibold">Standard</div>
+            <div className="text-sm font-semibold">標準</div>
             <div className="text-xs text-base-content text-opacity-70 mt-1">1080p • 60fps</div>
           </div>
           <div
@@ -150,7 +150,7 @@ export default function ClipSettingsSection({
             }`}
             onClick={() => handlePresetChange('high')}
           >
-            <div className="text-sm font-semibold">High Quality</div>
+            <div className="text-sm font-semibold">高畫質</div>
             <div className="text-xs text-base-content text-opacity-70 mt-1">
               {appState.maxDisplayHeight >= 1440 ? '1440p' : '1080p'} • 60fps
             </div>
@@ -161,8 +161,8 @@ export default function ClipSettingsSection({
             }`}
             onClick={() => handlePresetChange('custom')}
           >
-            <div className="text-sm font-semibold">Custom</div>
-            <div className="text-xs text-base-content text-opacity-70 mt-1">Manual config</div>
+            <div className="text-sm font-semibold">自訂</div>
+            <div className="text-xs text-base-content text-opacity-70 mt-1">手動設定</div>
           </div>
         </div>
       </div>
@@ -193,11 +193,11 @@ export default function ClipSettingsSection({
               {/* Frame Rate */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Frame Rate (FPS)</span>
+                  <span className="label-text text-base-content">影格率（FPS）</span>
                 </label>
                 <DropdownSelect
                   items={[
-                    { value: '0', label: 'Original FPS' },
+                    { value: '0', label: '跟原始影片相同' },
                     ...[24, 30, 60, 120, 144].map((v) => ({
                       value: String(v),
                       label: String(v),
@@ -211,15 +211,15 @@ export default function ClipSettingsSection({
               {/* Audio Quality (clip export only) */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Audio Quality</span>
+                  <span className="label-text text-base-content">音訊品質</span>
                 </label>
                 <DropdownSelect
                   items={[
-                    { value: '96k', label: '96 kbps (Low)' },
-                    { value: '128k', label: '128 kbps (Medium)' },
-                    { value: '192k', label: '192 kbps (High)' },
-                    { value: '256k', label: '256 kbps (Very High)' },
-                    { value: '320k', label: '320 kbps (Insane)' },
+                    { value: '96k', label: '96 kbps（低）' },
+                    { value: '128k', label: '128 kbps（中）' },
+                    { value: '192k', label: '192 kbps（高）' },
+                    { value: '256k', label: '256 kbps（很高）' },
+                    { value: '320k', label: '320 kbps（極高）' },
                   ]}
                   value={settings.clipAudioQuality}
                   onChange={(val) =>
@@ -233,23 +233,23 @@ export default function ClipSettingsSection({
               {/* Rate Control */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Rate Control</span>
+                  <span className="label-text text-base-content">位元率控制</span>
                 </label>
                 <DropdownSelect
                   items={[
-                    { value: 'CBR', label: 'CBR (Constant Bitrate)' },
-                    { value: 'VBR', label: 'VBR (Variable Bitrate)' },
+                    { value: 'CBR', label: 'CBR（固定位元率）' },
+                    { value: 'VBR', label: 'VBR（變動位元率）' },
                     ...(settings.clipEncoder === 'cpu'
-                      ? [{ value: 'CRF', label: 'CRF (Constant Rate Factor)' }]
+                      ? [{ value: 'CRF', label: 'CRF（固定畫質係數）' }]
                       : []),
                     ...(settings.clipEncoder !== 'cpu'
-                      ? [{ value: 'CQP', label: 'CQP (Constant Quantization Parameter)' }]
+                      ? [{ value: 'CQP', label: 'CQP（固定量化參數）' }]
                       : []),
                     ...(settings.clipEncoder === 'gpu' && isClipNvenc
                       ? [
                           {
                             value: 'CQVBR',
-                            label: 'CQVBR (Target Quality + Max Bitrate, OBS 31+ NVENC)',
+                            label: 'CQVBR（目標畫質＋最高位元率，需 OBS 31 以上的 NVENC）',
                           },
                         ]
                       : []),
@@ -263,7 +263,7 @@ export default function ClipSettingsSection({
               {clipRc === 'CBR' && (
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text text-base-content">Bitrate</span>
+                    <span className="label-text text-base-content">位元率</span>
                   </label>
                   <DropdownSelect
                     items={clipMbpsItems}
@@ -278,7 +278,7 @@ export default function ClipSettingsSection({
                 <>
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text text-base-content">Minimum Bitrate</span>
+                      <span className="label-text text-base-content">最低位元率</span>
                     </label>
                     <DropdownSelect
                       items={clipMbpsItems}
@@ -292,7 +292,7 @@ export default function ClipSettingsSection({
                   </div>
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text text-base-content">Maximum Bitrate</span>
+                      <span className="label-text text-base-content">最高位元率</span>
                     </label>
                     <DropdownSelect
                       items={clipMbpsItems}
@@ -317,7 +317,7 @@ export default function ClipSettingsSection({
               {clipRc === 'CRF' && (
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text text-base-content">CRF Value (0-51)</span>
+                    <span className="label-text text-base-content">CRF 值（0–51）</span>
                   </label>
                   <input
                     type="number"
@@ -340,7 +340,7 @@ export default function ClipSettingsSection({
               {clipRc === 'CQP' && (
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text text-base-content">CQ Level (0-30)</span>
+                    <span className="label-text text-base-content">CQ 等級（0–30）</span>
                   </label>
                   <input
                     type="number"
@@ -364,7 +364,7 @@ export default function ClipSettingsSection({
                 <>
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text text-base-content">Maximum Bitrate (Mbps)</span>
+                      <span className="label-text text-base-content">最高位元率（Mbps）</span>
                     </label>
                     <DropdownSelect
                       items={clipMbpsItems}
@@ -381,9 +381,9 @@ export default function ClipSettingsSection({
                   <div className="form-control">
                     <label className="label">
                       <span className="label-text text-base-content">
-                        Target Quality (CQ){' '}
+                        目標畫質（CQ）{' '}
                         <span className="text-base-content/60 text-sm">
-                          ({isAv1Clip ? '1–63' : '1–51'} · lower is higher quality)
+                          （{isAv1Clip ? '1–63' : '1–51'}，數字越小畫質越好）
                         </span>
                       </span>
                     </label>
@@ -411,7 +411,7 @@ export default function ClipSettingsSection({
               {/* Video Encoder */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Video Encoder</span>
+                  <span className="label-text text-base-content">影像編碼器</span>
                 </label>
                 <DropdownSelect
                   items={[
@@ -459,7 +459,7 @@ export default function ClipSettingsSection({
               {/* Codec */}
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text text-base-content">Codec</span>
+                  <span className="label-text text-base-content">編碼格式</span>
                 </label>
                 <DropdownSelect
                   items={appState.codecs
@@ -508,7 +508,7 @@ export default function ClipSettingsSection({
               onChange={(e) => updateSettings({ clipKeepSeparateAudioTracks: e.target.checked })}
               className="checkbox checkbox-primary checkbox-sm"
             />
-            <span className="cursor-pointer">Keep Audio Tracks Separated</span>
+            <span className="cursor-pointer">保留分開的音軌</span>
           </label>
         </div>
       )}

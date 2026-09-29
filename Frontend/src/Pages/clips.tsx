@@ -16,7 +16,7 @@ export default function Clips() {
     <ContentPage
       contentType="Clip"
       sectionId="clips"
-      title="Clips"
+      title="剪輯片段"
       Icon={Clapperboard}
       progressItems={clippingProgress}
       isProgressVisible={Object.keys(clippingProgress).length > 0}

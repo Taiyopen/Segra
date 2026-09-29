@@ -296,7 +296,7 @@ namespace Segra.Backend.Games.CounterStrike2
                 Directory.CreateDirectory(cfgDir);
                 File.WriteAllText(cfgPath, expectedContent);
                 Log.Information($"Created CS2 gamestate integration config at {cfgPath}");
-                _ = MessageService.ShowModal("Game integration", $"There has been an update to the CS2 integration. Please restart the game to apply the changes.", "warning");
+                _ = MessageService.ShowModal("遊戲整合", $"CS2 的遊戲整合已更新，請重新啟動遊戲來套用。", "warning");
             }
             catch (Exception ex)
             {

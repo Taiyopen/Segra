@@ -66,6 +66,8 @@
   --color-base-400: #49515b;
   --color-custom: #2e3640;
   --color-primary-yellow: #fecb00;
+  /* Window frame shared by the title bar and sidebar, one step darker than base-300 */
+  --color-frame: #10161e;
 }
 
 :root {

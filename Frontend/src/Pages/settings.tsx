@@ -20,14 +20,14 @@ type SectionId =
   'account' | 'recording' | 'audio' | 'clips' | 'games' | 'storage' | 'preferences' | 'advanced';
 
 const ALL_NAV_ITEMS: { id: SectionId; label: string }[] = [
-  { id: 'account', label: 'Account' },
-  { id: 'recording', label: 'Recording' },
-  { id: 'audio', label: 'Audio' },
-  { id: 'clips', label: 'Clips' },
-  { id: 'storage', label: 'Storage' },
-  { id: 'games', label: 'Games' },
-  { id: 'preferences', label: 'Preferences' },
-  { id: 'advanced', label: 'Advanced' },
+  { id: 'account', label: '帳號' },
+  { id: 'recording', label: '錄影' },
+  { id: 'audio', label: '音訊' },
+  { id: 'clips', label: '剪輯片段' },
+  { id: 'storage', label: '儲存空間' },
+  { id: 'games', label: '遊戲' },
+  { id: 'preferences', label: '偏好設定' },
+  { id: 'advanced', label: '進階' },
 ];
 
 function SectionHeader({ id, children }: { id: string; children: React.ReactNode }) {
@@ -114,7 +114,7 @@ export default function Settings() {
       {/* Sticky Jump Nav */}
       <div className="sticky top-0 z-50 bg-base-200 dark:bg-base-300 border-b border-base-400 px-5 py-3">
         <div className="flex items-center gap-6">
-          <h1 className="text-2xl font-bold">Settings</h1>
+          <h1 className="text-2xl font-bold">設定</h1>
           <nav className="flex gap-1">
             {navItems.map((item) => (
               <button
@@ -140,42 +140,42 @@ export default function Settings() {
         {/* ACCOUNT */}
         {!settings.airplaneMode && (
           <>
-            <SectionHeader id="account">Account</SectionHeader>
+            <SectionHeader id="account">帳號</SectionHeader>
             <AccountSection />
           </>
         )}
 
         {/* RECORDING */}
-        <SectionHeader id="recording">Recording</SectionHeader>
+        <SectionHeader id="recording">錄影</SectionHeader>
         <CaptureModeSection settings={settings} updateSettings={updateSettings} />
         <VideoSettingsSection settings={settings} updateSettings={updateSettings} />
         <KeybindingsSection settings={settings} updateSettings={updateSettings} />
 
         {/* AUDIO */}
-        <SectionHeader id="audio">Audio</SectionHeader>
+        <SectionHeader id="audio">音訊</SectionHeader>
         <AudioDevicesSection settings={settings} updateSettings={updateSettings} />
 
         {/* CLIPS */}
-        <SectionHeader id="clips">Clips</SectionHeader>
+        <SectionHeader id="clips">剪輯片段</SectionHeader>
         <ClipSettingsSection settings={settings} updateSettings={updateSettings} />
         <HighlightsSection settings={settings} updateSettings={updateSettings} />
 
         {/* STORAGE */}
-        <SectionHeader id="storage">Storage</SectionHeader>
+        <SectionHeader id="storage">儲存空間</SectionHeader>
         <StorageSettingsSection settings={settings} updateSettings={updateSettings} />
 
         {/* GAMES */}
-        <SectionHeader id="games">Games</SectionHeader>
+        <SectionHeader id="games">遊戲</SectionHeader>
         <GameDetectionSection />
         <GameIntegrationsSection />
 
         {/* PREFERENCES */}
-        <SectionHeader id="preferences">Preferences</SectionHeader>
+        <SectionHeader id="preferences">偏好設定</SectionHeader>
         <PreferencesSection settings={settings} updateSettings={updateSettings} />
         <MenuCustomizationSection settings={settings} updateSettings={updateSettings} />
 
         {/* ADVANCED */}
-        <SectionHeader id="advanced">Advanced</SectionHeader>
+        <SectionHeader id="advanced">進階</SectionHeader>
         <AdvancedSection
           settings={settings}
           updateSettings={updateSettings}

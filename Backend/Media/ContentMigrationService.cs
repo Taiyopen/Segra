@@ -88,14 +88,14 @@ namespace Segra.Backend.Media
                 string contentFolder = Settings.Instance.ContentFolder;
                 if (string.IsNullOrWhiteSpace(contentFolder))
                 {
-                    await SendProgress(migrationId, string.Empty, 0, "error", 0, 0, "No recording path is configured.");
+                    await SendProgress(migrationId, string.Empty, 0, "error", 0, 0, "還沒有設定錄影資料夾。");
                     return;
                 }
 
                 var outside = GetContentOutsideRecordingPath(contentFolder);
                 if (outside.Count == 0)
                 {
-                    await SendProgress(migrationId, string.Empty, 100, "done", 0, 0, "Nothing to move.");
+                    await SendProgress(migrationId, string.Empty, 100, "done", 0, 0, "沒有需要搬移的影片。");
                     return;
                 }
 
@@ -110,11 +110,11 @@ namespace Segra.Backend.Media
                     Log.Warning("Content migration aborted: need {Need:F2} GB free, only {Free:F2} GB available.", needGb, freeGb);
 
                     await MessageService.ShowModal(
-                        "Not enough space",
-                        $"Moving these videos needs about {needGb:F1} GB free on the recording drive, but only {freeGb:F1} GB is available.\n\nFree up some space or pick a different recording path, then try again.",
+                        "空間不足",
+                        $"搬移這些影片需要錄影磁碟大約 {needGb:F1} GB 的空間，但只剩 {freeGb:F1} GB。\n\n請清出一些空間，或換一個錄影資料夾後再試一次。",
                         "error");
 
-                    await SendProgress(migrationId, string.Empty, 0, "error", 0, outside.Count, "Not enough free space.");
+                    await SendProgress(migrationId, string.Empty, 0, "error", 0, outside.Count, "空間不足。");
                     return;
                 }
 
@@ -161,7 +161,7 @@ namespace Segra.Backend.Media
             catch (Exception ex)
             {
                 Log.Error(ex, "Unexpected error during content migration.");
-                await SendProgress(migrationId, string.Empty, 0, "error", 0, 0, "Migration failed unexpectedly.");
+                await SendProgress(migrationId, string.Empty, 0, "error", 0, 0, "搬移意外失敗。");
             }
             finally
             {

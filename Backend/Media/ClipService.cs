@@ -46,7 +46,7 @@ namespace Segra.Backend.Media
                 if (segments == null || !segments.Any())
                 {
                     Log.Error("No segments provided.");
-                    await MessageService.SendFrontendMessage("ClipProgress", new { id, progress = -1, segments, error = "No segments provided" });
+                    await MessageService.SendFrontendMessage("ClipProgress", new { id, progress = -1, segments, error = "沒有選取任何區段" });
                     return;
                 }
 
@@ -54,7 +54,7 @@ namespace Segra.Backend.Media
                 if (totalDuration <= 0)
                 {
                     Log.Error("Total clip duration is zero or negative.");
-                    await MessageService.SendFrontendMessage("ClipProgress", new { id, progress = -1, segments, error = "Invalid clip duration" });
+                    await MessageService.SendFrontendMessage("ClipProgress", new { id, progress = -1, segments, error = "片段長度無效" });
                     return;
                 }
 
@@ -150,7 +150,7 @@ namespace Segra.Backend.Media
                 if (!tempClipFiles.Any())
                 {
                     Log.Error("No valid clips were extracted.");
-                    await MessageService.SendFrontendMessage("ClipProgress", new { id, progress = -1, segments, error = "No valid clips were extracted" });
+                    await MessageService.SendFrontendMessage("ClipProgress", new { id, progress = -1, segments, error = "沒有擷取到任何有效的片段" });
                     return;
                 }
 
@@ -307,7 +307,7 @@ namespace Segra.Backend.Media
                         var (shortMessage, _) = FFmpegErrors.Describe(ffEx.ExitCode);
                         cardError = shortMessage;
                         _ = MessageService.ShowModal(
-                            "Clip creation failed",
+                            "建立片段失敗",
                             FFmpegErrors.DescribeForUser(ffEx.ExitCode),
                             "error");
                     }

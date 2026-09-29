@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ListFilter, ArrowUpDown, Clock, HardDrive, Timer, Gamepad2 } from 'lucide-react';
+import { displayGameName } from '../Models/types';
 
 export type SortOption = 'newest' | 'oldest' | 'size' | 'duration' | 'game';
 
@@ -55,15 +56,15 @@ export default function ContentFilters({
   const getSortLabel = (option: SortOption): string => {
     switch (option) {
       case 'newest':
-        return 'Newest';
+        return '最新';
       case 'oldest':
-        return 'Oldest';
+        return '最舊';
       case 'size':
-        return 'Size';
+        return '檔案大小';
       case 'duration':
-        return 'Duration';
+        return '長度';
       case 'game':
-        return 'Game';
+        return '遊戲';
     }
   };
 
@@ -76,7 +77,7 @@ export default function ContentFilters({
           className={`btn btn-sm no-animation btn-secondary border border-base-400 h-8 hover:text-primary hover:border-base-400 flex items-center gap-1 text-gray-300 ${uniqueGames.length === 0 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
         >
           <ListFilter size={16} />
-          Filter
+          篩選
           {selectedGames.length > 0 && (
             <span className="badge badge-sm badge-primary text-base-300">
               {selectedGames.length}
@@ -91,7 +92,7 @@ export default function ContentFilters({
             className={`text-sm ml-2 mb-2 ${selectedGames.length > 0 ? 'text-primary cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}
             onClick={clearFilters}
           >
-            Clear all
+            全部清除
           </button>
           <div className="max-h-60 overflow-y-auto">
             {/* Special "Imported" filter at top - only show if there are imported items */}
@@ -105,7 +106,7 @@ export default function ContentFilters({
                       checked={selectedGames.includes('Imported')}
                       onChange={() => toggleGameSelection('Imported')}
                     />
-                    <span className="label-text text-sm">Imported</span>
+                    <span className="label-text text-sm">匯入的影片</span>
                   </label>
                 </div>
                 <div className=" h-[1px] bg-base-400/60 my-1 mx-2.5 rounded"></div>
@@ -123,12 +124,12 @@ export default function ContentFilters({
                         checked={selectedGames.includes(game)}
                         onChange={() => toggleGameSelection(game)}
                       />
-                      <span className="label-text text-sm">{game}</span>
+                      <span className="label-text text-sm">{displayGameName(game)}</span>
                     </label>
                   </div>
                 ))
             ) : (
-              <p className="text-sm text-base-content/70">No games available</p>
+              <p className="text-sm text-base-content/70">沒有可篩選的遊戲</p>
             )}
           </div>
         </div>
@@ -155,7 +156,7 @@ export default function ContentFilters({
               onClick={() => handleSortChange('newest')}
             >
               <Clock size={20} />
-              <span>Newest</span>
+              <span>最新</span>
             </a>
           </li>
           <li>
@@ -166,7 +167,7 @@ export default function ContentFilters({
               onClick={() => handleSortChange('oldest')}
             >
               <Clock size={20} />
-              <span>Oldest</span>
+              <span>最舊</span>
             </a>
           </li>
           <li>
@@ -177,7 +178,7 @@ export default function ContentFilters({
               onClick={() => handleSortChange('size')}
             >
               <HardDrive size={20} />
-              <span>Size</span>
+              <span>檔案大小</span>
             </a>
           </li>
           <li>
@@ -188,7 +189,7 @@ export default function ContentFilters({
               onClick={() => handleSortChange('duration')}
             >
               <Timer size={20} />
-              <span>Duration</span>
+              <span>長度</span>
             </a>
           </li>
           <li>
@@ -199,7 +200,7 @@ export default function ContentFilters({
               onClick={() => handleSortChange('game')}
             >
               <Gamepad2 size={20} />
-              <span>Game A–Z</span>
+              <span>遊戲名稱 A–Z</span>
             </a>
           </li>
         </ul>

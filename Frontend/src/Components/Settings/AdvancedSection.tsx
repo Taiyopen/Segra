@@ -53,15 +53,15 @@ export default function AdvancedSection({
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
                 <div className="mb-1">
-                  <span className="text-base-content">Update Channel</span>
+                  <span className="text-base-content">更新通道</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-40">
                     <DropdownSelect
                       size="sm"
                       items={[
-                        { value: 'stable', label: 'Stable' },
-                        { value: 'beta', label: 'Beta' },
+                        { value: 'stable', label: '正式版' },
+                        { value: 'beta', label: '測試版' },
                       ]}
                       value={settings.receiveBetaUpdates ? 'beta' : 'stable'}
                       onChange={(val) => updateSettings({ receiveBetaUpdates: val === 'beta' })}
@@ -75,7 +75,7 @@ export default function AdvancedSection({
                     loading={appState.isCheckingForUpdates}
                   >
                     {!appState.isCheckingForUpdates && <RefreshCw size={16} className="shrink-0" />}
-                    <span className="inline-block">Check for Updates</span>
+                    <span className="inline-block">檢查更新</span>
                   </Button>
                 </div>
               </div>
@@ -83,14 +83,14 @@ export default function AdvancedSection({
           ) : (
             <div className="flex flex-col">
               <div className="mb-1">
-                <span className="text-base-content">Updates</span>
+                <span className="text-base-content">更新</span>
               </div>
               <p className="text-sm text-gray-400 max-w-md">
-                Segra updates automatically through Flatpak. To update now, run{' '}
+                Segra 會透過 Flatpak 自動更新。想現在更新，可以執行{' '}
                 <code className="px-1 py-0.5 rounded bg-base-200 text-gray-300">
                   flatpak update tv.segra.Segra
                 </code>{' '}
-                or use your software center.
+                或使用軟體中心。
               </p>
             </div>
           )}
@@ -102,7 +102,7 @@ export default function AdvancedSection({
               onClick={() => openReleaseNotesModal(null)}
             >
               <GithubIcon size={16} aria-hidden="true" />
-              <span className="inline-block">View Release Notes</span>
+              <span className="inline-block">查看更新內容</span>
             </Button>
           </div>
         </div>
@@ -112,20 +112,20 @@ export default function AdvancedSection({
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <div className="mb-1">
-                <span className="text-base-content">OBS Version</span>
+                <span className="text-base-content">OBS 版本</span>
               </div>
               <div className="w-40">
                 <DropdownSelect
                   size="sm"
                   items={[
-                    { value: '', label: 'Automatic' },
+                    { value: '', label: '自動' },
                     ...[...appState.availableOBSVersions]
                       .sort((a, b) => {
                         return b.version.localeCompare(a.version, undefined, { numeric: true });
                       })
                       .map((v) => ({
                         value: v.version,
-                        label: `${v.version}${v.isBeta ? ' (Beta)' : ''}`,
+                        label: `${v.version}${v.isBeta ? '（測試版）' : ''}`,
                       })),
                   ]}
                   value={settings.selectedOBSVersion || ''}
@@ -147,7 +147,7 @@ export default function AdvancedSection({
               className="toggle toggle-primary toggle-sm"
             />
             <span ref={contentRef} className="inline-flex items-center gap-1.5 cursor-pointer">
-              Airplane Mode
+              飛航模式
               <AnimatePresence initial={false}>
                 {settings.airplaneMode && (
                   <motion.span
@@ -183,7 +183,7 @@ export default function AdvancedSection({
             onClick={() => sendMessageToBackend('OpenLogsLocation')}
           >
             <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
-            <span className="leading-none">View Logs</span>
+            <span className="leading-none">查看日誌</span>
           </Button>
           <div>
             Segra{' '}

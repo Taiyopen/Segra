@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { Copy, Download, Minus, Square, TriangleAlert, X } from 'lucide-react';
+import { Copy, LoaderCircle, Minus, Square, TriangleAlert, X } from 'lucide-react';
 import { useUpdate } from '../Context/UpdateContext';
 import { useWebSocketContext } from '../Context/WebSocketContext';
+import { useSelectedMenu } from '../Context/SelectedMenuContext';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
+import { MENU_ITEM_LABELS, type MenuItemId } from '../Models/types';
+import segraLogo from '../assets/segra-logo.png';
 
 // Two presses on the drag area within this window count as a double-click. The native move loop that a
 // drag starts swallows the mouse-up, so the browser never fires its own dblclick there.
@@ -13,7 +16,7 @@ function windowCommand(action: string) {
 }
 
 function UpdateStatus() {
-  const { updateInfo, openReleaseNotesModal, clearUpdateInfo } = useUpdate();
+  const { updateInfo, openReleaseNotesModal } = useUpdate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -30,29 +33,51 @@ function UpdateStatus() {
 
   if (updateInfo.status === 'error') {
     return (
-      <span className="flex items-center gap-1 px-2 text-xs text-error" title={updateInfo.message}>
-        <TriangleAlert className="h-3.5 w-3.5" />
+      <span
+        className="flex items-center gap-1 px-1 text-[11px] text-error"
+        title={updateInfo.message}
+      >
+        <TriangleAlert className="h-3 w-3" />
         更新失敗
       </span>
     );
   }
 
   if (updateInfo.status === 'downloading') {
+    const progress = Math.round(updateInfo.progress);
     return (
       <span
-        className="flex items-center gap-1.5 px-2 text-xs text-gray-400"
+        className="flex items-center gap-2 px-1 text-[11px] text-gray-400"
         title={`正在下載 ${updateInfo.version}`}
       >
-        <span className="loading loading-spinner loading-xs text-primary" />
-        下載更新 {Math.round(updateInfo.progress)}%
+        下載更新
+        <span className="h-1 w-12 overflow-hidden rounded-full bg-white/10">
+          <span
+            className="block h-full rounded-full bg-primary transition-[width] duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </span>
+        <span className="w-7 tabular-nums">{progress}%</span>
       </span>
     );
   }
 
+  if (updateInfo.status === 'installing') {
+    return (
+      <span
+        className="flex items-center gap-1.5 px-1 text-[11px] text-gray-400"
+        title={updateInfo.message}
+      >
+        <LoaderCircle className="h-3 w-3 animate-spin" />
+        正在準備安裝…
+      </span>
+    );
+  }
+
+  // The backend answers with an 'installing' status and keeps it until the app closes to install.
   const install = () => {
     setMenuOpen(false);
     sendMessageToBackend('ApplyUpdate');
-    clearUpdateInfo();
   };
 
   return (
@@ -60,18 +85,18 @@ function UpdateStatus() {
       <button
         type="button"
         onClick={() => setMenuOpen((open) => !open)}
-        className="flex h-6 cursor-pointer items-center gap-1.5 rounded-full bg-success/15 px-2.5 text-xs font-medium text-success transition-colors hover:bg-success/25"
+        className="flex h-5 cursor-pointer items-center gap-1.5 rounded-full bg-primary/15 px-2.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/25"
       >
-        <Download className="h-3.5 w-3.5" />
+        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
         新版本 {updateInfo.version}
       </button>
       {menuOpen && (
-        <div className="absolute right-0 top-full z-[100] mt-1.5 w-44 rounded-lg border border-base-400 bg-base-300 p-1 shadow-xl">
+        <div className="absolute right-0 top-full z-[100] mt-1 w-44 rounded-lg border border-white/10 bg-base-300 p-1 shadow-xl">
           <button
             type="button"
             disabled={updateInfo.progress !== 100}
             onClick={install}
-            className="w-full cursor-pointer rounded-md px-3 py-1.5 text-left text-sm hover:bg-base-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full cursor-pointer rounded-md px-3 py-1.5 text-left text-sm hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
           >
             立即更新並重啟
           </button>
@@ -79,9 +104,9 @@ function UpdateStatus() {
             type="button"
             onClick={() => {
               setMenuOpen(false);
-              openReleaseNotesModal(__APP_VERSION__);
+              openReleaseNotesModal();
             }}
-            className="w-full cursor-pointer rounded-md px-3 py-1.5 text-left text-sm hover:bg-base-100"
+            className="w-full cursor-pointer rounded-md px-3 py-1.5 text-left text-sm hover:bg-white/5"
           >
             查看更新內容
           </button>
@@ -107,8 +132,8 @@ function WindowButton({
       type="button"
       title={title}
       onClick={onClick}
-      className={`flex h-full w-11 items-center justify-center text-gray-400 transition-colors ${
-        danger ? 'hover:bg-[#c42b1c] hover:text-white' : 'hover:bg-white/10 hover:text-white'
+      className={`flex h-full w-10 items-center justify-center text-gray-400 transition-colors duration-150 ${
+        danger ? 'hover:bg-[#c42b1c] hover:text-white' : 'hover:bg-white/[0.08] hover:text-white'
       }`}
     >
       {children}
@@ -117,13 +142,15 @@ function WindowButton({
 }
 
 /**
- * Main window title bar: drag area, update status and window buttons. Hidden until the backend reports it removed
- * the native caption (Windows only), so the page never shows a second bar.
+ * Main window title bar: brand and current page, update status and window buttons. Hidden until the backend
+ * reports it removed the native caption (Windows only), so the page never shows a second bar.
  */
 export default function TitleBar() {
   const { isConnected } = useWebSocketContext();
+  const { selectedMenu } = useSelectedMenu();
   const [enabled, setEnabled] = useState(false);
   const [maximized, setMaximized] = useState(false);
+  const [focused, setFocused] = useState(() => document.hasFocus());
   const lastPressRef = useRef(0);
 
   useEffect(() => {
@@ -135,6 +162,18 @@ export default function TitleBar() {
     };
     window.addEventListener('websocket-message', handleMessage as EventListener);
     return () => window.removeEventListener('websocket-message', handleMessage as EventListener);
+  }, []);
+
+  // Dim the bar while the window is in the background, like native title bars
+  useEffect(() => {
+    const onFocus = () => setFocused(true);
+    const onBlur = () => setFocused(false);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+    };
   }, []);
 
   // The state reply comes over the WebSocket, so ask again whenever it (re)connects
@@ -163,7 +202,11 @@ export default function TitleBar() {
   if (!enabled) return null;
 
   return (
-    <div className="relative flex h-8 shrink-0 select-none items-center border-b border-base-400 bg-base-300">
+    <div
+      className={`relative flex h-7 shrink-0 select-none items-center bg-frame transition-opacity duration-150 ${
+        focused ? '' : 'opacity-60'
+      }`}
+    >
       {/* The native top resize border is gone, so resizing from the top edge starts here */}
       {!maximized && (
         <>
@@ -182,30 +225,42 @@ export default function TitleBar() {
         </>
       )}
 
-      <div className="flex h-full min-w-0 flex-1 items-center" onMouseDown={onDragAreaMouseDown}>
-        <span className="px-3 text-sm font-semibold tracking-wide text-gray-300">Segra</span>
+      <div
+        className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3"
+        onMouseDown={onDragAreaMouseDown}
+      >
+        <img
+          src={segraLogo}
+          alt=""
+          draggable={false}
+          className="pointer-events-none h-3.5 w-3.5 shrink-0"
+        />
+        <span className="shrink-0 text-xs font-semibold tracking-wide text-gray-200">Segra</span>
+        <span className="truncate text-xs text-gray-500">
+          / {MENU_ITEM_LABELS[selectedMenu as MenuItemId] ?? selectedMenu}
+        </span>
       </div>
 
-      <div className="flex h-full items-center gap-1 pr-2">
+      <div className="flex h-full items-center pr-2">
         <UpdateStatus />
       </div>
 
       <div className="flex h-full">
         <WindowButton title="最小化" onClick={() => windowCommand('minimize')}>
-          <Minus className="h-4 w-4" strokeWidth={1.5} />
+          <Minus className="h-3 w-3" strokeWidth={1.5} />
         </WindowButton>
         <WindowButton
           title={maximized ? '還原' : '最大化'}
           onClick={() => windowCommand('toggleMaximize')}
         >
           {maximized ? (
-            <Copy className="h-3.5 w-3.5 -scale-x-100" strokeWidth={1.5} />
+            <Copy className="h-3 w-3 -scale-x-100" strokeWidth={1.5} />
           ) : (
-            <Square className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <Square className="h-3 w-3" strokeWidth={1.5} />
           )}
         </WindowButton>
         <WindowButton title="關閉" onClick={() => windowCommand('close')} danger>
-          <X className="h-4 w-4" strokeWidth={1.5} />
+          <X className="h-3 w-3" strokeWidth={1.5} />
         </WindowButton>
       </div>
     </div>

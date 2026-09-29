@@ -1,7 +1,7 @@
 import { useAppState } from '../Context/AppStateContext';
 import ContentCard from './ContentCard';
 import { matchesContentCategory, useSelectedVideo } from '../Context/SelectedVideoContext';
-import { Content, ContentType, MENU_ITEM } from '../Models/types';
+import { Content, ContentType, MENU_ITEM, MENU_ITEM_LABELS } from '../Models/types';
 import { useScroll } from '../Context/ScrollContext';
 import { useLayoutEffect, useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
@@ -203,10 +203,10 @@ export default function ContentPage({
 
     const count = items.length;
     confirmDelete({
-      title: `Delete ${count} ${count === 1 ? 'item' : 'items'}?`,
-      description: `Are you sure you want to permanently delete the selected ${count === 1 ? 'item' : `${count} items`}?
+      title: `刪除 ${count} 支影片？`,
+      description: `確定要永久刪除選取的 ${count} 支影片嗎？
 
-This action cannot be undone.`,
+刪除後無法復原。`,
       onConfirm: () => {
         sendMessageToBackend('DeleteMultipleContent', { Items: items });
         setSelectedItems(new Set());
@@ -618,7 +618,7 @@ This action cannot be undone.`,
               onClick={() => sendMessageToBackend('ImportFile', { sectionId })}
             >
               <FileUp size={16} />
-              Import
+              匯入
             </Button>
           )}
           {sectionId === 'pendingEdit' && (
@@ -631,8 +631,8 @@ This action cannot be undone.`,
                 selectedItems.size === 0
                   ? '先按住 Ctrl 點選卡片（或 Ctrl+A 全選），將選取的影片移回原本分類'
                   : selectedPendingEditNeedsTargetChoice
-                    ? `選取項目含舊檔（無來源記錄）；請用下方多選列選擇移回 ${MENU_ITEM.Sessions} 或 ${MENU_ITEM.ReplayBuffer}`
-                    : `將選取的影片移出「待剪輯」，回到原本的 ${MENU_ITEM.Sessions} / ${MENU_ITEM.ReplayBuffer}`
+                    ? `選取項目含舊檔（無來源記錄）；請用下方多選列選擇移回 ${MENU_ITEM_LABELS[MENU_ITEM.Sessions]} 或 ${MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}`
+                    : `將選取的影片移出「待剪輯」，回到原本的 ${MENU_ITEM_LABELS[MENU_ITEM.Sessions]} / ${MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}`
               }
               onClick={() => handleMoveSelectedOutOfPendingEdit()}
             >
@@ -650,8 +650,8 @@ This action cannot be undone.`,
                 selectedItems.size === 0
                   ? '先按住 Ctrl 點選卡片（或 Ctrl+A 全選），將選取的影片搬回原本分類'
                   : selectedReadyToDeleteNeedsTargetChoice
-                    ? `選取項目含舊檔（無來源記錄）；請用下方多選列選擇移回 ${MENU_ITEM.Sessions} 或 ${MENU_ITEM.ReplayBuffer}`
-                    : `將選取的影片移出「準備刪除」，回到原本的 ${MENU_ITEM.Sessions} / ${MENU_ITEM.ReplayBuffer}`
+                    ? `選取項目含舊檔（無來源記錄）；請用下方多選列選擇移回 ${MENU_ITEM_LABELS[MENU_ITEM.Sessions]} 或 ${MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}`
+                    : `將選取的影片移出「準備刪除」，回到原本的 ${MENU_ITEM_LABELS[MENU_ITEM.Sessions]} / ${MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}`
               }
               onClick={() => handleMoveSelectedOutOfReadyToDelete()}
             >
@@ -689,7 +689,7 @@ This action cannot be undone.`,
       ) : (
         <div className="flex flex-col items-center justify-center h-64 text-gray-500">
           <Icon size={60} className="mb-4" />
-          <p className="text-xl">No {title.toLowerCase()} found</p>
+          <p className="text-xl">還沒有{title}</p>
         </div>
       )}
 
@@ -716,7 +716,7 @@ This action cannot be undone.`,
             data-marquee-ignore
             className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-base-300 border border-base-400 rounded-xl px-4 py-2 flex items-center gap-3 shadow-lg z-50"
           >
-            <span className="text-sm text-gray-300">{selectedItems.size} Selected</span>
+            <span className="text-sm text-gray-300">已選取 {selectedItems.size} 支</span>
             {(sectionId === 'sessions' || sectionId === 'replayBuffer') && (
               <Button
                 variant="ghost"
@@ -738,7 +738,7 @@ This action cannot be undone.`,
                     onClick={() => handleMoveSelectedOutOfPendingEdit('Session')}
                   >
                     <FolderOutput size={16} />
-                    {MENU_ITEM.Sessions}
+                    {MENU_ITEM_LABELS[MENU_ITEM.Sessions]}
                   </Button>
                   <Button
                     variant="ghost"
@@ -747,7 +747,7 @@ This action cannot be undone.`,
                     onClick={() => handleMoveSelectedOutOfPendingEdit('Buffer')}
                   >
                     <FolderOutput size={16} />
-                    {MENU_ITEM.ReplayBuffer}
+                    {MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}
                   </Button>
                 </>
               ) : (
@@ -771,7 +771,7 @@ This action cannot be undone.`,
                     onClick={() => handleMoveSelectedOutOfReadyToDelete('Session')}
                   >
                     <FolderOutput size={16} />
-                    {MENU_ITEM.Sessions}
+                    {MENU_ITEM_LABELS[MENU_ITEM.Sessions]}
                   </Button>
                   <Button
                     variant="ghost"
@@ -780,7 +780,7 @@ This action cannot be undone.`,
                     onClick={() => handleMoveSelectedOutOfReadyToDelete('Buffer')}
                   >
                     <FolderOutput size={16} />
-                    {MENU_ITEM.ReplayBuffer}
+                    {MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}
                   </Button>
                 </>
               ) : (
@@ -796,7 +796,7 @@ This action cannot be undone.`,
               ))}
             <Button variant="danger" size="sm" className="h-8" onClick={handleDeleteSelected}>
               <Trash2 size={16} />
-              Delete
+              刪除
             </Button>
             <Button
               variant="primary"
@@ -804,7 +804,7 @@ This action cannot be undone.`,
               className="h-8"
               onClick={() => setSelectedItems(new Set())}
             >
-              Cancel
+              取消
             </Button>
           </motion.div>
         )}

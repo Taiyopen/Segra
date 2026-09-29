@@ -106,7 +106,7 @@ export default function StorageSettingsSection({
   const handleMigrateClick = () => {
     openModal(
       <ConfirmationModal
-        title="Move videos to recording path"
+        title="把影片搬到錄影資料夾"
         description={
           <MigrationFlow
             fromPaths={fromPaths}
@@ -115,8 +115,8 @@ export default function StorageSettingsSection({
             sizeGb={outsideSizeGb}
           />
         }
-        confirmText="Move Videos"
-        cancelText="Cancel"
+        confirmText="搬移影片"
+        cancelText="取消"
         onConfirm={() => {
           sendMessageToBackend('MigrateContent');
           closeModal();
@@ -144,10 +144,10 @@ export default function StorageSettingsSection({
     if (numericLimit < currentFolderSizeGb) {
       openModal(
         <ConfirmationModal
-          title="Storage Limit Warning"
-          description={`The storage limit you entered (${numericLimit} GB) is lower than your current folder size (${currentFolderSizeGb.toFixed(2)} GB).\n\nThis will move older recordings to「準備刪除」until you delete them there.\n\nAre you sure you want to continue?`}
-          confirmText="Apply Limit"
-          cancelText="Cancel"
+          title="儲存上限提醒"
+          description={`你輸入的儲存上限（${numericLimit} GB）比目前資料夾的大小（${currentFolderSizeGb.toFixed(2)} GB）還小。\n\n較舊的錄影會被移到「準備刪除」，直到你在那裡刪除它們。\n\n確定要繼續嗎？`}
+          confirmText="套用上限"
+          cancelText="取消"
           onConfirm={() => {
             updateSettings({ storageLimit: numericLimit });
             closeModal();
@@ -176,7 +176,7 @@ export default function StorageSettingsSection({
         {/* Recording Path */}
         <div className="form-control">
           <label className="label pb-1">
-            <span className="label-text text-base-content">Recording Path</span>
+            <span className="label-text text-base-content">錄影資料夾</span>
           </label>
           <div className="flex space-x-2">
             <div className="join w-full">
@@ -185,14 +185,14 @@ export default function StorageSettingsSection({
                 name="contentFolder"
                 value={settings.contentFolder}
                 onChange={(e) => updateSettings({ contentFolder: e.target.value })}
-                placeholder="Enter or select folder path"
+                placeholder="輸入或選擇資料夾路徑"
                 className="input input-bordered flex-1 bg-base-200 join-item"
               />
               <button
                 onClick={handleBrowseClick}
                 className="btn btn-secondary bg-base-200 hover:bg-base-300 border-base-400 hover:border-base-400 font-semibold join-item"
               >
-                Browse
+                瀏覽
               </button>
             </div>
           </div>
@@ -201,7 +201,7 @@ export default function StorageSettingsSection({
         {/* Cache Folder Path */}
         <div className="form-control">
           <label className="label pb-1">
-            <span className="label-text text-base-content">Cache Path</span>
+            <span className="label-text text-base-content">快取資料夾</span>
           </label>
           <div className="flex space-x-2">
             <div className="join w-full">
@@ -210,14 +210,14 @@ export default function StorageSettingsSection({
                 name="cacheFolder"
                 value={settings.cacheFolder}
                 onChange={(e) => updateSettings({ cacheFolder: e.target.value })}
-                placeholder="Enter or select folder for metadata"
+                placeholder="輸入或選擇存放縮圖與資料的資料夾"
                 className="input input-bordered flex-1 bg-base-200 join-item"
               />
               <button
                 onClick={handleCacheBrowseClick}
                 className="btn btn-secondary bg-base-200 hover:bg-base-300 border-base-400 hover:border-base-400 font-semibold join-item"
               >
-                Browse
+                瀏覽
               </button>
             </div>
           </div>
@@ -226,7 +226,7 @@ export default function StorageSettingsSection({
         {/* Storage Limit */}
         <div className="form-control">
           <label className="label block px-0 pb-1">
-            <span className="label-text text-base-content">Storage Limit (GB)</span>
+            <span className="label-text text-base-content">儲存上限（GB）</span>
           </label>
 
           <input
@@ -235,7 +235,7 @@ export default function StorageSettingsSection({
             value={localStorageLimit}
             onChange={(e) => setLocalStorageLimit(e.target.value)}
             onBlur={handleStorageLimitBlur}
-            placeholder="Set maximum storage in GB"
+            placeholder="設定最多可用幾 GB"
             min="1"
             className="input input-bordered bg-base-200 w-full block outline-none focus:border-base-400"
           />
@@ -266,10 +266,10 @@ export default function StorageSettingsSection({
         <div className="form-control">
           <label className="label flex w-full justify-between px-0 pb-1">
             <span className="label-text flex items-center gap-2 text-base-content">
-              Storage Usage
+              儲存空間使用量
             </span>
             <span className="label-text-alt text-base-content/60">
-              {hasDriveSpace ? `${Math.round(driveUsedPercent)}% used` : 'Checking...'}
+              {hasDriveSpace ? `已使用 ${Math.round(driveUsedPercent)}%` : '檢查中…'}
             </span>
           </label>
           <div className="flex h-12 flex-col justify-center gap-1.5 rounded-lg border border-base-400 bg-base-200 px-3">
@@ -280,8 +280,8 @@ export default function StorageSettingsSection({
               />
             </div>
             <div className="flex justify-between text-xs text-base-content/60 tabular-nums">
-              <span>{hasDriveSpace ? `${formatGigabytes(driveUsedGb)} GB used` : '— GB used'}</span>
-              <span>{hasDriveSpace ? `${formatGigabytes(driveFreeGb)} GB free` : '— GB free'}</span>
+              <span>{hasDriveSpace ? `已用 ${formatGigabytes(driveUsedGb)} GB` : '已用 — GB'}</span>
+              <span>{hasDriveSpace ? `剩餘 ${formatGigabytes(driveFreeGb)} GB` : '剩餘 — GB'}</span>
             </div>
           </div>
         </div>
@@ -312,11 +312,10 @@ export default function StorageSettingsSection({
             <div className="mt-4 flex flex-col gap-3 rounded-lg border border-base-400 bg-base-200 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-base-content font-medium">
-                  {outsideCount} video{outsideCount === 1 ? '' : 's'} ({outsideSizeGb.toFixed(2)}{' '}
-                  GB) stored outside your recording path
+                  有 {outsideCount} 支影片（{outsideSizeGb.toFixed(2)} GB）存放在錄影資料夾以外
                 </p>
                 <p className="text-sm text-base-content text-opacity-60">
-                  Move them into your recording path to keep all your content in one place.
+                  把它們搬進錄影資料夾，所有影片就能集中在同一個地方。
                 </p>
               </div>
               <Button
@@ -326,9 +325,7 @@ export default function StorageSettingsSection({
                 loading={isMigrating}
               >
                 {!isMigrating && <FolderInput size={16} className="shrink-0" />}
-                <span className="inline-block">
-                  {isMigrating ? 'Moving...' : 'Move to Recording Path'}
-                </span>
+                <span className="inline-block">{isMigrating ? '搬移中…' : '搬到錄影資料夾'}</span>
               </Button>
             </div>
           </motion.div>

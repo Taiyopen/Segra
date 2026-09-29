@@ -80,7 +80,7 @@ namespace Segra.Backend.Auth
             if (!accepted)
             {
                 Log.Warning("Discord login callback rejected: no matching pending login");
-                await RespondAsync(context, "Sign-in link expired", "Head back to Segra and start the Discord sign-in again.");
+                await RespondAsync(context, "登入連結已過期", "請回到 Segra 重新開始 Discord 登入。");
                 return;
             }
 
@@ -88,7 +88,7 @@ namespace Segra.Backend.Auth
             {
                 Log.Information("Discord login callback returned without a session");
                 await MessageService.SendFrontendMessage("DiscordLoginResult", new { status = "cancelled" });
-                await RespondAsync(context, "Sign-in cancelled", "Nothing was changed. You can close this tab.");
+                await RespondAsync(context, "已取消登入", "沒有做任何變更，可以關閉這個分頁了。");
                 return;
             }
 
@@ -99,7 +99,7 @@ namespace Segra.Backend.Auth
                 accessToken,
                 refreshToken
             });
-            await RespondAsync(context, "You're signed in", "You can close this tab and return to Segra.");
+            await RespondAsync(context, "已登入", "可以關閉這個分頁，回到 Segra 了。");
 
             Program.BringWindowToFront();
         }
@@ -141,7 +141,7 @@ namespace Segra.Backend.Auth
 
             string html = $$"""
                 <!doctype html>
-                <html lang="en">
+                <html lang="zh-Hant-TW">
                 <head>
                   <meta charset="utf-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1">

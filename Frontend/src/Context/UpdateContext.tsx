@@ -13,7 +13,7 @@ import { sendMessageToBackend } from '../Utils/MessageUtils';
 export interface UpdateProgress {
   version: string;
   progress: number;
-  status: 'downloading' | 'downloaded' | 'ready' | 'error';
+  status: 'downloading' | 'downloaded' | 'ready' | 'installing' | 'error';
   message: string;
 }
 
@@ -22,8 +22,8 @@ interface UpdateContextType {
   releaseNotes: ReleaseNote[];
   // False on Linux (Flatpak); defaults to true until the backend's AppVersion message arrives.
   canSelfUpdate: boolean;
+  // Omitted: only versions newer than the installed one. Null: every version.
   openReleaseNotesModal: (filterVersion?: string | null) => void;
-  clearUpdateInfo: () => void;
   checkForUpdates: () => void;
 }
 
@@ -35,6 +35,8 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const [canSelfUpdate, setCanSelfUpdate] = useState<boolean>(true);
   const { openModal, closeModal } = useModal();
   const versionCheckHandled = useRef(false);
+  // The backend's installed version. __APP_VERSION__ is "Developer Preview" on locally packed builds.
+  const installedVersion = useRef<string | null>(null);
 
   // Mocked update info for testing purposes
   // Uncomment the following useEffect to use mocked data
@@ -79,6 +81,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         // Open "What's New" when the version changed since the last run. Compared against a
         // persisted record, not __APP_VERSION__: unstamped builds never match the backend.
         const backendVersion = message.content.version;
+        if (backendVersion) installedVersion.current = backendVersion;
         if (backendVersion && !versionCheckHandled.current) {
           versionCheckHandled.current = true;
           const previous = localStorage.getItem('loadedAppVersion');
@@ -116,19 +119,19 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const clearUpdateInfo = () => {
-    setUpdateInfo(null);
-    setReleaseNotes([]);
-  };
-
   const checkForUpdates = () => {
     sendMessageToBackend('CheckForUpdates');
   };
 
-  const openReleaseNotesModal = (filterVersion: string | null = __APP_VERSION__) => {
-    openModal(<ReleaseNotesModal onClose={closeModal} filterVersion={filterVersion} />, {
-      size: 'xl',
-    });
+  const openReleaseNotesModal = (filterVersion?: string | null) => {
+    openModal(
+      <ReleaseNotesModal
+        onClose={closeModal}
+        filterVersion={filterVersion === undefined ? installedVersion.current : filterVersion}
+        currentVersion={installedVersion.current}
+      />,
+      { size: 'xl' },
+    );
   };
 
   return (
@@ -138,7 +141,6 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         releaseNotes,
         canSelfUpdate,
         openReleaseNotesModal,
-        clearUpdateInfo,
         checkForUpdates,
       }}
     >

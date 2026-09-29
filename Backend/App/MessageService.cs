@@ -185,7 +185,8 @@ namespace Segra.Backend.App
                             _ = Task.Run(() => HandleCompressVideo(compressParameterElement));
                             break;
                         case "ApplyUpdate":
-                            UpdateService.ApplyUpdate();
+                            // Off the UI thread: stopping OBS takes seconds and would freeze the window.
+                            _ = Task.Run(UpdateService.ApplyUpdate);
                             break;
                         case "CheckForUpdates":
                             Log.Information("CheckForUpdates command received.");
@@ -621,7 +622,7 @@ namespace Segra.Backend.App
 
         private static async Task SetVideoLocationAsync()
         {
-            string? picked = await PlatformServices.Dialogs.PickFolderAsync("Select a folder to set as the video location.");
+            string? picked = await PlatformServices.Dialogs.PickFolderAsync("選擇存放影片的資料夾");
             if (picked != null)
             {
                 string selectedPath = Shared.PathUtils.Normalize(picked);
@@ -646,7 +647,7 @@ namespace Segra.Backend.App
 
         private static async Task SetCacheLocationAsync()
         {
-            string? picked = await PlatformServices.Dialogs.PickFolderAsync("Select a folder for metadata, thumbnails, and waveforms.");
+            string? picked = await PlatformServices.Dialogs.PickFolderAsync("選擇存放影片資料、縮圖與波形的資料夾");
             if (picked != null)
             {
                 string selectedPath = Shared.PathUtils.Normalize(picked);
@@ -977,7 +978,7 @@ namespace Segra.Backend.App
         {
             try
             {
-                string? pickedFile = await PlatformServices.Dialogs.PickFileAsync("Select Game Executable", "Executable Files (*.exe)", "exe");
+                string? pickedFile = await PlatformServices.Dialogs.PickFileAsync("選擇遊戲執行檔", "執行檔 (*.exe)", "exe");
 
                 if (pickedFile != null)
                 {
@@ -1012,7 +1013,7 @@ namespace Segra.Backend.App
             catch (Exception ex)
             {
                 Log.Error($"Error selecting game executable: {ex.Message}");
-                await ShowModal("Error", $"Failed to select game executable: {ex.Message}", "error");
+                await ShowModal("錯誤", $"選擇遊戲執行檔失敗：{ex.Message}", "error");
             }
         }
     }

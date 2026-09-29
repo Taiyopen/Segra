@@ -26,7 +26,7 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-xl font-semibold">Capture Mode</h2>
+        <h2 className="text-xl font-semibold">擷取模式</h2>
       </div>
       <div className="mb-6">
         <div
@@ -34,18 +34,17 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
           onClick={() => updateSettings({ recordingMode: 'Hybrid' })}
         >
           <div className="flex items-center gap-2 mb-3">
-            <div className="text-lg font-semibold">Hybrid (Session + Buffer)</div>
+            <div className="text-lg font-semibold">混合模式（完整錄影＋重播緩衝）</div>
           </div>
           <div className="text-sm text-left text-base-content">
             <p className="mb-2">
-              Record the full session while keeping a replay buffer. Save short highlights with a
-              hotkey without stopping the session.
+              錄下整場遊戲，同時保留重播緩衝。按快捷鍵就能存下精彩片段，不用停止錄影。
             </p>
             <div className="text-xs text-base-content text-opacity-70">
-              • Clip without ending the session recording
-              <br />• Full game integration features
-              <br />• Access to AI-generated highlights
-              <br />• Access to Bookmarks
+              • 不必結束錄影就能存片段
+              <br />• 完整的遊戲整合功能
+              <br />• 可用 AI 自動產生精華
+              <br />• 可用標記
             </div>
           </div>
         </div>
@@ -55,19 +54,16 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
           className={`bg-base-200 p-4 rounded-lg flex flex-col transition-all transition-200 border ${settings.recordingMode == 'Session' ? 'border-primary' : 'border-base-400'} cursor-pointer hover:bg-base-300`}
           onClick={() => updateSettings({ recordingMode: 'Session' })}
         >
-          <div className="text-lg font-semibold mb-3">Session Recording</div>
+          <div className="text-lg font-semibold mb-3">完整錄影</div>
           <div className="text-sm text-left text-base-content">
-            <p className="mb-2">
-              Records your entire gaming session from start to finish. Ideal for content creators
-              who want complete gameplay recordings.
-            </p>
+            <p className="mb-2">從頭到尾錄下整場遊戲，適合需要完整遊戲畫面的創作者。</p>
             <div className="text-xs text-base-content text-opacity-70">
-              • Uses more storage space
+              • 比較佔儲存空間
               <br />
-              • Full game integration features
+              • 完整的遊戲整合功能
               <br />
-              • Access to AI-generated highlights
-              <br />• Access to Bookmarks
+              • 可用 AI 自動產生精華
+              <br />• 可用標記
             </div>
           </div>
         </div>
@@ -76,18 +72,15 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
           onClick={() => updateSettings({ recordingMode: 'Buffer' })}
         >
           <div className="flex items-center gap-2 mb-3">
-            <div className="text-lg font-semibold text-center">Replay Buffer</div>
+            <div className="text-lg font-semibold text-center">重播緩衝</div>
           </div>
           <div className="text-sm text-left text-base-content">
-            <p className="mb-2">
-              Continuously records in the background. Save only your best moments with a hotkey
-              press.
-            </p>
+            <p className="mb-2">在背景持續錄影，按一下快捷鍵只存下最精彩的片段。</p>
             <div className="text-xs text-base-content text-opacity-70">
-              • Efficient storage usage
+              • 節省儲存空間
               <br />
-              • No game integration
-              <br />• No bookmarks
+              • 沒有遊戲整合
+              <br />• 沒有標記
             </div>
           </div>
         </div>
@@ -101,11 +94,9 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
           onChange={(e) => updateSettings({ alwaysOnReplayBuffer: e.target.checked })}
         />
         <div>
-          <div className="font-semibold">Always-on Replay Buffer</div>
+          <div className="font-semibold">始終開啟重播緩衝</div>
           <div className="text-xs opacity-70 mt-0.5">
-            Keeps a replay buffer of your display running when nothing else is recording, so you can
-            save a replay at any time. It pauses while a game is recorded and starts again
-            afterwards.
+            沒有在錄影時，也持續對螢幕保留重播緩衝，隨時都能存下剛才的畫面。錄遊戲時會暫停，錄完再自動開啟。
           </div>
         </div>
       </label>
@@ -145,7 +136,7 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
                   htmlFor="replayBufferDuration"
                   className="label text-base-content px-0 !block mb-1"
                 >
-                  <span className="label-text">Buffer Duration (seconds)</span>
+                  <span className="label-text">緩衝長度（秒）</span>
                 </label>
                 <input
                   id="replayBufferDuration"
@@ -169,7 +160,7 @@ export default function CaptureModeSection({ settings, updateSettings }: Capture
                   htmlFor="replayBufferMaxSize"
                   className="label text-base-content px-0 !block mb-1"
                 >
-                  <span className="label-text">Buffer Maximum Size (MB)</span>
+                  <span className="label-text">緩衝大小上限（MB）</span>
                 </label>
                 <input
                   id="replayBufferMaxSize"

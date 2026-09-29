@@ -8,7 +8,7 @@ import {
   PenLine,
   Trash2,
 } from 'lucide-react';
-import { Content, MENU_ITEM } from '../Models/types';
+import { Content, MENU_ITEM, MENU_ITEM_LABELS, displayGameName } from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import { openFileLocation } from '../Utils/FileUtils';
 import { useSelectedVideo } from '../Context/SelectedVideoContext';
@@ -114,7 +114,7 @@ export default function VideoTopInfoBar({
         size="xs"
         className="h-6 min-h-0 px-1"
         onClick={() => setSelectedVideo(null)}
-        aria-label="Back"
+        aria-label="返回"
         title="返回列表"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -184,7 +184,7 @@ export default function VideoTopInfoBar({
                 size="xs"
                 className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
                 onClick={() => onMoveOutOfPendingEdit('Session')}
-                title={`舊檔無來源記錄：移回 ${MENU_ITEM.Sessions}`}
+                title={`舊檔無來源記錄：移回${MENU_ITEM_LABELS[MENU_ITEM.Sessions]}`}
               >
                 <FolderOutput className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline">→ Sessions</span>
@@ -194,7 +194,7 @@ export default function VideoTopInfoBar({
                 size="xs"
                 className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
                 onClick={() => onMoveOutOfPendingEdit('Buffer')}
-                title={`舊檔無來源記錄：移回 ${MENU_ITEM.ReplayBuffer}`}
+                title={`舊檔無來源記錄：移回${MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}`}
               >
                 <FolderOutput className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline">→ Buffer</span>
@@ -220,7 +220,7 @@ export default function VideoTopInfoBar({
                 size="xs"
                 className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
                 onClick={() => onMoveOutOfReadyToDelete('Session')}
-                title={`舊檔無來源記錄：移回 ${MENU_ITEM.Sessions}`}
+                title={`舊檔無來源記錄：移回${MENU_ITEM_LABELS[MENU_ITEM.Sessions]}`}
               >
                 <FolderOutput className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline">→ Sessions</span>
@@ -230,7 +230,7 @@ export default function VideoTopInfoBar({
                 size="xs"
                 className="h-6 min-h-0 gap-1 px-1.5 border border-base-400"
                 onClick={() => onMoveOutOfReadyToDelete('Buffer')}
-                title={`舊檔無來源記錄：移回 ${MENU_ITEM.ReplayBuffer}`}
+                title={`舊檔無來源記錄：移回${MENU_ITEM_LABELS[MENU_ITEM.ReplayBuffer]}`}
               >
                 <FolderOutput className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline">→ Buffer</span>
@@ -242,7 +242,7 @@ export default function VideoTopInfoBar({
           size="xs"
           className="h-6 min-h-0 px-1.5 border border-base-400"
           onClick={startRenaming}
-          aria-label="Rename"
+          aria-label="重新命名"
           title="重新命名（同步更新磁碟檔名）"
         >
           <PenLine className="w-3.5 h-3.5" />
@@ -252,7 +252,7 @@ export default function VideoTopInfoBar({
           size="xs"
           className="h-6 min-h-0 px-1.5 text-error hover:text-error"
           onClick={onDelete}
-          aria-label="Delete"
+          aria-label="刪除"
           title="刪除影片"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -277,7 +277,7 @@ export default function VideoTopInfoBar({
               }
             }}
             className="min-w-0 max-w-48 px-1 py-0 font-medium truncate bg-base-200 border rounded outline-none border-base-400 focus:border-primary"
-            placeholder={video.game || 'Untitled'}
+            placeholder={displayGameName(video.game) || '未命名'}
           />
         ) : (
           <button
@@ -286,19 +286,19 @@ export default function VideoTopInfoBar({
             className="min-w-0 font-medium truncate whitespace-nowrap hover:underline"
             title="點擊重新命名"
           >
-            {video.title || video.game}
+            {video.title || displayGameName(video.game)}
           </button>
         )}
         <span className="shrink-0">•</span>
         <span className="whitespace-nowrap shrink-0">
-          Created: {createdDateStr}
+          建立時間：{createdDateStr}
           {createdTimeStr ? ` ${createdTimeStr}` : ''}
         </span>
         <span className="shrink-0">•</span>
-        <span className="whitespace-nowrap shrink-0">Size: {video.fileSize}</span>
+        <span className="whitespace-nowrap shrink-0">大小：{video.fileSize}</span>
         <span className="shrink-0">•</span>
         <span className="flex items-center gap-1 min-w-0">
-          <span className="whitespace-nowrap shrink-0">Location:</span>
+          <span className="whitespace-nowrap shrink-0">位置：</span>
           <a
             className="text-gray-300 cursor-pointer hover:underline hover:text-gray-200 truncate"
             onClick={() => openFileLocation(video.filePath)}

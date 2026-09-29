@@ -235,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (!data.session) {
-        setAuthError('Login failed - no session returned');
+        setAuthError('登入失敗：沒有取得登入狀態');
         return;
       }
       const newSession: AuthSession = data.session;
@@ -248,7 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshToken: newSession.refresh_token,
       });
     } catch {
-      setAuthError('Login failed. Please try again.');
+      setAuthError('登入失敗，請再試一次。');
     } finally {
       setIsAuthenticating(false);
     }
@@ -281,7 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { confirmEmail: false };
     } catch {
-      setAuthError('Registration failed. Please try again.');
+      setAuthError('註冊失敗，請再試一次。');
       return { confirmEmail: false };
     } finally {
       setIsAuthenticating(false);
@@ -309,7 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsWaitingForDiscord(false);
 
       if (result.status === 'expired') {
-        setAuthError('Discord sign-in timed out. Please try again.');
+        setAuthError('Discord 登入逾時，請再試一次。');
         return;
       }
       if (result.status !== 'success' || !result.accessToken || !result.refreshToken) {
@@ -322,7 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       const authUser = getUserFromJwt(newSession.access_token);
       if (!authUser) {
-        setAuthError('Failed to authenticate. Please try again.');
+        setAuthError('驗證失敗，請再試一次。');
         return;
       }
 

@@ -8,13 +8,13 @@ export default function ContentMigrationCard({ migration }: ContentMigrationCard
   const getStatusText = () => {
     switch (migration.status) {
       case 'migrating':
-        return `Moving ${migration.currentFileIndex} of ${migration.totalFiles}`;
+        return `搬移中 ${migration.currentFileIndex}／${migration.totalFiles}`;
       case 'done':
-        return migration.message || 'Move Complete';
+        return migration.message || '搬移完成';
       case 'error':
-        return migration.message || 'Move Error';
+        return migration.message || '搬移失敗';
       default:
-        return 'Moving...';
+        return '搬移中…';
     }
   };
 

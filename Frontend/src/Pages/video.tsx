@@ -1,5 +1,12 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import { Content, BookmarkType, Segment, Bookmark } from '../Models/types';
+import {
+  Content,
+  BookmarkType,
+  BOOKMARK_TYPE_LABELS,
+  Segment,
+  Bookmark,
+  displayTrackName,
+} from '../Models/types';
 import { sendMessageToBackend } from '../Utils/MessageUtils';
 import {
   isPendingEditSourceType,
@@ -1819,8 +1826,8 @@ export default function VideoComponent({ video }: { video: Content }) {
                         className={`flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 ${showAudioTracks ? 'text-accent bg-accent/20' : ''} ${audioTracks.soloTrack != null ? 'ring-1 ring-accent/50' : ''}`}
                         title={
                           audioTracks.soloTrack != null
-                            ? '多音軌：Solo 模式中（僅播出選取音軌）'
-                            : '多音軌音量與 Solo'
+                            ? '多音軌：單獨播放中（只播出選取的音軌）'
+                            : '多音軌音量與單獨播放'
                         }
                       >
                         <Headphones className="w-4 h-4" />
@@ -1852,8 +1859,8 @@ export default function VideoComponent({ video }: { video: Content }) {
                                     ? 'border-accent text-accent bg-accent/20'
                                     : 'border-white/30 text-white/60 hover:border-white/50 hover:text-white/90'
                                 }`}
-                                title="單獨播出此音軌（再按一次可解除 Solo）"
-                                aria-label="Solo 此音軌"
+                                title="單獨播出此音軌（再按一次可解除）"
+                                aria-label="單獨播出此音軌"
                                 aria-pressed={isSolo}
                               >
                                 S
@@ -1866,7 +1873,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                                   className="checkbox checkbox-primary checkbox-xs shrink-0"
                                 />
                                 <span className="text-xs text-white/80 truncate select-none">
-                                  {track.name.replace(' (Default)', '')}
+                                  {displayTrackName(track.name).replace(' (Default)', '')}
                                 </span>
                               </label>
                               <div className="flex items-center gap-2 shrink-0">
@@ -1909,7 +1916,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     }}
                     disabled={videoScale <= 1}
                     className="flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label="Zoom out"
+                    aria-label="縮小畫面"
                   >
                     <ZoomOut className="w-4 h-4" />
                   </button>
@@ -1920,7 +1927,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     }}
                     disabled={videoScale >= 4}
                     className="flex items-center justify-center p-1 text-white cursor-pointer transition-colors border rounded-md border-base-400 hover:text-accent hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label="Zoom in"
+                    aria-label="放大畫面"
                   >
                     <ZoomIn className="w-4 h-4" />
                   </button>
@@ -1959,7 +1966,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     onMouseUp={(e) => e.currentTarget.blur()}
                     onTouchEnd={(e) => e.currentTarget.blur()}
                     className="text-white cursor-pointer transition-colors hover:text-accent"
-                    aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                    aria-label={isFullscreen ? '離開全螢幕' : '全螢幕'}
                   >
                     {isFullscreen ? (
                       <Minimize className="w-5 h-5" />
@@ -2004,7 +2011,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                         exit={{ opacity: 0, scale: 0.5 }}
                         transition={{ duration: 0.1 }}
                         className="tooltip absolute bottom-0 transform -translate-x-1/2 cursor-pointer z-10 flex flex-col items-center text-[#25272e]"
-                        data-tip={`${bookmark.type}${bookmark.subtype ? ` - ${bookmark.subtype}` : ''} (${bookmark.time})`}
+                        data-tip={`${BOOKMARK_TYPE_LABELS[bookmark.type] ?? bookmark.type}${bookmark.subtype ? ` - ${BOOKMARK_TYPE_LABELS[bookmark.subtype] ?? bookmark.subtype}` : ''} (${bookmark.time})`}
                         style={{ left: `${leftPos}px` }}
                         onClick={() => {
                           const seekTo = Math.max(
@@ -2157,12 +2164,12 @@ export default function VideoComponent({ video }: { video: Content }) {
                       <div
                         className="absolute top-0 -left-[7px] z-20 w-[14px] h-full bg-transparent cursor-col-resize pointer-events-auto"
                         onMouseDown={(e) => handleResizeMouseDown(e, seg.id, 'start')}
-                        aria-label="Resize segment start"
+                        aria-label="調整區段起點"
                       />
                       <div
                         className="absolute top-0 -right-[7px] z-20 w-[14px] h-full bg-transparent cursor-col-resize pointer-events-auto"
                         onMouseDown={(e) => handleResizeMouseDown(e, seg.id, 'end')}
-                        aria-label="Resize segment end"
+                        aria-label="調整區段終點"
                       />
                     </div>
                   </>
@@ -2278,14 +2285,14 @@ export default function VideoComponent({ video }: { video: Content }) {
                 <button
                   onClick={handlePlayPause}
                   className="h-10 text-gray-300 btn btn-sm btn-secondary hover:text-accent join-item"
-                  data-tip={isPlaying ? 'Pause' : 'Play'}
+                  data-tip={isPlaying ? '暫停' : '播放'}
                 >
                   {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                 </button>
                 <button
                   onClick={() => skipTime(5)}
                   className="h-10 text-gray-300 btn btn-sm btn-secondary hover:text-accent join-item"
-                  data-tip="Forward 5s"
+                  data-tip="快轉 5 秒"
                 >
                   <RotateCw className="w-5 h-5" />
                 </button>
@@ -2303,7 +2310,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     }
                   >
                     <Upload className="w-5 h-5" />
-                    <span>Upload</span>
+                    <span>上傳</span>
                   </Button>
                   <Button
                     variant="primary"
@@ -2321,7 +2328,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                         <Check className="w-5 h-5" />
                       </div>
                     </label>
-                    <span>Copy</span>
+                    <span>複製</span>
                   </Button>
                 </>
               )}
@@ -2334,7 +2341,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     onClick={handleCreateClip}
                   >
                     <Clapperboard className="w-5 h-5" />
-                    <span>Create Clip</span>
+                    <span>建立片段</span>
                   </Button>
                   <Button
                     variant="primary"
@@ -2343,14 +2350,14 @@ export default function VideoComponent({ video }: { video: Content }) {
                     onClick={handleCreateLosslessClip}
                   >
                     <Clapperboard className="w-5 h-5" />
-                    <span>Lossless Clip</span>
+                    <span>無損片段</span>
                   </Button>
                   <div className="flex items-center border rounded-lg join bg-base-300 border-base-400">
                     <button
                       type="button"
                       onClick={handleSetClipStartFromPlayhead}
                       disabled={sortedClipSegments.length === 0 || clipEditTargetSegment == null}
-                      title="將播放頭設為「上次選取或修改片段」的剪輯起點（時間軸／側欄點片段、拖曳、調整邊界或 Add Segment 後會記住該片段）"
+                      title="把播放位置設為「上次選取或修改的區段」的起點（在時間軸或側欄點區段、拖曳、調整邊界或新增區段後，會記住那個區段）"
                       className="h-10 px-2 text-gray-300 btn btn-sm btn-secondary hover:text-accent join-item gap-1 disabled:opacity-40"
                     >
                       <ArrowLeftToLine className="w-4 h-4 shrink-0" />
@@ -2360,7 +2367,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                       type="button"
                       onClick={handleSetClipEndFromPlayhead}
                       disabled={sortedClipSegments.length === 0 || clipEditTargetSegment == null}
-                      title="將播放頭設為「上次選取或修改片段」的剪輯終點（選取規則與起點按鈕相同）"
+                      title="把播放位置設為「上次選取或修改的區段」的終點（選取規則與起點按鈕相同）"
                       className="h-10 px-2 text-gray-300 btn btn-sm btn-secondary hover:text-accent join-item gap-1 disabled:opacity-40"
                     >
                       <ArrowRightToLine className="w-4 h-4 shrink-0" />
@@ -2370,7 +2377,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                       type="button"
                       onClick={handleToggleClipPreviewLoop}
                       disabled={sortedClipSegments.length === 0}
-                      title="預覽剪輯：依時間順序播放所有片段，離開片段區間會自動跳到下一個片段起點；最後一段結束後回到第一段（循環）"
+                      title="預覽剪輯：依時間順序播放所有區段，播完一段會自動跳到下一段的起點；最後一段結束後回到第一段（循環）"
                       className={`h-10 px-2 btn btn-sm btn-secondary join-item gap-1 disabled:opacity-40 ${
                         clipPreviewLoop ? 'text-accent' : 'text-gray-300 hover:text-accent'
                       }`}
@@ -2386,7 +2393,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                     onClick={handleAddSegment}
                   >
                     <SquarePlus className="w-5 h-5" />
-                    <span>Add Segment</span>
+                    <span>新增區段</span>
                   </Button>
                 </>
               )}
@@ -2407,7 +2414,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                       <Check className="w-5 h-5" />
                     </div>
                   </label>
-                  <span>Copy</span>
+                  <span>複製</span>
                 </Button>
               )}
             </div>
@@ -2516,7 +2523,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                   }
                   className="checkbox checkbox-sm checkbox-accent"
                 />
-                <span className="ml-2 text-sm">Auto-Clear Segments</span>
+                <span className="ml-2 text-sm">建立片段後清除區段</span>
               </label>
             </div>
             <div className="flex items-center h-10 gap-0 px-0 mb-2 mr-3 rounded-lg bg-base-300 tooltip">
@@ -2528,7 +2535,7 @@ export default function VideoComponent({ video }: { video: Content }) {
                 disabled={segments.length === 0}
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Clear</span>
+                <span>全部清除</span>
               </Button>
             </div>
           </div>

@@ -26,11 +26,11 @@ namespace Segra.Backend.Media
                 if (momentCount == 0)
                 {
                     Log.Information($"No highlight bookmarks found for: {fileName}");
-                    await SendProgress(highlightId, -1, "error", "No highlight moments found in this session", content);
+                    await SendProgress(highlightId, -1, "error", "這段錄影裡沒有可以做成精華的標記", content);
                     return;
                 }
 
-                await SendProgress(highlightId, 0, "processing", $"Found {momentCount} moments", content);
+                await SendProgress(highlightId, 0, "processing", $"找到 {momentCount} 個精彩時刻", content);
 
                 await HighlightService.CreateHighlightFromBookmarks(fileName, async (progress, message) =>
                 {

@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { SegmentCardProps } from '../Models/types';
+import { SegmentCardProps, displayTrackName } from '../Models/types';
 import { useDrag, useDrop } from 'react-dnd';
 import { Headphones } from 'lucide-react';
 import { useDeleteConfirmation } from '../Hooks/useDeleteConfirmation';
@@ -125,8 +125,8 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
         onContextMenu={(e) => {
           e.preventDefault();
           confirmDelete({
-            title: 'Delete segment?',
-            description: 'Remove this segment from the clip? This action cannot be undone.',
+            title: '刪除這個區段？',
+            description: '要把這個區段從片段中移除嗎？移除後無法復原。',
             onConfirm: () => removeSegment(segment.id),
           });
         }}
@@ -135,7 +135,7 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
           <figure className="relative rounded-xl overflow-hidden">
             <img
               src={baseSrc}
-              alt="Segment"
+              alt="區段"
               className={`w-full transition-opacity duration-300 ${
                 baseVisible ? 'opacity-100' : 'opacity-0'
               }`}
@@ -144,7 +144,7 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
             {incomingSrc && (
               <img
                 src={incomingSrc}
-                alt="Segment"
+                alt="區段"
                 className={`absolute inset-0 w-full transition-opacity duration-300 ${
                   incomingVisible ? 'opacity-100' : 'opacity-0'
                 }`}
@@ -171,7 +171,7 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
           </div>
         ) : (
           <div className="h-32 bg-gray-700 flex items-center justify-center text-white">
-            <span>No thumbnail</span>
+            <span>沒有縮圖</span>
           </div>
         )}
 
@@ -234,7 +234,7 @@ const SegmentCard: React.FC<SegmentCardProps> = React.memo(
                           className="checkbox checkbox-primary checkbox-xs shrink-0"
                         />
                         <span className="text-xs text-white/80 truncate">
-                          {name.replace(' (Default)', '')}
+                          {displayTrackName(name).replace(' (Default)', '')}
                         </span>
                       </label>
                       <div className="flex items-center gap-2 shrink-0">

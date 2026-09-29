@@ -3,7 +3,14 @@ import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { PreRecording, Recording, GameResponse, GameSetting, Display } from '../Models/types';
+import {
+  PreRecording,
+  Recording,
+  GameResponse,
+  GameSetting,
+  Display,
+  displayGameName,
+} from '../Models/types';
 
 import { Gamepad2, Monitor, Ellipsis, Ban, OctagonX } from 'lucide-react';
 
@@ -48,7 +55,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
 
   const slot = preRecording?.slot ?? recording?.slot ?? 0;
 
-  const slotLabel = slot === 1 ? 'Recording 2' : 'Recording 1';
+  const slotLabel = slot === 1 ? '錄影 2' : '錄影 1';
 
   const recordingOngoing =
     !!recording?.startTime && (recording.endTime == null || recording.endTime === undefined);
@@ -95,8 +102,8 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
     return {
       value: d.deviceId,
       label: hasDuplicateName
-        ? `${d.deviceName} (${displayIndex + 1})${d.isPrimary ? ' (Primary)' : ''}`
-        : `${d.deviceName}${d.isPrimary ? ' (Primary)' : ''}`,
+        ? `${d.deviceName} (${displayIndex + 1})${d.isPrimary ? '（主螢幕）' : ''}`
+        : `${d.deviceName}${d.isPrimary ? '（主螢幕）' : ''}`,
     };
   });
 
@@ -328,7 +335,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
             {!preRecording && (
               <div
                 className={`tooltip tooltip-right ${recording?.isUsingGameHook ? 'tooltip-success' : 'tooltip-warning'} flex items-center ml-1.5 [&::before]:delay-200 [&::after]:delay-200`}
-                data-tip={`${recording?.isUsingGameHook ? 'Game capture (using game hook)' : 'Display capture (not using game hook)'}`}
+                data-tip={`${recording?.isUsingGameHook ? '遊戲擷取（已掛上遊戲）' : '螢幕擷取（沒有掛上遊戲）'}`}
               >
                 <div className={`swap swap-flip cursor-default overflow-hidden justify-center`}>
                   <input type="checkbox" checked={recording?.isUsingGameHook} />
@@ -411,7 +418,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
                           }}
                         >
                           <Ban size={20} />
-                          <span>Add to Block List</span>
+                          <span>加入封鎖清單</span>
                         </Button>
                       </li>
                     </ul>,
@@ -428,7 +435,7 @@ const RecordingCard: React.FC<RecordingCardProps> = ({ recording, preRecording }
               00:00
             </span>
 
-            <p className="truncate ml-2 min-w-0">{gameName}</p>
+            <p className="truncate ml-2 min-w-0">{displayGameName(gameName)}</p>
           </div>
         </div>
 

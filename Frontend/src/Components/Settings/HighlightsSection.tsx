@@ -12,7 +12,7 @@ export default function HighlightsSection({ settings, updateSettings }: Highligh
 
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-      <h2 className="text-xl font-semibold mb-4">Highlights</h2>
+      <h2 className="text-xl font-semibold mb-4">精華</h2>
       <div className="space-y-3">
         <div className="flex items-center">
           <label className="flex items-center gap-2">
@@ -23,7 +23,7 @@ export default function HighlightsSection({ settings, updateSettings }: Highligh
               onChange={(e) => updateSettings({ enableAi: e.target.checked })}
               className="checkbox checkbox-primary checkbox-sm"
             />
-            <span className="flex items-center gap-1 cursor-pointer">Enable Highlights</span>
+            <span className="flex items-center gap-1 cursor-pointer">啟用精華</span>
           </label>
         </div>
         <div className="flex items-center">
@@ -36,16 +36,14 @@ export default function HighlightsSection({ settings, updateSettings }: Highligh
               className="checkbox checkbox-primary checkbox-sm"
               disabled={!settings.enableAi}
             />
-            <span className="flex items-center gap-1 cursor-pointer">
-              Auto-Generate Highlights After Recording
-            </span>
+            <span className="flex items-center gap-1 cursor-pointer">錄影結束後自動產生精華</span>
           </label>
         </div>
 
         <div className="pt-3 border-t border-custom space-y-4">
           <div>
             <span className="text-md mb-2 block">
-              Seconds Before Highlight
+              精華前保留秒數
               {draggingBefore !== null && ` (${draggingBefore.toFixed(1)}s)`}
             </span>
             <div className="flex items-center gap-3">
@@ -78,7 +76,7 @@ export default function HighlightsSection({ settings, updateSettings }: Highligh
 
           <div>
             <span className="text-md mb-2 block">
-              Seconds After Highlight
+              精華後保留秒數
               {draggingAfter !== null && ` (${draggingAfter.toFixed(1)}s)`}
             </span>
             <div className="flex items-center gap-3">

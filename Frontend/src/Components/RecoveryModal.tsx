@@ -127,15 +127,15 @@ export default function RecoveryModal({ files, onClose }: RecoveryModalProps) {
   if (isConfirmingDelete) {
     return (
       <ConfirmationModal
-        title="Delete recovered file?"
+        title="刪除這個復原的檔案？"
         description={
           <>
-            Are you sure you want to permanently delete <strong>{currentFile.fileName}</strong>?
+            確定要永久刪除 <strong>{currentFile.fileName}</strong> 嗎？
             <br />
-            <span className="text-sm text-gray-400">This action cannot be undone.</span>
+            <span className="text-sm text-gray-400">刪除後無法復原。</span>
           </>
         }
-        confirmText="Delete"
+        confirmText="刪除"
         onConfirm={() => handleAction('delete')}
         onCancel={() => setIsConfirmingDelete(false)}
       />
@@ -146,13 +146,13 @@ export default function RecoveryModal({ files, onClose }: RecoveryModalProps) {
     <>
       <div className="modal-header pb-4 border-b border-gray-700">
         <div className="flex items-center justify-between w-full pr-8">
-          <h2 className="font-bold text-3xl mb-0 text-warning">Recover Video Files?</h2>
+          <h2 className="font-bold text-3xl mb-0 text-warning">要復原影片檔嗎？</h2>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={goToPrevious} disabled={currentIndex === 0}>
               <ChevronLeft size={20} />
             </Button>
             <span className="text-gray-400 text-sm">
-              {currentIndex + 1} of {totalCount}
+              {currentIndex + 1}／{totalCount}
             </span>
             <Button
               variant="ghost"
@@ -177,27 +177,27 @@ export default function RecoveryModal({ files, onClose }: RecoveryModalProps) {
 
       <div className="modal-body py-2 mt-4">
         <div className="text-gray-300 text-lg mb-4">
-          Found video file without metadata:
+          找到沒有資料記錄的影片檔：
           <div className="font-semibold mt-2">{currentFile.fileName}</div>
-          <div className="text-sm text-gray-400 mt-1">This may be from a crashed recording.</div>
+          <div className="text-sm text-gray-400 mt-1">可能是錄影中途當機留下的檔案。</div>
         </div>
 
         <div className="bg-base-200 rounded-lg p-4 space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">Type</span>
+            <span className="text-gray-400">類型</span>
             <span className="text-gray-200 font-medium">{currentFile.typeLabel}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">Size</span>
+            <span className="text-gray-400">大小</span>
             <span className="text-gray-200 font-medium">{currentFile.fileSize}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">Game</span>
+            <span className="text-gray-400">遊戲</span>
             <div className="relative" ref={dropdownRef}>
               <input
                 type="text"
                 className="input input-sm bg-base-300 border-base-400 text-gray-200 font-medium w-[200px]"
-                placeholder={getCurrentGame(currentFile) || 'Search games...'}
+                placeholder={getCurrentGame(currentFile) || '搜尋遊戲…'}
                 value={inputValue}
                 onChange={(e) => {
                   setInputValue(e.target.value);
@@ -227,12 +227,12 @@ export default function RecoveryModal({ files, onClose }: RecoveryModalProps) {
             </div>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-400">Location</span>
+            <span className="text-gray-400">位置</span>
             <button
               onClick={openInExplorer}
               className="text-blue-400 hover:text-blue-300 underline text-sm"
             >
-              Open in File Explorer
+              在檔案總管開啟
             </button>
           </div>
         </div>
@@ -240,7 +240,7 @@ export default function RecoveryModal({ files, onClose }: RecoveryModalProps) {
 
       <div className="modal-action mt-6 flex justify-end gap-3">
         <Button variant="success" onClick={() => handleAction('recover')}>
-          Recover
+          復原
         </Button>
         <Button
           variant="danger"
@@ -248,10 +248,10 @@ export default function RecoveryModal({ files, onClose }: RecoveryModalProps) {
             settings.confirmBeforeDeleting ? setIsConfirmingDelete(true) : handleAction('delete')
           }
         >
-          Delete
+          刪除
         </Button>
         <Button variant="primary" onClick={() => handleAction('skip')}>
-          Skip
+          略過
         </Button>
       </div>
     </>

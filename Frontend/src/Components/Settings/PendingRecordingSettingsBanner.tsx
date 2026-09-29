@@ -13,8 +13,7 @@ export default function PendingRecordingSettingsBanner() {
     >
       <Info className="h-5 w-5 shrink-0 text-warning" />
       <span className="min-w-0 flex-1">
-        Some changes will apply from the next recording. The current recording keeps the settings it
-        started with.
+        有些變更會從下一次錄影開始生效，目前這段錄影會維持開始時的設定。
       </span>
     </div>
   );

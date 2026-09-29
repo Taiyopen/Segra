@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Content, CONTENT_TYPE_FOLDER } from '../Models/types';
+import { Content, CONTENT_TYPE_FOLDER, displayGameName } from '../Models/types';
 import { useAppState } from '../Context/AppStateContext';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -124,7 +124,7 @@ export default function VideoPlaylistPanel({
                         ? 'border-primary ring-1 ring-primary'
                         : 'border-base-400 hover:border-gray-400'
                     }`}
-                    title={item.title || item.game}
+                    title={item.title || displayGameName(item.game)}
                   >
                     <div className="relative w-full h-[72px] shrink-0 overflow-hidden bg-black">
                       <img
@@ -143,10 +143,10 @@ export default function VideoPlaylistPanel({
                     </div>
                     <div className="h-10 px-1.5 py-1 text-left bg-base-200 shrink-0">
                       <p className="text-[11px] text-gray-300 truncate leading-tight">
-                        {item.title || item.game}
+                        {item.title || displayGameName(item.game)}
                       </p>
                       <p className="text-[10px] text-gray-500 truncate leading-tight">
-                        {item.game}
+                        {displayGameName(item.game)}
                       </p>
                     </div>
                   </button>

@@ -38,12 +38,12 @@ namespace Segra.Backend.Media
                 if (highlightBookmarks.Count == 0)
                 {
                     Log.Information($"No highlight bookmarks found for: {fileName}");
-                    progressCallback?.Invoke(-1, "No highlight moments found in this session");
+                    progressCallback?.Invoke(-1, "這段錄影裡沒有可以做成精華的標記");
                     return;
                 }
 
                 Log.Information($"Found {highlightBookmarks.Count} bookmarks to include in highlight");
-                progressCallback?.Invoke(5, $"Found {highlightBookmarks.Count} moments");
+                progressCallback?.Invoke(5, $"找到 {highlightBookmarks.Count} 個精彩時刻");
 
                 double paddingBefore = Settings.Instance.HighlightPaddingBefore;
                 double paddingAfter = Settings.Instance.HighlightPaddingAfter;
@@ -65,7 +65,7 @@ namespace Segra.Backend.Media
                 if (!File.Exists(inputFilePath))
                 {
                     Log.Error($"Input video file not found: {inputFilePath}");
-                    progressCallback?.Invoke(-1, "Source video not found");
+                    progressCallback?.Invoke(-1, "找不到來源影片");
                     return;
                 }
 
@@ -77,7 +77,7 @@ namespace Segra.Backend.Media
                 string outputFileName = $"{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mp4";
                 string outputFilePath = PathUtils.Combine(outputFolder, outputFileName);
 
-                progressCallback?.Invoke(10, "Extracting clips...");
+                progressCallback?.Invoke(10, "擷取片段中…");
 
                 // Extract and concatenate segments using stream copy
                 bool success = await ExtractAndConcatenateSegments(
@@ -90,23 +90,23 @@ namespace Segra.Backend.Media
                 if (!success || !File.Exists(outputFilePath))
                 {
                     Log.Error("Failed to create highlight video");
-                    progressCallback?.Invoke(-1, "Failed to create highlight");
+                    progressCallback?.Invoke(-1, "建立精華失敗");
                     return;
                 }
 
                 // Ensure the output is fully flushed (matters for network drives) before reading it back.
                 await GeneralUtils.EnsureFileReady(outputFilePath);
 
-                progressCallback?.Invoke(92, "Creating metadata...");
+                progressCallback?.Invoke(92, "建立資料中…");
 
                 // Create metadata, thumbnail, and waveform.
                 // Highlights use stream-copy extract+concat, so they preserve the source's audio tracks.
                 await ContentService.CreateMetadataFile(outputFilePath, Content.ContentType.Highlight, content.Game!, null, content.Title, igdbId: content.IgdbId, audioTrackNames: content.AudioTrackNames);
 
-                progressCallback?.Invoke(95, "Creating thumbnail...");
+                progressCallback?.Invoke(95, "建立縮圖中…");
                 await ContentService.CreateThumbnail(outputFilePath, Content.ContentType.Highlight);
 
-                progressCallback?.Invoke(98, "Creating waveform...");
+                progressCallback?.Invoke(98, "建立波形中…");
                 await ContentService.CreateWaveformFile(outputFilePath, Content.ContentType.Highlight);
 
                 // Load silently then await the state send before "Done" removes the loading card, so the
@@ -166,7 +166,7 @@ namespace Segra.Backend.Media
                     string tempFile = PathUtils.Combine(Path.GetTempPath(), $"highlight_segment_{Guid.NewGuid()}.mp4");
                     double segmentDuration = segment.EndTime - segment.StartTime;
 
-                    progressCallback?.Invoke(processedDuration / totalDuration, $"Extracting clip {i + 1} of {segments.Count}");
+                    progressCallback?.Invoke(processedDuration / totalDuration, $"擷取片段 {i + 1}／{segments.Count}");
 
                     var arguments = new[]
                     {
@@ -197,7 +197,7 @@ namespace Segra.Backend.Media
                     return false;
                 }
 
-                progressCallback?.Invoke(0.9, "Combining clips...");
+                progressCallback?.Invoke(0.9, "合併片段中…");
 
                 // If only one segment, just move it to output
                 if (tempFiles.Count == 1)
@@ -224,14 +224,14 @@ namespace Segra.Backend.Media
                 };
                 await FFmpegService.RunSimple(concatArguments);
 
-                progressCallback?.Invoke(1.0, "Done");
+                progressCallback?.Invoke(1.0, "完成");
                 return File.Exists(outputFilePath);
             }
             catch (FFmpegException ffEx)
             {
                 Log.Error(ffEx, "Error extracting and concatenating segments");
                 _ = MessageService.ShowModal(
-                    "Highlight creation failed",
+                    "建立精華失敗",
                     FFmpegErrors.DescribeForUser(ffEx.ExitCode),
                     "error");
                 return false;

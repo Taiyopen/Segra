@@ -93,9 +93,19 @@ const GAME_INTEGRATIONS: GameIntegration[] = [
     backgroundImage: 'https://segra.tv/api/games/cover/cobuhu',
     isBeta: true,
     warningText:
-      'Detects VVMW world-video playback via the VRChat output log. PlaybackStart and PlaybackEnded must both include Url, and they must refer to the same video (normalized). After PlaybackEnded, pending state is cleared so a new PlaybackStart (even the same Url) is independent. Duplicate PlaybackStart before an end keeps the first start time. Clips prefer the replay-buffer tail; session recording is used when available.',
+      '從 VRChat 的輸出日誌偵測 VVMW 世界影片播放。PlaybackStart 和 PlaybackEnded 都要帶 Url，而且要是同一支影片（正規化後比對）。PlaybackEnded 之後會清掉暫存狀態，所以下一次 PlaybackStart（就算是同一個 Url）會重新計算。結束前重複收到 PlaybackStart 會保留第一次的開始時間。片段優先從重播緩衝的尾端擷取；有完整錄影時會用完整錄影。',
   },
 ];
+
+const BOOKMARK_BADGE_LABELS: Record<string, string> = {
+  Kills: '擊殺',
+  Knocks: '擊倒',
+  Assists: '助攻',
+  Goals: '進球',
+  Deaths: '死亡',
+  'World video': '世界影片',
+  'Auto clips': '自動片段',
+};
 
 const getBookmarkBadgeClass = (bookmark: string): string => {
   switch (bookmark) {
@@ -142,7 +152,7 @@ function GameIntegrationCard({
         <div className="flex items-center gap-2 mb-2">
           <h3 className="text-lg font-semibold">{integration.name}</h3>
           {integration.isBeta && (
-            <span className="badge badge-primary badge-sm drop-shadow-md">Beta</span>
+            <span className="badge badge-primary badge-sm drop-shadow-md">測試版</span>
           )}
         </div>
         <div className="flex flex-wrap gap-1 mb-4">
@@ -151,7 +161,7 @@ function GameIntegrationCard({
               key={bookmark}
               className={`badge badge-sm border-0 drop-shadow-md ${getBookmarkBadgeClass(bookmark)}`}
             >
-              {bookmark}
+              {BOOKMARK_BADGE_LABELS[bookmark] ?? bookmark}
             </span>
           ))}
         </div>
@@ -166,7 +176,7 @@ function GameIntegrationCard({
               checked={enabled}
               onChange={(e) => onToggle(e.target.checked)}
             />
-            <span className="text-sm">{enabled ? 'Enabled' : 'Disabled'}</span>
+            <span className="text-sm">{enabled ? '已啟用' : '未啟用'}</span>
           </label>
         </div>
       </div>
@@ -192,10 +202,9 @@ export default function GameIntegrationsSection() {
 
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-      <h2 className="text-xl font-semibold mb-2">Game Integrations</h2>
+      <h2 className="text-xl font-semibold mb-2">遊戲整合</h2>
       <p className="text-sm opacity-80 mb-4">
-        Enable automatic event detection for supported games. When enabled, Segra will automatically
-        bookmark kills, goals, and other events during gameplay.
+        讓支援的遊戲自動偵測事件。開啟後，Segra 會在遊戲中自動標記擊殺、進球等事件。
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

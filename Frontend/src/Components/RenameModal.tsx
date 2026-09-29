@@ -10,7 +10,7 @@ interface RenameModalProps {
 
 export default function RenameModal({ content, onRename, onClose }: RenameModalProps) {
   // Use the same logic as ContentCard: title || game || "Untitled"
-  const displayedTitle = content.title || content.game || 'Untitled';
+  const displayedTitle = content.title || content.game || '未命名';
   const actualTitle = content.title || '';
   const [newName, setNewName] = useState(actualTitle);
   const [nameError, setNameError] = useState(false);
@@ -66,7 +66,7 @@ export default function RenameModal({ content, onRename, onClose }: RenameModalP
           </Button>
         </div>
         <div className="modal-body pt-8">
-          <h3 className="font-bold text-2xl mb-6">Rename</h3>
+          <h3 className="font-bold text-2xl mb-6">重新命名</h3>
 
           <div className="form-control w-full">
             <input
@@ -84,7 +84,7 @@ export default function RenameModal({ content, onRename, onClose }: RenameModalP
             {nameError && (
               <label className="label mt-1">
                 <span className="label-text-alt text-error">
-                  Invalid title, please avoid using special characters.
+                  名稱包含不允許的特殊字元，請改用其他文字。
                 </span>
               </label>
             )}
@@ -92,7 +92,7 @@ export default function RenameModal({ content, onRename, onClose }: RenameModalP
         </div>
         <div className="modal-action mt-6">
           <Button variant="primary" className="w-full" onClick={handleRename}>
-            Rename
+            重新命名
           </Button>
         </div>
       </div>

@@ -90,6 +90,8 @@ namespace Segra.Backend.Core.Models
         private bool _excludeGameDiscordFromMasterMix = false;
         private uint _gameAudioTrackMask = 1;
         private uint _discordAudioTrackMask = 1;
+        private float _gameAudioVolume = 1.0f;
+        private float _discordAudioVolume = 1.0f;
         private List<string> _recordingAudioTrackNames = new List<string>();
         private AudioOutputMode _audioOutputMode = AudioOutputMode.All;
         private bool _inputNoiseSuppression = true;
@@ -926,6 +928,22 @@ namespace Segra.Backend.Core.Models
         {
             get => _discordAudioTrackMask;
             set => _discordAudioTrackMask = value & 0x3Fu;
+        }
+
+        /// <summary>Volume multiplier for game capture audio (1 = 100%).</summary>
+        [JsonPropertyName("gameAudioVolume")]
+        public float GameAudioVolume
+        {
+            get => _gameAudioVolume;
+            set => _gameAudioVolume = value;
+        }
+
+        /// <summary>Volume multiplier for Discord and other voice-chat app capture (1 = 100%).</summary>
+        [JsonPropertyName("discordAudioVolume")]
+        public float DiscordAudioVolume
+        {
+            get => _discordAudioVolume;
+            set => _discordAudioVolume = value;
         }
 
         /// <summary>Custom names for recording tracks 1-6 (empty = "Track N").</summary>

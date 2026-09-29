@@ -3,11 +3,6 @@ import ContentPage from '../Components/ContentPage';
 
 export default function ReplayBuffer() {
   return (
-    <ContentPage
-      contentType="Buffer"
-      sectionId="replayBuffer"
-      title="Replay Buffer"
-      Icon={History}
-    />
+    <ContentPage contentType="Buffer" sectionId="replayBuffer" title="重播緩衝" Icon={History} />
   );
 }

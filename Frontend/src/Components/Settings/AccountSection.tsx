@@ -58,18 +58,18 @@ export default function AccountSection() {
     setConfirmEmailMessage('');
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('兩次輸入的密碼不一樣');
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('密碼至少要 6 個字元');
       return;
     }
 
     const result = await register(email, password);
     if (result?.confirmEmail) {
-      setConfirmEmailMessage('Check your email to confirm your account, then log in.');
+      setConfirmEmailMessage('請到信箱收信確認帳號，確認後再登入。');
     }
   };
 
@@ -103,7 +103,7 @@ export default function AccountSection() {
               >
                 <div className="flex items-center gap-1 text-xs font-medium text-yellow-400">
                   <History className="w-3 h-3" />
-                  Last used
+                  上次使用
                 </div>
               </div>
             )}
@@ -126,27 +126,27 @@ export default function AccountSection() {
             >
               {!isWaitingForDiscord && <DiscordIcon className="w-5 h-5" />}
               {isWaitingForDiscord
-                ? 'Waiting for your browser...'
+                ? '等待瀏覽器完成登入…'
                 : isAuthenticating
-                  ? 'Connecting...'
-                  : 'Continue with Discord'}
+                  ? '連線中…'
+                  : '用 Discord 登入'}
             </Button>
           </div>
 
           {isWaitingForDiscord && (
             <p className="-mt-2 text-center text-xs text-gray-400">
-              Finish signing in with Discord in your browser.{' '}
+              請在瀏覽器裡完成 Discord 登入。{' '}
               <button
                 type="button"
                 className="underline underline-offset-2 hover:text-gray-200"
                 onClick={cancelDiscordLogin}
               >
-                Cancel
+                取消
               </button>
             </p>
           )}
 
-          <div className="divider">Or Use Email</div>
+          <div className="divider">或使用電子郵件</div>
 
           {/* Tab toggle */}
           <div className="tabs tabs-boxed justify-center">
@@ -158,7 +158,7 @@ export default function AccountSection() {
                 setConfirmEmailMessage('');
               }}
             >
-              Login
+              登入
             </button>
             <button
               className={`tab ${tab === 'register' ? 'tab-active' : ''}`}
@@ -168,14 +168,14 @@ export default function AccountSection() {
                 setConfirmEmailMessage('');
               }}
             >
-              Register
+              註冊
             </button>
           </div>
 
           {tab === 'login' ? (
             <form onSubmit={handleEmailLogin} className="space-y-4">
               <div className="form-control">
-                <div className="mb-2">Email</div>
+                <div className="mb-2">電子郵件</div>
                 <input
                   type="email"
                   value={email}
@@ -188,7 +188,7 @@ export default function AccountSection() {
               </div>
 
               <div className="form-control">
-                <div className="mb-2">Password</div>
+                <div className="mb-2">密碼</div>
                 <input
                   type="password"
                   value={password}
@@ -207,7 +207,7 @@ export default function AccountSection() {
                   >
                     <div className="flex items-center gap-1 text-xs font-medium text-yellow-400">
                       <History className="w-3 h-3" />
-                      Last used
+                      上次使用
                     </div>
                   </div>
                 )}
@@ -218,14 +218,14 @@ export default function AccountSection() {
                   loading={isAuthenticating}
                 >
                   <Mail size={20} />
-                  Sign In with Email
+                  用電子郵件登入
                 </Button>
               </div>
             </form>
           ) : (
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="form-control">
-                <div className="mb-2">Email</div>
+                <div className="mb-2">電子郵件</div>
                 <input
                   type="email"
                   value={email}
@@ -238,7 +238,7 @@ export default function AccountSection() {
               </div>
 
               <div className="form-control">
-                <div className="mb-2">Password</div>
+                <div className="mb-2">密碼</div>
                 <input
                   type="password"
                   value={password}
@@ -251,7 +251,7 @@ export default function AccountSection() {
               </div>
 
               <div className="form-control">
-                <div className="mb-2">Confirm Password</div>
+                <div className="mb-2">確認密碼</div>
                 <input
                   type="password"
                   value={confirmPassword}
@@ -270,7 +270,7 @@ export default function AccountSection() {
                 loading={isAuthenticating}
               >
                 <Mail size={20} />
-                Create Account
+                建立帳號
               </Button>
             </form>
           )}
@@ -289,7 +289,7 @@ export default function AccountSection() {
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
-                  alt={`${profile.username}'s avatar`}
+                  alt={`${profile.username} 的頭像`}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/default-avatar.png';
@@ -315,7 +315,7 @@ export default function AccountSection() {
                 <div className="skeleton h-[24px] w-24"></div>
               )}
             </h3>
-            <p className="text-sm opacity-70 truncate">{user?.email || 'Authenticated User'}</p>
+            <p className="text-sm opacity-70 truncate">{user?.email || '已登入的使用者'}</p>
           </div>
 
           {/* More Options Dropdown */}
@@ -339,7 +339,7 @@ export default function AccountSection() {
                   }}
                 >
                   <LogOut size={20} />
-                  <span>Logout</span>
+                  <span>登出</span>
                 </Button>
               </li>
             </ul>
@@ -352,8 +352,8 @@ export default function AccountSection() {
         <div className="alert alert-error mt-3" role="alert" aria-live="assertive">
           <TriangleAlert className="w-5 h-5" />
           <div>
-            <h3 className="font-bold">Profile load failed!</h3>
-            <div className="text-xs">{profileError.message || 'Unknown error occurred'}</div>
+            <h3 className="font-bold">讀取個人資料失敗</h3>
+            <div className="text-xs">{profileError.message || '發生未知錯誤'}</div>
           </div>
         </div>
       )}

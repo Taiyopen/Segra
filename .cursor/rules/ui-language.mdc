@@ -1,0 +1,69 @@
+---
+description: 介面文字一律用台灣繁體中文，用詞照本檔用語表。不改程式內部代號、傳給後端的字串與資料夾名。
+alwaysApply: true
+---
+
+# 介面語言：台灣繁中
+
+Segra 的使用者都是台灣人，介面只有台灣繁體中文，不做雙語。新增或修改任何使用者看得到的文字（按鈕、標題、說明、提示、錯誤訊息、系統匣選單、後端傳給前端顯示的訊息）都寫中文，用詞照下表。
+
+## 不能翻的
+
+- 程式內部代號：`MENU_ITEM`、`ContentType`、`RecordingMode` 等值，傳給後端的 `Method` 與參數
+- 硬碟資料夾名（`FolderNames.cs`／`CONTENT_TYPE_FOLDER`，例如 `Full Sessions`、`Replay Buffers`）
+- 拿來比對的字串（例如 `'Manual Recording'`、`'Imported'`）與後端寫進檔案的資料
+- 日誌（`Log.*`）維持英文，方便查問題
+- 選單要顯示中文時用 `MENU_ITEM_LABELS`，不要改 `MENU_ITEM`
+
+## 用語表
+
+**內容類型**
+
+| 英文 | 中文 |
+|---|---|
+| Full Sessions／Session | 完整錄影 |
+| Replay Buffer | 重播緩衝 |
+| Always-on Replay Buffer | 始終開啟重播緩衝 |
+| Clips／Clip | 剪輯片段 |
+| Highlights | 精華 |
+| Bookmark | 標記 |
+| Segment（剪輯時間軸上的選取） | 區段 |
+| Manual Recording | 手動錄影 |
+| Hybrid (Session + Buffer) | 混合模式（完整錄影＋重播緩衝） |
+
+**動作**
+
+| 英文 | 中文 |
+|---|---|
+| Recording／Record | 錄影（不用「錄製」） |
+| Import／Upload／Compress | 匯入／上傳／壓縮 |
+| Rename／Delete／Copy | 重新命名／刪除／複製 |
+| Filter／Newest／Oldest | 篩選／最新／最舊 |
+| Create Clip | 建立片段 |
+| Open File Location | 開啟檔案位置 |
+
+**設定分類**：Account 帳號、Recording 錄影、Audio 音訊、Clips 剪輯片段、Storage 儲存空間、Games 遊戲、Preferences 偏好設定、Advanced 進階
+
+**錄影與音訊**
+
+| 英文 | 中文 |
+|---|---|
+| Capture Mode／Game Capture／Display Capture | 擷取模式／遊戲擷取／螢幕擷取 |
+| Resolution／Frame Rate／Bitrate | 解析度／影格率／位元率 |
+| Rate Control／Codec／Video Encoder | 位元率控制／編碼格式／影像編碼器 |
+| Input／Output Devices | 輸入裝置／輸出裝置 |
+| Separate Audio Tracks／Track | 分軌錄音／音軌 |
+| Noise Suppression／Force Mono | 降噪／強制單聲道 |
+| Keybindings | 快捷鍵 |
+| Game Integrations／Block List | 遊戲整合／封鎖清單 |
+| Update Channel／Stable／Beta | 更新通道／正式版／測試版 |
+| What's New | 更新內容 |
+| Run on Startup／Minimize to Tray | 開機時啟動／縮到系統匣 |
+
+**保留原文**：OBS、NVENC、H.264／HEVC／AV1、HDR、FPS、GPU／CPU、Discord、Segra.tv、遊戲名稱；CBR／VBR／CRF／CQP 保留縮寫並加中文說明，例如「CBR（固定位元率）」。
+
+## 寫法
+
+- 台灣慣用詞與全形標點（，。：？！（）「」）；刪節號用「…」
+- 按鈕用動詞開頭、簡短（「建立片段」不是「點此建立片段」）
+- 錯誤訊息說發生什麼、該怎麼做，不要只寫「錯誤」

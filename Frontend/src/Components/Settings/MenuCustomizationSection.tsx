@@ -19,6 +19,7 @@ import {
 import {
   MenuItemId,
   MENU_ITEM,
+  MENU_ITEM_LABELS,
   MenuItemPreference,
   menuItemHasContent,
   normalizeMenuItems,
@@ -137,20 +138,20 @@ const MenuRow: React.FC<RowProps> = ({
         <button
           ref={handleRef}
           type="button"
-          aria-label="Drag to reorder"
+          aria-label="拖曳調整順序"
           className="text-gray-400 hover:text-gray-200 cursor-grab active:cursor-grabbing"
         >
           <GripVertical className="w-4 h-4" />
         </button>
         <Icon className="w-5 h-5 text-gray-300 shrink-0" />
-        <span className="font-medium truncate">{item.id}</span>
+        <span className="font-medium truncate">{MENU_ITEM_LABELS[item.id]}</span>
       </div>
 
       <div className="flex items-center gap-2">
         {forceShownReason === 'content' && (
           <span className="flex items-center gap-1 text-warning text-xs mr-1">
             <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Has content</span>
+            <span>有影片</span>
           </span>
         )}
         <button
@@ -267,9 +268,9 @@ export default function MenuCustomizationSection({
 
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-      <h2 className="text-xl font-semibold mb-1">Sidebar Menu</h2>
+      <h2 className="text-xl font-semibold mb-1">側欄選單</h2>
       <p className="text-sm text-gray-400 mb-4">
-        Drag to reorder. Hide items you don&apos;t use. Pick which page opens on launch.
+        拖曳調整順序、隱藏用不到的項目，並選擇開啟 App 時要顯示哪一頁。
       </p>
       <div className="space-y-2 max-w-md">
         {localItems.map((item, index) => {

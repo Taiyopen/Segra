@@ -22,6 +22,7 @@ import {
   isRecordingFinishing,
   type PreRecording,
   type Recording,
+  displayGameName,
 } from '../Models/types';
 import { sendMessageToBackend, stopRecordingSlot } from '../Utils/MessageUtils';
 import { useRecordingPreview } from '../Hooks/useRecordingPreview';
@@ -110,12 +111,12 @@ function PipHeaderStatus({ panels }: { panels: PipPanel[] }) {
 
         const statusText = isPre
           ? showSlotNumber
-            ? `錄製 ${panel.shortLabel}`
+            ? `錄影 ${panel.shortLabel}`
             : '準備中…'
           : showSlotNumber
             ? `REC ${panel.shortLabel}`
             : 'REC';
-        const gamePart = panel.gameName ? ` ${panel.gameName}` : '';
+        const gamePart = panel.gameName ? ` ${displayGameName(panel.gameName)}` : '';
 
         return (
           <div key={panel.key} className="flex min-w-0 items-center gap-1.5">
@@ -177,7 +178,7 @@ function PipRecordingPreview({
   return (
     <div
       className={`relative w-full overflow-hidden rounded-md bg-black ${compact ? 'aspect-[16/10]' : 'aspect-video'}`}
-      title={gameName}
+      title={displayGameName(gameName)}
     >
       {!inactive && recording && previewEnabled && hasPreviewFrame && previewFrameSrc ? (
         <img src={previewFrameSrc} alt="" className="h-full w-full object-contain" />
@@ -196,8 +197,8 @@ function PipRecordingPreview({
       {showStopButton && onStop && (
         <button
           type="button"
-          title={`停止錄製 ${slot + 1}`}
-          aria-label={`停止錄製 ${slot + 1}`}
+          title={`停止錄影 ${slot + 1}`}
+          aria-label={`停止錄影 ${slot + 1}`}
           onClick={(event) => {
             event.stopPropagation();
             onStop();
@@ -216,7 +217,7 @@ function PipAlwaysOnHeaderStatus() {
     <div className="flex min-w-0 items-center gap-1.5">
       <span className="relative inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
       <span className="truncate text-[11px] font-medium tracking-wide text-white/90">
-        桌面重播緩衝中
+        始終開啟重播緩衝中
       </span>
     </div>
   );
@@ -541,7 +542,7 @@ export default function MonitoringCompactShell() {
             <div className="flex items-center justify-center gap-3 rounded-full bg-black/40 px-4 py-2.5 backdrop-blur-md ring-1 ring-white/10">
               {!isDualLive && (
                 <PipIconButton
-                  title={!hasLoadedObs ? 'OBS 載入中…' : isLive ? '停止錄製' : '開始錄製'}
+                  title={!hasLoadedObs ? 'OBS 載入中…' : isLive ? '停止錄影' : '開始錄影'}
                   disabled={buttonCooldown || stopDisabledWhileFinalizing}
                   onClick={startStopRecording}
                   variant={isLive ? 'danger' : 'default'}
@@ -566,8 +567,8 @@ export default function MonitoringCompactShell() {
               <PipIconButton
                 title={
                   alwaysOnActive
-                    ? '儲存桌面重播緩衝（與快捷鍵相同）'
-                    : '儲存重播緩存（前景遊戲 · 與快捷鍵相同）'
+                    ? '儲存始終開啟重播緩衝（與快捷鍵相同）'
+                    : '儲存重播緩衝（前景遊戲 · 與快捷鍵相同）'
                 }
                 disabled={!canSaveReplay || saveReplayCooldown}
                 onClick={saveReplayBuffer}
@@ -577,7 +578,7 @@ export default function MonitoringCompactShell() {
 
               {!isLive && (
                 <PipIconButton
-                  title={alwaysOnEnabled ? '暫停桌面重播緩衝' : '開啟桌面重播緩衝'}
+                  title={alwaysOnEnabled ? '暫停始終開啟重播緩衝' : '開啟始終開啟重播緩衝'}
                   disabled={!hasLoadedObs || alwaysOnToggleCooldown}
                   onClick={toggleAlwaysOn}
                 >

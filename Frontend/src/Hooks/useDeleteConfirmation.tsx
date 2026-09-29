@@ -16,9 +16,9 @@ export function useDeleteConfirmation() {
 
   return useCallback(
     ({
-      title = 'Delete this item?',
+      title = '刪除這個項目？',
       description,
-      confirmText = 'Delete',
+      confirmText = '刪除',
       onConfirm,
     }: DeleteConfirmationOptions) => {
       if (!settings.confirmBeforeDeleting) {

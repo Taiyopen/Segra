@@ -50,59 +50,59 @@ namespace Segra.Backend.Media
         public const int AVERROR_HTTP_SERVER_ERROR = -(0xF8 | ('5' << 8) | ('X' << 16) | ('X' << 24));
 
         private const string BugReportSuffix =
-            "\n\nThis is likely a bug. Please report it on our Discord or on GitHub:\nhttps://github.com/Segergren/Segra/issues";
+            "\n\n這很可能是程式的問題，請到 Discord 或 GitHub 回報：\nhttps://github.com/Segergren/Segra/issues";
 
         public static (string Message, bool LikelyBug) Describe(int exitCode)
         {
             return exitCode switch
             {
                 // POSIX errno (AVERROR(errno) = -errno)
-                -1 => ("Segra was not permitted to perform the operation.", false),
-                -2 => ("A required file could not be found. It may have been moved or deleted while the operation was running.", false),
-                -5 => ("A read or write error occurred while accessing your drive.", false),
-                -11 => ("The system was temporarily busy. Please try again in a moment.", false),
-                -12 => ("Segra ran out of memory while processing the video.", false),
-                -13 => ("Access to a file was denied. It may be locked by another program (e.g. antivirus or a video player).", false),
-                -16 => ("A file could not be accessed because it is currently in use by another program.", false),
-                -17 => ("An existing file was in the way and could not be replaced.", false),
-                -22 => ("The video could not be processed. The source file may be corrupted or in an unsupported format.", false),
-                -24 => ("Too many files are open. Please restart Segra and try again.", false),
-                -28 => ("Ran out of disk space while writing temporary files. Free up space on your system drive (C:) and try again.", false),
-                -30 => ("The output destination is read-only and cannot be written to.", false),
-                -32 => ("The video processing tool was closed unexpectedly before finishing.", false),
+                -1 => ("Segra 沒有權限執行這個動作。", false),
+                -2 => ("找不到需要的檔案，可能在處理中途被移動或刪除了。", false),
+                -5 => ("讀寫磁碟時發生錯誤。", false),
+                -11 => ("系統暫時忙碌中，請稍後再試一次。", false),
+                -12 => ("Segra 處理影片時記憶體不足。", false),
+                -13 => ("無法存取檔案，可能被其他程式鎖住了（例如防毒軟體或影片播放器）。", false),
+                -16 => ("檔案正被其他程式使用，無法存取。", false),
+                -17 => ("已經有同名檔案，而且無法取代。", false),
+                -22 => ("無法處理這支影片，來源檔案可能已損毀或格式不支援。", false),
+                -24 => ("開啟的檔案太多，請重新開啟 Segra 後再試一次。", false),
+                -28 => ("寫入暫存檔時磁碟空間不足，請清出系統磁碟（C:）的空間後再試一次。", false),
+                -30 => ("輸出位置是唯讀的，無法寫入。", false),
+                -32 => ("影片處理工具在完成前意外關閉了。", false),
 
                 // FFmpeg-specific
-                AVERROR_INVALIDDATA => ("The source video appears to be corrupted or in an unexpected format.", false),
-                AVERROR_EOF => ("The source video ended sooner than expected.", false),
-                AVERROR_EXIT => ("The operation was cancelled before it could finish.", false),
-                AVERROR_BUG or AVERROR_BUG2 => ("The video processing tool reported an internal bug.", true),
-                AVERROR_UNKNOWN => ("An unknown error occurred while processing the video.", true),
-                AVERROR_EXTERNAL => ("An error occurred in a component used by the video processor.", true),
-                AVERROR_BUFFER_TOO_SMALL => ("The video data did not fit into an internal buffer.", true),
-                AVERROR_BSF_NOT_FOUND => ("A bitstream filter required for this operation is missing.", true),
-                AVERROR_DECODER_NOT_FOUND => ("A video decoder required for this file is missing.", true),
-                AVERROR_ENCODER_NOT_FOUND => ("A video encoder required for the output is missing.", true),
-                AVERROR_MUXER_NOT_FOUND => ("A component required to produce the output format is missing.", true),
-                AVERROR_DEMUXER_NOT_FOUND => ("A component required to read the input format is missing.", true),
-                AVERROR_PROTOCOL_NOT_FOUND => ("A protocol handler required for this operation is missing.", true),
-                AVERROR_FILTER_NOT_FOUND => ("A filter required for this operation is missing.", true),
-                AVERROR_STREAM_NOT_FOUND => ("An expected video or audio stream was missing from the source file.", true),
-                AVERROR_OPTION_NOT_FOUND => ("An invalid option was passed to the video processor.", true),
-                AVERROR_PATCHWELCOME => ("This feature is not yet supported by the video processor.", true),
-                AVERROR_INPUT_CHANGED => ("The input changed unexpectedly during processing.", true),
-                AVERROR_OUTPUT_CHANGED => ("The output changed unexpectedly during processing.", true),
-                AVERROR_EXPERIMENTAL => ("This file needs an experimental codec that is not enabled.", true),
+                AVERROR_INVALIDDATA => ("來源影片好像已損毀，或格式不如預期。", false),
+                AVERROR_EOF => ("來源影片比預期的更早結束。", false),
+                AVERROR_EXIT => ("動作在完成前被取消了。", false),
+                AVERROR_BUG or AVERROR_BUG2 => ("影片處理工具回報內部錯誤。", true),
+                AVERROR_UNKNOWN => ("處理影片時發生未知錯誤。", true),
+                AVERROR_EXTERNAL => ("影片處理工具使用的元件發生錯誤。", true),
+                AVERROR_BUFFER_TOO_SMALL => ("影片資料超出內部緩衝區的大小。", true),
+                AVERROR_BSF_NOT_FOUND => ("缺少這個動作需要的位元流濾鏡。", true),
+                AVERROR_DECODER_NOT_FOUND => ("缺少讀取這個檔案需要的影片解碼器。", true),
+                AVERROR_ENCODER_NOT_FOUND => ("缺少輸出需要的影片編碼器。", true),
+                AVERROR_MUXER_NOT_FOUND => ("缺少產生輸出格式需要的元件。", true),
+                AVERROR_DEMUXER_NOT_FOUND => ("缺少讀取輸入格式需要的元件。", true),
+                AVERROR_PROTOCOL_NOT_FOUND => ("缺少這個動作需要的協定處理元件。", true),
+                AVERROR_FILTER_NOT_FOUND => ("缺少這個動作需要的濾鏡。", true),
+                AVERROR_STREAM_NOT_FOUND => ("來源檔案裡少了預期的影像或聲音串流。", true),
+                AVERROR_OPTION_NOT_FOUND => ("傳給影片處理工具的參數無效。", true),
+                AVERROR_PATCHWELCOME => ("影片處理工具還不支援這個功能。", true),
+                AVERROR_INPUT_CHANGED => ("處理途中輸入意外改變了。", true),
+                AVERROR_OUTPUT_CHANGED => ("處理途中輸出意外改變了。", true),
+                AVERROR_EXPERIMENTAL => ("這個檔案需要一個沒有啟用的實驗性編碼格式。", true),
 
                 // HTTP (rare in this app, but cheap to cover)
-                AVERROR_HTTP_BAD_REQUEST => ("The remote server rejected the request (HTTP 400).", false),
-                AVERROR_HTTP_UNAUTHORIZED => ("The remote server requires authentication (HTTP 401).", false),
-                AVERROR_HTTP_FORBIDDEN => ("The remote server denied access (HTTP 403).", false),
-                AVERROR_HTTP_NOT_FOUND => ("The remote resource was not found (HTTP 404).", false),
-                AVERROR_HTTP_TOO_MANY_REQUESTS => ("The remote server is rate-limiting requests (HTTP 429).", false),
-                AVERROR_HTTP_OTHER_4XX => ("The remote server returned a client error (HTTP 4xx).", false),
-                AVERROR_HTTP_SERVER_ERROR => ("The remote server returned a server error (HTTP 5xx).", false),
+                AVERROR_HTTP_BAD_REQUEST => ("遠端伺服器拒絕了請求（HTTP 400）。", false),
+                AVERROR_HTTP_UNAUTHORIZED => ("遠端伺服器需要驗證（HTTP 401）。", false),
+                AVERROR_HTTP_FORBIDDEN => ("遠端伺服器拒絕存取（HTTP 403）。", false),
+                AVERROR_HTTP_NOT_FOUND => ("找不到遠端資源（HTTP 404）。", false),
+                AVERROR_HTTP_TOO_MANY_REQUESTS => ("遠端伺服器限制了請求次數（HTTP 429）。", false),
+                AVERROR_HTTP_OTHER_4XX => ("遠端伺服器回傳用戶端錯誤（HTTP 4xx）。", false),
+                AVERROR_HTTP_SERVER_ERROR => ("遠端伺服器回傳伺服器錯誤（HTTP 5xx）。", false),
 
-                _ => ($"Video processing failed unexpectedly (code {exitCode}).", true),
+                _ => ($"影片處理意外失敗（代碼 {exitCode}）。", true),
             };
         }
 

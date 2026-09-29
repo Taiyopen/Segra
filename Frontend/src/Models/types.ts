@@ -119,6 +119,16 @@ export enum BookmarkSubtype {
   Headshot = 'Headshot',
 }
 
+/** Names shown in the UI; the enum values above are saved in video metadata. */
+export const BOOKMARK_TYPE_LABELS: Record<string, string> = {
+  [BookmarkType.Manual]: '手動標記',
+  [BookmarkType.Kill]: '擊殺',
+  [BookmarkType.Goal]: '進球',
+  [BookmarkType.Assist]: '助攻',
+  [BookmarkType.Death]: '死亡',
+  [BookmarkSubtype.Headshot]: '爆頭',
+};
+
 export enum KeybindAction {
   CreateBookmark = 'CreateBookmark',
   SaveReplayBuffer = 'SaveReplayBuffer',
@@ -314,6 +324,33 @@ export const MENU_ITEM = {
 
 export type MenuItemId = (typeof MENU_ITEM)[keyof typeof MENU_ITEM];
 
+/**
+ * Game name shown in the UI. Manual recordings are saved with the game name "Manual Recording", which old
+ * videos keep, so it is translated here instead of in the data.
+ */
+export function displayGameName(game: string | null | undefined): string {
+  return game === 'Manual Recording' ? '手動錄影' : (game ?? '');
+}
+
+/** Track name shown in the UI; the default names ("Full Mix", "Track N") are saved in video metadata. */
+export function displayTrackName(name: string): string {
+  if (name === 'Full Mix') return '全部混音';
+  const match = /^Track (\d+)$/.exec(name);
+  return match ? `音軌 ${match[1]}` : name;
+}
+
+/** Names shown in the UI. The IDs above double as saved settings and folder names, so they stay as they are. */
+export const MENU_ITEM_LABELS: Record<MenuItemId, string> = {
+  [MENU_ITEM.Sessions]: '完整錄影',
+  [MENU_ITEM.ReplayBuffer]: '重播緩衝',
+  [MENU_ITEM.PendingEdit]: '待剪輯',
+  [MENU_ITEM.ReadyToDelete]: '準備刪除',
+  [MENU_ITEM.BrowseVideos]: '瀏覽影片',
+  [MENU_ITEM.Clips]: '剪輯片段',
+  [MENU_ITEM.Highlights]: '精華',
+  [MENU_ITEM.Settings]: '設定',
+};
+
 export interface MenuItemPreference {
   id: MenuItemId;
   visible: boolean;
@@ -430,6 +467,10 @@ export interface Settings {
   gameAudioTrackMask: number;
   /** OBS mixer bitmask for Discord app capture */
   discordAudioTrackMask: number;
+  /** Volume multiplier for game capture audio (1 = 100%) */
+  gameAudioVolume: number;
+  /** Volume multiplier for Discord and other voice-chat app capture (1 = 100%) */
+  discordAudioVolume: number;
   /** Custom names for recording tracks 1–6 (empty string = "Track N") */
   recordingAudioTrackNames: string[];
   /** AAC bitrate for session / replay-buffer recording (OBS). */
@@ -523,6 +564,8 @@ export const initialSettings: Settings = {
   excludeGameDiscordFromMasterMix: false,
   gameAudioTrackMask: 1,
   discordAudioTrackMask: 1,
+  gameAudioVolume: 1,
+  discordAudioVolume: 1,
   recordingAudioTrackNames: ['', '', '', '', '', ''],
   recordingAudioBitrate: '128k',
   audioOutputMode: 'All',

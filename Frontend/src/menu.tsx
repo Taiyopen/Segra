@@ -38,6 +38,7 @@ import { useMonitoringLayout } from './Context/MonitoringLayoutContext';
 import {
   MenuItemId,
   MENU_ITEM,
+  MENU_ITEM_LABELS,
   menuItemHasContent,
   normalizeMenuItems,
   getActiveRecordings,
@@ -165,7 +166,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
 
   if (sidebarMode === 'hidden') {
     return (
-      <div className="h-full w-8 bg-base-300 border-r border-base-400 flex flex-col items-center pt-2 shrink-0">
+      <div className="h-full w-8 bg-frame flex flex-col items-center pt-2 shrink-0">
         <Button
           variant="ghost"
           className="min-h-8 h-8 w-8 p-0"
@@ -182,7 +183,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
 
   return (
     <div
-      className={`bg-base-300 h-full flex flex-col border-r border-base-400 overflow-hidden transition-[width] duration-200 ease-in-out ${
+      className={`bg-frame h-full flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out ${
         isIcons ? 'w-14' : 'w-56'
       }`}
     >
@@ -215,7 +216,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
                   variant="nav"
                   className={`${iconClass} ${isActive ? 'text-primary' : ''}`}
                   disabled={isDisabled}
-                  title={id}
+                  title={MENU_ITEM_LABELS[id]}
                   onMouseDown={() => onSelectMenu(id)}
                 >
                   <span className="flex items-center gap-2">
@@ -224,7 +225,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
                     ) : (
                       <Icon className="w-5 h-5" />
                     )}
-                    {!isIcons && id}
+                    {!isIcons && MENU_ITEM_LABELS[id]}
                   </span>
                   {!isIcons && (
                     <div className="ml-auto flex items-center">
@@ -253,11 +254,11 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
                   variant="nav"
                   className={`${iconClass} ${isActive ? 'text-primary' : ''}`}
                   disabled={isDisabled}
-                  title={id}
+                  title={MENU_ITEM_LABELS[id]}
                   onMouseDown={() => onSelectMenu(id)}
                 >
                   <Icon className="w-5 h-5" />
-                  {!isIcons && id}
+                  {!isIcons && MENU_ITEM_LABELS[id]}
                 </Button>
               );
 
@@ -345,7 +346,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
                 className="flex items-center justify-center gap-1.5 py-1 text-xs leading-none text-gray-400"
               >
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
-                桌面重播緩衝中
+                始終開啟重播緩衝中
               </motion.div>
             )}
           </AnimatePresence>
@@ -379,9 +380,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
         <div className={`mb-4 flex flex-col items-center ${padX}`}>
           {obsDownloadProgress !== null && obsDownloadProgress < 100 ? (
             <>
-              {!isIcons && (
-                <p className="text-center text-sm text-gray-300 mb-2">Downloading OBS</p>
-              )}
+              {!isIcons && <p className="text-center text-sm text-gray-300 mb-2">正在下載 OBS</p>}
               <div className="w-full bg-base-200 rounded-full h-1.5">
                 <div
                   className="h-1.5 rounded-full bg-primary transition-all duration-300"
@@ -399,7 +398,7 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
                 }}
                 className="loading loading-infinity"
               ></div>
-              {!isIcons && <p className="text-center mt-2 disabled">Starting OBS</p>}
+              {!isIcons && <p className="text-center mt-2 disabled">OBS 啟動中</p>}
             </>
           )}
         </div>
@@ -441,11 +440,11 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
             title={
               hasLiveActivity && !useGlobalStop
                 ? isIcons
-                  ? '雙路錄製中：請展開側欄，在各 Recording 卡片上個別停止'
-                  : '雙路錄製中：請在各 Recording 卡片上個別停止'
+                  ? '雙路錄影中：請展開側欄，在各錄影卡片上個別停止'
+                  : '雙路錄影中：請在各錄影卡片上個別停止'
                 : hasLiveActivity
-                  ? 'Stop'
-                  : 'Display Capture'
+                  ? '停止'
+                  : '螢幕擷取'
             }
             onClick={() => {
               setButtonCooldown(true);
@@ -457,15 +456,15 @@ export default function Menu({ selectedMenu, onSelectMenu }: MenuProps) {
               useGlobalStop ? (
                 <>
                   <OctagonX className="w-4 h-4" />
-                  {!isIcons && 'Stop'}
+                  {!isIcons && '停止'}
                 </>
               ) : (
-                <>{isIcons ? <OctagonX className="w-4 h-4" /> : '雙路錄製中'}</>
+                <>{isIcons ? <OctagonX className="w-4 h-4" /> : '雙路錄影中'}</>
               )
             ) : (
               <>
                 <Monitor className="w-4 h-4" />
-                {!isIcons && 'Display Capture'}
+                {!isIcons && '螢幕擷取'}
               </>
             )}
           </Button>

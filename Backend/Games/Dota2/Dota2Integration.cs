@@ -303,7 +303,7 @@ namespace Segra.Backend.Games.Dota2
                 Directory.CreateDirectory(cfgDir);
                 File.WriteAllText(cfgPath, expectedContent);
                 Log.Information($"Created Dota 2 gamestate integration config at {cfgPath}");
-                _ = MessageService.ShowModal("Game integration", $"There has been an update to the Dota 2 integration. Please restart the game to apply the changes.", "warning");
+                _ = MessageService.ShowModal("遊戲整合", $"Dota 2 的遊戲整合已更新，請重新啟動遊戲來套用。", "warning");
             }
             catch (Exception ex)
             {

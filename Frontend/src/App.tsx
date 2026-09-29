@@ -198,14 +198,16 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col">
+    <div className="flex h-screen w-screen flex-col bg-frame">
       {needsUsername && <SetupProfileModal />}
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <div className="h-full shrink-0">
           <Menu selectedMenu={selectedMenu} onSelectMenu={handleMenuSelection} />
         </div>
-        <div className="flex-1 h-full max-h-full overflow-auto">{renderContent()}</div>
+        <div className="flex-1 h-full max-h-full overflow-auto rounded-tl-xl border-l border-t border-white/[0.06] bg-base-300">
+          {renderContent()}
+        </div>
       </div>
     </div>
   );

@@ -18,3 +18,4 @@
 @.cursor/rules/build-local.mdc
 @.cursor/rules/session-changelog.mdc
 @.cursor/rules/upstream-sync.mdc
+@.cursor/rules/ui-language.mdc

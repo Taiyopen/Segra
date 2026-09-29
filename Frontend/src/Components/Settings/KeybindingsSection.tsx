@@ -53,13 +53,13 @@ const getKeyName = (keyCode: number): string => {
 const getActionLabel = (action: KeybindAction): string => {
   switch (action) {
     case KeybindAction.CreateBookmark:
-      return 'Create Bookmark';
+      return '新增標記';
     case KeybindAction.SaveReplayBuffer:
-      return 'Save Replay Buffer';
+      return '儲存重播緩衝';
     case KeybindAction.ToggleRecording:
-      return 'Start / Stop Display Recording';
+      return '開始／停止螢幕錄影';
     case KeybindAction.TogglePreview:
-      return 'Toggle Recording Preview';
+      return '開關錄影預覽';
     default:
       return action;
   }
@@ -122,7 +122,7 @@ export default function KeybindingsSection({ settings, updateSettings }: Keybind
 
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-      <h2 className="text-xl font-semibold mb-4">Keybindings</h2>
+      <h2 className="text-xl font-semibold mb-4">快捷鍵</h2>
       <div className="space-y-2">
         {settings.keybindings.map((keybind, index) => (
           <div
@@ -154,7 +154,7 @@ export default function KeybindingsSection({ settings, updateSettings }: Keybind
               }}
             >
               {capturing === index
-                ? 'Press Keys...'
+                ? '請按下按鍵…'
                 : keybind.keys.map((key) => getKeyName(key)).join(' + ')}
             </button>
           </div>

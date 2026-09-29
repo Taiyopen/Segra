@@ -56,7 +56,7 @@ export interface SettingsMessage {
 export interface UpdateProgressMessage {
   version: string;
   progress: number;
-  status: 'downloading' | 'downloaded' | 'ready' | 'error';
+  status: 'downloading' | 'downloaded' | 'ready' | 'installing' | 'error';
   message: string;
 }
 

@@ -16,7 +16,7 @@ export default function Highlights() {
     <ContentPage
       contentType="Highlight"
       sectionId="highlights"
-      title="Highlights"
+      title="精華"
       Icon={Crown}
       progressItems={aiProgress}
       isProgressVisible={Object.keys(aiProgress).length > 0}

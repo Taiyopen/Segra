@@ -24,10 +24,8 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
     <div className="bg-base-300 px-4 py-3 rounded-lg space-y-3 border border-custom">
       {/* Enabled-by-default toggles */}
       <div className="flex flex-col pb-3 border-b border-custom">
-        <span className="font-medium">Close Button Action</span>
-        <span className="text-sm text-gray-400 mt-1">
-          Choose what happens when you click the window's close (X) button.
-        </span>
+        <span className="font-medium">關閉按鈕的動作</span>
+        <span className="text-sm text-gray-400 mt-1">按下視窗右上角的關閉（X）時要做什麼。</span>
         <div className="inline-flex w-fit mt-3 rounded-lg border border-base-400 bg-base-300 p-1">
           <button
             type="button"
@@ -39,7 +37,7 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
             onClick={() => updateSettings({ closeButtonAction: 'Minimize' as CloseButtonAction })}
           >
             <Minimize2 size={15} className="shrink-0" />
-            <span className="leading-none">Minimize to Tray</span>
+            <span className="leading-none">縮到系統匣</span>
           </button>
           <button
             type="button"
@@ -51,7 +49,7 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
             onClick={() => updateSettings({ closeButtonAction: 'Exit' as CloseButtonAction })}
           >
             <X size={15} className="shrink-0" />
-            <span className="leading-none">Close App</span>
+            <span className="leading-none">結束程式</span>
           </button>
         </div>
       </div>
@@ -65,7 +63,7 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
             onChange={(e) => updateSettings({ runOnStartup: e.target.checked })}
             className="checkbox checkbox-primary checkbox-sm"
           />
-          <span className="cursor-pointer">Run on Startup</span>
+          <span className="cursor-pointer">開機時啟動</span>
         </label>
         <AnimatePresence initial={false}>
           {settings.runOnStartup && (
@@ -83,8 +81,8 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
                 <DropdownSelect
                   size="sm"
                   items={[
-                    { value: 'Minimized', label: 'Minimized' },
-                    { value: 'Normal', label: 'Normal Window' },
+                    { value: 'Minimized', label: '縮到系統匣' },
+                    { value: 'Normal', label: '一般視窗' },
                   ]}
                   value={settings.startupWindowMode}
                   onChange={(val) =>
@@ -106,7 +104,7 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
             className="checkbox checkbox-primary checkbox-sm"
           />
           <span className="flex items-center gap-1 cursor-pointer">
-            Show Game Covers <CloudBadge />
+            顯示遊戲封面 <CloudBadge />
           </span>
         </label>
       </div>
@@ -120,7 +118,7 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
             onChange={(e) => updateSettings({ showAudioWaveformInTimeline: e.target.checked })}
             className="checkbox checkbox-primary checkbox-sm"
           />
-          <span className="cursor-pointer">Show Audio Waveform in Video Timeline</span>
+          <span className="cursor-pointer">在剪輯時間軸顯示音訊波形</span>
         </label>
       </div>
 
@@ -133,7 +131,7 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
             onChange={(e) => updateSettings({ disableWindowsGameMode: e.target.checked })}
             className="checkbox checkbox-primary checkbox-sm"
           />
-          <span className="cursor-pointer">Disable Windows Game Mode</span>
+          <span className="cursor-pointer">停用 Windows 遊戲模式</span>
         </label>
       </div>
 
@@ -147,7 +145,7 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
             onChange={(e) => updateSettings({ confirmBeforeDeleting: e.target.checked })}
             className="checkbox checkbox-primary checkbox-sm"
           />
-          <span className="cursor-pointer">Confirm Before Deleting</span>
+          <span className="cursor-pointer">刪除前先確認</span>
         </label>
       </div>
 
@@ -160,7 +158,7 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
             onChange={(e) => updateSettings({ removeOriginalAfterCompression: e.target.checked })}
             className="checkbox checkbox-primary checkbox-sm"
           />
-          <span className="cursor-pointer">Delete Original File After Compression</span>
+          <span className="cursor-pointer">壓縮後刪除原始檔</span>
         </label>
       </div>
 
@@ -173,15 +171,13 @@ export default function PreferencesSection({ settings, updateSettings }: Prefere
             onChange={(e) => updateSettings({ discardSessionsWithoutBookmarks: e.target.checked })}
             className="checkbox checkbox-primary checkbox-sm"
           />
-          <span className="cursor-pointer">
-            Discard Session Recordings Without Manual Bookmarks
-          </span>
+          <span className="cursor-pointer">沒有手動標記的完整錄影直接捨棄</span>
         </label>
       </div>
 
       <div className="pt-3 border-t border-custom">
         <span className="text-md mb-2 block">
-          Sound Effects Volume
+          音效音量
           {draggingSoundVolume !== null && ` (${Math.round(draggingSoundVolume * 100)}%)`}
         </span>
         <div className="flex items-center gap-3">

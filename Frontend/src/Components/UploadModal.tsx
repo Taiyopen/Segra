@@ -71,14 +71,14 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
           <div className="form-control w-full">
             <label className="label">
               <span className="label-text text-base-content">
-                Title <span className="text-error">*</span>
+                標題 <span className="text-error">*</span>
               </span>
             </label>
             <input
               ref={titleInputRef}
               type="text"
               tabIndex={1}
-              placeholder="Enter a title"
+              placeholder="輸入標題"
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
@@ -89,14 +89,14 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
             />
             {titleError && (
               <label className="label mt-1">
-                <span className="label-text-alt text-error">Title is required</span>
+                <span className="label-text-alt text-error">請輸入標題</span>
               </label>
             )}
           </div>
 
           <div className="form-control w-full mt-4">
             <label className="label">
-              <span className="label-text text-base-content">Description</span>
+              <span className="label-text text-base-content">說明</span>
             </label>
             <textarea
               tabIndex={2}
@@ -104,13 +104,13 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
               className="textarea textarea-bordered bg-base-300 w-full focus:outline focus:outline-1 focus:outline-white focus:outline-offset-0 resize-none"
-              placeholder="Add a description"
+              placeholder="加上說明（選填）"
             />
           </div>
 
           <div className="form-control w-full mt-4">
             <label className="label">
-              <span className="label-text text-base-content">Visibility</span>
+              <span className="label-text text-base-content">公開範圍</span>
             </label>
             <DropdownSelect
               items={[
@@ -119,7 +119,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
                   label: (
                     <span className="flex items-center gap-2">
                       <Globe size={16} />
-                      Public
+                      公開
                     </span>
                   ),
                 },
@@ -128,7 +128,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
                   label: (
                     <span className="flex items-center gap-2">
                       <EyeOff size={16} />
-                      Unlisted
+                      不公開列出
                     </span>
                   ),
                 },
@@ -154,7 +154,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
                   }
                 }}
               />
-              <span className="label-text text-base-content">Open in Browser</span>
+              <span className="label-text text-base-content">上傳後在瀏覽器開啟</span>
             </label>
           </div>
         </div>
@@ -167,7 +167,7 @@ export default function UploadModal({ video, onUpload, onClose }: UploadModalPro
             disabled={session === null}
           >
             <Upload className="w-5 h-5" />
-            {session === null ? 'Login to upload' : 'Upload'}
+            {session === null ? '登入後才能上傳' : '上傳'}
           </Button>
         </div>
       </div>

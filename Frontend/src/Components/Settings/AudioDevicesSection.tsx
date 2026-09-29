@@ -47,8 +47,8 @@ function AudioTrackPicker({
             key={trackNumber}
             type="button"
             disabled={disabled}
-            title={`Track ${trackNumber}`}
-            aria-label={`Track ${trackNumber}`}
+            title={`音軌 ${trackNumber}`}
+            aria-label={`音軌 ${trackNumber}`}
             aria-pressed={active}
             onClick={() => onChange(toggleTrackBit(normalized, trackNumber))}
             className={`w-6 h-6 text-[10px] font-medium rounded border transition-colors ${
@@ -72,11 +72,11 @@ export default function AudioDevicesSection({
   updateSettings,
 }: AudioDevicesSectionProps) {
   const appState = useAppState();
+  // The slider being dragged (keyed per source); its value is only saved on release
   const [draggingVolume, setDraggingVolume] = useState<{
-    deviceId: string | null;
-    deviceType: 'input' | 'output' | null;
+    key: string | null;
     volume: number | null;
-  }>({ deviceId: null, deviceType: null, volume: null });
+  }>({ key: null, volume: null });
 
   const isDeviceAvailable = (deviceId: string, devices: AudioDevice[]) => {
     if (deviceId === 'default') return true;
@@ -85,8 +85,7 @@ export default function AudioDevicesSection({
 
   const showTrackControls = settings.enableSeparateAudioTracks;
   const showGameSources =
-    showTrackControls &&
-    (settings.audioOutputMode === 'GameOnly' || settings.audioOutputMode === 'GameAndDiscord');
+    settings.audioOutputMode === 'GameOnly' || settings.audioOutputMode === 'GameAndDiscord';
 
   const trackNames = Array.from({ length: MAX_RECORDING_AUDIO_TRACKS }, (_, i) => {
     const names = settings.recordingAudioTrackNames ?? [];
@@ -163,9 +162,8 @@ export default function AudioDevicesSection({
     updateSettings(isInput ? { inputDevices: updatedDevices } : { outputDevices: updatedDevices });
   };
 
-  const renderVolumeSlider = (deviceId: string, deviceType: 'input' | 'output', volume: number) => {
-    const isDragging =
-      draggingVolume.deviceId === deviceId && draggingVolume.deviceType === deviceType;
+  const renderVolumeSlider = (key: string, volume: number, onCommit: (volume: number) => void) => {
+    const isDragging = draggingVolume.key === key;
 
     return (
       <div className="flex items-center gap-1 w-32 shrink-0">
@@ -184,17 +182,11 @@ export default function AudioDevicesSection({
               });
             }
           }}
-          onMouseDown={(e) =>
-            setDraggingVolume({
-              deviceId,
-              deviceType,
-              volume: parseFloat(e.currentTarget.value),
-            })
-          }
+          onMouseDown={(e) => setDraggingVolume({ key, volume: parseFloat(e.currentTarget.value) })}
           onMouseUp={(e) => {
             if (isDragging) {
-              handleVolumeChange(deviceId, parseFloat(e.currentTarget.value), deviceType);
-              setDraggingVolume({ deviceId: null, deviceType: null, volume: null });
+              onCommit(parseFloat(e.currentTarget.value));
+              setDraggingVolume({ key: null, volume: null });
             }
           }}
         />
@@ -225,7 +217,10 @@ export default function AudioDevicesSection({
         <span className="label-text flex-1 min-w-0 mr-2 flex items-center truncate">
           {deviceName}
         </span>
-        {isSelected && renderVolumeSlider(deviceId, deviceType, volume)}
+        {isSelected &&
+          renderVolumeSlider(`${deviceType}:${deviceId}`, volume, (v) =>
+            handleVolumeChange(deviceId, v, deviceType),
+          )}
         {isSelected && showTrackControls && (
           <AudioTrackPicker
             mask={trackMask}
@@ -240,7 +235,7 @@ export default function AudioDevicesSection({
     const isInput = deviceType === 'input';
     const selectedDevices = isInput ? settings.inputDevices : settings.outputDevices;
     const availableDevices = isInput ? appState.inputDevices : appState.outputDevices;
-    const defaultDevice: AudioDevice = { id: 'default', name: 'Default Device', isDefault: false };
+    const defaultDevice: AudioDevice = { id: 'default', name: '預設裝置', isDefault: false };
     const allDevices = [defaultDevice, ...availableDevices];
 
     return (
@@ -270,7 +265,7 @@ export default function AudioDevicesSection({
               <span className="text-error flex items-center flex-1 mr-2 relative pl-6 leading-none">
                 <div
                   className="tooltip tooltip-right tooltip-error absolute left-0 inline-flex"
-                  data-tip="This source is unavailable"
+                  data-tip="這個裝置目前無法使用"
                 >
                   <CircleAlert size={18} />
                 </div>
@@ -289,7 +284,7 @@ export default function AudioDevicesSection({
 
   return (
     <div className="p-4 bg-base-300 rounded-lg shadow-md border border-custom">
-      <h2 className="text-xl font-semibold mb-4">Input/Output Devices</h2>
+      <h2 className="text-xl font-semibold mb-4">輸入／輸出裝置</h2>
 
       <div className="mb-4 flex flex-col gap-2">
         <label className="cursor-pointer flex items-center">
@@ -300,12 +295,12 @@ export default function AudioDevicesSection({
             onChange={(e) => updateSettings({ enableSeparateAudioTracks: e.target.checked })}
             className="checkbox checkbox-sm checkbox-accent"
           />
-          <span className="ml-2">Separate Audio Tracks</span>
+          <span className="ml-2">分軌錄音</span>
         </label>
         {showTrackControls && (
           <p className="text-xs text-base-content/60 leading-snug ml-6">
-            Assign each audio source to one or more recording tracks (1–6), like OBS Advanced Audio
-            Properties. Only tracks with at least one source are written to the file.
+            把每個音源分配到一條或多條音軌（1–6），跟 OBS
+            的進階音訊屬性一樣。只有至少分配到一個音源的音軌才會寫進檔案。
           </p>
         )}
       </div>
@@ -313,18 +308,18 @@ export default function AudioDevicesSection({
       {showTrackControls && (
         <div className="mb-4">
           <label className="label py-0">
-            <span className="label-text text-base-content">Track names</span>
+            <span className="label-text text-base-content">音軌名稱</span>
           </label>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {trackNames.map((name, index) => (
               <label key={index} className="form-control">
                 <span className="label-text text-xs text-base-content/60 pb-1">
-                  Track {index + 1}
+                  音軌 {index + 1}
                 </span>
                 <input
                   type="text"
                   className="input input-sm input-bordered bg-base-200"
-                  placeholder={`Track ${index + 1}`}
+                  placeholder={`音軌 ${index + 1}`}
                   value={name}
                   onChange={(e) => updateTrackName(index, e.target.value)}
                 />
@@ -337,9 +332,9 @@ export default function AudioDevicesSection({
       <div className="grid grid-cols-2 gap-4">
         <div className="form-control">
           <label className="label">
-            <span className="label-text text-base-content">Input Devices</span>
+            <span className="label-text text-base-content">輸入裝置</span>
             {showTrackControls && (
-              <span className="label-text-alt text-xs text-base-content/50">Tracks</span>
+              <span className="label-text-alt text-xs text-base-content/50">音軌</span>
             )}
           </label>
           <div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto overflow-x-hidden border border-base-400 min-h-12.5">
@@ -355,7 +350,7 @@ export default function AudioDevicesSection({
                 onChange={(e) => updateSettings({ inputNoiseSuppression: e.target.checked })}
                 className="checkbox checkbox-sm checkbox-accent"
               />
-              <span className="ml-2">Noise Suppression</span>
+              <span className="ml-2">降噪</span>
             </label>
             <label className="cursor-pointer flex items-center">
               <input
@@ -365,16 +360,16 @@ export default function AudioDevicesSection({
                 onChange={(e) => updateSettings({ forceMonoInputSources: e.target.checked })}
                 className="checkbox checkbox-sm checkbox-accent"
               />
-              <span className="ml-2">Force Mono</span>
+              <span className="ml-2">強制單聲道</span>
             </label>
           </div>
         </div>
 
         <div className="form-control">
           <label className="label">
-            <span className="label-text text-base-content">Output Devices</span>
+            <span className="label-text text-base-content">輸出裝置</span>
             {showTrackControls && (
-              <span className="label-text-alt text-xs text-base-content/50">Tracks</span>
+              <span className="label-text-alt text-xs text-base-content/50">音軌</span>
             )}
           </label>
           <div className="bg-base-200 rounded-lg p-2 max-h-48 overflow-y-auto overflow-x-hidden border border-base-400 min-h-12.5">
@@ -382,8 +377,7 @@ export default function AudioDevicesSection({
           </div>
           {settings.audioOutputMode !== 'All' && settings.outputDevices.length > 0 && (
             <div className="mt-2 text-xs text-base-content/60 leading-snug">
-              Used as fallback audio when no game is hooked. Automatically muted while a game
-              capture is active (unless Separate Audio Tracks is enabled).
+              還沒掛上遊戲時當作備援音源。遊戲擷取開始運作後會自動靜音（開啟分軌錄音時例外）。
             </div>
           )}
 
@@ -391,17 +385,17 @@ export default function AudioDevicesSection({
             {[
               {
                 value: 'All' as AudioOutputMode,
-                label: 'All PC Audio',
+                label: '電腦所有聲音',
                 icons: <Volume2 className="h-4 w-4" />,
               },
               {
                 value: 'GameOnly' as AudioOutputMode,
-                label: 'Game Audio Only',
+                label: '只錄遊戲聲音',
                 icons: <Gamepad2 className="h-4 w-4" />,
               },
               {
                 value: 'GameAndDiscord' as AudioOutputMode,
-                label: 'Game + Discord Audio Only',
+                label: '只錄遊戲＋Discord 聲音',
                 icons: (
                   <span className="flex items-center gap-1.5">
                     <Gamepad2 className="h-4 w-4" />
@@ -434,28 +428,38 @@ export default function AudioDevicesSection({
       {showGameSources && (
         <div className="mt-4 border-t border-base-400 pt-4">
           <label className="label py-0">
-            <span className="label-text text-base-content">Game capture sources</span>
+            <span className="label-text text-base-content">遊戲擷取音源</span>
             {showTrackControls && (
-              <span className="label-text-alt text-xs text-base-content/50">Tracks</span>
+              <span className="label-text-alt text-xs text-base-content/50">音軌</span>
             )}
           </label>
           <div className="bg-base-200 rounded-lg p-2 border border-base-400 space-y-1">
             <div className="flex items-center gap-2 p-1">
               <Gamepad2 className="h-4 w-4 shrink-0 text-base-content/70" />
-              <span className="flex-1 text-sm">Game Audio</span>
-              <AudioTrackPicker
-                mask={settings.gameAudioTrackMask}
-                onChange={(mask) => updateSettings({ gameAudioTrackMask: mask })}
-              />
+              <span className="flex-1 text-sm">遊戲聲音</span>
+              {renderVolumeSlider('game', settings.gameAudioVolume ?? 1, (v) =>
+                updateSettings({ gameAudioVolume: v }),
+              )}
+              {showTrackControls && (
+                <AudioTrackPicker
+                  mask={settings.gameAudioTrackMask}
+                  onChange={(mask) => updateSettings({ gameAudioTrackMask: mask })}
+                />
+              )}
             </div>
             {settings.audioOutputMode === 'GameAndDiscord' && (
               <div className="flex items-center gap-2 p-1">
                 <DiscordIcon className="h-4 w-4 shrink-0" />
                 <span className="flex-1 text-sm">Discord</span>
-                <AudioTrackPicker
-                  mask={settings.discordAudioTrackMask}
-                  onChange={(mask) => updateSettings({ discordAudioTrackMask: mask })}
-                />
+                {renderVolumeSlider('discord', settings.discordAudioVolume ?? 1, (v) =>
+                  updateSettings({ discordAudioVolume: v }),
+                )}
+                {showTrackControls && (
+                  <AudioTrackPicker
+                    mask={settings.discordAudioTrackMask}
+                    onChange={(mask) => updateSettings({ discordAudioTrackMask: mask })}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -464,15 +468,15 @@ export default function AudioDevicesSection({
 
       <div className="form-control mt-4 max-w-md">
         <label className="label">
-          <span className="label-text text-base-content">Recording audio bitrate</span>
+          <span className="label-text text-base-content">錄影音訊位元率</span>
         </label>
         <DropdownSelect
           items={[
-            { value: '96k', label: '96 kbps (Low)' },
-            { value: '128k', label: '128 kbps (Medium)' },
-            { value: '192k', label: '192 kbps (High)' },
-            { value: '256k', label: '256 kbps (Very High)' },
-            { value: '320k', label: '320 kbps (Insane)' },
+            { value: '96k', label: '96 kbps（低）' },
+            { value: '128k', label: '128 kbps（中）' },
+            { value: '192k', label: '192 kbps（高）' },
+            { value: '256k', label: '256 kbps（很高）' },
+            { value: '320k', label: '320 kbps（極高）' },
           ]}
           value={settings.recordingAudioBitrate}
           onChange={(val) =>
@@ -480,7 +484,7 @@ export default function AudioDevicesSection({
           }
         />
         <span className="label-text-alt text-xs text-base-content/60 mt-1 block">
-          AAC for session and replay buffer recording. Applies when the next recording starts.
+          完整錄影與重播緩衝使用的 AAC 音訊。下一次開始錄影時生效。
         </span>
       </div>
     </div>

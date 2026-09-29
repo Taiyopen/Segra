@@ -6,10 +6,9 @@ import { useAuth } from '../Hooks/useAuth';
 import Button from './Button';
 
 function validateUsername(value: string): string {
-  if (value.length < 3) return 'Username must be at least 3 characters';
-  if (value.length > 20) return 'Username must be less than 20 characters';
-  if (!/^[a-zA-Z0-9_-]+$/.test(value))
-    return 'Username can only contain letters, numbers, underscores and hyphens';
+  if (value.length < 3) return '使用者名稱至少要 3 個字元';
+  if (value.length > 20) return '使用者名稱不能超過 20 個字元';
+  if (!/^[a-zA-Z0-9_-]+$/.test(value)) return '使用者名稱只能用英文字母、數字、底線和連字號';
   return '';
 }
 
@@ -56,12 +55,12 @@ export default function SetupProfileModal() {
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      setError('Avatar must be a JPEG, PNG, GIF, or WebP image');
+      setError('頭像必須是 JPEG、PNG、GIF 或 WebP 圖片');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setError('Avatar must be less than 5MB');
+      setError('頭像不能超過 5MB');
       return;
     }
 
@@ -91,7 +90,7 @@ export default function SetupProfileModal() {
       return;
     }
     if (isTaken) {
-      setError('Username is already taken');
+      setError('這個使用者名稱已經有人用了');
       return;
     }
 
@@ -117,7 +116,7 @@ export default function SetupProfileModal() {
 
       await queryClient.invalidateQueries({ queryKey: ['profile'] });
     } catch {
-      setError('Failed to update profile');
+      setError('更新個人資料失敗');
       setIsSubmitting(false);
     }
   };
@@ -128,7 +127,7 @@ export default function SetupProfileModal() {
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60">
       <div className="bg-base-300 rounded-2xl p-8 w-full max-w-sm border border-custom shadow-xl">
         <div className="flex flex-col items-center gap-6">
-          <h2 className="text-xl font-bold">Set Up Your Profile</h2>
+          <h2 className="text-xl font-bold">設定個人資料</h2>
 
           {/* Avatar */}
           <div
@@ -137,11 +136,7 @@ export default function SetupProfileModal() {
           >
             <div className="w-full h-full rounded-full overflow-hidden bg-base-200 ring-2 ring-base-100 flex items-center justify-center">
               {avatarPreview ? (
-                <img
-                  src={avatarPreview}
-                  alt="Avatar preview"
-                  className="w-full h-full object-cover"
-                />
+                <img src={avatarPreview} alt="頭像預覽" className="w-full h-full object-cover" />
               ) : (
                 <Camera className="text-base-content/40" size={32} />
               )}
@@ -154,7 +149,7 @@ export default function SetupProfileModal() {
               onChange={handleAvatarSelect}
             />
           </div>
-          <span className="text-xs opacity-50 -mt-4">Avatar</span>
+          <span className="text-xs opacity-50 -mt-4">頭像</span>
 
           {error && (
             <div className="alert alert-error w-full text-sm">
@@ -165,7 +160,7 @@ export default function SetupProfileModal() {
           <form onSubmit={handleSubmit} className="w-full space-y-4">
             <div className="form-control">
               <label className="label">
-                <span className="label-text">Choose your username</span>
+                <span className="label-text">選一個使用者名稱</span>
               </label>
               <input
                 type="text"
@@ -174,13 +169,13 @@ export default function SetupProfileModal() {
                 className={`input input-bordered bg-base-200 w-full ${
                   isTaken || usernameError ? 'input-error' : ''
                 }`}
-                placeholder="Username"
+                placeholder="使用者名稱"
                 disabled={isSubmitting}
                 autoFocus
               />
               {isTaken && (
                 <label className="label">
-                  <span className="label-text-alt text-error">This username is already taken</span>
+                  <span className="label-text-alt text-error">這個使用者名稱已經有人用了</span>
                 </label>
               )}
               {usernameError && (
@@ -197,7 +192,7 @@ export default function SetupProfileModal() {
               loading={isSubmitting}
               disabled={isDisabled}
             >
-              Continue
+              繼續
             </Button>
           </form>
         </div>

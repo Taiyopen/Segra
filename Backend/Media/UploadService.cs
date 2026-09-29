@@ -112,7 +112,7 @@ namespace Segra.Backend.Media
                     fileName,
                     progress = 0,
                     status = "uploading",
-                    message = "Starting upload..."
+                    message = "準備上傳…"
                 });
 
                 var request = new HttpRequestMessage(HttpMethod.Post, "https://processing.segra.tv/upload")
@@ -135,7 +135,7 @@ namespace Segra.Backend.Media
                     fileName,
                     progress = 100,
                     status = "done",
-                    message = "Upload completed successfully"
+                    message = "上傳完成"
                 });
 
                 var responseContent = await response.Content.ReadAsStringAsync();
@@ -222,7 +222,7 @@ namespace Segra.Backend.Media
                     fileName,
                     progress = 0,
                     status = "error",
-                    message = "Upload cancelled"
+                    message = "已取消上傳"
                 });
             }
             catch (Exception ex)
@@ -236,10 +236,10 @@ namespace Segra.Backend.Media
                 }
 
                 await MessageService.ShowModal(
-                    "Upload Error",
-                    "The upload failed.\n" + ex.Message,
+                    "上傳錯誤",
+                    "上傳失敗。\n" + ex.Message,
                     "error",
-                    "Could not upload clip"
+                    "無法上傳片段"
                 );
 
                 await MessageService.SendFrontendMessage("UploadProgress", new

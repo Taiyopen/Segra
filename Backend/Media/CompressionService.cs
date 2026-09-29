@@ -42,7 +42,7 @@ namespace Segra.Backend.Media
                 if (!File.Exists(tempOutputPath))
                 {
                     Log.Error($"Compression failed for: {filePath}");
-                    await MessageService.SendFrontendMessage("CompressionProgress", new { filePath, progress = -1, status = "error", message = "Compression failed" });
+                    await MessageService.SendFrontendMessage("CompressionProgress", new { filePath, progress = -1, status = "error", message = "壓縮失敗" });
                     return;
                 }
 
@@ -53,7 +53,7 @@ namespace Segra.Backend.Media
                 {
                     Log.Information($"Compressed file is not smaller than original, keeping original");
                     File.Delete(tempOutputPath);
-                    await MessageService.SendFrontendMessage("CompressionProgress", new { filePath, progress = 100, status = "skipped", message = "Compressed file was not smaller" });
+                    await MessageService.SendFrontendMessage("CompressionProgress", new { filePath, progress = 100, status = "skipped", message = "壓縮後的檔案沒有比較小，已略過" });
                     return;
                 }
 
@@ -61,7 +61,7 @@ namespace Segra.Backend.Media
                 if (originalContent == null)
                 {
                     Log.Error($"Content not found in metadata for file: {filePath}");
-                    await MessageService.SendFrontendMessage("CompressionProgress", new { filePath, progress = -1, status = "error", message = "Content not found in metadata" });
+                    await MessageService.SendFrontendMessage("CompressionProgress", new { filePath, progress = -1, status = "error", message = "找不到這支影片的資料記錄" });
                     return;
                 }
 
