@@ -526,7 +526,7 @@ export const initialSettings: Settings = {
   inputDevices: [],
   outputDevices: [],
   forceMonoInputSources: false,
-  inputNoiseSuppression: true,
+  inputNoiseSuppression: false,
   selectedDisplay: null, // Default to null (auto-select)
   displayCaptureMethod: 'Auto',
   selectedOBSVersion: null, // null means automatic (latest non-beta)

@@ -94,7 +94,7 @@ namespace Segra.Backend.Core.Models
         private float _discordAudioVolume = 1.0f;
         private List<string> _recordingAudioTrackNames = new List<string>();
         private AudioOutputMode _audioOutputMode = AudioOutputMode.All;
-        private bool _inputNoiseSuppression = true;
+        private bool _inputNoiseSuppression = false;
         private string _videoQualityPreset = "high";
         private string _clipQualityPreset = "standard";
         private bool _confirmBeforeDeleting = false;

@@ -1724,6 +1724,8 @@ export default function VideoComponent({ video }: { video: Content }) {
             <div className={videoWrapperClassName}>
               <video
                 autoPlay
+                // useNativeElementAudio taps this element; without CORS mode the tap only hears silence.
+                crossOrigin="anonymous"
                 className="w-full h-full object-contain"
                 src={getVideoPath()}
                 ref={videoRef}
