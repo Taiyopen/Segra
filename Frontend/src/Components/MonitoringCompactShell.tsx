@@ -203,6 +203,8 @@ function PipRecordingPreview({
             event.stopPropagation();
             onStop();
           }}
+          // The preview sits inside the window drag area; a drag started here swallows the click.
+          onMouseDown={(event) => event.stopPropagation()}
           className="monitoring-no-drag absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-red-500/90 text-white shadow-md transition-colors hover:bg-red-400"
         >
           <Square className="h-3 w-3 fill-current" strokeWidth={0} />
