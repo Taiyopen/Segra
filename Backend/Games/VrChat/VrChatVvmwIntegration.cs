@@ -52,9 +52,14 @@ namespace Segra.Backend.Games.VrChat
         /// <summary><c>Url=</c> from that first <c>PlaybackStart</c>; cleared when <c>PlaybackEnded</c> completes or aborts the pair.</summary>
         private string? _playbackUrlFromStart;
 
+        /// <summary>Log time of the last <c>PlaybackEnded</c> that cleared a pending start; older VVMW lines are ignored.</summary>
+        private DateTime _lastEndedLogLocal = DateTime.MinValue;
+
         private string _partialLineBuffer = "";
         private string? _currentLogPath;
         private long _filePosition;
+        /// <summary>Read position per log file, so switching between two live VRChat logs resumes instead of re-reading from 0.</summary>
+        private readonly Dictionary<string, (long Position, string Partial)> _logCursors = new(StringComparer.OrdinalIgnoreCase);
 
         private static string VrChatLogDirectory =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AppData", "LocalLow", "VRChat", "VRChat");
@@ -155,9 +160,11 @@ namespace Segra.Backend.Games.VrChat
 
                     if (!string.Equals(_currentLogPath, latest, StringComparison.OrdinalIgnoreCase))
                     {
+                        if (_currentLogPath != null)
+                            _logCursors[_currentLogPath] = (_filePosition, _partialLineBuffer);
+
                         _currentLogPath = latest;
-                        _filePosition = 0;
-                        _partialLineBuffer = "";
+                        (_filePosition, _partialLineBuffer) = _logCursors.TryGetValue(latest, out var cursor) ? cursor : (0, "");
                         Log.Information($"[VRChat VVMW] Tailing {_currentLogPath}");
                     }
 
@@ -229,6 +236,14 @@ namespace Segra.Backend.Games.VrChat
             if (!TryParseLeadingTimestamp(line, out DateTime logLocal))
                 return;
 
+            // Two VRChat instances write two logs (often the same plays); anything before the last handled end is old news.
+            // Strictly before: log times are whole seconds and the next PlaybackStart can share the end's second.
+            lock (_stateLock)
+            {
+                if (logLocal < _lastEndedLogLocal)
+                    return;
+            }
+
             if (line.Contains("PlaybackStart", StringComparison.Ordinal))
             {
                 if (!TryParseVvmwPipeFields(line, "PlaybackStart", out var fields))
@@ -278,6 +293,9 @@ namespace Segra.Backend.Games.VrChat
                         Log.Debug("[VRChat VVMW] PlaybackEnded without matching PlaybackStart — ignored");
                         return;
                     }
+
+                    // Every branch below clears the pending start, so this end is handled either way.
+                    _lastEndedLogLocal = logLocal;
 
                     if (string.IsNullOrEmpty(endUrl))
                     {
